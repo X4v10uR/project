@@ -1,0 +1,223 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - Subly</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <!-- Alpine.js for interactions -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            DEFAULT: '#5433EB',
+                            hover: '#4326c4',
+                            bg: '#F4F1FF',
+                        },
+                        input: {
+                            bg: '#F9FAFB',
+                            text: '#111827',
+                            placeholder: '#9CA3AF',
+                        }
+                    },
+                    boxShadow: {
+                        'card-float': '0 25px 50px -12px rgba(84, 51, 235, 0.15)',
+                        'input-focus': '0 0 0 2px rgba(84, 51, 235, 0.2)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .dashboard-card-container {
+            perspective: 1500px;
+        }
+
+        .dashboard-card {
+            transform: rotateX(10deg) rotateY(-10deg) rotateZ(-3deg) scale(1.05);
+            transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+        }
+
+        .dashboard-card:hover {
+            transform: rotateX(5deg) rotateY(-5deg) rotateZ(0deg) scale(1.08);
+        }
+
+        /* Smooth inputs */
+        input::placeholder {
+            color: #9CA3AF;
+            opacity: 1;
+        }
+
+        [x-cloak] {
+            display: none !important;
+        }
+    </style>
+</head>
+
+<body class="h-screen w-full overflow-hidden bg-white text-gray-900">
+
+    <div class="flex h-full w-full">
+
+        <!-- LEFT PANEL -->
+        <div
+            class="hidden lg:flex w-[55%] bg-gradient-to-br from-[#FDFCFF] to-brand-bg relative overflow-hidden flex-col p-16">
+
+            <!-- Header Text -->
+            <div class="z-20 mt-8">
+                <!-- Decorative Dots -->
+                <div class="flex gap-2 mb-8 ml-1">
+                    <div class="w-2.5 h-2.5 rounded-full bg-brand opacity-100"></div>
+                    <div class="w-2.5 h-2.5 rounded-full bg-brand opacity-50"></div>
+                    <div class="w-2.5 h-2.5 rounded-full bg-brand opacity-20"></div>
+                </div>
+
+                <h1 class="text-[5rem] font-extrabold text-brand leading-[1.1] tracking-tight">
+                    Empower
+                </h1>
+                <p class="text-2xl text-gray-500 mt-3 font-normal tracking-wide">
+                    your shop management
+                </p>
+            </div>
+
+            <!-- Dashboard Image Container -->
+            <div
+                class="absolute bottom-[-5%] right-[-15%] w-[110%] h-[75%] dashboard-card-container z-10 pointer-events-none">
+                <!-- The "Card" Wrapper -->
+                <div
+                    class="dashboard-card w-full h-full bg-white rounded-tl-3xl shadow-2xl overflow-hidden p-4 pb-0 pl-4 border-t-4 border-l-4 border-white/50">
+
+                    <!-- Inner Content (The Image) -->
+                    <div class="w-full h-full bg-gray-50 rounded-tl-xl overflow-hidden shadow-inner relative">
+                        <!-- Top Bar Simulation -->
+                        <div
+                            class="h-12 bg-white border-b border-gray-100 flex items-center px-4 gap-2 absolute top-0 w-full z-10">
+                            <div class="w-3 h-3 rounded-full bg-red-400"></div>
+                            <div class="w-3 h-3 rounded-full bg-yellow-400"></div>
+                            <div class="w-3 h-3 rounded-full bg-green-400"></div>
+                        </div>
+
+                        <!-- Dashboard Screenshot -->
+                        <img src="{% static 'images/dashboard.png' %}" alt="Dashboard Preview"
+                            class="w-full h-auto object-cover object-top mt-12 shadow-sm">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL: Login Form -->
+        <div class="w-full lg:w-[45%] flex flex-col items-center justify-center bg-white h-full relative p-8">
+
+            <div class="w-full max-w-[400px]">
+
+                <!-- Logo -->
+                <div class="flex justify-center mb-16">
+                    <div class="flex items-center gap-2.5">
+                        <div
+                            class="w-9 h-9 bg-brand rounded-lg flex items-center justify-center text-white shadow-lg shadow-brand/30">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" fill="currentColor" stroke="currentColor"
+                                    stroke-width="2" stroke-linejoin="round" />
+                            </svg>
+                        </div>
+                        <span class="text-2xl font-bold text-gray-900 tracking-tight">Subly</span>
+                    </div>
+                </div>
+
+                <!-- Form Header -->
+                <div class="mb-10 text-left">
+                    <h2 class="text-3xl font-bold text-gray-900 mb-2">Sign In</h2>
+                    <p class="text-gray-400 text-sm font-medium">Please login to continue</p>
+                </div>
+
+                <!-- Form -->
+                <form method="post" class="space-y-6" x-data="{ showPassword: false }">
+                    {% csrf_token %}
+
+                    {% if form.errors %}
+                    <div class="p-4 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm">
+                        <span class="font-bold block mb-1">Login Failed</span>
+                        Please check your credentials.
+                    </div>
+                    {% endif %}
+
+                    <!-- Email -->
+                    <div class="space-y-2">
+                        <label for="id_username" class="text-sm font-semibold text-gray-700 ml-0.5">Email</label>
+                        <div class="relative">
+                            <input type="email" id="id_username" name="username" required
+                                class="w-full px-5 py-4 bg-input-bg rounded-2xl border border-transparent focus:bg-white focus:border-brand/20 focus:ring-4 focus:ring-brand/10 outline-none transition-all duration-200 text-sm font-medium text-gray-900 placeholder-gray-400"
+                                placeholder="name@company.com">
+                        </div>
+                    </div>
+
+                    <!-- Password -->
+                    <div class="space-y-2">
+                        <label for="id_password" class="text-sm font-semibold text-gray-700 ml-0.5">Password</label>
+                        <div class="relative flex items-center">
+                            <input :type="showPassword ? 'text' : 'password'" id="id_password" name="password" required
+                                class="w-full px-5 py-4 bg-input-bg rounded-2xl border border-transparent focus:bg-white focus:border-brand/20 focus:ring-4 focus:ring-brand/10 outline-none transition-all duration-200 text-sm font-medium text-gray-900 placeholder-gray-400 tracking-widest"
+                                placeholder="••••••••">
+
+                            <!-- Eye Icon -->
+                            <button type="button" @click="showPassword = !showPassword"
+                                class="absolute right-5 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none">
+                                <svg x-show="!showPassword" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5"
+                                    fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                <svg x-show="showPassword" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5"
+                                    fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+                                    style="display: none;">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Login Button -->
+                    <button type="submit"
+                        class="w-full bg-brand hover:bg-brand-hover text-white font-bold text-sm py-4 rounded-xl shadow-lg shadow-brand/30 hover:shadow-brand/40 transform hover:-translate-y-0.5 transition-all duration-200 mt-6">
+                        Login
+                    </button>
+
+                    <!-- Sign Up Link -->
+                    <div class="text-center mt-6">
+                        <span class="text-sm text-gray-500 font-medium">No Account Yet? </span>
+                        <a href="{% url 'accounts:signup' %}" class="text-sm font-bold text-brand hover:underline">Get
+                            Yours Now</a>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Footer Links (Bottom Centered) -->
+            <div class="absolute bottom-8 w-full flex justify-center gap-8">
+                <a href="#" class="text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors">Privacy
+                    Policy</a>
+                <a href="#" class="text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors">Terms</a>
+                <a href="#" class="text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors">FAQ</a>
+            </div>
+
+        </div>
+    </div>
+</body>
+
+</html>

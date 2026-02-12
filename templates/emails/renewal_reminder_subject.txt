@@ -1,0 +1,1 @@
+{{ subscription.service_name }} renewal reminder - {{ subscription.cost }} {{ subscription.currency }} due in 3 days

@@ -1,0 +1,331 @@
+================================================================================
+                     SUBLY - SUBSCRIPTION MANAGEMENT SAAS
+                           COMPLETE FEATURES LIST
+================================================================================
+                    For Subscription Tier Planning & Pricing
+================================================================================
+
+
+================================================================================
+1. AUTHENTICATION & USER MANAGEMENT
+================================================================================
+
+1.1  User Registration (Email-based signup)
+1.2  User Login (Email + Password authentication)
+1.3  User Logout
+1.4  Password Security (Hashed passwords)
+
+
+================================================================================
+2. SUBSCRIPTION MANAGEMENT (CORE)
+================================================================================
+
+2.1  Create/Add New Subscription
+     - Service name with auto-icon fetching
+     - Category assignment (Streaming, Utilities, Software, etc.)
+     - Custom categories allowed
+
+2.2  Edit/Update Subscription
+     - Modify all subscription details
+     - Change status, cost, dates
+
+2.3  Delete Subscription
+     - Confirmation flow before deletion
+
+2.4  Subscription Status Management
+     - Active status
+     - Paused status
+     - Cancelled status
+
+2.5  Billing Cycle Options
+     - Weekly billing
+     - Monthly billing
+     - Yearly billing
+
+2.6  Cost Tracking
+     - Total subscription cost
+     - User-paid amount (for shared subscriptions)
+     - Multi-currency support (USD default)
+
+2.7  Date Management
+     - Start date tracking
+     - Automatic renewal date calculation
+     - Renewal time setting (specific time of day)
+
+2.8  Notes/Comments
+     - Add notes to subscriptions
+     - Store additional information
+
+2.9  Account Credentials Storage
+     - Store account email per subscription
+     - Store account password per subscription
+
+
+================================================================================
+3. SUBSCRIPTION LIST & FILTERING
+================================================================================
+
+3.1  View All Subscriptions
+     - List view with all subscription details
+
+3.2  Search Subscriptions
+     - Search by service name
+
+3.3  Filter by Status
+     - Filter active subscriptions
+     - Filter paused subscriptions
+     - Filter cancelled subscriptions
+
+3.4  Filter by Billing Cycle
+     - Filter weekly
+     - Filter monthly
+     - Filter yearly
+
+3.5  Sort Options
+     - Sort by cost
+     - Sort by renewal date
+     - Sort by service name
+
+
+================================================================================
+4. SHARED SUBSCRIPTIONS
+================================================================================
+
+4.1  Mark Subscription as Shared
+     - Toggle between solo and shared
+
+4.2  Add Participants
+     - Add external participant names
+     - Multiple participants per subscription
+
+4.3  Split Type Options
+     - Equal split (automatic calculation)
+     - Custom split (manual amounts)
+
+4.4  Cost Calculation
+     - Auto-calculate user's share
+     - Auto-calculate participant shares
+     - Validation (shares can't exceed total)
+
+
+================================================================================
+5. PAYMENT CARD MANAGEMENT
+================================================================================
+
+5.1  Add Payment Card
+     - Card nickname
+     - Last 4 digits
+     - Card brand (Visa, Mastercard, Amex)
+
+5.2  Edit Payment Card
+     - Update card details
+
+5.3  Delete Payment Card
+
+5.4  Associate Card with Subscription
+     - Link subscriptions to specific cards
+
+5.5  Card Brand Icons
+     - Auto-display Visa icon
+     - Auto-display Mastercard icon
+     - Auto-display American Express icon
+
+
+================================================================================
+6. RENEWAL NOTIFICATIONS & REMINDERS
+================================================================================
+
+6.1  Email Notifications
+     - Renewal reminder emails (HTML + text)
+     - Customizable email templates
+
+6.2  Customizable Reminder Timing
+     - Default 3 days before renewal
+     - Add custom reminder offsets (1-30 days)
+     - Multiple reminders per subscription
+
+6.3  Remove/Delete Reminder Offsets
+
+6.4  Time-Based Notifications
+     - Send at subscription's renewal time
+     - Time-window based filtering
+
+6.5  Enable/Disable Reminders per Subscription
+     - Toggle reminders on/off
+
+6.6  Notification Logging
+     - Track sent notifications
+     - Prevent duplicate notifications
+     - Log notification type, date, offset
+
+6.7  Batch Notification Processing
+     - Automated scheduled notifications
+     - Dry-run mode for testing
+
+
+================================================================================
+7. DASHBOARD & ANALYTICS
+================================================================================
+
+7.1  Monthly Spend Overview
+     - Calculate total monthly spending
+     - Normalized across billing cycles
+
+7.2  Yearly Spend Projection
+     - Projected annual spending
+
+7.3  Average Spend per Service
+     - Calculate average cost per active subscription
+
+7.4  Upcoming Renewals Widget
+     - Next 30 days renewals list
+     - Shows dates, times, costs
+
+7.5  Subscription Status Distribution
+     - Count of active subscriptions
+     - Count of paused subscriptions
+     - Count of cancelled subscriptions
+
+7.6  Quick Links from Dashboard
+     - Direct links to filtered subscription lists
+
+7.7  Service Icons Display
+     - Auto-fetch service logos
+     - Fallback to letter icons
+
+
+================================================================================
+8. SERVICE ICON SYSTEM
+================================================================================
+
+8.1  Automatic Icon Fetching
+     - CDN-based icon retrieval
+     - Support for 30+ popular services
+
+8.2  Service Name Mappings
+     - ChatGPT/OpenAI mapping
+     - Disney+ mapping
+     - Amazon Prime mapping
+     - Google services mapping
+     - Microsoft services mapping
+     - Cloud providers mapping (AWS, Azure, GCP)
+     - GitHub/GitLab/Bitbucket mapping
+
+8.3  Fallback Icons
+     - First letter of service name
+     - Gradient background styling
+
+
+================================================================================
+9. SCHEDULER & AUTOMATION
+================================================================================
+
+9.1  Automated Notification Scheduler
+     - Cron-compatible scheduling
+     - Windows Task Scheduler compatible
+
+9.2  Time-Based Filtering
+     - Match notification time with renewal time
+
+9.3  Logging System
+     - File-based logging
+     - Console logging
+     - Error tracking
+
+9.4  Batch Processing
+     - Process all due notifications
+     - Error handling and reporting
+
+
+================================================================================
+10. USER INTERFACE FEATURES
+================================================================================
+
+10.1  Modern Dashboard Design
+      - Glass-morphism effects
+      - Gradient backgrounds
+      - Responsive design
+
+10.2  Landing Page
+      - Hero section
+      - Features showcase
+      - Testimonials section
+      - Pricing section
+
+10.3  Navigation
+      - Scroll-aware navbar
+      - Sidebar navigation
+
+10.4  Form UI
+      - Modern form styling
+      - Dynamic participant fields
+      - Real-time calculations
+
+
+================================================================================
+                        FEATURE CATEGORIZATION FOR TIERS
+================================================================================
+
+SUGGESTED TIER BREAKDOWN:
+
+--------------------------------------------------------------------------------
+FREE TIER (STARTER)
+--------------------------------------------------------------------------------
+- Track up to 5 subscriptions
+- Basic renewal alerts (3 days before only)
+- Monthly spend summary
+- Single dashboard view
+- Basic search and filtering
+- 1 payment card
+
+--------------------------------------------------------------------------------
+PRO TIER
+--------------------------------------------------------------------------------
+All Free features PLUS:
+- Unlimited subscriptions
+- Multiple custom reminder offsets
+- Advanced analytics & insights
+- Multiple payment cards
+- Shared subscriptions with participants
+- Cost splitting (equal/custom)
+- Account credentials storage
+- Yearly spend projections
+- Sort by multiple fields
+- Time-specific notifications
+- All billing cycles (weekly/monthly/yearly)
+- Notes for subscriptions
+
+--------------------------------------------------------------------------------
+ENTERPRISE TIER
+--------------------------------------------------------------------------------
+All Pro features PLUS:
+- API Access
+- Dedicated Support
+- Custom Integrations
+- White-label options
+- Team/multi-user support (future)
+- Bulk import/export
+- Advanced reporting
+- Priority email delivery
+
+
+================================================================================
+                           FEATURE COUNT SUMMARY
+================================================================================
+
+Total Core Features:                 50+
+Authentication Features:              4
+Subscription Management:             20
+Filtering & Search:                  10
+Shared Subscriptions:                 5
+Card Management:                      5
+Notifications:                        8
+Analytics/Dashboard:                  7
+Automation:                           4
+UI/UX Features:                       4
+
+
+================================================================================
+Generated: February 9, 2026
+Application: Subly - Subscription Management SaaS
+================================================================================

@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Subly — Subscriptions</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            content: [],
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .card-hover {
+            transition: all 0.2s;
+        }
+
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+        }
+
+        .service-icon {
+            width: 52px;
+            height: 52px;
+        }
+    </style>
+</head>
+
+<body class="bg-zinc-950 text-zinc-200 min-h-screen">
+
+    <div class="flex h-screen">
+
+        <!-- Sidebar -->
+        <div class="w-72 bg-zinc-900 border-r border-zinc-800 flex flex-col">
+            <div class="px-8 py-10">
+                <h1 class="text-3xl font-bold tracking-tight text-white">subly</h1>
+            </div>
+
+            <nav class="flex-1 px-4">
+                <a href="#" onclick="switchTab(0)"
+                    class="nav-item flex items-center gap-3 px-6 py-4 rounded-2xl text-white bg-zinc-800 font-medium">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                    Dashboard
+                </a>
+                <a href="#" onclick="switchTab(1)"
+                    class="nav-item flex items-center gap-3 px-6 py-4 rounded-2xl text-zinc-400 hover:bg-zinc-800/50 mt-1 font-medium">
+                    <i data-lucide="credit-card" class="w-5 h-5"></i>
+                    Subscriptions
+                </a>
+                <a href="#" onclick="switchTab(2)"
+                    class="nav-item flex items-center gap-3 px-6 py-4 rounded-2xl text-zinc-400 hover:bg-zinc-800/50 mt-1 font-medium">
+                    <i data-lucide="calendar" class="w-5 h-5"></i>
+                    Upcoming
+                </a>
+                <a href="#"
+                    class="nav-item flex items-center gap-3 px-6 py-4 rounded-2xl text-zinc-400 hover:bg-zinc-800/50 mt-1 font-medium">
+                    <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+                    Analytics
+                </a>
+            </nav>
+
+            <div class="p-6 border-t border-zinc-800 mt-auto">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-10 h-10 bg-purple-600 rounded-2xl flex items-center justify-center text-white font-semibold">
+                        P</div>
+                    <div>
+                        <p class="font-medium">Patricia</p>
+                        <p class="text-xs text-zinc-500">patricia@example.com</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+
+            <!-- Top Bar -->
+            <div class="h-16 border-b border-zinc-800 bg-zinc-900 px-8 flex items-center justify-between">
+                <div class="flex-1 max-w-md">
+                    <div class="relative">
+                        <input type="text" id="search" placeholder="Search subscriptions..."
+                            class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl py-3 px-5 pl-12 focus:outline-none focus:border-zinc-600">
+                        <i data-lucide="search" class="w-5 h-5 absolute left-4 top-3.5 text-zinc-500"></i>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-6">
+                    <button onclick="addNewSubscription()"
+                        class="flex items-center gap-2 bg-white text-black px-6 py-2.5 rounded-2xl font-semibold hover:bg-zinc-100 transition">
+                        <i data-lucide="plus" class="w-5 h-5"></i>
+                        Add subscription
+                    </button>
+
+                    <button class="relative">
+                        <i data-lucide="bell" class="w-6 h-6"></i>
+                        <span
+                            class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] flex items-center justify-center">3</span>
+                    </button>
+
+                    <div class="w-8 h-8 bg-zinc-700 rounded-2xl overflow-hidden">
+                        <img src="https://i.pravatar.cc/128?u=patricia" alt="Patricia"
+                            class="w-full h-full object-cover">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard Content -->
+            <div id="dashboard" class="flex-1 overflow-auto p-8">
+                <h2 class="text-3xl font-semibold mb-2">Good evening, Patricia 👋</h2>
+                <p class="text-zinc-400 mb-10">You have 4 active subscriptions • Next payment in 12 days</p>
+
+                <!-- Balance Card -->
+                <div
+                    class="bg-gradient-to-br from-zinc-900 to-zinc-800 border border-zinc-700 rounded-3xl p-8 max-w-md mb-12">
+                    <p class="text-zinc-400 text-sm">Your balance</p>
+                    <div class="flex items-baseline gap-2 mt-2">
+                        <span class="text-5xl font-semibold">$568.87</span>
+                        <span class="text-emerald-400 text-lg">• 06/30</span>
+                    </div>
+                    <p class="text-zinc-500 text-sm mt-1">Remaining this month after subscriptions</p>
+                </div>
+
+                <!-- Upcoming Bills -->
+                <div class="mb-12">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-xl font-semibold">Upcoming Bills</h3>
+                        <a href="#" class="text-sm text-blue-400 hover:underline">View all →</a>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="upcoming-grid">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Your Subscriptions -->
+                <div>
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-xl font-semibold">Your Subscriptions</h3>
+                        <a href="#" onclick="switchTab(1)" class="text-sm text-blue-400 hover:underline">Manage all
+                            →</a>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                        id="subscriptions-grid">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subscription Detail Modal -->
+    <div id="modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+        <div class="bg-zinc-900 rounded-3xl w-full max-w-lg mx-4 overflow-hidden">
+            <div id="modal-content" class="p-8">
+                <!-- Dynamic content -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data
+        const subscriptions = [
+            {
+                id: 1,
+                name: "Apple TV+",
+                price: 12.00,
+                color: "bg-yellow-400",
+                textColor: "text-black",
+                logo: `<svg viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8"><path d="M17.05 20.28c-.96.78-2.14 1.25-3.4 1.25-2.23 0-3.64-1.35-5.38-1.35-1.76 0-3.18 1.35-5.38 1.35-1.12 0-2.2-.44-3.05-1.16C-1.87 18.25-2.3 12.33 2.53 8.35c1.47-1.2 3.16-1.85 4.67-1.85 1.76 0 3.01.96 4.47.96.65 0 1.25-.15 1.76-.32.32-.1.6 0 .73.23.1.2.04.44-.14.56-.56.36-1.5.76-2.58.76-1.46 0-3.04-1.15-4.9-1.15-1.5 0-3.1.66-4.5 1.83-3.83 3.17-3.6 8.3-.3 11.23.75.67 1.81 1.07 2.89 1.07 1.76 0 3.01-1.35 4.77-1.35 1.73 0 3.01 1.35 4.77 1.35 1.05 0 2.06-.4 2.87-1.05.18-.14.43-.13.57.04.14.18.13.43-.04.57zM12.12 6.55c-.17.14-.42.12-.56-.05-.98-1.16-1.34-2.85-.92-4.4.05-.18.23-.29.41-.25 1.54.34 2.8 1.53 3.32 3.25.07.24-.03.49-.25.59-.6.28-1.35.5-2 .86z"/></svg>`,
+                nextPayment: "12 days",
+                paymentMethod: "•••• 5426",
+                plan: "Premium"
+            },
+            {
+                id: 2,
+                name: "Spotify",
+                price: 18.00,
+                color: "bg-emerald-500",
+                textColor: "text-white",
+                logo: `<svg viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8"><path d="M4.1 8c4.3-1.6 11.5-1.6 15.8 0 .4.1.6.6.5 1s-.6.6-1 .5c-3.8-1.4-10-1.4-13.8 0-.4.1-.9-.1-1-.5s.1-.9.5-1zM5.3 12.5c3.5-1.2 9.9-1.2 13.4 0 .4.1.6.6.5 1s-.6.6-1 .5C15 12.9 9 12.9 5.8 14c-.4.1-.9-.1-1-.5s.1-.9.5-1zM6.5 17c2.8-.9 8.2-.9 11 0 .4.1.6.6.5 1s-.6.6-1 .5c-2.3-.7-6.7-.7-9 0-.4.1-.9-.1-1-.5s.1-.9.5-1z"/></svg>`,
+                nextPayment: "12 days",
+                paymentMethod: "•••• 1289",
+                plan: "Family"
+            },
+            {
+                id: 3,
+                name: "Netflix",
+                price: 21.00,
+                color: "bg-red-600",
+                textColor: "text-white",
+                logo: `<svg viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8"><path d="M6 3v18l6-4.5V3L6 3zm6 0v13.5l6 4.5V3l-6 0z"/></svg>`,
+                nextPayment: "14 days",
+                paymentMethod: "•••• 7841",
+                plan: "Standard"
+            },
+            {
+                id: 4,
+                name: "Creative Cloud",
+                price: 54.20,
+                color: "bg-blue-600",
+                textColor: "text-white",
+                logo: `<svg viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8"><path d="M14.58 3H21v18l-6.42-18zm-5.16 0H3v18l6.42-18zM12 8.7L16.5 19h-3.4l-1.1-2.6H10l-1.1 2.6H5.5L12 8.7z"/></svg>`,
+                nextPayment: "28 days",
+                paymentMethod: "•••• 3920",
+                plan: "All Apps"
+            }
+        ];
+
+        // Render Upcoming
+        function renderUpcoming() {
+            const container = document.getElementById('upcoming-grid');
+            container.innerHTML = subscriptions.slice(0, 3).map(sub => `
+    <div onclick="showDetail(${sub.id})" class="bg-zinc-900 rounded-3xl p-6 card-hover cursor-pointer">
+      <div class="flex items-center justify-between">
+        <div class="${sub.color} ${sub.textColor} w-12 h-12 rounded-2xl flex items-center justify-center text-3xl font-bold">
+          ${sub.logo}
+        </div>
+        <div class="text-right">
+          <p class="font-semibold">$${sub.price.toFixed(2)}</p>
+          <p class="text-xs text-zinc-400">${sub.nextPayment} left</p>
+        </div>
+      </div>
+      <p class="mt-8 font-medium">${sub.name}</p>
+    </div>
+  `).join('');
+        }
+
+        // Render Subscriptions Grid
+        function renderSubscriptions() {
+            const container = document.getElementById('subscriptions-grid');
+            container.innerHTML = subscriptions.map(sub => `
+    <div onclick="showDetail(${sub.id})" class="bg-zinc-900 rounded-3xl p-6 card-hover cursor-pointer">
+      <div class="flex items-center gap-4">
+        <div class="${sub.color} ${sub.textColor} w-14 h-14 rounded-3xl flex items-center justify-center text-4xl">
+          ${sub.logo}
+        </div>
+        <div class="flex-1">
+          <p class="font-semibold text-lg">${sub.name}</p>
+          <p class="text-zinc-400">$${sub.price.toFixed(2)} / month</p>
+        </div>
+      </div>
+      <div class="mt-10 flex justify-between items-center text-sm">
+        <span class="text-zinc-400">Next: ${sub.nextPayment}</span>
+        <span class="text-emerald-400">Active</span>
+      </div>
+    </div>
+  `).join('');
+        }
+
+        // Show Detail Modal
+        function showDetail(id) {
+            const sub = subscriptions.find(s => s.id === id);
+            if (!sub) return;
+
+            document.getElementById('modal-content').innerHTML = `
+    <div class="flex justify-between items-start">
+      <div class="${sub.color} ${sub.textColor} w-20 h-20 rounded-3xl flex items-center justify-center text-6xl mb-6">
+        ${sub.logo}
+      </div>
+      <button onclick="closeModal()" class="text-zinc-400 hover:text-white">
+        <i data-lucide="x" class="w-6 h-6"></i>
+      </button>
+    </div>
+    
+    <h2 class="text-3xl font-bold">${sub.name}</h2>
+    <p class="text-4xl font-semibold mt-2">$${sub.price.toFixed(2)}<span class="text-base font-normal text-zinc-400">/month</span></p>
+    
+    <div class="grid grid-cols-2 gap-6 mt-10">
+      <div>
+        <p class="text-xs text-zinc-400">Payment Method</p>
+        <p class="font-medium">${sub.paymentMethod}</p>
+      </div>
+      <div>
+        <p class="text-xs text-zinc-400">Plan</p>
+        <p class="font-medium">${sub.plan}</p>
+      </div>
+    </div>
+    
+    <div class="mt-10 pt-6 border-t border-zinc-700">
+      <button onclick="closeModal()" 
+              class="w-full bg-white text-black py-4 rounded-2xl font-semibold hover:bg-zinc-100">
+        Manage Subscription
+      </button>
+    </div>
+  `;
+
+            document.getElementById('modal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+        }
+
+        // Add new subscription (demo)
+        function addNewSubscription() {
+            alert("In a real app this would open a form to add a new subscription ✨");
+        }
+
+        // Simple tab switching (for future expansion)
+        function switchTab(tab) {
+            document.querySelectorAll('.nav-item').forEach((el, i) => {
+                if (i === tab) {
+                    el.classList.add('bg-zinc-800', 'text-white');
+                } else {
+                    el.classList.remove('bg-zinc-800', 'text-white');
+                }
+            });
+
+            if (tab === 0) {
+                document.getElementById('dashboard').style.display = 'block';
+            } else {
+                document.getElementById('dashboard').style.display = 'none';
+                // You can add other pages here later
+            }
+        }
+
+        // Initialize
+        window.onload = () => {
+            renderUpcoming();
+            renderSubscriptions();
+            lucide.createIcons();
+        };
+    </script>
+</body>
+
+</html>

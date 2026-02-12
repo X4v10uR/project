@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+
+{% block title %}Subscriptions - Subly{% endblock %}
+
+{% block content %}
+<div class="space-y-8 text-slate-900">
+
+    <!-- Filters & Search -->
+    <div
+        class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap gap-4 items-end text-slate-900">
+        <form method="get" class="flex flex-wrap gap-4 flex-1">
+            <div class="flex-1 min-w-[240px]">
+                <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Search</label>
+                <input type="text" name="q" value="{{ query }}" placeholder="Netflix, Spotify..."
+                    class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Status</label>
+                <select name="status"
+                    class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+                    <option value="">All Status</option>
+                    <option value="active" {% if status_filter == 'active' %} selected {% endif %}>Active</option>
+                    <option value="cancelled" {% if status_filter == 'cancelled' %} selected {% endif %}>Cancelled
+                    </option>
+                    <option value="paused" {% if status_filter == 'paused' %} selected {% endif %}>Paused</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Sort By</label>
+                <select name="sort"
+                    class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+                    <option value="renewal_date" {% if sort_by == 'renewal_date' %} selected {% endif %}>Renewal Date
+                    </option>
+                    <option value="cost" {% if sort_by == 'cost' %} selected {% endif %}>Cost</option>
+                    <option value="service_name" {% if sort_by == 'service_name' %} selected {% endif %}>Name</option>
+                </select>
+            </div>
+            <div class="flex items-end">
+                <button type="submit"
+                    class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition text-sm font-medium">Apply</button>
+                <a href="{% url 'subscriptions:list' %}"
+                    class="ml-2 px-4 py-2 text-slate-500 hover:text-slate-700 text-sm">Clear</a>
+            </div>
+        </form>
+        <div class="flex items-end">
+            <a href="{% url 'subscriptions:create' %}"
+                class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium shadow-md h-9">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Add Subscription
+            </a>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm text-slate-900">
+        <div class="overflow-x-auto text-slate-900 pb-20 -mb-20">
+            <table class="w-full text-left text-slate-900">
+                <thead class="bg-slate-50 border-b border-slate-200 text-slate-900">
+                    <tr>
+                        <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">#</th>
+                        <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Service</th>
+                        <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Shared With</th>
+                        <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Used Account</th>
+                        <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Cost</th>
+                        <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Renewal</th>
+                        <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Status</th>
+                        <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Category</th>
+                        <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 text-slate-900">
+                    {% for sub in subscriptions %}
+                    <tr class="hover:bg-slate-50 transition text-slate-900">
+                        <td class="px-6 py-4 text-sm text-gray-500">{{ forloop.counter }}</td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center space-x-3">
+                                <div
+                                    class="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
+                                    <img src="{{ sub.get_icon_url }}" alt="{{ sub.service_name }}" class="w-5 h-5"
+                                        onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    <div class="w-8 h-8 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-lg flex items-center justify-center"
+                                        style="display: none;">
+                                        <span class="text-indigo-600 font-semibold text-xs">{{ sub.get_fallback_icon
+                                            }}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex items-center">
+                                        <span class="font-semibold text-gray-900">{{ sub.service_name }}</span>
+                                        {% if sub.is_shared %}
+                                        <span
+                                            class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-800">
+                                            Shared
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    <span class="block text-xs text-gray-400 capitalize">{{ sub.billing_cycle }}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-600">
+                            {% if sub.is_shared and sub.participants.count > 0 %}
+                            <div class="flex items-center space-x-1">
+                                <span class="text-gray-900 font-medium">{{ sub.participants.count|add:"1" }}</span>
+                                <span class="text-gray-400">people</span>
+                            </div>
+                            {% else %}
+                            <span class="text-gray-400 italic">Only me</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-600">
+                            {% if sub.account_email %}
+                            <span class="truncate max-w-[150px] inline-block" title="{{ sub.account_email }}">{{ sub.account_email }}</span>
+                            {% else %}
+                            <span class="text-gray-400">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-sm font-medium text-gray-900">
+                            {% if sub.is_shared %}
+                            <div>
+                                <span class="block">{{ sub.currency }} {{ sub.user_cost }}</span>
+                                <span class="block text-xs text-gray-400 font-normal">Total: {{ sub.currency }} {{ sub.cost }}</span>
+                            </div>
+                            {% else %}
+                            {{ sub.currency }} {{ sub.cost }}
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-600">
+                            {{ sub.renewal_date|date:"M d, Y" }}
+                            {% if sub.renewal_time %}
+                            <span class="block text-xs text-gray-400">{{ sub.renewal_time|time:"g:i A" }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="status-dropdown-wrapper relative inline-block"
+                                data-subscription-id="{{ sub.pk }}">
+                                <button type="button"
+                                    class="status-btn px-3 py-1.5 text-xs font-medium rounded-full cursor-pointer flex items-center gap-1.5 transition-all
+                                    {% if sub.status == 'active' %}bg-green-50 text-green-700 hover:bg-green-100{% elif sub.status == 'paused' %}bg-yellow-50 text-yellow-700 hover:bg-yellow-100{% else %}bg-red-50 text-red-700 hover:bg-red-100{% endif %}"
+                                    data-current-status="{{ sub.status }}">
+                                    <span class="status-text">{{ sub.status|title }}</span>
+                                    <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </button>
+                                <div
+                                    class="status-menu hidden absolute z-20 w-28 rounded-xl bg-white shadow-lg ring-1 ring-black ring-opacity-5">
+                                    <div class="py-1">
+                                        <button type="button" data-value="active"
+                                            class="status-option w-full px-3 py-2 text-xs text-left hover:bg-green-50 text-green-700 flex items-center gap-2 {% if sub.status == 'active' %}bg-green-50 font-semibold{% endif %}">
+                                            <span class="w-2 h-2 rounded-full bg-green-500"></span> Active
+                                        </button>
+                                        <button type="button" data-value="paused"
+                                            class="status-option w-full px-3 py-2 text-xs text-left hover:bg-yellow-50 text-yellow-700 flex items-center gap-2 {% if sub.status == 'paused' %}bg-yellow-50 font-semibold{% endif %}">
+                                            <span class="w-2 h-2 rounded-full bg-yellow-500"></span> Paused
+                                        </button>
+                                        <button type="button" data-value="cancelled"
+                                            class="status-option w-full px-3 py-2 text-xs text-left hover:bg-red-50 text-red-700 flex items-center gap-2 {% if sub.status == 'cancelled' %}bg-red-50 font-semibold{% endif %}">
+                                            <span class="w-2 h-2 rounded-full bg-red-500"></span> Cancelled
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-600">{{ sub.category }}</td>
+                        <td class="px-6 py-4 text-right space-x-3">
+                            <a href="{% url 'subscriptions:update' sub.pk %}"
+                                class="text-indigo-600 hover:text-indigo-900 text-sm font-medium">Edit</a>
+                            <a href="{% url 'subscriptions:delete' sub.pk %}"
+                                class="text-red-600 hover:text-red-900 text-sm font-medium">Delete</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="px-6 py-12 text-center text-gray-500">
+                            No subscriptions found. <a href="{% url 'subscriptions:create' %}"
+                                class="text-indigo-600 hover:underline">Add one now</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const wrappers = document.querySelectorAll('.status-dropdown-wrapper');
+
+        // Close all dropdowns when clicking outside
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('.status-dropdown-wrapper')) {
+                document.querySelectorAll('.status-menu').forEach(menu => menu.classList.add('hidden'));
+            }
+        });
+
+        wrappers.forEach(wrapper => {
+            const btn = wrapper.querySelector('.status-btn');
+            const menu = wrapper.querySelector('.status-menu');
+            const options = wrapper.querySelectorAll('.status-option');
+            const subId = wrapper.dataset.subscriptionId;
+
+            // Toggle dropdown
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                // Close other dropdowns
+                document.querySelectorAll('.status-menu').forEach(m => {
+                    if (m !== menu) m.classList.add('hidden');
+                });
+
+                const isHidden = menu.classList.contains('hidden');
+                if (isHidden) {
+                    // Check available space below
+                    const rect = btn.getBoundingClientRect();
+                    const windowHeight = window.innerHeight;
+                    const spaceBelow = windowHeight - rect.bottom;
+                    const menuHeight = 160; // Approximate height of the menu
+
+                    if (spaceBelow < menuHeight && rect.top > menuHeight) {
+                        menu.classList.remove('mt-1');
+                        menu.classList.add('bottom-full', 'mb-2');
+                    } else {
+                        menu.classList.remove('bottom-full', 'mb-2');
+                        menu.classList.add('mt-1');
+                    }
+                }
+
+                menu.classList.toggle('hidden');
+            });
+
+            // Handle option selection
+            options.forEach(option => {
+                option.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    const newStatus = this.dataset.value;
+                    const currentStatus = btn.dataset.currentStatus;
+
+                    if (newStatus === currentStatus) {
+                        menu.classList.add('hidden');
+                        return;
+                    }
+
+                    // Update UI immediately
+                    updateButtonStyle(btn, newStatus);
+                    btn.querySelector('.status-text').textContent = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
+                    menu.classList.add('hidden');
+
+                    // Update active state in menu
+                    options.forEach(o => {
+                        o.classList.remove('font-semibold', 'bg-green-50', 'bg-yellow-50', 'bg-red-50');
+                    });
+                    this.classList.add('font-semibold');
+                    if (newStatus === 'active') this.classList.add('bg-green-50');
+                    else if (newStatus === 'paused') this.classList.add('bg-yellow-50');
+                    else this.classList.add('bg-red-50');
+
+                    // Send AJAX
+                    fetch(`/subscriptions/${subId}/status/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: `status=${newStatus}`
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'success') {
+                                btn.dataset.currentStatus = newStatus;
+                                showToast('Status updated', 'success');
+                            } else {
+                                // Revert
+                                updateButtonStyle(btn, currentStatus);
+                                btn.querySelector('.status-text').textContent = currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1);
+                                showToast('Failed to update', 'error');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            updateButtonStyle(btn, currentStatus);
+                            btn.querySelector('.status-text').textContent = currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1);
+                            showToast('Failed to update', 'error');
+                        });
+                });
+            });
+        });
+
+        function updateButtonStyle(btn, status) {
+            btn.classList.remove('bg-green-50', 'text-green-700', 'hover:bg-green-100',
+                'bg-yellow-50', 'text-yellow-700', 'hover:bg-yellow-100',
+                'bg-red-50', 'text-red-700', 'hover:bg-red-100');
+            if (status === 'active') {
+                btn.classList.add('bg-green-50', 'text-green-700', 'hover:bg-green-100');
+            } else if (status === 'paused') {
+                btn.classList.add('bg-yellow-50', 'text-yellow-700', 'hover:bg-yellow-100');
+            } else {
+                btn.classList.add('bg-red-50', 'text-red-700', 'hover:bg-red-100');
+            }
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        function showToast(message, type) {
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-4 right-4 px-4 py-2 rounded-full text-white text-sm font-medium shadow-lg z-50 transition-opacity duration-300 ${type === 'success' ? 'bg-green-600' : 'bg-red-600'}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 2000);
+        }
+    });
+</script>
+{% endblock %}
