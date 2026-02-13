@@ -40,7 +40,7 @@ class SubscriptionForm(forms.ModelForm):
             'is_shared': forms.RadioSelect(choices=[(False, 'Just me'), (True, 'Shared')]),
             'split_type': forms.RadioSelect(attrs={'class': 'sr-only peer'}),
             'account_email': forms.EmailInput(attrs={'placeholder': 'e.g. user@example.com'}),
-            'account_password': forms.PasswordInput(render_value=True, attrs={'placeholder': 'Enter account password'}),
+            'account_password': forms.PasswordInput(render_value=False, attrs={'placeholder': 'Enter account password'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -63,3 +63,15 @@ class SubscriptionForm(forms.ModelForm):
         
         # Add help text for renewal_time field
         self.fields['renewal_time'].help_text = "Setting the time defines the exact time subscription is ending. Notifications will be sent at this time 3 days before renewal."
+
+    def clean_account_password(self):
+        account_password = self.cleaned_data.get('account_password')
+
+        if account_password:
+            return account_password
+
+        if self.instance and self.instance.pk:
+            # Preserve existing encrypted value when edit form is submitted blank.
+            return self.instance.account_password
+
+        return None

@@ -1,10 +1,54 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q
+from decimal import Decimal, InvalidOperation
+
+from django.db import transaction
 from .models import Subscription, ReminderOffset, Card, SubscriptionParticipant
 from .forms import SubscriptionForm, CardForm
 from django.http import JsonResponse
-from django.urls import reverse_lazy
+
+
+def _parse_participants_data(request):
+    participant_names = request.POST.getlist('participant_name')
+    participant_shares = request.POST.getlist('participant_share')
+
+    participants_data = []
+    for i, raw_name in enumerate(participant_names):
+        name = raw_name.strip()
+        if not name:
+            continue
+
+        raw_share = '0'
+        if i < len(participant_shares):
+            raw_share = (participant_shares[i] or '0').strip()
+
+        try:
+            share = Decimal(raw_share or '0')
+        except (InvalidOperation, TypeError):
+            return None, 'Participant shares must be valid numbers.'
+
+        if share < 0:
+            return None, 'Participant shares cannot be negative.'
+
+        participants_data.append({'name': name, 'share': share})
+
+    if not participants_data:
+        return None, 'Please add at least one participant for shared subscriptions.'
+
+    return participants_data, None
+
+
+def _parse_reminder_offsets(raw_offsets):
+    valid_offsets = set()
+    for offset_days in raw_offsets:
+        try:
+            days = int(offset_days)
+        except (ValueError, TypeError):
+            continue
+
+        if 1 <= days <= 30:
+            valid_offsets.add(days)
+    return sorted(valid_offsets)
 
 @login_required
 def card_list(request):
@@ -87,75 +131,57 @@ def subscription_create(request):
             is_shared = form.cleaned_data.get('is_shared')
             if is_shared:
                 split_type = form.cleaned_data.get('split_type')
-                
-                # Get participant names and custom shares from POST data
-                participant_names = request.POST.getlist('participant_name')
-                participant_shares = request.POST.getlist('participant_share')
-                
-                # Filter out empty names
-                participants_data = []
-                for i, name in enumerate(participant_names):
-                    if name.strip():
-                        share = participant_shares[i] if i < len(participant_shares) and participant_shares[i] else 0
-                        participants_data.append({'name': name, 'share': share})
-                
-                # Validate that we have at least one participant
-                if not participants_data:
-                    form.add_error(None, 'Please add at least one participant for shared subscriptions.')
+                participants_data, participants_error = _parse_participants_data(request)
+                if participants_error:
+                    form.add_error(None, participants_error)
                     return render(request, 'subscriptions/form.html', {'form': form, 'title': 'Add Subscription'})
-                
-                subscription.save() # Save first to get ID
-                
-                total_participants = len(participants_data) + 1 # +1 for user
-                
+
+                total_participants = len(participants_data) + 1  # +1 for user
+                participants_to_create = []
+
                 if split_type == 'equal':
-                    share_per_person = subscription.cost / total_participants
+                    share_per_person = subscription.cost / Decimal(total_participants)
                     subscription.user_cost = share_per_person
-                    
-                    # Create participants
-                    for p_data in participants_data:
-                        SubscriptionParticipant.objects.create(
+                    participants_to_create = [
+                        SubscriptionParticipant(
                             subscription=subscription,
                             name=p_data['name'],
                             share_amount=share_per_person
                         )
-                else: # Custom split
-                    # Calculate user share: Total cost - Sum of other participants' shares
-                    total_others_share = sum(float(p['share']) for p in participants_data)
-                    subscription.user_cost = float(subscription.cost) - total_others_share
-                    
-                    # Validate that user_cost is not negative
+                        for p_data in participants_data
+                    ]
+                else:  # Custom split
+                    total_others_share = sum((p['share'] for p in participants_data), Decimal('0'))
+                    subscription.user_cost = subscription.cost - total_others_share
+
                     if subscription.user_cost < 0:
-                        subscription.delete()
                         form.add_error(None, 'The sum of participant shares exceeds the total cost.')
                         return render(request, 'subscriptions/form.html', {'form': form, 'title': 'Add Subscription'})
-                    
-                    # Create participants
-                    for p_data in participants_data:
-                        SubscriptionParticipant.objects.create(
+
+                    participants_to_create = [
+                        SubscriptionParticipant(
                             subscription=subscription,
                             name=p_data['name'],
                             share_amount=p_data['share']
                         )
-                
-                subscription.save() # Update user_cost
+                        for p_data in participants_data
+                    ]
+
+                with transaction.atomic():
+                    subscription.save()  # Save with user_cost
+                    SubscriptionParticipant.objects.bulk_create(participants_to_create)
                 
             else:
                 subscription.user_cost = subscription.cost
                 subscription.save()
             
             # Handle reminder offsets from POST data
-            reminder_offsets = request.POST.getlist('reminder_offsets')
-            for offset_days in reminder_offsets:
-                try:
-                    days = int(offset_days)
-                    if 1 <= days <= 30:
-                        ReminderOffset.objects.create(
-                            subscription=subscription,
-                            days_before=days
-                        )
-                except (ValueError, TypeError):
-                    pass  # Skip invalid values
+            reminder_offsets = _parse_reminder_offsets(request.POST.getlist('reminder_offsets'))
+            for days in reminder_offsets:
+                ReminderOffset.objects.get_or_create(
+                    subscription=subscription,
+                    days_before=days
+                )
             
             return redirect('subscriptions:list')
     else:
@@ -175,63 +201,51 @@ def subscription_update(request, pk):
             
             if is_shared:
                 split_type = form.cleaned_data.get('split_type')
-                
-                # Clear existing participants
-                subscription.participants.all().delete()
-                
-                # Get participant names and custom shares from POST data
-                participant_names = request.POST.getlist('participant_name')
-                participant_shares = request.POST.getlist('participant_share')
-                
-                # Filter out empty names
-                participants_data = []
-                for i, name in enumerate(participant_names):
-                    if name.strip():
-                        share = participant_shares[i] if i < len(participant_shares) and participant_shares[i] else 0
-                        participants_data.append({'name': name, 'share': share})
-                
-                # Validate that we have at least one participant
-                if not participants_data:
-                    form.add_error(None, 'Please add at least one participant for shared subscriptions.')
+                participants_data, participants_error = _parse_participants_data(request)
+                if participants_error:
+                    form.add_error(None, participants_error)
                     return render(request, 'subscriptions/form.html', {'form': form, 'title': 'Edit Subscription'})
-                
-                total_participants = len(participants_data) + 1 # +1 for user
-                
+
+                total_participants = len(participants_data) + 1  # +1 for user
+
                 if split_type == 'equal':
-                    share_per_person = subscription.cost / total_participants
+                    share_per_person = subscription.cost / Decimal(total_participants)
                     subscription.user_cost = share_per_person
-                    subscription.save()
-                    
-                    # Create participants
-                    for p_data in participants_data:
-                        SubscriptionParticipant.objects.create(
+                    participants_to_create = [
+                        SubscriptionParticipant(
                             subscription=subscription,
                             name=p_data['name'],
                             share_amount=share_per_person
                         )
-                else: # Custom split
-                    # Calculate user share: Total cost - Sum of other participants' shares
-                    total_others_share = sum(float(p['share']) for p in participants_data)
-                    subscription.user_cost = float(subscription.cost) - total_others_share
-                    
-                    # Validate that user_cost is not negative
+                        for p_data in participants_data
+                    ]
+                else:  # Custom split
+                    total_others_share = sum((p['share'] for p in participants_data), Decimal('0'))
+                    subscription.user_cost = subscription.cost - total_others_share
+
                     if subscription.user_cost < 0:
                         form.add_error(None, 'The sum of participant shares exceeds the total cost.')
                         return render(request, 'subscriptions/form.html', {'form': form, 'title': 'Edit Subscription'})
-                    
-                    subscription.save()
-                    
-                    # Create participants
-                    for p_data in participants_data:
-                        SubscriptionParticipant.objects.create(
+
+                    participants_to_create = [
+                        SubscriptionParticipant(
                             subscription=subscription,
                             name=p_data['name'],
                             share_amount=p_data['share']
                         )
+                        for p_data in participants_data
+                    ]
+
+                with transaction.atomic():
+                    subscription.save()
+                    # Replace participant list only after all validations pass.
+                    subscription.participants.all().delete()
+                    SubscriptionParticipant.objects.bulk_create(participants_to_create)
             else:
                 subscription.user_cost = subscription.cost
-                subscription.participants.all().delete() # Cleanup if switched from Shared to Solo
-                subscription.save()
+                with transaction.atomic():
+                    subscription.save()
+                    subscription.participants.all().delete()  # Cleanup if switched from Shared to Solo
 
             return redirect('subscriptions:list')
     else:
@@ -261,8 +275,19 @@ def add_reminder_offset(request, pk):
     subscription = get_object_or_404(Subscription, pk=pk, user=request.user)
     if request.method == 'POST':
         days_before = request.POST.get('days_before')
-        if days_before:
-            ReminderOffset.objects.get_or_create(subscription=subscription, days_before=days_before)
+        try:
+            days_before_int = int(days_before)
+        except (TypeError, ValueError):
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'status': 'error', 'message': 'days_before must be an integer'}, status=400)
+            return redirect('subscriptions:update', pk=pk)
+
+        if not 1 <= days_before_int <= 30:
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'status': 'error', 'message': 'days_before must be between 1 and 30'}, status=400)
+            return redirect('subscriptions:update', pk=pk)
+
+        ReminderOffset.objects.get_or_create(subscription=subscription, days_before=days_before_int)
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'status': 'success'})
         return redirect('subscriptions:update', pk=pk)

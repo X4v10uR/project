@@ -263,8 +263,7 @@
                         <div class="ml-3">
                             <p class="text-sm text-indigo-900 leading-relaxed">
                                 This helps you remember which account is used for this subscription, especially if you
-                                have multiple accounts. For security, passwords are encrypted and cannot be read by
-                                anyone.
+                                have multiple accounts. For security, passwords are encrypted before they are saved.
                             </p>
                         </div>
                     </div>
@@ -287,8 +286,7 @@
                             Account Password
                         </label>
                         {{ form.account_password }}
-                        <p class="mt-1 text-xs text-gray-500">Acts as a password manager for this subscription and is
-                            stored securely.</p>
+                        <p class="mt-1 text-xs text-gray-500">Leave blank while editing to keep the existing password.</p>
                         {% if form.account_password.errors %}
                         <p class="mt-1 text-xs text-red-600">{{ form.account_password.errors.0 }}</p>
                         {% endif %}

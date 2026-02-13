@@ -3,6 +3,18 @@ from django.conf import settings
 from datetime import date, time
 from dateutil.relativedelta import relativedelta
 from django.core.validators import MinLengthValidator, RegexValidator
+import base64
+import hashlib
+
+from cryptography.fernet import Fernet, InvalidToken
+
+
+ACCOUNT_PASSWORD_PREFIX = "enc::"
+
+
+def _build_account_password_fernet():
+    key_material = hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).digest()
+    return Fernet(base64.urlsafe_b64encode(key_material))
 
 class Card(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='cards')
@@ -86,7 +98,33 @@ class Subscription(models.Model):
     )
     card = models.ForeignKey(Card, on_delete=models.SET_NULL, null=True, blank=True, related_name='subscriptions')
     account_email = models.CharField(max_length=255, blank=True, null=True)
-    account_password = models.CharField(max_length=255, blank=True, null=True)
+    account_password = models.CharField(max_length=512, blank=True, null=True)
+
+    def set_account_password(self, raw_password):
+        if not raw_password:
+            self.account_password = None
+            return
+
+        encrypted_password = _build_account_password_fernet().encrypt(
+            raw_password.encode("utf-8")
+        ).decode("utf-8")
+        self.account_password = f"{ACCOUNT_PASSWORD_PREFIX}{encrypted_password}"
+
+    def get_account_password(self):
+        if not self.account_password:
+            return None
+
+        if not self.account_password.startswith(ACCOUNT_PASSWORD_PREFIX):
+            # Backward compatibility for legacy plaintext rows.
+            return self.account_password
+
+        encrypted_password = self.account_password[len(ACCOUNT_PASSWORD_PREFIX) :]
+        try:
+            return _build_account_password_fernet().decrypt(
+                encrypted_password.encode("utf-8")
+            ).decode("utf-8")
+        except InvalidToken:
+            return None
 
     def calculate_renewal_date(self):
         """Calculate the next upcoming renewal date relative to today."""
@@ -126,12 +164,14 @@ class Subscription(models.Model):
         # If not shared, user pays full cost
         if not self.is_shared:
             self.user_cost = self.cost
-            
-        # For equal split, we'll need to recalculate this in the view/signal 
-        # because we need the participant count which might not be set yet on create.
-        # But as a fallback/default for non-shared:
-        if not self.is_shared:
-            self.user_cost = self.cost
+
+        if self.account_password == "":
+            self.account_password = None
+        elif (
+            self.account_password
+            and not self.account_password.startswith(ACCOUNT_PASSWORD_PREFIX)
+        ):
+            self.set_account_password(self.account_password)
         
         if not self.renewal_time:
             self.renewal_time = time(15, 0)

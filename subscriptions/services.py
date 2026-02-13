@@ -1,8 +1,7 @@
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.conf import settings
-from django.utils import timezone
-from datetime import date, timedelta, datetime, time
+from datetime import date, timedelta, datetime
 from .models import Subscription, NotificationLog
 import logging
 
@@ -70,35 +69,41 @@ class NotificationService:
             raise
     
     @staticmethod
-    def get_subscriptions_due_for_notification(target_time=None):
+    def get_subscriptions_due_for_notification(target_time=None, days_before=None):
         """Get subscriptions and their offsets that need renewal notifications today"""
-        from .models import ReminderOffset
-        from django.db.models import F
-
-        # We need to find all active subscriptions where (renewal_date - today) 
-        # matches one of their ReminderOffsets.
         today = date.today()
         
         # Subscriptions with reminders enabled
-        active_subs = Subscription.objects.filter(status='active', reminders_enabled=True)
+        active_subs = Subscription.objects.filter(
+            status='active',
+            reminders_enabled=True
+        ).prefetch_related('offsets')
         
         due_notifications = []
-        
-        # This is a bit complex for a single queryset because offsets are per-subscription.
-        # We'll fetch subscriptions and their related offsets that match today.
+
         for sub in active_subs:
+            if not sub.renewal_date:
+                continue
+
             # Calculate days until renewal
             days_until = (sub.renewal_date - today).days
-            
-            # Check if this sub has an offset matching the days remaining
-            matching_offset = sub.offsets.filter(days_before=days_until).first()
-            
-            # If no custom offsets, check default (3 days before)
-            if not sub.offsets.exists() and days_until == 3:
-                # Use default 3-day reminder
-                due_notifications.append((sub, 3))
-            elif matching_offset:
-                due_notifications.append((sub, matching_offset.days_before))
+
+            custom_offsets = {offset.days_before for offset in sub.offsets.all()}
+            matched_offset = None
+
+            if custom_offsets:
+                if days_until in custom_offsets:
+                    matched_offset = days_until
+            elif days_until == 3:
+                matched_offset = 3
+
+            if matched_offset is None:
+                continue
+
+            if days_before is not None and matched_offset != days_before:
+                continue
+
+            due_notifications.append((sub, matched_offset))
 
         # Filter by time if provided
         if target_time:
@@ -119,15 +124,22 @@ class NotificationService:
         
         results = {
             'sent': 0,
+            'skipped': 0,
             'errors': 0,
             'total': len(notifications_to_send)
         }
         
         for subscription, days_before in notifications_to_send:
             try:
-                if not dry_run:
-                    NotificationService.send_renewal_reminder(subscription, days_before)
-                results['sent'] += 1
+                if dry_run:
+                    results['sent'] += 1
+                    continue
+
+                was_sent = NotificationService.send_renewal_reminder(subscription, days_before)
+                if was_sent:
+                    results['sent'] += 1
+                else:
+                    results['skipped'] += 1
             except Exception as e:
                 results['errors'] += 1
                 logger.error(f"Failed to send notification for {subscription.id} at {days_before} offset: {str(e)}")

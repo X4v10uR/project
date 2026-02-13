@@ -1,10 +1,7 @@
 from django.core.management.base import BaseCommand
-from django.core.mail import send_mail
-from django.template.loader import render_to_string
 from django.conf import settings
-from django.utils import timezone
 from datetime import date, timedelta, time
-from subscriptions.models import Subscription, NotificationLog
+from subscriptions.models import NotificationLog
 from subscriptions.services import NotificationService
 import logging
 
@@ -62,7 +59,7 @@ class Command(BaseCommand):
             target_time=target_time
         )
         
-        if not subscriptions_to_notify.exists():
+        if not subscriptions_to_notify:
             message = f"No subscriptions found renewing on {target_date}"
             if target_time:
                 message += f" at {target_time.strftime('%I:%M %p')}"
@@ -73,17 +70,18 @@ class Command(BaseCommand):
         skipped_count = 0
         error_count = 0
         
-        for subscription in subscriptions_to_notify:
+        for subscription, offset in subscriptions_to_notify:
             # Check if we've already sent a notification for this renewal
             notification_exists = NotificationLog.objects.filter(
                 subscription=subscription,
                 notification_type='renewal_reminder',
-                renewal_date=subscription.renewal_date
+                renewal_date=subscription.renewal_date,
+                days_before=offset
             ).exists()
             
             if notification_exists:
                 self.stdout.write(
-                    f"Skipping {subscription.service_name} for {subscription.user.email} - already notified"
+                    f"Skipping {subscription.service_name} for {subscription.user.email} - already notified (offset: {offset})"
                 )
                 skipped_count += 1
                 continue
@@ -96,11 +94,11 @@ class Command(BaseCommand):
                     
                     self.stdout.write(
                         f"[DRY RUN] Would send notification for {subscription.service_name} "
-                        f"to {subscription.user.email} (renews {subscription.renewal_date}{renewal_time_str})"
+                        f"to {subscription.user.email} (renews {subscription.renewal_date}{renewal_time_str}, offset: {offset})"
                     )
                     sent_count += 1
                 else:
-                    NotificationService.send_renewal_reminder(subscription)
+                    NotificationService.send_renewal_reminder(subscription, days_before=offset)
                     sent_count += 1
                     renewal_time_str = ""
                     if subscription.renewal_time:
@@ -109,7 +107,7 @@ class Command(BaseCommand):
                     self.stdout.write(
                         self.style.SUCCESS(
                             f"Sent notification for {subscription.service_name} "
-                            f"to {subscription.user.email} (renews {subscription.renewal_date}{renewal_time_str})"
+                            f"to {subscription.user.email} (renews {subscription.renewal_date}{renewal_time_str}, offset: {offset})"
                         )
                     )
             except Exception as e:

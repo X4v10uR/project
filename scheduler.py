@@ -78,6 +78,7 @@ def main():
         logger.info(f"Notification batch completed:")
         logger.info(f"  Total subscriptions checked: {results['total']}")
         logger.info(f"  Notifications sent: {results['sent']}")
+        logger.info(f"  Notifications skipped: {results.get('skipped', 0)}")
         logger.info(f"  Errors: {results['errors']}")
         
         if args.time_based:
