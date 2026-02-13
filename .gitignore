@@ -1,13 +1,16 @@
-# Python cache
+# Python
 __pycache__/
 *.pyc
+*.pyo
+
+# Virtual environment
+venv/
 
 # VS Code
 .vscode/
 
-# Backup
-backup/
+# Media uploads
+media/
 
-# Django migrations (optional, be careful)
-*/migrations/
-!*/migrations/__init__.py
+# Static files (if collected)
+staticfiles/
