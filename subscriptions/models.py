@@ -68,6 +68,7 @@ class Subscription(models.Model):
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='subscriptions')
     service_name = models.CharField(max_length=100)
+    plan_name = models.CharField(max_length=100, blank=True, null=True, help_text="e.g. Basic, Premium, Family Plan")
     category = models.CharField(max_length=50, help_text="e.g. Streaming, Utilities, Software")
     billing_cycle = models.CharField(max_length=10, choices=BILLING_CYCLE_CHOICES)
     cost = models.DecimalField(max_digits=10, decimal_places=2)

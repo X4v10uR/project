@@ -19,20 +19,20 @@
                 <select name="status"
                     class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm">
                     <option value="">All Status</option>
-                    <option value="active" {% if status_filter == 'active' %} selected {% endif %}>Active</option>
-                    <option value="cancelled" {% if status_filter == 'cancelled' %} selected {% endif %}>Cancelled
+                    <option value="active" {% if status_filter=='active' %} selected {% endif %}>Active</option>
+                    <option value="cancelled" {% if status_filter=='cancelled' %} selected {% endif %}>Cancelled
                     </option>
-                    <option value="paused" {% if status_filter == 'paused' %} selected {% endif %}>Paused</option>
+                    <option value="paused" {% if status_filter=='paused' %} selected {% endif %}>Paused</option>
                 </select>
             </div>
             <div>
                 <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Sort By</label>
                 <select name="sort"
                     class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm">
-                    <option value="renewal_date" {% if sort_by == 'renewal_date' %} selected {% endif %}>Renewal Date
+                    <option value="renewal_date" {% if sort_by=='renewal_date' %} selected {% endif %}>Renewal Date
                     </option>
-                    <option value="cost" {% if sort_by == 'cost' %} selected {% endif %}>Cost</option>
-                    <option value="service_name" {% if sort_by == 'service_name' %} selected {% endif %}>Name</option>
+                    <option value="cost" {% if sort_by=='cost' %} selected {% endif %}>Cost</option>
+                    <option value="service_name" {% if sort_by=='service_name' %} selected {% endif %}>Name</option>
                 </select>
             </div>
             <div class="flex items-end">
@@ -89,6 +89,10 @@
                                 <div>
                                     <div class="flex items-center">
                                         <span class="font-semibold text-gray-900">{{ sub.service_name }}</span>
+                                        {% if sub.plan_name %}
+                                        <span class="ml-2 text-xs text-gray-500 font-normal">({{ sub.plan_name
+                                            }})</span>
+                                        {% endif %}
                                         {% if sub.is_shared %}
                                         <span
                                             class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-800">
@@ -112,7 +116,8 @@
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-600">
                             {% if sub.account_email %}
-                            <span class="truncate max-w-[150px] inline-block" title="{{ sub.account_email }}">{{ sub.account_email }}</span>
+                            <span class="truncate max-w-[150px] inline-block" title="{{ sub.account_email }}">{{
+                                sub.account_email }}</span>
                             {% else %}
                             <span class="text-gray-400">—</span>
                             {% endif %}
@@ -121,7 +126,8 @@
                             {% if sub.is_shared %}
                             <div>
                                 <span class="block">{{ sub.currency }} {{ sub.user_cost }}</span>
-                                <span class="block text-xs text-gray-400 font-normal">Total: {{ sub.currency }} {{ sub.cost }}</span>
+                                <span class="block text-xs text-gray-400 font-normal">Total: {{ sub.currency }} {{
+                                    sub.cost }}</span>
                             </div>
                             {% else %}
                             {{ sub.currency }} {{ sub.cost }}

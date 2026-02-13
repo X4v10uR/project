@@ -23,6 +23,7 @@ class CardForm(forms.ModelForm):
         self.fields['last4'].widget.attrs['style'] = 'padding-left: 9.5rem;'
 
 class SubscriptionForm(forms.ModelForm):
+
     card = forms.ModelChoiceField(
         queryset=Card.objects.none(),
         required=False,
@@ -32,8 +33,9 @@ class SubscriptionForm(forms.ModelForm):
 
     class Meta:
         model = Subscription
-        fields = ['service_name', 'category', 'billing_cycle', 'cost', 'currency', 'start_date', 'renewal_time', 'status', 'reminders_enabled', 'card', 'notes', 'is_shared', 'split_type', 'account_email', 'account_password']
+        fields = ['service_name', 'plan_name', 'category', 'billing_cycle', 'cost', 'currency', 'start_date', 'renewal_time', 'status', 'reminders_enabled', 'card', 'notes', 'is_shared', 'split_type', 'account_email', 'account_password']
         widgets = {
+            'plan_name': forms.TextInput(attrs={'placeholder': 'e.g. Premium 4K, Family'}),
             'start_date': forms.DateInput(attrs={'type': 'date'}),
             'renewal_time': forms.TimeInput(attrs={'type': 'time'}),
             'notes': forms.Textarea(attrs={'rows': 3}),

@@ -20,16 +20,19 @@
             {% endif %}
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {% for field in form %}
-                {% if field.name != 'reminders_enabled' and field.name != 'is_shared' and field.name != 'split_type' and field.name != 'account_email' and field.name != 'account_password' %}
+                {% if field.name != 'reminders_enabled' and field.name != 'is_shared' and field.name != 'split_type' and
+                field.name != 'account_email' and field.name != 'account_password' %}
                 <div class="{% if field.name == 'notes' %}md:col-span-2{% endif %}">
                     <label for="{{ field.id_for_label }}"
                         class="block text-sm font-medium text-gray-700 mb-1 flex justify-between items-center">
                         <span>
                             {{ field.label }}
                             {% if field.name == 'service_name' %}
-                            <span class="ml-2 text-xs text-gray-500 font-normal">Icon preview will appear as you type</span>
+                            <span class="ml-2 text-xs text-gray-500 font-normal">Icon preview will appear as you
+                                type</span>
                             {% endif %}
-                            {% if field.name == 'renewal_time' or field.name == 'account_email' or field.name == 'account_password' %}
+                            {% if field.name == 'renewal_time' or field.name == 'account_email' or field.name ==
+                            'account_password' %}
                             <span class="text-xs text-gray-500 font-normal">(Optional)</span>
                             {% endif %}
                         </span>
@@ -78,7 +81,8 @@
                         <label
                             class="relative flex cursor-pointer rounded-lg border bg-white p-4 shadow-sm focus:outline-none">
                             <input type="radio" name="{{ form.is_shared.name }}" value="False" class="sr-only"
-                                aria-labelledby="ownership-solo-label" aria-describedby="ownership-solo-desc" {% if not form.is_shared.value %}checked{% endif %}>
+                                aria-labelledby="ownership-solo-label" aria-describedby="ownership-solo-desc" {% if not
+                                form.is_shared.value %}checked{% endif %}>
                             <span class="flex flex-1">
                                 <span class="flex flex-col">
                                     <span id="ownership-solo-label" class="block text-sm font-medium text-gray-900">Just
@@ -100,7 +104,8 @@
                         <label
                             class="relative flex cursor-pointer rounded-lg border bg-white p-4 shadow-sm focus:outline-none">
                             <input type="radio" name="{{ form.is_shared.name }}" value="True" class="sr-only"
-                                aria-labelledby="ownership-shared-label" aria-describedby="ownership-shared-desc" {% if form.is_shared.value %}checked{% endif %}>
+                                aria-labelledby="ownership-shared-label" aria-describedby="ownership-shared-desc" {% if
+                                form.is_shared.value %}checked{% endif %}>
                             <span class="flex flex-1">
                                 <span class="flex flex-col">
                                     <span id="ownership-shared-label"
@@ -286,7 +291,8 @@
                             Account Password
                         </label>
                         {{ form.account_password }}
-                        <p class="mt-1 text-xs text-gray-500">Leave blank while editing to keep the existing password.</p>
+                        <p class="mt-1 text-xs text-gray-500">Leave blank while editing to keep the existing password.
+                        </p>
                         {% if form.account_password.errors %}
                         <p class="mt-1 text-xs text-red-600">{{ form.account_password.errors.0 }}</p>
                         {% endif %}
@@ -301,7 +307,8 @@
                     <div class="relative">
                         <!-- Hidden Checkbox -->
                         <input type="checkbox" name="{{ form.reminders_enabled.name }}"
-                            id="{{ form.reminders_enabled.id_for_label }}" class="sr-only peer" {% if form.reminders_enabled.value %}checked{% endif %}>
+                            id="{{ form.reminders_enabled.id_for_label }}" class="sr-only peer" {% if
+                            form.reminders_enabled.value %}checked{% endif %}>
                         <!-- Toggle Track -->
                         <div
                             class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600">
