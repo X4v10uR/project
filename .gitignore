@@ -1,0 +1,13 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# VS Code
+.vscode/
+
+# Backup
+backup/
+
+# Django migrations (optional, be careful)
+*/migrations/
+!*/migrations/__init__.py
