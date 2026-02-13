@@ -1,37 +1,31 @@
-<nav class="bg-white shadow-sm">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between items-center h-16">
-            <div class="flex items-center space-x-8">
-                <a href="/" class="flex items-center space-x-2">
-                    <div
-                        class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
-                        <span class="text-white font-bold text-sm">S</span>
+<nav>
+    <div>
+        <div>
+            <div>
+                <a href="/">
+                    <div>
+                        <span>S</span>
                     </div>
-                    <span class="text-xl font-semibold text-gray-900">Subly</span>
+                    <span>Subly</span>
                 </a>
                 {% if user.is_authenticated %}
-                <div class="hidden sm:flex items-center space-x-2">
-                    <a href="{% url 'dashboard:home' %}"
-                        class="px-4 py-2 rounded-full text-sm font-medium transition-all {% if request.resolver_match.view_name == 'dashboard:home' %}bg-gradient-to-r from-cyan-400 to-cyan-500 text-white shadow-sm{% else %}text-gray-600 hover:text-gray-900{% endif %}">Dashboard</a>
-                    <a href="{% url 'subscriptions:list' %}"
-                        class="px-4 py-2 rounded-full text-sm font-medium transition-all {% if 'subscriptions' in request.resolver_match.view_name and 'cards' not in request.path %}bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-sm{% else %}text-gray-600 hover:text-gray-900{% endif %}">Subscriptions</a>
-                    <a href="{% url 'subscriptions:card_list' %}"
-                        class="px-4 py-2 rounded-full text-sm font-medium transition-all {% if 'cards' in request.path %}bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-sm{% else %}text-gray-600 hover:text-gray-900{% endif %}">Cards</a>
+                <div>
+                    <a href="{% url 'dashboard:home' %}">Dashboard</a>
+                    <a href="{% url 'subscriptions:list' %}">Subscriptions</a>
+                    <a href="{% url 'subscriptions:card_list' %}">Cards</a>
                 </div>
                 {% endif %}
             </div>
-            <div class="flex items-center space-x-4">
+            <div>
                 {% if user.is_authenticated %}
-                <span class="text-sm text-gray-600">{{ user.email }}</span>
-                <form action="{% url 'accounts:logout' %}" method="post" class="inline">
+                <span>{{ user.email }}</span>
+                <form action="{% url 'accounts:logout' %}" method="post">
                     {% csrf_token %}
-                    <button type="submit" class="text-gray-600 hover:text-gray-900 text-sm font-medium">Logout</button>
+                    <button type="submit">Logout</button>
                 </form>
                 {% else %}
-                <a href="{% url 'accounts:login' %}"
-                    class="text-gray-600 hover:text-gray-900 text-sm font-medium">Login</a>
-                <a href="{% url 'accounts:signup' %}"
-                    class="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg text-sm font-medium shadow-sm hover:shadow-md transition">Sign
+                <a href="{% url 'accounts:login' %}">Login</a>
+                <a href="{% url 'accounts:signup' %}">Sign
                     Up</a>
                 {% endif %}
             </div>

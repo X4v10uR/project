@@ -1,317 +1,91 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- <title>{{ subscription.service_name }} Renewal Reminder</title> -->
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: #f8fafc;
-            margin: 0;
-            padding: 16px;
-        }
-        .email-container {
-            max-width: 580px;
-            margin: 0 auto;
-            background: #ffffff;
-            border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-            overflow: hidden;
-        }
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 24px;
-            text-align: center;
-        }
-        .bell-icon {
-            font-size: 24px;
-            margin-bottom: 8px;
-            display: block;
-        }
-        .header h1 {
-            font-size: 22px;
-            font-weight: 700;
-            margin-bottom: 4px;
-            color: white;
-        }
-        .header p {
-            font-size: 14px;
-            opacity: 0.95;
-            color: white;
-        }
-        .content {
-            padding: 24px;
-        }
-        .greeting {
-            font-size: 16px;
-            color: #374151;
-            margin-bottom: 20px;
-        }
-        .alert-box {
-            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-            border: 1px solid #f59e0b;
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 24px;
-            text-align: center;
-        }
-        .alert-text {
-            color: #92400e;
-            font-weight: 600;
-            font-size: 15px;
-        }
-        .subscription-card {
-            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-            border-radius: 12px;
-            padding: 20px;
-            border-left: 4px solid #667eea;
-            margin-bottom: 20px;
-        }
-        .service-header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 16px;
-        }
-        .service-icon {
-            width: 48px;
-            height: 48px;
-            background: white;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 16px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        .service-icon img {
-            width: 28px;
-            height: 28px;
-        }
-        .service-icon-fallback {
-            width: 48px;
-            height: 48px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 16px;
-            color: white;
-            font-weight: 700;
-            font-size: 18px;
-        }
-        .service-name {
-            font-size: 20px;
-            font-weight: 700;
-            color: #1f2937;
-        }
-        .details-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-        }
-        .detail-item {
-            background: white;
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid #e5e7eb;
-        }
-        .detail-label {
-            font-size: 11px;
-            font-weight: 600;
-            color: #6b7280;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 2px;
-        }
-        .detail-value {
-            font-size: 14px;
-            font-weight: 600;
-            color: #1f2937;
-        }
-        .cost-value {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            font-size: 16px;
-            font-weight: 700;
-        }
-        .renewal-date {
-            grid-column: 1 / -1;
-            text-align: center;
-            background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-            border: 1px solid #10b981;
-        }
-        .renewal-date .detail-value {
-            font-size: 16px;
-            color: #065f46;
-        }
-        .renewal-time {
-            display: block;
-            font-size: 13px;
-            color: #059669;
-            margin-top: 2px;
-        }
-        .action-section {
-            text-align: center;
-            margin: 20px 0 16px 0;
-        }
-        .action-text {
-            font-size: 14px;
-            color: #4b5563;
-            margin-bottom: 16px;
-        }
-        .cta-button {
-            display: inline-block;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            text-decoration: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 14px;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-        }
-        .footer-section {
-            margin-top: 20px;
-            padding-top: 16px;
-            border-top: 1px solid #e5e7eb;
-            text-align: center;
-        }
-        .thanks-text {
-            font-size: 14px;
-            color: #374151;
-            margin-bottom: 4px;
-        }
-        .signature {
-            font-weight: 600;
-            color: #1f2937;
-            font-size: 14px;
-        }
-        .footer {
-            background: #f8fafc;
-            padding: 16px 24px;
-            text-align: center;
-            border-top: 1px solid #e5e7eb;
-        }
-        .footer-text {
-            font-size: 12px;
-            color: #6b7280;
-            line-height: 1.4;
-        }
-        
-        /* Mobile Responsiveness */
-        @media (max-width: 600px) {
-            body {
-                padding: 8px;
-            }
-            .header {
-                padding: 20px 16px;
-            }
-            .content {
-                padding: 20px 16px;
-            }
-            .details-grid {
-                grid-template-columns: 1fr;
-                gap: 8px;
-            }
-            .service-header {
-                flex-direction: column;
-                text-align: center;
-            }
-            .service-icon, .service-icon-fallback {
-                margin-right: 0;
-                margin-bottom: 12px;
-            }
-        }
-    </style>
 </head>
+
 <body>
-    <div class="email-container">
+    <div>
         <!-- Header -->
-        <div class="header">
-            <span class="bell-icon">🔔</span>
+        <div>
+            <span>🔔</span>
             <h1>Subscription Renewal Reminder</h1>
             <p>Your subscription is renewing soon</p>
         </div>
-        
+
         <!-- Content -->
-        <div class="content">
-            <div class="greeting">
+        <div>
+            <div>
                 Hi {{ user.first_name|default:user.email }},
             </div>
-            
-            <div class="alert-box">
-                <div class="alert-text">
-                    ⏰ Your <strong>{{ subscription.service_name }}</strong> subscription will renew in <strong>3 days</strong>
+
+            <div>
+                <div>
+                    ⏰ Your <strong>{{ subscription.service_name }}</strong> subscription will renew in <strong>3
+                        days</strong>
                 </div>
             </div>
-            
-            <div class="subscription-card">
-                <div class="service-header">
-                    <div class="service-icon">
-                        <img src="{{ subscription.get_icon_url }}" 
-                             alt="{{ subscription.service_name }}" 
-                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                        <div class="service-icon-fallback" style="display: none;">
+
+            <div>
+                <div>
+                    <div>
+                        <img src="{{ subscription.get_icon_url }}" alt="{{ subscription.service_name }}">
+                        <div style="display: none;">
                             {{ subscription.get_fallback_icon }}
                         </div>
                     </div>
-                    <div class="service-name">{{ subscription.service_name }}</div>
+                    <div>{{ subscription.service_name }}</div>
                 </div>
-                
-                <div class="details-grid">
-                    <div class="detail-item">
-                        <div class="detail-label">Category</div>
-                        <div class="detail-value">{{ subscription.category }}</div>
+
+                <div>
+                    <div>
+                        <div>Category</div>
+                        <div>{{ subscription.category }}</div>
                     </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Cost</div>
-                        <div class="detail-value cost-value">{{ subscription.cost }} {{ subscription.currency }}</div>
+                    <div>
+                        <div>Cost</div>
+                        <div>{{ subscription.cost }} {{ subscription.currency }}</div>
                     </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Billing Cycle</div>
-                        <div class="detail-value">{{ subscription.billing_cycle|title }}</div>
+                    <div>
+                        <div>Billing Cycle</div>
+                        <div>{{ subscription.billing_cycle|title }}</div>
                     </div>
-                    <div class="detail-item renewal-date">
-                        <div class="detail-label">Renewal Date</div>
-                        <div class="detail-value">
+                    <div>
+                        <div>Renewal Date</div>
+                        <div>
                             {{ subscription.renewal_date|date:"F d, Y" }}
                             {% if subscription.renewal_time %}
-                            <span class="renewal-time">at {{ subscription.renewal_time|time:"g:i A" }}</span>
+                            <span>at {{ subscription.renewal_time|time:"g:i A" }}</span>
                             {% endif %}
                         </div>
                     </div>
                 </div>
             </div>
-            
-            <div class="action-section">
-                <div class="action-text">
+
+            <div>
+                <div>
                     If you want to cancel or modify this subscription, visit your dashboard:
                 </div>
-                <a href="{{ site_url }}" class="cta-button">Manage Subscription</a>
+                <a href="{{ site_url }}">Manage Subscription</a>
             </div>
-            
-            <div class="footer-section">
-                <div class="thanks-text">Thanks for using Subly!</div>
-                <div class="signature">The Subly Team</div>
+
+            <div>
+                <div>Thanks for using Subly!</div>
+                <div>The Subly Team</div>
             </div>
         </div>
-        
+
         <!-- Footer -->
-        <div class="footer">
-            <div class="footer-text">
-                This is an automated reminder from Subly. Update preferences in your <a href="{{ site_url }}" style="color: #667eea;">dashboard</a>.
+        <div>
+            <div>
+                This is an automated reminder from Subly. Update preferences in your <a
+                    href="{{ site_url }}">dashboard</a>.
             </div>
         </div>
     </div>
 </body>
+
 </html>
