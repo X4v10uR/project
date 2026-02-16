@@ -14,7 +14,7 @@ class SubscriptionAdmin(admin.ModelAdmin):
             'fields': ('user', 'service_name', 'category')
         }),
         ('Billing Details', {
-            'fields': ('cost', 'currency', 'billing_cycle')
+            'fields': ('cost', 'plan_name', 'currency', 'billing_cycle')
         }),
         ('Dates & Times', {
             'fields': ('start_date', 'renewal_date', 'renewal_time', 'status')
