@@ -97,6 +97,7 @@ def subscription_list(request):
     status_filter = request.GET.get('status', '')
     # ... existing code ...
     cycle_filter = request.GET.get('cycle', '')
+    shared_filter = request.GET.get('shared', '')
     sort_by = request.GET.get('sort', 'renewal_date')
 
     subscriptions = Subscription.objects.filter(user=request.user)
@@ -107,6 +108,8 @@ def subscription_list(request):
         subscriptions = subscriptions.filter(status=status_filter)
     if cycle_filter:
         subscriptions = subscriptions.filter(billing_cycle=cycle_filter)
+    if shared_filter == 'true':
+        subscriptions = subscriptions.filter(is_shared=True)
     
     if sort_by in ['cost', 'renewal_date', 'service_name']:
         subscriptions = subscriptions.order_by(sort_by)
@@ -116,6 +119,7 @@ def subscription_list(request):
         'query': query,
         'status_filter': status_filter,
         'cycle_filter': cycle_filter,
+        'shared_filter': shared_filter,
         'sort_by': sort_by
     })
 

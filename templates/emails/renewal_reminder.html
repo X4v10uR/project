@@ -24,8 +24,9 @@
 
             <div>
                 <div>
-                    ⏰ Your <strong>{{ subscription.service_name }}</strong> subscription will renew in <strong>3
-                        days</strong>
+                    ⏰ Your <strong>{{ subscription.service_name }}</strong> subscription will renew in <strong>{{
+                        days_before }}
+                        day{{ days_before|pluralize }}</strong>
                 </div>
             </div>
 

@@ -3,379 +3,222 @@
 {% block title %}{{ title }} - Subly{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto">
-    <div class="mb-8">
-        <h1 class="text-2xl font-bold text-gray-900">{{ title }}</h1>
-        <p class="text-gray-600">Enter the details of your recurring subscription.</p>
+<div>
+    <div>
+        <h1>{{ title }}</h1>
+        <p>Enter the details of your recurring subscription.</p>
     </div>
 
-    <div class="bg-white shadow-xl shadow-slate-200/50 rounded-2xl border border-slate-100 overflow-hidden">
-        <form method="post" class="p-8 space-y-6 text-slate-900">
+    <div>
+        <form method="post">
             {% csrf_token %}
 
             {% if form.non_field_errors %}
-            <div class="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg border border-red-200">
+            <div class="errorlist">
                 {{ form.non_field_errors }}
             </div>
             {% endif %}
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <div>
                 {% for field in form %}
-                {% if field.name != 'reminders_enabled' and field.name != 'is_shared' and field.name != 'split_type' and
-                field.name != 'account_email' and field.name != 'account_password' %}
-                <div class="{% if field.name == 'notes' %}md:col-span-2{% endif %}">
-                    <label for="{{ field.id_for_label }}"
-                        class="block text-sm font-medium text-gray-700 mb-1 flex justify-between items-center">
-                        <span>
-                            {{ field.label }}
-                            {% if field.name == 'service_name' %}
-                            <span class="ml-2 text-xs text-gray-500 font-normal">Icon preview will appear as you
-                                type</span>
-                            {% endif %}
-                            {% if field.name == 'renewal_time' or field.name == 'account_email' or field.name ==
-                            'account_password' %}
-                            <span class="text-xs text-gray-500 font-normal">(Optional)</span>
-                            {% endif %}
-                        </span>
-                        {% if field.name == 'card' %}
-                        <a href="{% url 'subscriptions:card_list' %}"
-                            class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">Manage Cards</a>
-                        {% endif %}
-                    </label>
-                    <div class="{% if field.name == 'service_name' %}flex items-center space-x-3{% endif %}">
-                        {{ field }}
-                        {% if field.name == 'service_name' %}
-                        <div id="icon-preview"
-                            class="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center overflow-hidden"
-                            style="display: none;">
-                            <img id="service-icon" src="" alt="" class="w-6 h-6" style="display: none;">
-                            <div id="fallback-icon"
-                                class="w-10 h-10 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-lg flex items-center justify-center">
-                                <span class="text-indigo-600 font-semibold text-sm" id="fallback-letter">S</span>
+                    {% if field.name != 'reminders_enabled' and field.name != 'is_shared' and field.name != 'split_type' and field.name != 'account_email' and field.name != 'account_password' %}
+                        <div class="{% if field.name == 'notes' %}notes-container{% endif %}">
+                            <label for="{{ field.id_for_label }}">
+                                <span>
+                                    {{ field.label }}
+                                    {% if field.name == 'service_name' %}
+                                        <span>Icon preview will appear as you type</span>
+                                    {% endif %}
+                                    {% if field.name == 'renewal_time' or field.name == 'account_email' or field.name == 'account_password' %}
+                                        <span>(Optional)</span>
+                                    {% endif %}
+                                </span>
+                                {% if field.name == 'card' %}
+                                    <a href="{% url 'subscriptions:card_list' %}">Manage Cards</a>
+                                {% endif %}
+                            </label>
+                            <div class="{% if field.name == 'service_name' %}service-name-input-container{% endif %}">
+                                {{ field }}
+                                {% if field.name == 'service_name' %}
+                                    <div id="icon-preview" style="display: none;">
+                                        <img id="service-icon" src="" alt="" style="display: none;">
+                                        <div id="fallback-icon">
+                                            <span id="fallback-letter">S</span>
+                                        </div>
+                                    </div>
+                                {% endif %}
                             </div>
+                            {% if field.help_text %}<p>{{ field.help_text }}</p>{% endif %}
+                            {% if field.name == 'card' and not field.field.queryset %}
+                                <p>No cards added yet. <a href="{% url 'subscriptions:card_create' %}">Add one from the Cards page</a>.</p>
+                            {% endif %}
+                            {% if field.errors %}<p class="error">{{ field.errors.0 }}</p>{% endif %}
                         </div>
-                        {% endif %}
-                    </div>
-                    {% if field.help_text %}
-                    <p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>{% endif %}
-                    {% if field.name == 'card' and not field.field.queryset %}
-                    <p class="mt-1 text-xs text-amber-600">No cards added yet. <a
-                            href="{% url 'subscriptions:card_create' %}" class="underline hover:text-amber-700">Add one
-                            from the Cards page</a>.</p>
                     {% endif %}
-                    {% if field.errors %}
-                    <p class="mt-1 text-xs text-red-600">{{ field.errors.0 }}</p>
-                    {% endif %}
-                </div>
-                {% endif %}
                 {% endfor %}
             </div>
 
             <!-- Enhanced Shared Subscription Section -->
-            <div class="pt-8 border-t border-slate-100">
-                <h3 class="text-sm font-semibold text-gray-900 mb-6 uppercase tracking-wider">Sharing & Ownership</h3>
+            <div>
+                <h3>Sharing & Ownership</h3>
 
                 <!-- Ownership Selector -->
-                <div class="mb-8">
-                    <label class="block text-sm font-medium text-gray-700 mb-3">Who is this subscription for?</label>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <label
-                            class="relative flex cursor-pointer rounded-lg border bg-white p-4 shadow-sm focus:outline-none">
-                            <input type="radio" name="{{ form.is_shared.name }}" value="False" class="sr-only"
-                                aria-labelledby="ownership-solo-label" aria-describedby="ownership-solo-desc" {% if not
-                                form.is_shared.value %}checked{% endif %}>
-                            <span class="flex flex-1">
-                                <span class="flex flex-col">
-                                    <span id="ownership-solo-label" class="block text-sm font-medium text-gray-900">Just
-                                        me</span>
-                                    <span id="ownership-solo-desc"
-                                        class="mt-1 flex items-center text-sm text-gray-500">I pay the full
-                                        amount</span>
+                <div>
+                    <label>Who is this subscription for?</label>
+                    <div>
+                        <label>
+                            <input type="radio" name="{{ form.is_shared.name }}" value="False" {% if not form.is_shared.value %}checked{% endif %}>
+                            <span>
+                                <span>
+                                    <span id="ownership-solo-label">Just me</span>
+                                    <span id="ownership-solo-desc">I pay the full amount</span>
                                 </span>
                             </span>
-                            <svg class="h-5 w-5 text-indigo-600 hidden" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                    clip-rule="evenodd" />
-                            </svg>
-                            <span class="pointer-events-none absolute -inset-px rounded-lg border-2"
-                                aria-hidden="true"></span>
                         </label>
 
-                        <label
-                            class="relative flex cursor-pointer rounded-lg border bg-white p-4 shadow-sm focus:outline-none">
-                            <input type="radio" name="{{ form.is_shared.name }}" value="True" class="sr-only"
-                                aria-labelledby="ownership-shared-label" aria-describedby="ownership-shared-desc" {% if
-                                form.is_shared.value %}checked{% endif %}>
-                            <span class="flex flex-1">
-                                <span class="flex flex-col">
-                                    <span id="ownership-shared-label"
-                                        class="block text-sm font-medium text-gray-900">Shared with others</span>
-                                    <span id="ownership-shared-desc"
-                                        class="mt-1 flex items-center text-sm text-gray-500">Split cost with
-                                        others</span>
+                        <label>
+                            <input type="radio" name="{{ form.is_shared.name }}" value="True" {% if form.is_shared.value %}checked{% endif %}>
+                            <span>
+                                <span>
+                                    <span id="ownership-shared-label">Shared with others</span>
+                                    <span id="ownership-shared-desc">Split cost with others</span>
                                 </span>
                             </span>
-                            <svg class="h-5 w-5 text-indigo-600 hidden" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                    clip-rule="evenodd" />
-                            </svg>
-                            <span class="pointer-events-none absolute -inset-px rounded-lg border-2"
-                                aria-hidden="true"></span>
                         </label>
                     </div>
                 </div>
 
                 <!-- Shared Settings (Conditional) -->
-                <div id="shared-settings" class="space-y-8 pl-4 border-l-2 border-indigo-100 hidden">
-
+                <div id="shared-settings" class="hidden">
                     <!-- Split Type -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-3">How is the cost divided?</label>
-                        <div class="flex items-center space-x-4">
+                        <label>How is the cost divided?</label>
+                        <div>
                             {% for radio in form.split_type %}
-                            <label class="cursor-pointer relative">
-                                {{ radio.tag }}
-                                <div
-                                    class="px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 peer-checked:border-indigo-600 peer-checked:bg-indigo-50 peer-checked:text-indigo-700 peer-checked:[&_.outer-circle]:border-indigo-600 peer-checked:[&_.outer-circle]:bg-indigo-600 peer-checked:[&_.inner-circle]:opacity-100 transition-all flex items-center">
-                                    <span
-                                        class="outer-circle w-4 h-4 mr-2 rounded-full border border-gray-300 flex items-center justify-center">
-                                        <span
-                                            class="inner-circle w-2 h-2 rounded-full bg-white opacity-0 transition-opacity"></span>
-                                    </span>
-                                    {{ radio.choice_label }}
-                                </div>
-                            </label>
+                                <label>
+                                    {{ radio.tag }}
+                                    <div>
+                                        <span class="outer-circle"><span class="inner-circle"></span></span>
+                                        {{ radio.choice_label }}
+                                    </div>
+                                </label>
                             {% endfor %}
                         </div>
                     </div>
 
                     <!-- Participants -->
                     <div>
-                        <div class="flex justify-between items-center mb-4">
-                            <label class="block text-sm font-medium text-gray-700">Participants</label>
-                            <button type="button" id="add-participant"
-                                class="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center">
-                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 4v16m8-8H4"></path>
-                                </svg>
-                                Add Person
-                            </button>
+                        <div>
+                            <label>Participants</label>
+                            <button type="button" id="add-participant">Add Person</button>
                         </div>
 
-                        <div class="space-y-3" id="participants-list">
+                        <div id="participants-list">
                             <!-- User's Row (Fixed) -->
-                            <div class="flex items-center space-x-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                                <div class="flex-grow">
-                                    <span class="text-sm font-medium text-gray-900">You (Owner)</span>
-                                </div>
-                                <div class="w-32">
-                                    <div class="relative rounded-md shadow-sm">
-                                        <div
-                                            class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                            <span class="text-gray-500 sm:text-sm">$</span>
-                                        </div>
-                                        <input type="text" id="user-share-display" disabled
-                                            class="block w-full rounded-md border-0 py-1.5 pl-7 pr-12 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 bg-gray-100"
-                                            value="0.00">
-                                        <div
-                                            class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                                            <span class="text-gray-500 sm:text-sm">USD</span>
-                                        </div>
+                            <div class="user-row">
+                                <div><span>You (Owner)</span></div>
+                                <div>
+                                    <div>
+                                        <span>$</span>
+                                        <input type="text" id="user-share-display" disabled value="0.00">
+                                        <span>USD</span>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Existing Participants (for Edit) -->
                             {% if form.instance.pk %}
-                            {% for participant in form.instance.participants.all %}
-                            <div
-                                class="participant-row flex items-center space-x-3 p-3 rounded-lg border border-transparent hover:bg-slate-50 hover:border-slate-200 transition-all">
-                                <div class="flex-grow">
-                                    <input type="text" name="participant_name" value="{{ participant.name }}"
-                                        placeholder="Name (e.g. John)"
-                                        class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
-                                </div>
-                                <div class="w-32">
-                                    <div class="relative rounded-md shadow-sm">
-                                        <div
-                                            class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                            <span class="text-gray-500 sm:text-sm">$</span>
+                                {% for participant in form.instance.participants.all %}
+                                    <div class="participant-row">
+                                        <div><input type="text" name="participant_name" value="{{ participant.name }}" placeholder="Name (e.g. John)"></div>
+                                        <div>
+                                            <div>
+                                                <span>$</span>
+                                                <input type="number" name="participant_share" step="0.01" value="{{ participant.share_amount }}" placeholder="0.00" class="participant-share-input">
+                                            </div>
                                         </div>
-                                        <input type="number" name="participant_share" step="0.01"
-                                            value="{{ participant.share_amount }}" placeholder="0.00"
-                                            class="participant-share-input block w-full rounded-md border-0 py-1.5 pl-7 pr-12 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                                        <button type="button" class="remove-participant">Remove</button>
                                     </div>
-                                </div>
-                                <button type="button" class="text-gray-400 hover:text-red-500 remove-participant">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
-                                        </path>
-                                    </svg>
-                                </button>
-                            </div>
-                            {% endfor %}
+                                {% endfor %}
                             {% endif %}
                         </div>
                     </div>
 
                     <!-- Total Validation Error -->
-                    <div id="split-error" class="hidden rounded-md bg-red-50 p-4">
-                        <div class="flex">
-                            <div class="flex-shrink-0">
-                                <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor"
-                                    aria-hidden="true">
-                                    <path fill-rule="evenodd"
-                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
-                                        clip-rule="evenodd" />
-                                </svg>
-                            </div>
-                            <div class="ml-3">
-                                <h3 class="text-sm font-medium text-red-800">Split Total Mismatch</h3>
-                                <div class="mt-2 text-sm text-red-700">
-                                    <p>The sum of all shares must equal the total subscription cost (<span
-                                            id="total-cost-display"></span>).</p>
-                                </div>
-                            </div>
-                        </div>
+                    <div id="split-error" class="hidden">
+                        <h3>Split Total Mismatch</h3>
+                        <p>The sum of all shares must equal the total subscription cost (<span id="total-cost-display"></span>).</p>
                     </div>
                 </div>
             </div>
+
             <!-- Account Credentials Section -->
-            <div class="pt-8 border-t border-slate-100">
-                <div class="flex items-center justify-between mb-6">
-                    <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Account Used for This
-                        Subscription</h3>
-                    <span
-                        class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
-                        Optional
-                    </span>
+            <div>
+                <div>
+                    <h3>Account Used for This Subscription</h3>
+                    <span>Optional</span>
                 </div>
-
-                <!-- Premium Info Box -->
-                <div
-                    class="mb-6 rounded-xl bg-gradient-to-r from-indigo-50 to-blue-50 p-4 border border-indigo-100 shadow-sm">
-                    <div class="flex">
-                        <div class="flex-shrink-0">
-                            <svg class="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke-width="2"
-                                stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
-                        </div>
-                        <div class="ml-3">
-                            <p class="text-sm text-indigo-900 leading-relaxed">
-                                This helps you remember which account is used for this subscription, especially if you
-                                have multiple accounts. For security, passwords are encrypted before they are saved.
-                            </p>
-                        </div>
-                    </div>
+                <div>
+                    <p>This helps you remember which account is used for this subscription, especially if you have multiple accounts. For security, passwords are encrypted before they are saved.</p>
                 </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
                     <div>
-                        <label for="{{ form.account_email.id_for_label }}"
-                            class="block text-sm font-medium text-gray-700 mb-1">
-                            Account Email
-                        </label>
+                        <label for="{{ form.account_email.id_for_label }}">Account Email</label>
                         {{ form.account_email }}
-                        {% if form.account_email.errors %}
-                        <p class="mt-1 text-xs text-red-600">{{ form.account_email.errors.0 }}</p>
-                        {% endif %}
+                        {% if form.account_email.errors %}<p class="error">{{ form.account_email.errors.0 }}</p>{% endif %}
                     </div>
                     <div>
-                        <label for="{{ form.account_password.id_for_label }}"
-                            class="block text-sm font-medium text-gray-700 mb-1">
-                            Account Password
-                        </label>
+                        <label for="{{ form.account_password.id_for_label }}">Account Password</label>
                         {{ form.account_password }}
-                        <p class="mt-1 text-xs text-gray-500">Leave blank while editing to keep the existing password.
-                        </p>
-                        {% if form.account_password.errors %}
-                        <p class="mt-1 text-xs text-red-600">{{ form.account_password.errors.0 }}</p>
-                        {% endif %}
+                        <p>Leave blank while editing to keep the existing password.</p>
+                        {% if form.account_password.errors %}<p class="error">{{ form.account_password.errors.0 }}</p>{% endif %}
                     </div>
                 </div>
             </div>
 
-            <h3 class="text-sm font-semibold text-gray-900 mb-4 uppercase tracking-wider">Reminder Settings</h3>
+            <h3>Reminder Settings</h3>
 
-            <div class="flex items-center mb-6">
-                <label for="{{ form.reminders_enabled.id_for_label }}" class="inline-flex items-center cursor-pointer">
-                    <div class="relative">
-                        <!-- Hidden Checkbox -->
-                        <input type="checkbox" name="{{ form.reminders_enabled.name }}"
-                            id="{{ form.reminders_enabled.id_for_label }}" class="sr-only peer" {% if
-                            form.reminders_enabled.value %}checked{% endif %}>
-                        <!-- Toggle Track -->
-                        <div
-                            class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600">
-                        </div>
-                    </div>
-                    <span class="ml-3 text-sm font-medium text-gray-700">Enable renewal notifications for this
-                        subscription</span>
+            <div>
+                <label for="{{ form.reminders_enabled.id_for_label }}">
+                    <input type="checkbox" name="{{ form.reminders_enabled.name }}" id="{{ form.reminders_enabled.id_for_label }}" {% if form.reminders_enabled.value %}checked{% endif %}>
+                    <span>Enable renewal notifications for this subscription</span>
                 </label>
             </div>
 
             <div id="offsets-section">
-                <p class="text-sm text-gray-600 mb-3">Reminder offsets (days before renewal):</p>
-                <div class="flex flex-wrap gap-2 mb-4" id="offsets-list">
+                <p>Reminder offsets (days before renewal):</p>
+                <div id="offsets-list">
                     {% if form.instance.pk %}
-                    {% for offset in form.instance.offsets.all %}
-                    <div class="offset-tag inline-flex items-center px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-sm border border-indigo-100"
-                        data-days="{{ offset.days_before }}">
-                        <span>{{ offset.days_before }} days before</span>
-                        <button type="button" onclick="deleteOffset({{ offset.pk }})"
-                            class="ml-2 hover:text-indigo-900">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                        </button>
-                    </div>
-                    {% empty %}
-                    <p id="no-offsets-msg" class="text-xs text-gray-400 italic">No custom offsets. Using default (3 days
-                        before).</p>
-                    {% endfor %}
+                        {% for offset in form.instance.offsets.all %}
+                            <div class="offset-tag" data-days="{{ offset.days_before }}">
+                                <span>{{ offset.days_before }} days before</span>
+                                <button type="button" onclick="deleteOffset({{ offset.pk }})">Remove</button>
+                            </div>
+                        {% empty %}
+                            <p id="no-offsets-msg">No custom offsets. Using default (3 days before).</p>
+                        {% endfor %}
                     {% else %}
-                    <p id="no-offsets-msg" class="text-xs text-gray-400 italic">No custom offsets. Using default (3 days
-                        before).</p>
+                        <p id="no-offsets-msg">No custom offsets. Using default (3 days before).</p>
                     {% endif %}
                 </div>
 
-                <div class="flex items-center space-x-2 max-w-xs">
-                    <input type="number" id="new-offset-days" min="1" max="30" placeholder="3"
-                        class="appearance-none block w-20 px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-slate-900">
+                <div>
+                    <input type="number" id="new-offset-days" min="1" max="30" placeholder="3">
                     {% if form.instance.pk %}
-                    <button type="button" onclick="addOffset({{ form.instance.pk }})"
-                        class="px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 transition text-sm font-medium border border-indigo-100">
-                        Add Offset
-                    </button>
+                        <button type="button" onclick="addOffset({{ form.instance.pk }})">Add Offset</button>
                     {% else %}
-                    <button type="button" id="add-offset-btn"
-                        class="px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 transition text-sm font-medium border border-indigo-100">
-                        Add Offset
-                    </button>
+                        <button type="button" id="add-offset-btn">Add Offset</button>
                     {% endif %}
                 </div>
-
-                <!-- Hidden inputs container for new subscriptions -->
                 <div id="offset-inputs-container"></div>
             </div>
-    </div>
 
-    <div class="flex items-center justify-end space-x-4 pt-4 border-t border-slate-100">
-        <a href="{% url 'subscriptions:list' %}"
-            class="text-gray-500 hover:text-gray-700 font-medium text-sm">Cancel</a>
-        <button type="submit"
-            class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition font-medium shadow-sm">
-            Save Subscription
-        </button>
+            <div>
+                <a href="{% url 'subscriptions:list' %}">Cancel</a>
+                <button type="submit">Save Subscription</button>
+            </div>
+        </form>
     </div>
-    </form>
-</div>
 </div>
 
 <script>
@@ -417,8 +260,6 @@
         const offsetsSection = document.getElementById('offsets-section');
 
         if (remindersToggle && offsetsSection) {
-            // No need for classList.add/remove logic on the toggle itself as we use sr-only peer styling now
-
             remindersToggle.addEventListener('change', function () {
                 if (this.checked) {
                     offsetsSection.classList.remove('opacity-50', 'pointer-events-none');
@@ -433,74 +274,45 @@
         const fallbackIcon = document.getElementById('fallback-icon');
         const fallbackLetter = document.getElementById('fallback-letter');
 
-        // Service name mappings (same as in Python model)
         const serviceMappings = {
-            'chatgpt plus': 'openai',
-            'chat gpt': 'openai',
-            'openai': 'openai',
-            'adobe cc': 'adobe',
-            'adobe creative cloud': 'adobe',
-            'disney+': 'disney-plus',
-            'disney plus': 'disney-plus',
-            'amazon prime': 'amazon-prime-video',
-            'prime video': 'amazon-prime-video',
-            'youtube premium': 'youtube',
-            'google drive': 'google-drive',
-            'google workspace': 'google-workspace',
-            'microsoft 365': 'microsoft-365',
-            'office 365': 'microsoft-365',
-            'icloud': 'icloud',
-            'dropbox': 'dropbox',
-            'github': 'github',
-            'gitlab': 'gitlab',
-            'bitbucket': 'bitbucket',
-            'aws': 'amazon-web-services',
-            'amazon web services': 'amazon-web-services',
-            'google cloud': 'google-cloud',
-            'azure': 'microsoft-azure',
-            'digital ocean': 'digitalocean',
-            'linode': 'linode',
-            'vultr': 'vultr',
+            'chatgpt plus': 'openai', 'chat gpt': 'openai', 'openai': 'openai',
+            'adobe cc': 'adobe', 'adobe creative cloud': 'adobe',
+            'disney+': 'disney-plus', 'disney plus': 'disney-plus',
+            'amazon prime': 'amazon-prime-video', 'prime video': 'amazon-prime-video',
+            'youtube premium': 'youtube', 'google drive': 'google-drive',
+            'google workspace': 'google-workspace', 'microsoft 365': 'microsoft-365',
+            'office 365': 'microsoft-365', 'icloud': 'icloud', 'dropbox': 'dropbox',
+            'github': 'github', 'gitlab': 'gitlab', 'bitbucket': 'bitbucket',
+            'aws': 'amazon-web-services', 'amazon web services': 'amazon-web-services',
+            'google cloud': 'google-cloud', 'azure': 'microsoft-azure',
+            'digital ocean': 'digitalocean', 'linode': 'linode', 'vultr': 'vultr',
         };
 
         function generateIconUrl(serviceName) {
             if (!serviceName) return null;
-
             const serviceLower = serviceName.toLowerCase().trim();
             let iconName;
-
             if (serviceMappings[serviceLower]) {
                 iconName = serviceMappings[serviceLower];
             } else {
-                iconName = serviceLower
-                    .replace(/ /g, '-')
-                    .replace(/\+/g, '-plus')
-                    .replace(/&/g, '-and')
-                    .replace(/\./g, '')
-                    .replace(/[()]/g, '')
-                    .replace(/_/g, '-');
+                iconName = serviceLower.replace(/ /g, '-').replace(/\+/g, '-plus').replace(/&/g, '-and').replace(/\./g, '').replace(/[()]/g, '').replace(/_/g, '-');
             }
-
             return `https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/${iconName}.svg`;
         }
 
         function updateIconPreview() {
             const serviceName = serviceNameField.value.trim();
-
             if (!serviceName) {
                 iconPreview.style.display = 'none';
                 return;
             }
-
             iconPreview.style.display = 'flex';
             fallbackLetter.textContent = serviceName[0].toUpperCase();
-
             const iconUrl = generateIconUrl(serviceName);
             if (iconUrl) {
                 serviceIcon.src = iconUrl;
                 serviceIcon.style.display = 'block';
                 fallbackIcon.style.display = 'none';
-
                 serviceIcon.onerror = function () {
                     serviceIcon.style.display = 'none';
                     fallbackIcon.style.display = 'flex';
@@ -510,11 +322,9 @@
 
         if (serviceNameField) {
             serviceNameField.addEventListener('input', updateIconPreview);
-            // Update on page load if there's already a value
             updateIconPreview();
         }
 
-        // --- Shared Subscription Logic ---
         const costInput = document.getElementById('id_cost');
         const sharedSettings = document.getElementById('shared-settings');
         const participantsList = document.getElementById('participants-list');
@@ -526,29 +336,8 @@
         const totalCostDisplay = document.getElementById('total-cost-display');
         const saveBtn = document.querySelector('button[type="submit"]');
 
-        // Initial State
         function toggleSharedSettings() {
             const isShared = document.querySelector('input[name="is_shared"]:checked')?.value === 'True';
-
-            // Handle Radio Styling
-            document.querySelectorAll('input[name="is_shared"]').forEach(input => {
-                const label = input.closest('label');
-                const svg = label.querySelector('svg');
-                const border = label.querySelector('.pointer-events-none');
-
-                if (input.checked) {
-                    label.classList.add('ring-2', 'ring-indigo-600', 'bg-indigo-50');
-                    label.classList.remove('border-gray-300'); // Assuming default has this, though tailwind default is border
-                    svg.classList.remove('hidden');
-                    border.classList.add('border-indigo-600');
-                    border.classList.remove('border-transparent'); // or existing border color
-                } else {
-                    label.classList.remove('ring-2', 'ring-indigo-600', 'bg-indigo-50');
-                    svg.classList.add('hidden');
-                    border.classList.remove('border-indigo-600');
-                }
-            });
-
             if (isShared) {
                 sharedSettings.classList.remove('hidden');
                 calculateSplits();
@@ -566,39 +355,23 @@
             const splitType = getSplitType();
             const participantRows = document.querySelectorAll('.participant-row');
             const participantCount = participantRows.length;
-            const totalPeople = participantCount + 1; // +1 for user
-
+            const totalPeople = participantCount + 1;
             totalCostDisplay.textContent = totalCost.toFixed(2);
-
             if (splitType === 'equal') {
                 const sharePerPerson = totalCost / totalPeople;
                 userShareDisplay.value = sharePerPerson.toFixed(2);
-
                 document.querySelectorAll('.participant-share-input').forEach(input => {
                     input.value = sharePerPerson.toFixed(2);
                     input.readOnly = true;
-                    input.classList.add('bg-gray-100');
-                    input.classList.remove('bg-white');
                 });
                 splitError.classList.add('hidden');
                 saveBtn.disabled = false;
             } else {
-                // Custom Split
-                document.querySelectorAll('.participant-share-input').forEach(input => {
-                    input.readOnly = false;
-                    input.classList.remove('bg-gray-100');
-                    input.classList.add('bg-white');
-                });
-
+                document.querySelectorAll('.participant-share-input').forEach(input => { input.readOnly = false; });
                 let othersTotal = 0;
-                document.querySelectorAll('.participant-share-input').forEach(input => {
-                    othersTotal += parseFloat(input.value) || 0;
-                });
-
+                document.querySelectorAll('.participant-share-input').forEach(input => { othersTotal += parseFloat(input.value) || 0; });
                 const userShare = totalCost - othersTotal;
                 userShareDisplay.value = userShare.toFixed(2);
-
-                // Validate: user share must be >= 0 and total must match
                 if (userShare < 0 || Math.abs(userShare + othersTotal - totalCost) > 0.01) {
                     splitError.classList.remove('hidden');
                     saveBtn.disabled = true;
@@ -611,49 +384,27 @@
 
         function addParticipant() {
             const div = document.createElement('div');
-            div.className = 'participant-row flex items-center space-x-3 p-3 rounded-lg border border-transparent hover:bg-slate-50 hover:border-slate-200 transition-all';
-            div.innerHTML = `
-                <div class="flex-grow">
-                    <input type="text" name="participant_name" placeholder="Name (e.g. John)"
-                        class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
-                </div>
-                <div class="w-32">
-                    <div class="relative rounded-md shadow-sm">
-                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                            <span class="text-gray-500 sm:text-sm">$</span>
-                        </div>
-                        <input type="number" name="participant_share" step="0.01" placeholder="0.00"
-                            class="participant-share-input block w-full rounded-md border-0 py-1.5 pl-7 pr-12 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
-                    </div>
-                </div>
-                <button type="button" class="text-gray-400 hover:text-red-500 remove-participant">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                </button>
-            `;
+            div.className = 'participant-row';
+            div.innerHTML = `<div><input type="text" name="participant_name" placeholder="Name (e.g. John)"></div><div><div><span>$</span><input type="number" name="participant_share" step="0.01" placeholder="0.00" class="participant-share-input"></div></div><button type="button" class="remove-participant">Remove</button>`;
             participantsList.appendChild(div);
             calculateSplits();
         }
 
-        // Event Listeners
         isSharedInputs.forEach(input => input.addEventListener('change', toggleSharedSettings));
         splitTypeInputs.forEach(input => input.addEventListener('change', calculateSplits));
         costInput.addEventListener('input', calculateSplits);
         addParticipantBtn.addEventListener('click', addParticipant);
-
         participantsList.addEventListener('click', function (e) {
             if (e.target.closest('.remove-participant')) {
                 e.target.closest('.participant-row').remove();
                 calculateSplits();
             }
         });
-
         participantsList.addEventListener('input', function (e) {
             if (e.target.classList.contains('participant-share-input')) {
                 calculateSplits();
             }
         });
-
-        // Form submission validation
         document.querySelector('form').addEventListener('submit', function (e) {
             const isShared = document.querySelector('input[name="is_shared"]:checked')?.value === 'True';
             if (isShared) {
@@ -662,7 +413,6 @@
                     const nameInput = row.querySelector('input[name="participant_name"]');
                     return nameInput && nameInput.value.trim() !== '';
                 });
-
                 if (!hasValidParticipants) {
                     e.preventDefault();
                     alert('Please add at least one participant for shared subscriptions, or select "Just me".');
@@ -671,7 +421,6 @@
             }
         });
 
-        // --- New Subscription Offset Handling ---
         const addOffsetBtn = document.getElementById('add-offset-btn');
         const offsetsList = document.getElementById('offsets-list');
         const offsetInputsContainer = document.getElementById('offset-inputs-container');
@@ -684,104 +433,55 @@
                 alert('Please enter a valid number between 1 and 30 days.');
                 return;
             }
-
-            // Check if this offset already exists
             const existingOffsets = document.querySelectorAll('.offset-tag');
-            for (let tag of existingOffsets) {
-                if (parseInt(tag.dataset.days) === days) {
-                    alert('This reminder offset already exists.');
-                    return;
-                }
-            }
-
-            // Hide "no offsets" message if present
+            for (let tag of existingOffsets) { if (parseInt(tag.dataset.days) === days) { alert('This reminder offset already exists.'); return; } }
             const noOffsetsMsg = document.getElementById('no-offsets-msg');
-            if (noOffsetsMsg) {
-                noOffsetsMsg.remove();
-            }
-
-            // Create visual tag
+            if (noOffsetsMsg) noOffsetsMsg.remove();
             const tagDiv = document.createElement('div');
-            tagDiv.className = 'offset-tag inline-flex items-center px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-sm border border-indigo-100';
+            tagDiv.className = 'offset-tag';
             tagDiv.dataset.days = days;
             tagDiv.dataset.offsetId = offsetCounter;
-            tagDiv.innerHTML = `
-                <span>${days} days before</span>
-                <button type="button" class="ml-2 hover:text-indigo-900 remove-offset-btn">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            `;
+            tagDiv.innerHTML = `<span>${days} days before</span><button type="button" class="remove-offset-btn">Remove</button>`;
             offsetsList.appendChild(tagDiv);
-
-            // Create hidden input for form submission
             const hiddenInput = document.createElement('input');
             hiddenInput.type = 'hidden';
             hiddenInput.name = 'reminder_offsets';
             hiddenInput.value = days;
             hiddenInput.id = `offset-input-${offsetCounter}`;
             offsetInputsContainer.appendChild(hiddenInput);
-
             offsetCounter++;
             newOffsetDaysInput.value = '';
         }
 
         function removeNewOffset(offsetId) {
-            // Remove the tag
             const tag = document.querySelector(`.offset-tag[data-offset-id="${offsetId}"]`);
-            if (tag) {
-                tag.remove();
-            }
-
-            // Remove the hidden input
+            if (tag) tag.remove();
             const hiddenInput = document.getElementById(`offset-input-${offsetId}`);
-            if (hiddenInput) {
-                hiddenInput.remove();
-            }
-
-            // Show "no offsets" message if no offsets remain
+            if (hiddenInput) hiddenInput.remove();
             const remainingOffsets = document.querySelectorAll('.offset-tag');
             if (remainingOffsets.length === 0) {
                 const noOffsetsMsg = document.createElement('p');
                 noOffsetsMsg.id = 'no-offsets-msg';
-                noOffsetsMsg.className = 'text-xs text-gray-400 italic';
                 noOffsetsMsg.textContent = 'No custom offsets. Using default (3 days before).';
                 offsetsList.appendChild(noOffsetsMsg);
             }
         }
 
-        // Event listener for adding offset (new subscription)
-        if (addOffsetBtn) {
-            addOffsetBtn.addEventListener('click', addNewOffset);
-        }
-
-        // Event delegation for removing offsets (new subscription)
+        if (addOffsetBtn) addOffsetBtn.addEventListener('click', addNewOffset);
         if (offsetsList) {
             offsetsList.addEventListener('click', function (e) {
                 const removeBtn = e.target.closest('.remove-offset-btn');
                 if (removeBtn) {
                     const tag = removeBtn.closest('.offset-tag');
-                    if (tag && tag.dataset.offsetId !== undefined) {
-                        removeNewOffset(tag.dataset.offsetId);
-                    }
+                    if (tag && tag.dataset.offsetId !== undefined) { removeNewOffset(tag.dataset.offsetId); }
                 }
             });
         }
-
-        // Allow Enter key to add offset
         if (newOffsetDaysInput) {
             newOffsetDaysInput.addEventListener('keypress', function (e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (addOffsetBtn) {
-                        addNewOffset();
-                    }
-                }
+                if (e.key === 'Enter') { e.preventDefault(); if (addOffsetBtn) addNewOffset(); }
             });
         }
-
-        // Init
         toggleSharedSettings();
     });
 </script>

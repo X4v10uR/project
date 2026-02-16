@@ -1,1 +1,1 @@
-{{ subscription.service_name }} renewal reminder - {{ subscription.cost }} {{ subscription.currency }} due in 3 days
+{{ subscription.service_name }} renewal reminder - {{ subscription.cost }} {{ subscription.currency }} due in {{ days_before }} day{{ days_before|pluralize }}

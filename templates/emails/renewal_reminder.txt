@@ -1,6 +1,6 @@
 Hi {{ user.first_name|default:user.email }},
 
-Your {{ subscription.service_name }} subscription is set to renew in 3 days.
+Your {{ subscription.service_name }} subscription is set to renew in {{ days_before }} day{{ days_before|pluralize }}.
 
 Subscription Details:
 - Service: {{ subscription.service_name }}

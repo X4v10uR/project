@@ -1,4 +1,5 @@
 django
+python-dateutil
 django-environ
 djangorestframework
 django-cors-headers

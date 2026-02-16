@@ -72,7 +72,8 @@ def main():
         
         # Send notifications based on per-subscription offsets
         results = NotificationService.send_batch_notifications(
-            target_time=target_time
+            target_time=target_time,
+            days_before=args.days_before
         )
         
         logger.info(f"Notification batch completed:")

@@ -3,76 +3,66 @@
 {% block title %}{{ title }} - Subly{% endblock %}
 
 {% block content %}
-<div class="max-w-xl mx-auto">
-    <div class="mb-8">
-        <h1 class="text-2xl font-bold text-gray-900">{{ title }}</h1>
-        <p class="text-gray-600">Enter card details for identification.</p>
+<div>
+    <div>
+        <h1>{{ title }}</h1>
+        <p>Enter card details for identification.</p>
     </div>
 
-    <div class="bg-white shadow-xl shadow-slate-200/50 rounded-2xl border border-slate-100 overflow-hidden">
-        <form method="post" class="p-8 space-y-6 text-slate-900">
+    <div>
+        <form method="post">
             {% csrf_token %}
 
             {% if form.non_field_errors %}
-            <div class="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg border border-red-200">
+            <div>
                 {{ form.non_field_errors }}
             </div>
             {% endif %}
 
-            <div class="space-y-6">
+            <div>
                 <!-- Nickname -->
                 <div>
-                    <label for="{{ form.nickname.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                    <label for="{{ form.nickname.id_for_label }}">
                         Card Nickname
                     </label>
                     {{ form.nickname }}
                     {% if form.nickname.errors %}
-                    <p class="mt-1 text-xs text-red-600">{{ form.nickname.errors.0 }}</p>
+                    <p>{{ form.nickname.errors.0 }}</p>
                     {% endif %}
                 </div>
 
                 <!-- Last 4 Digits -->
                 <div>
-                    <label for="{{ form.last4.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
-                        Last 4 Digits <span class="text-red-500">*</span>
+                    <label for="{{ form.last4.id_for_label }}">
+                        Last 4 Digits <span>*</span>
                     </label>
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <span class="text-gray-400">•••• •••• ••••</span>
-                        </div>
+                    <div>
+                        <span>•••• •••• ••••</span>
                         {{ form.last4 }}
                     </div>
-                    <!-- Padding handled in form widget style -->
-                    <p class="mt-2 text-xs text-blue-600 flex items-center">
-                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z">
-                            </path>
-                        </svg>
+                    <p>
                         For reference only. We never store full card details.
                     </p>
                     {% if form.last4.errors %}
-                    <p class="mt-1 text-xs text-red-600">{{ form.last4.errors.0 }}</p>
+                    <p>{{ form.last4.errors.0 }}</p>
                     {% endif %}
                 </div>
 
                 <!-- Brand -->
                 <div>
-                    <label for="{{ form.brand.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
-                        Card Brand <span class="text-gray-400 font-normal">(Optional)</span>
+                    <label for="{{ form.brand.id_for_label }}">
+                        Card Brand <span>(Optional)</span>
                     </label>
                     {{ form.brand }}
                     {% if form.brand.errors %}
-                    <p class="mt-1 text-xs text-red-600">{{ form.brand.errors.0 }}</p>
+                    <p>{{ form.brand.errors.0 }}</p>
                     {% endif %}
                 </div>
             </div>
 
-            <div class="flex items-center justify-end space-x-4 pt-4 border-t border-slate-100">
-                <a href="{% url 'subscriptions:card_list' %}"
-                    class="text-gray-500 hover:text-gray-700 font-medium text-sm">Cancel</a>
-                <button type="submit"
-                    class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition font-medium shadow-sm">
+            <div>
+                <a href="{% url 'subscriptions:card_list' %}">Cancel</a>
+                <button type="submit">
                     Save Card
                 </button>
             </div>

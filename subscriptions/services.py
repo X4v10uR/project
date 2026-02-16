@@ -35,6 +35,7 @@ class NotificationService:
             context = {
                 'user': user,
                 'subscription': subscription,
+                'days_before': days_before,
                 'site_url': getattr(settings, 'SITE_URL', 'http://localhost:8000'),
             }
             
@@ -118,9 +119,9 @@ class NotificationService:
         return due_notifications
     
     @staticmethod
-    def send_batch_notifications(target_time=None, dry_run=False):
+    def send_batch_notifications(target_time=None, dry_run=False, days_before=None):
         """Send notifications for all subscriptions due today based on their offsets"""
-        notifications_to_send = NotificationService.get_subscriptions_due_for_notification(target_time)
+        notifications_to_send = NotificationService.get_subscriptions_due_for_notification(target_time, days_before=days_before)
         
         results = {
             'sent': 0,
@@ -129,19 +130,19 @@ class NotificationService:
             'total': len(notifications_to_send)
         }
         
-        for subscription, days_before in notifications_to_send:
+        for subscription, offset_days in notifications_to_send:
             try:
                 if dry_run:
                     results['sent'] += 1
                     continue
 
-                was_sent = NotificationService.send_renewal_reminder(subscription, days_before)
+                was_sent = NotificationService.send_renewal_reminder(subscription, offset_days)
                 if was_sent:
                     results['sent'] += 1
                 else:
                     results['skipped'] += 1
             except Exception as e:
                 results['errors'] += 1
-                logger.error(f"Failed to send notification for {subscription.id} at {days_before} offset: {str(e)}")
+                logger.error(f"Failed to send notification for {subscription.id} at {offset_days} offset: {str(e)}")
         
         return results
