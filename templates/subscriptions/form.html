@@ -39,6 +39,17 @@
         top: 0;
         width: auto;
     }
+
+    /* Keep notification toggle dimensions stable even if utility CSS is stale */
+    #reminders-toggle-btn {
+        width: 2.75rem;
+        height: 1.5rem;
+    }
+
+    #reminders-toggle-knob {
+        width: 1.25rem;
+        height: 1.25rem;
+    }
 </style>
 {% endblock %}
 
@@ -126,7 +137,9 @@
                         <select id="id_billing_cycle" name="billing_cycle" required class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 transition-colors outline-none appearance-none cursor-pointer">
                             <option value="">Select billing cycle</option>
                             {% for value, label in form.fields.billing_cycle.choices %}
+                            {% if value %}
                             <option value="{{ value }}" {% if billing_cycle_value == value %}selected{% endif %}>{{ label }}</option>
+                            {% endif %}
                             {% endfor %}
                         </select>
                         <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-gray-500">
@@ -332,18 +345,21 @@
                 </div>
             </div>
 
-            <div id="offsets-section" class="mt-4 border-t border-gray-50 pt-4">
+            <div id="offsets-section" class="mt-4 border-t border-gray-50 pt-4 {% if not reminders_enabled_selected %}hidden{% endif %}">
                 <label class="block text-sm font-semibold text-gray-900 mb-1">Reminder Offsets</label>
                 <p class="text-xs text-gray-400 mb-3">Get notified before your subscription renews</p>
-                <div id="offsets-list" class="flex flex-wrap gap-2 items-center"></div>
                 <div id="offset-inputs-container"></div>
 
-                <div class="flex items-center gap-2 bg-gray-50 p-1 rounded-lg border border-gray-200 mt-3 max-w-sm">
-                    <input type="number" id="new-offset-days" min="1" max="30" placeholder="0" class="w-12 bg-transparent text-center text-sm outline-none">
-                    <span class="text-sm text-gray-500 whitespace-nowrap">days before</span>
-                    <button type="button" id="add-offset-btn" class="bg-white border border-gray-200 text-xs font-semibold rounded px-3 py-1 text-gray-700 hover:bg-gray-50 shadow-sm transition">
-                        + Add
-                    </button>
+                <div class="flex flex-wrap gap-2 items-center">
+                    <div id="offsets-list" class="flex flex-wrap gap-2 items-center"></div>
+
+                    <div class="flex items-center gap-2 bg-gray-50 p-1 rounded-lg border border-gray-200">
+                        <input type="number" id="new-offset-days" min="1" max="30" placeholder="0" class="w-12 bg-transparent text-center text-sm outline-none">
+                        <span class="text-sm text-gray-500 whitespace-nowrap">days before</span>
+                        <button type="button" id="add-offset-btn" class="bg-white border border-gray-200 text-xs font-semibold rounded px-3 py-1 text-gray-700 hover:bg-gray-50 shadow-sm transition">
+                            + Add
+                        </button>
+                    </div>
                 </div>
                 {% if form.reminders_enabled.errors %}<p class="text-xs text-red-600 mt-2">{{ form.reminders_enabled.errors.0 }}</p>{% endif %}
             </div>
@@ -385,3 +401,4 @@
 {% block extra_js %}
 <script src="{% static 'subscriptions/form.js' %}"></script>
 {% endblock %}
+

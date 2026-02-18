@@ -438,7 +438,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (!reminderOffsets.length) {
             const emptyMsg = document.createElement("p");
-            emptyMsg.className = "text-xs text-gray-400";
+            emptyMsg.className = "text-xs text-gray-400 w-full";
             emptyMsg.textContent = "No custom offsets. Default notification logic is used.";
             offsetsList.appendChild(emptyMsg);
             return;
@@ -484,8 +484,7 @@ document.addEventListener("DOMContentLoaded", function () {
         remindersToggleButton.classList.toggle("bg-gray-200", !enabled);
         remindersToggleKnob.classList.toggle("translate-x-5", enabled);
         remindersToggleKnob.classList.toggle("translate-x-0", !enabled);
-        offsetsSection.classList.toggle("opacity-50", !enabled);
-        offsetsSection.classList.toggle("pointer-events-none", !enabled);
+        offsetsSection.classList.toggle("hidden", !enabled);
     }
 
     function initializeReminderControls() {
