@@ -1,86 +1,48 @@
+{% load static %}
+{% load tailwind_tags %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Subscription Manager</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        
-        * {
-            font-family: 'Inter', sans-serif;
-        }
-        
-        .gradient-bg {
-            background: linear-gradient(135deg, #f9f871 0%, #e8e85c 100%);
-        }
-        
-        .card-hover {
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        
-        .card-hover:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-        }
-
-        .balance-card {
-            background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
-        }
-
-        .spotify-bg {
-            background-color: #7dd3c0;
-        }
-
-        .netflix-bg {
-            background-color: #c4b5fd;
-        }
-
-        .apple-bg {
-            background-color: #f9f871;
-        }
-
-        .creative-cloud-bg {
-            background-color: #b4c5e4;
-        }
-    </style>
+    {% tailwind_css %}
 </head>
 <body class="bg-gray-50 min-h-screen">
-    
+
     <!-- Main Container -->
     <div class="max-w-7xl mx-auto p-6">
-        
+
         <!-- Header -->
         <div class="flex items-center justify-between mb-8">
             <div class="flex items-center gap-4">
                 <div class="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center">
-                    <span class="text-gray-600 font-semibold">P</span>
+                    <span class="text-gray-600 font-semibold">{{ avatar_initial }}</span>
                 </div>
-                <h1 class="text-2xl font-bold text-gray-800">Hello, Patricia!</h1>
+                <h1 class="text-2xl font-bold text-gray-800">Hello, {{ greeting_name }}!</h1>
             </div>
-            <button class="p-2 hover:bg-gray-100 rounded-lg transition">
+            <a href="{{ bell_url }}" class="p-2 hover:bg-gray-100 rounded-lg transition">
                 <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
                 </svg>
-            </button>
+            </a>
         </div>
 
         <!-- Grid Layout -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
+
             <!-- Left Column -->
             <div class="lg:col-span-2 space-y-6">
-                
+
                 <!-- Balance Card -->
                 <div class="balance-card text-white p-8 rounded-3xl shadow-lg">
                     <div class="flex justify-between items-start mb-4">
                         <div>
                             <p class="text-gray-400 text-sm mb-2">Your balance</p>
-                            <h2 class="text-5xl font-bold">$568.87</h2>
+                            <h2 class="text-5xl font-bold">{{ monthly_spend_display }}</h2>
                         </div>
                         <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded-full">
-                            <span class="text-sm">06/30</span>
+                            <span class="text-sm">{{ balance_chip_date }}</span>
                             <div class="w-8 h-5 bg-gray-500 rounded-full"></div>
                         </div>
                     </div>
@@ -90,55 +52,31 @@
                 <div>
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-xl font-bold text-gray-800">Upcoming Bill</h3>
-                        <button class="text-sm text-gray-600 hover:text-gray-800 px-4 py-2 border border-gray-300 rounded-full">View All</button>
+                        <a href="{{ upcoming_view_all_url }}" class="text-sm text-gray-600 hover:text-gray-800 px-4 py-2 border border-gray-300 rounded-full">View All</a>
                     </div>
-                    
+
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <!-- Spotify Card -->
-                        <div class="spotify-bg p-6 rounded-3xl card-hover cursor-pointer">
+                        {% for bill in upcoming_bills %}
+                        <div
+                            class="{{ bill.bg_class }} p-6 rounded-3xl card-hover {% if bill.is_placeholder %}opacity-70{% else %}cursor-pointer js-clickable-card{% endif %}"
+                            {% if not bill.is_placeholder %}data-url="{{ bill.edit_url }}"{% endif %}
+                        >
                             <div class="flex items-center gap-3 mb-4">
-                                <div class="w-12 h-12 bg-white/30 backdrop-blur rounded-full flex items-center justify-center">
-                                    <svg class="w-7 h-7" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
-                                    </svg>
+                                <div class="w-12 h-12 bg-white/30 backdrop-blur rounded-full flex items-center justify-center overflow-hidden">
+                                    {% if bill.icon_url %}
+                                    <img src="{{ bill.icon_url }}" alt="{{ bill.service_name }}" class="w-7 h-7"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    {% endif %}
+                                    <span class="w-7 h-7 items-center justify-center hidden text-lg font-semibold">{{ bill.icon_fallback }}</span>
                                 </div>
                             </div>
                             <div>
-                                <p class="text-2xl font-bold text-gray-800">$18.00</p>
-                                <p class="text-sm text-gray-600 mb-1">12 days left</p>
-                                <p class="text-lg font-semibold text-gray-800">Spotify</p>
+                                <p class="text-2xl font-bold text-gray-800">{{ bill.amount }}</p>
+                                <p class="text-sm text-gray-600 mb-1">{{ bill.days_left_text }}</p>
+                                <p class="text-lg font-semibold text-gray-800">{{ bill.service_name }}</p>
                             </div>
                         </div>
-
-                        <!-- Netflix Card -->
-                        <div class="netflix-bg p-6 rounded-3xl card-hover cursor-pointer">
-                            <div class="flex items-center gap-3 mb-4">
-                                <div class="w-12 h-12 bg-white/30 backdrop-blur rounded-full flex items-center justify-center">
-                                    <span class="text-3xl font-bold text-gray-800">N</span>
-                                </div>
-                            </div>
-                            <div>
-                                <p class="text-2xl font-bold text-gray-800">$21.00</p>
-                                <p class="text-sm text-gray-600 mb-1">14 days left</p>
-                                <p class="text-lg font-semibold text-gray-800">Netflix</p>
-                            </div>
-                        </div>
-
-                        <!-- Apple TV Card -->
-                        <div class="apple-bg p-6 rounded-3xl card-hover cursor-pointer">
-                            <div class="flex items-center gap-3 mb-4">
-                                <div class="w-12 h-12 bg-white/30 backdrop-blur rounded-full flex items-center justify-center">
-                                    <svg class="w-7 h-7" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
-                                    </svg>
-                                </div>
-                            </div>
-                            <div>
-                                <p class="text-2xl font-bold text-gray-800">$12.00</p>
-                                <p class="text-sm text-gray-600 mb-1">17 days left</p>
-                                <p class="text-lg font-semibold text-gray-800">Apple TV</p>
-                            </div>
-                        </div>
+                        {% endfor %}
                     </div>
                 </div>
 
@@ -149,61 +87,36 @@
                             <h3 class="text-xl font-bold text-gray-800">Subscriptions</h3>
                             <p class="text-sm text-gray-500">Subscribe multiple platforms only in one place.</p>
                         </div>
-                        <button class="text-sm text-gray-600 hover:text-gray-800 px-4 py-2 border border-gray-300 rounded-full">View All</button>
+                        <a href="{{ subscriptions_view_all_url }}" class="text-sm text-gray-600 hover:text-gray-800 px-4 py-2 border border-gray-300 rounded-full">View All</a>
                     </div>
 
                     <div class="space-y-3">
-                        <!-- Apple TV Subscription -->
-                        <div class="apple-bg p-6 rounded-3xl flex items-center justify-between card-hover">
+                        {% for item in subscriptions_panel %}
+                        <div class="{{ item.bg_class }} p-6 rounded-3xl flex items-center justify-between card-hover {% if item.is_placeholder %}opacity-70{% endif %}">
                             <div class="flex items-center gap-4">
-                                <div class="w-14 h-14 bg-white/40 backdrop-blur rounded-full flex items-center justify-center">
-                                    <svg class="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
-                                    </svg>
+                                <div class="w-14 h-14 bg-white/40 backdrop-blur rounded-full flex items-center justify-center overflow-hidden">
+                                    {% if item.icon_url %}
+                                    <img src="{{ item.icon_url }}" alt="{{ item.title }}" class="w-8 h-8"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    {% endif %}
+                                    <span class="w-8 h-8 items-center justify-center hidden text-lg font-semibold">{{ item.icon_fallback }}</span>
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-gray-800 text-lg">Apple TV</p>
-                                    <p class="text-gray-600 text-sm">$18.00/monthly</p>
+                                    <p class="font-semibold text-gray-800 text-lg">{{ item.title }}</p>
+                                    <p class="text-gray-600 text-sm">{{ item.subtitle }}</p>
                                 </div>
                             </div>
-                            <button class="w-10 h-10 bg-white/40 backdrop-blur rounded-full flex items-center justify-center hover:bg-white/60 transition">
+                            {% if item.is_placeholder %}
+                            <span class="w-10 h-10 bg-white/40 backdrop-blur rounded-full flex items-center justify-center">
                                 <span class="text-2xl text-gray-700">+</span>
-                            </button>
-                        </div>
-
-                        <!-- Netflix Subscription -->
-                        <div class="netflix-bg p-6 rounded-3xl flex items-center justify-between card-hover">
-                            <div class="flex items-center gap-4">
-                                <div class="w-14 h-14 bg-white/40 backdrop-blur rounded-full flex items-center justify-center">
-                                    <span class="text-3xl font-bold text-gray-800">N</span>
-                                </div>
-                                <div>
-                                    <p class="font-semibold text-gray-800 text-lg">Netflix</p>
-                                    <p class="text-gray-600 text-sm">$18.00/monthly</p>
-                                </div>
-                            </div>
-                            <button class="w-10 h-10 bg-white/40 backdrop-blur rounded-full flex items-center justify-center hover:bg-white/60 transition">
+                            </span>
+                            {% else %}
+                            <a href="{{ item.create_url }}" class="w-10 h-10 bg-white/40 backdrop-blur rounded-full flex items-center justify-center hover:bg-white/60 transition">
                                 <span class="text-2xl text-gray-700">+</span>
-                            </button>
+                            </a>
+                            {% endif %}
                         </div>
-
-                        <!-- Spotify Subscription -->
-                        <div class="spotify-bg p-6 rounded-3xl flex items-center justify-between card-hover">
-                            <div class="flex items-center gap-4">
-                                <div class="w-14 h-14 bg-white/40 backdrop-blur rounded-full flex items-center justify-center">
-                                    <svg class="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p class="font-semibold text-gray-800 text-lg">Spotify</p>
-                                    <p class="text-gray-600 text-sm">$18.00/monthly</p>
-                                </div>
-                            </div>
-                            <button class="w-10 h-10 bg-white/40 backdrop-blur rounded-full flex items-center justify-center hover:bg-white/60 transition">
-                                <span class="text-2xl text-gray-700">+</span>
-                            </button>
-                        </div>
+                        {% endfor %}
                     </div>
                 </div>
 
@@ -211,103 +124,65 @@
 
             <!-- Right Column -->
             <div class="space-y-6">
-                
+
                 <!-- Active Subscriptions -->
                 <div class="bg-white p-6 rounded-3xl shadow-sm">
                     <h3 class="text-lg font-bold text-gray-800 mb-4">Active Subscriptions</h3>
-                    
-                    <!-- Apple TV -->
-                    <div class="apple-bg p-5 rounded-2xl mb-3">
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 bg-white/40 backdrop-blur rounded-full flex items-center justify-center">
-                                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p class="font-semibold text-gray-800">Apple TV</p>
-                                    <span class="text-xs bg-white/50 px-2 py-1 rounded-full text-gray-700">1 month</span>
-                                </div>
-                            </div>
-                            <button class="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center">
-                                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
-                                </svg>
-                            </button>
-                        </div>
-                        <p class="text-2xl font-bold text-gray-800 mb-1">$12.00</p>
-                        <div class="text-xs text-gray-600 space-y-1">
-                            <p>Payment info: **** 5426</p>
-                            <p>Plan details: Premium</p>
-                        </div>
-                    </div>
 
-                    <!-- Creative Cloud -->
-                    <div class="creative-cloud-bg p-5 rounded-2xl">
+                    {% for active in active_subscriptions_panel %}
+                    <div class="{{ active.bg_class }} p-5 rounded-2xl {% if not forloop.last %}mb-3{% endif %} {% if active.is_placeholder %}opacity-70{% endif %}">
                         <div class="flex items-center justify-between mb-3">
                             <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 bg-white/40 backdrop-blur rounded-full flex items-center justify-center">
-                                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
-                                        <circle cx="12" cy="12" r="3"/>
-                                    </svg>
+                                <div class="w-10 h-10 bg-white/40 backdrop-blur rounded-full flex items-center justify-center overflow-hidden">
+                                    {% if active.icon_url %}
+                                    <img src="{{ active.icon_url }}" alt="{{ active.title }}" class="w-6 h-6"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    {% endif %}
+                                    <span class="w-6 h-6 items-center justify-center hidden text-sm font-semibold">{{ active.icon_fallback }}</span>
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-gray-800">Creative Cloud</p>
-                                    <span class="text-xs bg-white/50 px-2 py-1 rounded-full text-gray-700">1 month</span>
+                                    <p class="font-semibold text-gray-800">{{ active.title }}</p>
+                                    <span class="text-xs bg-white/50 px-2 py-1 rounded-full text-gray-700">{{ active.duration_label }}</span>
                                 </div>
                             </div>
-                            <button class="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center">
+                            {% if active.is_placeholder %}
+                            <span class="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center"></span>
+                            {% else %}
+                            <a href="{{ active.edit_url }}" class="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center">
                                 <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
                                 </svg>
-                            </button>
+                            </a>
+                            {% endif %}
                         </div>
+                        <p class="text-2xl font-bold text-gray-800 mb-1">{{ active.amount }}</p>
                         <div class="text-xs text-gray-600 space-y-1">
-                            <p>Payment info: **** 5426</p>
-                            <p>Plan details: Premium Family</p>
+                            <p>{{ active.payment_info }}</p>
+                            <p>{{ active.plan_details }}</p>
                         </div>
                     </div>
+                    {% endfor %}
                 </div>
 
                 <!-- Recent Transactions -->
                 <div class="bg-white p-6 rounded-3xl shadow-sm">
                     <h3 class="text-lg font-bold text-gray-800 mb-4">Recent Transactions</h3>
-                    
-                    <div class="space-y-3">
-                        <!-- Apple TV Transaction -->
-                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 apple-bg rounded-full flex items-center justify-center">
-                                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01z"/>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p class="font-semibold text-gray-800 text-sm">Apple TV</p>
-                                    <p class="text-xs text-gray-500">Sep 12, 04:00 pm</p>
-                                </div>
-                            </div>
-                            <p class="font-semibold text-gray-800">-$12.00</p>
-                        </div>
 
-                        <!-- Creative Cloud Transaction -->
-                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                    <div class="space-y-3">
+                        {% for txn in recent_transactions %}
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl {% if txn.is_placeholder %}opacity-70{% endif %}">
                             <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 creative-cloud-bg rounded-full flex items-center justify-center">
-                                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
-                                        <circle cx="12" cy="12" r="3"/>
-                                    </svg>
+                                <div class="w-10 h-10 {{ txn.bg_class }} rounded-full flex items-center justify-center">
+                                    <span class="text-sm font-semibold text-gray-800">{{ txn.title|slice:":1"|upper }}</span>
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-gray-800 text-sm">Creative Cloud</p>
-                                    <p class="text-xs text-gray-500">Jan 12, 06:30 pm</p>
+                                    <p class="font-semibold text-gray-800 text-sm">{{ txn.title }}</p>
+                                    <p class="text-xs text-gray-500">{{ txn.timestamp }}</p>
                                 </div>
                             </div>
-                            <p class="font-semibold text-gray-800">-$54.20</p>
+                            <p class="font-semibold text-gray-800">{{ txn.amount }}</p>
                         </div>
+                        {% endfor %}
                     </div>
                 </div>
 
@@ -317,25 +192,7 @@
 
     </div>
 
-    <script>
-        // Add interactive functionality
-        document.querySelectorAll('.card-hover').forEach(card => {
-            card.addEventListener('click', function() {
-                console.log('Card clicked:', this.querySelector('p').textContent);
-            });
-        });
-
-        // Add smooth scroll behavior
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({ behavior: 'smooth' });
-                }
-            });
-        });
-    </script>
+    <script src="{% static 'dashboard/dashboard.js' %}"></script>
 
 </body>
 </html>

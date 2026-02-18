@@ -1,5 +1,4 @@
 from django.core.management.base import BaseCommand
-from django.conf import settings
 from datetime import date, timedelta, time
 from subscriptions.models import NotificationLog
 from subscriptions.services import NotificationService
@@ -8,14 +7,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 class Command(BaseCommand):
-    help = 'Send renewal reminder emails for subscriptions due in 3 days'
+    help = 'Send renewal reminder emails for subscriptions with due reminder offsets'
 
     def add_arguments(self, parser):
         parser.add_argument(
             '--days-before',
             type=int,
-            default=getattr(settings, 'NOTIFICATION_DAYS_BEFORE', 3),
-            help='Number of days before renewal to send notification (default: 3)'
+            default=None,
+            help='Optional offset filter in days (for example: 3, 7). If omitted, sends all due offsets for today.'
         )
         parser.add_argument(
             '--dry-run',
@@ -46,10 +45,13 @@ class Command(BaseCommand):
                 )
                 return
         
-        # Calculate the target renewal date (3 days from now)
-        target_date = date.today() + timedelta(days=days_before)
-        
-        self.stdout.write(f"Looking for subscriptions renewing on {target_date}")
+        target_date = None
+        if days_before is not None:
+            target_date = date.today() + timedelta(days=days_before)
+            self.stdout.write(f"Looking for subscriptions renewing on {target_date}")
+        else:
+            self.stdout.write("Looking for subscriptions with reminder offsets due today")
+
         if target_time:
             self.stdout.write(f"Filtering by renewal time around {target_time.strftime('%I:%M %p')}")
         
@@ -60,7 +62,11 @@ class Command(BaseCommand):
         )
         
         if not subscriptions_to_notify:
-            message = f"No subscriptions found renewing on {target_date}"
+            if target_date is not None:
+                message = f"No subscriptions found renewing on {target_date}"
+            else:
+                message = "No subscriptions found with reminder offsets due today"
+
             if target_time:
                 message += f" at {target_time.strftime('%I:%M %p')}"
             self.stdout.write(self.style.SUCCESS(message))
@@ -122,7 +128,11 @@ class Command(BaseCommand):
         
         # Summary
         self.stdout.write("\n" + "="*50)
-        self.stdout.write(f"Summary for {target_date}:")
+        if target_date is not None:
+            self.stdout.write(f"Summary for {target_date}:")
+        else:
+            self.stdout.write("Summary for reminder offsets due today:")
+
         if target_time:
             self.stdout.write(f"Time filter: {target_time.strftime('%I:%M %p')}")
         self.stdout.write(f"  Sent: {sent_count}")

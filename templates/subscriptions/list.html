@@ -8,6 +8,9 @@
     <!-- Filters & Search -->
     <div>
         <form method="get">
+            {% if due_within %}
+            <input type="hidden" name="due_within" value="{{ due_within }}">
+            {% endif %}
             <div>
                 <label>Search</label>
                 <input type="text" name="q" value="{{ query }}" placeholder="Netflix, Spotify...">
@@ -90,9 +93,9 @@
                             </div>
                         </td>
                         <td>
-                            {% if sub.is_shared and sub.participants.count > 0 %}
+                            {% if sub.is_shared and sub.participant_count > 0 %}
                             <div>
-                                <span>{{ sub.participants.count|add:"1" }}</span>
+                                <span>{{ sub.participant_count|add:"1" }}</span>
                                 <span>people</span>
                             </div>
                             {% else %}

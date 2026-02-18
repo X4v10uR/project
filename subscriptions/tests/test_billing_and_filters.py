@@ -1,0 +1,188 @@
+from datetime import date, timedelta
+from decimal import Decimal
+from io import StringIO
+
+from dateutil.relativedelta import relativedelta
+from django.contrib.auth import get_user_model
+from django.core.management import call_command
+from django.test import Client, TestCase
+from django.urls import reverse
+
+from subscriptions.models import ReminderOffset, Subscription, Transaction
+from subscriptions.services import BillingService
+
+User = get_user_model()
+
+
+class SubscriptionListAndPrefillTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(email='filters@example.com', password='password')
+        self.client.force_login(self.user)
+
+    def test_due_within_filter_limits_by_renewal_window(self):
+        today = date.today()
+        near = Subscription.objects.create(
+            user=self.user,
+            service_name='Near Service',
+            category='Streaming',
+            billing_cycle='monthly',
+            cost=Decimal('10.00'),
+            start_date=today,
+            status='active',
+        )
+        far = Subscription.objects.create(
+            user=self.user,
+            service_name='Far Service',
+            category='Streaming',
+            billing_cycle='monthly',
+            cost=Decimal('12.00'),
+            start_date=today,
+            status='active',
+        )
+
+        Subscription.objects.filter(pk=near.pk).update(renewal_date=today + timedelta(days=7))
+        Subscription.objects.filter(pk=far.pk).update(renewal_date=today + timedelta(days=60))
+
+        response = self.client.get(reverse('subscriptions:list'), {'due_within': 30})
+        subs = list(response.context['subscriptions'])
+        self.assertEqual(len(subs), 1)
+        self.assertEqual(subs[0].pk, near.pk)
+
+    def test_create_form_prefills_safe_query_params(self):
+        response = self.client.get(
+            reverse('subscriptions:create'),
+            {
+                'service_name': 'Spotify',
+                'category': 'Music',
+                'billing_cycle': 'monthly',
+                'plan_name': 'Family',
+                'invalid_field': 'ignored',
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        form = response.context['form']
+        self.assertEqual(form.initial['service_name'], 'Spotify')
+        self.assertEqual(form.initial['category'], 'Music')
+        self.assertEqual(form.initial['billing_cycle'], 'monthly')
+        self.assertEqual(form.initial['plan_name'], 'Family')
+        self.assertNotIn('invalid_field', form.initial)
+
+
+class BillingServiceTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(email='billing@example.com', password='password')
+
+    def test_records_transaction_for_due_subscription(self):
+        today = date.today()
+        sub = Subscription.objects.create(
+            user=self.user,
+            service_name='Netflix',
+            category='Streaming',
+            billing_cycle='monthly',
+            cost=Decimal('19.99'),
+            start_date=today,
+            status='active',
+        )
+        Subscription.objects.filter(pk=sub.pk).update(renewal_date=today)
+
+        results = BillingService.record_renewal_charges(target_date=today)
+
+        self.assertEqual(results['created'], 1)
+        self.assertEqual(Transaction.objects.count(), 1)
+        txn = Transaction.objects.get()
+        self.assertEqual(txn.amount, Decimal('19.99'))
+        self.assertEqual(txn.charged_for_date, today)
+
+    def test_shared_subscription_uses_user_cost_for_transaction(self):
+        today = date.today()
+        sub = Subscription.objects.create(
+            user=self.user,
+            service_name='Family Plan',
+            category='Streaming',
+            billing_cycle='monthly',
+            cost=Decimal('15.00'),
+            user_cost=Decimal('5.00'),
+            is_shared=True,
+            start_date=today,
+            status='active',
+        )
+        Subscription.objects.filter(pk=sub.pk).update(renewal_date=today, user_cost=Decimal('5.00'))
+
+        BillingService.record_renewal_charges(target_date=today)
+        txn = Transaction.objects.get(subscription=sub)
+        self.assertEqual(txn.amount, Decimal('5.00'))
+
+    def test_record_subscription_charges_command_runs(self):
+        today = date.today()
+        sub = Subscription.objects.create(
+            user=self.user,
+            service_name='Command Service',
+            category='Utilities',
+            billing_cycle='monthly',
+            cost=Decimal('7.00'),
+            start_date=today,
+            status='active',
+        )
+        Subscription.objects.filter(pk=sub.pk).update(renewal_date=today)
+
+        call_command('record_subscription_charges', '--date', today.isoformat())
+
+        self.assertTrue(Transaction.objects.filter(subscription=sub).exists())
+
+    def test_same_day_second_run_keeps_advanced_renewal_date(self):
+        today = date.today()
+        sub = Subscription.objects.create(
+            user=self.user,
+            service_name='No Rollback Service',
+            category='Utilities',
+            billing_cycle='monthly',
+            cost=Decimal('8.00'),
+            start_date=today,
+            status='active',
+        )
+        Subscription.objects.filter(pk=sub.pk).update(renewal_date=today)
+
+        first_results = BillingService.record_renewal_charges(target_date=today)
+        self.assertEqual(first_results['created'], 1)
+
+        sub.refresh_from_db()
+        expected_next = today + relativedelta(months=1)
+        self.assertEqual(sub.renewal_date, expected_next)
+
+        second_results = BillingService.record_renewal_charges(target_date=today)
+        self.assertEqual(second_results['total'], 0)
+        self.assertEqual(second_results['created'], 0)
+        self.assertEqual(second_results['existing'], 0)
+
+        sub.refresh_from_db()
+        self.assertEqual(sub.renewal_date, expected_next)
+        self.assertEqual(
+            Transaction.objects.filter(subscription=sub, charged_for_date=today).count(),
+            1,
+        )
+
+    def test_send_notifications_command_without_days_before_honors_custom_offsets(self):
+        today = date.today()
+        renewal_date = today + timedelta(days=7)
+        start_date = renewal_date - relativedelta(months=1)
+
+        sub = Subscription.objects.create(
+            user=self.user,
+            service_name='Custom Offset Service',
+            category='Software',
+            billing_cycle='monthly',
+            cost=Decimal('14.99'),
+            start_date=start_date,
+            status='active',
+            reminders_enabled=True,
+        )
+        ReminderOffset.objects.create(subscription=sub, days_before=7)
+
+        out = StringIO()
+        call_command('send_renewal_notifications', '--dry-run', stdout=out)
+        output = out.getvalue()
+
+        self.assertIn('Custom Offset Service', output)
+        self.assertIn('offset: 7', output)

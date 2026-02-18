@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -128,3 +128,26 @@ class NotificationServiceTest(TestCase):
         self.assertEqual(results['sent'], 0)
         self.assertEqual(results['skipped'], 1)
         self.assertEqual(results['errors'], 0)
+
+    def test_midnight_time_window_matches_due_subscription(self):
+        subscription = Subscription.objects.create(
+            user=self.user,
+            service_name='Midnight Service',
+            category='Utilities',
+            billing_cycle='weekly',
+            cost=Decimal('4.99'),
+            start_date=date.today() - timedelta(days=4),  # renews in 3 days
+            renewal_time=time(0, 15),
+            status='active',
+            reminders_enabled=True,
+        )
+
+        due = NotificationService.get_subscriptions_due_for_notification(
+            target_time=time(0, 30),
+            days_before=3,
+        )
+
+        self.assertTrue(
+            any(sub.pk == subscription.pk and offset == 3 for sub, offset in due),
+            'Expected midnight renewal_time to match the +/-1 hour window around 00:30.',
+        )

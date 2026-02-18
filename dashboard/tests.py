@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from urllib.parse import parse_qs, urlparse
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, Client
@@ -24,10 +25,27 @@ class DashboardViewTest(TestCase):
     def test_dashboard_renders_with_context(self):
         response = self.client.get(reverse('dashboard:home'))
         self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'dashboard/dashboard.html')
         for key in ['total_active', 'total_paused', 'total_cancelled', 'total_shared',
                      'monthly_spend', 'yearly_spend', 'avg_monthly_spend',
                      'upcoming_renewals', 'status_dist']:
             self.assertIn(key, response.context)
+
+    def test_dashboard_fixed_slot_sections_are_padded(self):
+        response = self.client.get(reverse('dashboard:home'))
+        self.assertEqual(len(response.context['upcoming_bills']), 3)
+        self.assertEqual(len(response.context['subscriptions_panel']), 3)
+        self.assertEqual(len(response.context['active_subscriptions_panel']), 2)
+        self.assertEqual(len(response.context['recent_transactions']), 2)
+
+    def test_bell_url_contains_due_within_filter(self):
+        response = self.client.get(reverse('dashboard:home'))
+        bell_url = response.context['bell_url']
+        parsed = urlparse(bell_url)
+        query = parse_qs(parsed.query)
+        self.assertEqual(query.get('due_within'), ['30'])
+        self.assertEqual(query.get('status'), ['active'])
+        self.assertEqual(query.get('sort'), ['renewal_date'])
 
     def test_shared_count_is_correct(self):
         Subscription.objects.create(
@@ -44,6 +62,34 @@ class DashboardViewTest(TestCase):
         response = self.client.get(reverse('dashboard:home'))
         self.assertEqual(response.context['total_shared'], 1)
         self.assertEqual(response.context['total_active'], 2)
+
+    def test_monthly_spend_display_handles_multiple_currencies(self):
+        Subscription.objects.create(
+            user=self.user,
+            service_name='US Service',
+            category='Software',
+            billing_cycle='monthly',
+            cost=Decimal('5.00'),
+            currency='USD',
+            start_date=date.today(),
+            status='active',
+        )
+        Subscription.objects.create(
+            user=self.user,
+            service_name='EU Service',
+            category='Software',
+            billing_cycle='monthly',
+            cost=Decimal('7.00'),
+            currency='EUR',
+            start_date=date.today(),
+            status='active',
+        )
+
+        response = self.client.get(reverse('dashboard:home'))
+        display = response.context['monthly_spend_display']
+
+        self.assertIn('$5.00', display)
+        self.assertIn('EUR 7.00', display)
 
 
 class LandingPageTest(TestCase):

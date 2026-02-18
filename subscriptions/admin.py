@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Subscription, NotificationLog
+from .models import NotificationLog, Subscription, Transaction
 
 @admin.register(Subscription)
 class SubscriptionAdmin(admin.ModelAdmin):
@@ -38,3 +38,23 @@ class NotificationLogAdmin(admin.ModelAdmin):
     
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('subscription', 'subscription__user')
+
+
+@admin.register(Transaction)
+class TransactionAdmin(admin.ModelAdmin):
+    list_display = [
+        'service_name_snapshot',
+        'user',
+        'amount',
+        'currency',
+        'charged_for_date',
+        'source',
+        'charged_at',
+    ]
+    list_filter = ['source', 'currency', 'charged_for_date']
+    search_fields = ['service_name_snapshot', 'user__email', 'subscription__service_name']
+    date_hierarchy = 'charged_for_date'
+    readonly_fields = ['charged_at']
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('user', 'subscription')

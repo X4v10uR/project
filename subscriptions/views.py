@@ -1,8 +1,11 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from decimal import Decimal, InvalidOperation
+from datetime import timedelta
 
 from django.db import transaction
+from django.db.models import Count
+from django.utils import timezone
 from .models import Subscription, ReminderOffset, Card, SubscriptionParticipant
 from .forms import SubscriptionForm, CardForm
 from django.http import JsonResponse
@@ -49,6 +52,26 @@ def _parse_reminder_offsets(raw_offsets):
         if 1 <= days <= 30:
             valid_offsets.add(days)
     return sorted(valid_offsets)
+
+
+def _build_subscription_prefill(get_params):
+    allowed = {}
+
+    service_name = (get_params.get('service_name') or '').strip()
+    category = (get_params.get('category') or '').strip()
+    plan_name = (get_params.get('plan_name') or '').strip()
+    billing_cycle = (get_params.get('billing_cycle') or '').strip()
+
+    if service_name:
+        allowed['service_name'] = service_name[:100]
+    if category:
+        allowed['category'] = category[:50]
+    if plan_name:
+        allowed['plan_name'] = plan_name[:100]
+    if billing_cycle in dict(Subscription.BILLING_CYCLE_CHOICES):
+        allowed['billing_cycle'] = billing_cycle
+
+    return allowed
 
 @login_required
 def card_list(request):
@@ -98,9 +121,12 @@ def subscription_list(request):
     # ... existing code ...
     cycle_filter = request.GET.get('cycle', '')
     shared_filter = request.GET.get('shared', '')
+    due_within = request.GET.get('due_within', '')
     sort_by = request.GET.get('sort', 'renewal_date')
 
-    subscriptions = Subscription.objects.filter(user=request.user)
+    subscriptions = Subscription.objects.filter(user=request.user).annotate(
+        participant_count=Count('participants')
+    )
 
     if query:
         subscriptions = subscriptions.filter(service_name__icontains=query)
@@ -110,6 +136,21 @@ def subscription_list(request):
         subscriptions = subscriptions.filter(billing_cycle=cycle_filter)
     if shared_filter == 'true':
         subscriptions = subscriptions.filter(is_shared=True)
+
+    due_within_days = None
+    if due_within:
+        try:
+            parsed_due_within = int(due_within)
+            if 1 <= parsed_due_within <= 365:
+                due_within_days = parsed_due_within
+        except (TypeError, ValueError):
+            due_within_days = None
+
+    if due_within_days is not None:
+        today = timezone.localdate()
+        subscriptions = subscriptions.filter(
+            renewal_date__range=[today, today + timedelta(days=due_within_days)]
+        )
     
     if sort_by in ['cost', 'renewal_date', 'service_name']:
         subscriptions = subscriptions.order_by(sort_by)
@@ -120,6 +161,7 @@ def subscription_list(request):
         'status_filter': status_filter,
         'cycle_filter': cycle_filter,
         'shared_filter': shared_filter,
+        'due_within': due_within,
         'sort_by': sort_by
     })
 
@@ -189,7 +231,8 @@ def subscription_create(request):
             
             return redirect('subscriptions:list')
     else:
-        form = SubscriptionForm(user=request.user)
+        initial = _build_subscription_prefill(request.GET)
+        form = SubscriptionForm(user=request.user, initial=initial)
     return render(request, 'subscriptions/form.html', {'form': form, 'title': 'Add Subscription'})
 
 @login_required
@@ -311,4 +354,3 @@ def update_subscription_status(request, pk):
             return redirect('subscriptions:list')
         return JsonResponse({'status': 'error', 'message': 'Invalid status'}, status=400)
     return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
-

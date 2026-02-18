@@ -3,6 +3,7 @@ python-dateutil
 django-environ
 djangorestframework
 django-cors-headers
+django-tailwind
 psycopg2-binary
 Pillow
 cryptography

@@ -269,6 +269,49 @@ class NotificationLog(models.Model):
         return f"{self.subscription.service_name} - {self.notification_type} - {self.renewal_date}"
 
 
+class Transaction(models.Model):
+    SOURCE_RENEWAL = "renewal"
+    SOURCE_CHOICES = [
+        (SOURCE_RENEWAL, "Renewal Charge"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="transactions",
+    )
+    subscription = models.ForeignKey(
+        Subscription,
+        on_delete=models.CASCADE,
+        related_name="transactions",
+    )
+    service_name_snapshot = models.CharField(max_length=100)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=3, default="USD")
+    charged_for_date = models.DateField()
+    charged_at = models.DateTimeField(auto_now_add=True)
+    source = models.CharField(
+        max_length=20,
+        choices=SOURCE_CHOICES,
+        default=SOURCE_RENEWAL,
+    )
+
+    class Meta:
+        ordering = ["-charged_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["subscription", "charged_for_date", "source"],
+                name="uniq_transaction_subscription_date_source",
+            )
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.service_name_snapshot} {self.currency} {self.amount} "
+            f"({self.charged_for_date})"
+        )
+
+
 class SubscriptionParticipant(models.Model):
     """External participants for shared subscriptions"""
     subscription = models.ForeignKey(Subscription, on_delete=models.CASCADE, related_name='participants')

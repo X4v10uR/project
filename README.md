@@ -13,7 +13,7 @@ A premium Subscription Management SaaS application built with Django and Tailwin
 
 ## Tech Stack
 - **Backend**: Django (Python)
-- **Frontend**: Django Templates + Tailwind CSS (via CDN)
+- **Frontend**: Django Templates + Tailwind CSS (`django-tailwind` build pipeline)
 - **Database**: SQLite (default)
 - **Email**: SMTP support with HTML templates
 
@@ -21,10 +21,16 @@ A premium Subscription Management SaaS application built with Django and Tailwin
 
 1. **Install Dependencies**
    ```bash
-   pip install django django-environ djangorestframework django-cors-headers python-dateutil
+   pip install -r requirements.txt
    ```
 
-2. **Configure Environment**
+2. **Install Tailwind Assets**
+   ```bash
+   python manage.py tailwind install
+   python manage.py tailwind build
+   ```
+
+3. **Configure Environment**
    Update `.env` file with your email settings:
    ```env
    # For Gmail SMTP (Production)
@@ -40,23 +46,23 @@ A premium Subscription Management SaaS application built with Django and Tailwin
    EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
    ```
 
-3. **Run Migrations**
+4. **Run Migrations**
    ```bash
    python manage.py migrate
    ```
 
-4. **Seed Demo Data** (Optional but recommended)
+5. **Seed Demo Data** (Optional but recommended)
    ```bash
    python seed_demo.py
    ```
    *Creates a demo user: `demo@subly.com` with password `demo1234` and sample subscriptions.*
 
-5. **Start the Server**
+6. **Start the Server**
    ```bash
    python manage.py runserver
    ```
 
-6. **Access the App**
+7. **Access the App**
    Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser.
 
 ## Credentials for Demo
