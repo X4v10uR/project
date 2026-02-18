@@ -10,10 +10,14 @@
     {% block extra_css %}{% endblock %}
 </head>
 
-<body>
+<body class="min-h-screen bg-[#f5f6fa] text-slate-900">
+    {% if user.is_authenticated %}
+    {% include 'components/sidebar.html' %}
+    {% else %}
     {% include 'components/navbar.html' %}
+    {% endif %}
 
-    <main>
+    <main{% if user.is_authenticated %} class="min-h-screen md:pl-60 p-4 md:p-7"{% endif %}>
         {% block content %}{% endblock %}
     </main>
 

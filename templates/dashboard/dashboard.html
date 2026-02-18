@@ -1,25 +1,20 @@
+{% extends "base.html" %}
 {% load static %}
-{% load tailwind_tags %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Subscription Manager</title>
-    {% tailwind_css %}
-</head>
-<body class="bg-gray-50 min-h-screen">
+
+{% block title %}Dashboard - Subly{% endblock %}
+
+{% block content %}
 
     <!-- Main Container -->
-    <div class="max-w-7xl mx-auto p-6">
+    <div class="max-w-7xl mx-auto">
 
         <!-- Header -->
-        <div class="flex items-center justify-between mb-8">
+        <div class="flex items-center justify-between mb-7">
             <div class="flex items-center gap-4">
-                <div class="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center">
-                    <span class="text-gray-600 font-semibold">{{ avatar_initial }}</span>
+                <div class="w-11 h-11 bg-gray-300 rounded-full flex items-center justify-center">
+                    <span class="text-gray-600 font-medium">{{ avatar_initial }}</span>
                 </div>
-                <h1 class="text-2xl font-bold text-gray-800">Hello, {{ greeting_name }}!</h1>
+                <h1 class="text-[2rem] font-semibold text-gray-800">Hello, {{ greeting_name }}!</h1>
             </div>
             <a href="{{ bell_url }}" class="p-2 hover:bg-gray-100 rounded-lg transition">
                 <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -39,7 +34,7 @@
                     <div class="flex justify-between items-start mb-4">
                         <div>
                             <p class="text-gray-400 text-sm mb-2">Your balance</p>
-                            <h2 class="text-5xl font-bold">{{ monthly_spend_display }}</h2>
+                            <h2 class="text-5xl font-semibold">{{ monthly_spend_display }}</h2>
                         </div>
                         <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded-full">
                             <span class="text-sm">{{ balance_chip_date }}</span>
@@ -51,7 +46,7 @@
                 <!-- Upcoming Bills -->
                 <div>
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-xl font-bold text-gray-800">Upcoming Bill</h3>
+                        <h3 class="text-[2rem] font-semibold text-gray-800">Upcoming Bill</h3>
                         <a href="{{ upcoming_view_all_url }}" class="text-sm text-gray-600 hover:text-gray-800 px-4 py-2 border border-gray-300 rounded-full">View All</a>
                     </div>
 
@@ -72,9 +67,9 @@
                                 </div>
                             </div>
                             <div>
-                                <p class="text-2xl font-bold text-gray-800">{{ bill.amount }}</p>
+                                <p class="text-2xl font-semibold text-gray-800">{{ bill.amount }}</p>
                                 <p class="text-sm text-gray-600 mb-1">{{ bill.days_left_text }}</p>
-                                <p class="text-lg font-semibold text-gray-800">{{ bill.service_name }}</p>
+                                <p class="text-lg font-medium text-gray-800">{{ bill.service_name }}</p>
                             </div>
                         </div>
                         {% endfor %}
@@ -85,7 +80,7 @@
                 <div>
                     <div class="flex justify-between items-center mb-4">
                         <div>
-                            <h3 class="text-xl font-bold text-gray-800">Subscriptions</h3>
+                            <h3 class="text-[2rem] font-semibold text-gray-800">Subscriptions</h3>
                             <p class="text-sm text-gray-500">Subscribe multiple platforms only in one place.</p>
                         </div>
                         <a href="{{ subscriptions_view_all_url }}" class="text-sm text-gray-600 hover:text-gray-800 px-4 py-2 border border-gray-300 rounded-full">View All</a>
@@ -103,7 +98,7 @@
                                     <span class="w-8 h-8 items-center justify-center text-lg font-semibold {% if item.icon_url %}hidden{% else %}flex{% endif %}">{{ item.icon_fallback }}</span>
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-gray-800 text-lg">{{ item.title }}</p>
+                                    <p class="font-medium text-gray-800 text-lg">{{ item.title }}</p>
                                     <p class="text-gray-600 text-sm">{{ item.subtitle }}</p>
                                 </div>
                             </div>
@@ -128,7 +123,7 @@
 
                 <!-- Active Subscriptions -->
                 <div class="bg-white p-6 rounded-3xl shadow-sm">
-                    <h3 class="text-lg font-bold text-gray-800 mb-4">Active Subscriptions</h3>
+                    <h3 class="text-[2rem] font-semibold text-gray-800 mb-4">Active Subscriptions</h3>
 
                     {% for active in active_subscriptions_panel %}
                     <div class="{{ active.bg_class }} p-5 rounded-2xl {% if not forloop.last %}mb-3{% endif %} {% if active.is_placeholder %}opacity-70{% endif %}" {% if active.bg_style %}style="{{ active.bg_style }}"{% endif %}>
@@ -142,7 +137,7 @@
                                     <span class="w-6 h-6 items-center justify-center text-sm font-semibold {% if active.icon_url %}hidden{% else %}flex{% endif %}">{{ active.icon_fallback }}</span>
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-gray-800">{{ active.title }}</p>
+                                    <p class="font-medium text-gray-800">{{ active.title }}</p>
                                     <span class="text-xs bg-white/50 px-2 py-1 rounded-full text-gray-700">{{ active.duration_label }}</span>
                                 </div>
                             </div>
@@ -156,7 +151,7 @@
                             </a>
                             {% endif %}
                         </div>
-                        <p class="text-2xl font-bold text-gray-800 mb-1">{{ active.amount }}</p>
+                        <p class="text-2xl font-semibold text-gray-800 mb-1">{{ active.amount }}</p>
                         <div class="text-xs text-gray-600 space-y-1">
                             <p>{{ active.payment_info }}</p>
                             <p>{{ active.plan_details }}</p>
@@ -167,7 +162,7 @@
 
                 <!-- Recent Transactions -->
                 <div class="bg-white p-6 rounded-3xl shadow-sm">
-                    <h3 class="text-lg font-bold text-gray-800 mb-4">Recent Transactions</h3>
+                    <h3 class="text-[2rem] font-semibold text-gray-800 mb-4">Recent Transactions</h3>
 
                     <div class="space-y-3">
                         {% for txn in recent_transactions %}
@@ -177,11 +172,11 @@
                                     <span class="text-sm font-semibold text-gray-800">{{ txn.title|slice:":1"|upper }}</span>
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-gray-800 text-sm">{{ txn.title }}</p>
+                                    <p class="font-medium text-gray-800 text-sm">{{ txn.title }}</p>
                                     <p class="text-xs text-gray-500">{{ txn.timestamp }}</p>
                                 </div>
                             </div>
-                            <p class="font-semibold text-gray-800">{{ txn.amount }}</p>
+                            <p class="font-medium text-gray-800">{{ txn.amount }}</p>
                         </div>
                         {% endfor %}
                     </div>
@@ -192,8 +187,8 @@
         </div>
 
     </div>
+{% endblock %}
 
-    <script src="{% static 'dashboard/dashboard.js' %}"></script>
-
-</body>
-</html>
+{% block extra_js %}
+<script src="{% static 'dashboard/dashboard.js' %}"></script>
+{% endblock %}
