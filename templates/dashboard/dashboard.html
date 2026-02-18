@@ -67,7 +67,7 @@
                                     <img src="{{ bill.icon_url }}" alt="{{ bill.service_name }}" class="w-7 h-7"
                                          onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                     {% endif %}
-                                    <span class="w-7 h-7 items-center justify-center hidden text-lg font-semibold">{{ bill.icon_fallback }}</span>
+                                    <span class="w-7 h-7 items-center justify-center text-lg font-semibold {% if bill.icon_url %}hidden{% else %}flex{% endif %}">{{ bill.icon_fallback }}</span>
                                 </div>
                             </div>
                             <div>
@@ -99,7 +99,7 @@
                                     <img src="{{ item.icon_url }}" alt="{{ item.title }}" class="w-8 h-8"
                                          onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                     {% endif %}
-                                    <span class="w-8 h-8 items-center justify-center hidden text-lg font-semibold">{{ item.icon_fallback }}</span>
+                                    <span class="w-8 h-8 items-center justify-center text-lg font-semibold {% if item.icon_url %}hidden{% else %}flex{% endif %}">{{ item.icon_fallback }}</span>
                                 </div>
                                 <div>
                                     <p class="font-semibold text-gray-800 text-lg">{{ item.title }}</p>
@@ -138,7 +138,7 @@
                                     <img src="{{ active.icon_url }}" alt="{{ active.title }}" class="w-6 h-6"
                                          onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                     {% endif %}
-                                    <span class="w-6 h-6 items-center justify-center hidden text-sm font-semibold">{{ active.icon_fallback }}</span>
+                                    <span class="w-6 h-6 items-center justify-center text-sm font-semibold {% if active.icon_url %}hidden{% else %}flex{% endif %}">{{ active.icon_fallback }}</span>
                                 </div>
                                 <div>
                                     <p class="font-semibold text-gray-800">{{ active.title }}</p>

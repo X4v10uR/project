@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from subscriptions.models import Subscription, Transaction
+from subscriptions.services import refresh_subscription_renewal_date
 
 from .constants import (
     CARD_THEME_BY_SERVICE,
@@ -57,7 +58,12 @@ def _days_left_text(renewal_date, today):
     if not renewal_date:
         return 'No due date'
     days = (renewal_date - today).days
-    if days <= 0:
+    if days < 0:
+        overdue_days = abs(days)
+        if overdue_days == 1:
+            return '1 day overdue'
+        return f'{overdue_days} days overdue'
+    if days == 0:
         return 'Due today'
     if days == 1:
         return '1 day left'
@@ -226,6 +232,10 @@ def build_dashboard_view_model(user, today=None):
     next_30_days = today + timedelta(days=30)
 
     user_subs = Subscription.objects.filter(user=user).select_related('card')
+    # Keep long-lived records in sync so dashboard cards always show current renewal data.
+    for subscription in user_subs.filter(status='active'):
+        refresh_subscription_renewal_date(subscription)
+
     active_subs = user_subs.filter(status='active').order_by('renewal_date', 'service_name')
     paused_subs = user_subs.filter(status='paused')
     cancelled_subs = user_subs.filter(status='cancelled')

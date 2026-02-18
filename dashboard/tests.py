@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from urllib.parse import parse_qs, urlparse
 
@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, Client
 from django.urls import reverse
 
+from dashboard.services import _days_left_text
 from subscriptions.models import Subscription
 
 User = get_user_model()
@@ -90,6 +91,33 @@ class DashboardViewTest(TestCase):
 
         self.assertIn('$5.00', display)
         self.assertIn('EUR 7.00', display)
+
+    def test_dashboard_refreshes_stale_renewal_dates(self):
+        today = date.today()
+        subscription = Subscription.objects.create(
+            user=self.user,
+            service_name='Stale Renewal Service',
+            category='Utilities',
+            billing_cycle='monthly',
+            cost=Decimal('12.00'),
+            start_date=today,
+            status='active',
+        )
+
+        Subscription.objects.filter(pk=subscription.pk).update(
+            renewal_date=today - timedelta(days=10)
+        )
+
+        response = self.client.get(reverse('dashboard:home'))
+        self.assertEqual(response.status_code, 200)
+
+        subscription.refresh_from_db()
+        self.assertGreaterEqual(subscription.renewal_date, today)
+
+    def test_days_left_text_handles_overdue_dates(self):
+        today = date.today()
+        self.assertEqual(_days_left_text(today - timedelta(days=1), today), '1 day overdue')
+        self.assertEqual(_days_left_text(today - timedelta(days=3), today), '3 days overdue')
 
 
 class LandingPageTest(TestCase):
