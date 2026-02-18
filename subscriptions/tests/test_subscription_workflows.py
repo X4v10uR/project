@@ -5,7 +5,12 @@ from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
-from subscriptions.models import NotificationLog, Subscription, SubscriptionParticipant
+from subscriptions.models import (
+    NotificationLog,
+    ReminderOffset,
+    Subscription,
+    SubscriptionParticipant,
+)
 from subscriptions.services import NotificationService
 
 User = get_user_model()
@@ -96,6 +101,85 @@ class SubscriptionWorkflowSafetyTest(TestCase):
         subscription = Subscription.objects.get(user=self.user, service_name='Hulu')
         offsets = sorted(subscription.offsets.values_list('days_before', flat=True))
         self.assertEqual(offsets, [3, 7])
+
+    def test_update_replaces_existing_reminder_offsets(self):
+        subscription = Subscription.objects.create(
+            user=self.user,
+            service_name='Disney+',
+            category='Streaming',
+            billing_cycle='monthly',
+            cost=Decimal('12.99'),
+            start_date=date.today(),
+            status='active',
+        )
+        ReminderOffset.objects.create(subscription=subscription, days_before=3)
+        ReminderOffset.objects.create(subscription=subscription, days_before=7)
+
+        response = self.client.post(
+            reverse('subscriptions:update', args=[subscription.pk]),
+            data={
+                'service_name': 'Disney+',
+                'category': 'Streaming',
+                'billing_cycle': 'monthly',
+                'cost': '12.99',
+                'currency': 'USD',
+                'start_date': date.today().isoformat(),
+                'renewal_time': '15:00',
+                'status': 'active',
+                'reminders_enabled': 'on',
+                'card': '',
+                'notes': '',
+                'is_shared': 'False',
+                'split_type': 'equal',
+                'participant_name': [],
+                'participant_share': [],
+                'account_email': '',
+                'account_password': '',
+                'reminder_offsets': ['1', '5'],
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        offsets = sorted(subscription.offsets.values_list('days_before', flat=True))
+        self.assertEqual(offsets, [1, 5])
+
+    def test_update_with_no_offsets_clears_existing_custom_offsets(self):
+        subscription = Subscription.objects.create(
+            user=self.user,
+            service_name='Canva',
+            category='Software',
+            billing_cycle='monthly',
+            cost=Decimal('9.99'),
+            start_date=date.today(),
+            status='active',
+        )
+        ReminderOffset.objects.create(subscription=subscription, days_before=3)
+
+        response = self.client.post(
+            reverse('subscriptions:update', args=[subscription.pk]),
+            data={
+                'service_name': 'Canva',
+                'category': 'Software',
+                'billing_cycle': 'monthly',
+                'cost': '9.99',
+                'currency': 'USD',
+                'start_date': date.today().isoformat(),
+                'renewal_time': '15:00',
+                'status': 'active',
+                'reminders_enabled': 'on',
+                'card': '',
+                'notes': '',
+                'is_shared': 'False',
+                'split_type': 'equal',
+                'participant_name': [],
+                'participant_share': [],
+                'account_email': '',
+                'account_password': '',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(subscription.offsets.exists())
 
 
 @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')

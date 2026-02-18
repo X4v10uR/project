@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Subscription UI</title>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js for interactivity -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Heroicons -->
+    <script src="https://unpkg.com/heroicons@2.0.18/24/outline/index.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+        
+        /* Hide default calendar icon in date inputs for better custom styling control if needed */
+        input[type="date"]::-webkit-inner-spin-button,
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            background: transparent;
+            bottom: 0;
+            color: transparent;
+            cursor: pointer;
+            height: auto;
+            left: 0;
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: auto;
+        }
+    </style>
+</head>
+<body class="bg-[#f8f9fa] text-gray-800 min-h-screen pb-20">
+
+    <!-- Main Container -->
+    <div class="max-w-4xl mx-auto px-4 py-10" x-data="subscriptionForm()">
+
+        <!-- Header -->
+        <div class="flex items-center mb-8">
+            <button class="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm text-gray-600 hover:bg-gray-50 mr-4 transition border border-gray-100">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                </svg>
+            </button>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Add Subscription</h1>
+                <p class="text-gray-500 text-sm mt-1">Track a new subscription by filling out the details below.</p>
+            </div>
+        </div>
+
+        <!-- 1. Core Details -->
+        <div class="bg-white rounded-2xl p-8 mb-6 shadow-sm border border-gray-100">
+            <div class="flex items-center mb-6">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center mr-3 bg-emerald-100 text-emerald-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.546-3.131 1.567-4.357" />
+                    </svg>
+                </div>
+                <h2 class="text-lg font-semibold text-gray-900">Core Details</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <!-- Service Name -->
+                <div class="col-span-1">
+                    <label class="block text-sm font-semibold text-gray-900 mb-2">Service Name</label>
+                    <div class="relative">
+                        <input type="text" placeholder="e.g., Netflix, Spotify" class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 placeholder-gray-400 transition-colors outline-none pr-10">
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.546-3.131 1.567-4.357" />
+                            </svg>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-2">Type a service name to see its icon preview</p>
+                </div>
+
+                <!-- Plan Name -->
+                <div class="col-span-1">
+                    <label class="block text-sm font-semibold text-gray-900 mb-2">Plan Name</label>
+                    <input type="text" placeholder="e.g., Premium 4K, Family Plan" class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 placeholder-gray-400 transition-colors outline-none">
+                </div>
+
+                <!-- Category -->
+                <div class="col-span-1">
+                    <label class="block text-sm font-semibold text-gray-900 mb-2">Category</label>
+                    <div class="relative">
+                        <select class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 transition-colors outline-none appearance-none cursor-pointer">
+                            <option>Select a category</option>
+                            <option>Entertainment</option>
+                            <option>Utilities</option>
+                            <option>Software</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-gray-500">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Billing Cycle -->
+                <div class="col-span-1">
+                    <label class="block text-sm font-semibold text-gray-900 mb-2">Billing Cycle</label>
+                    <div class="relative">
+                        <select class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 transition-colors outline-none appearance-none cursor-pointer">
+                            <option>Select billing cycle</option>
+                            <option>Monthly</option>
+                            <option>Yearly</option>
+                            <option>Weekly</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-gray-500">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cost -->
+                <div class="col-span-1">
+                    <label class="block text-sm font-semibold text-gray-900 mb-2">Cost</label>
+                    <div class="flex gap-2">
+                        <input type="number" placeholder="0.00" class="w-2/3 bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 placeholder-gray-400 transition-colors outline-none">
+                        <div class="relative w-1/3">
+                            <select class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 font-semibold transition-colors outline-none appearance-none cursor-pointer">
+                                <option>USD</option>
+                                <option>EUR</option>
+                                <option>GBP</option>
+                            </select>
+                            <div class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-gray-500">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Start Date -->
+                <div class="col-span-1">
+                    <label class="block text-sm font-semibold text-gray-900 mb-2">Start Date</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                            </svg>
+                        </div>
+                        <input type="text" placeholder="Pick a date" onfocus="(this.type='date')" onblur="(this.type='text')" class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg pl-10 pr-4 py-3 text-gray-700 placeholder-gray-500 transition-colors outline-none">
+                    </div>
+                </div>
+
+                <!-- Renewal Time -->
+                <div class="col-span-1 md:col-span-2">
+                    <label class="block text-sm font-semibold text-gray-900 mb-2">Renewal Time</label>
+                    <div class="relative max-w-sm">
+                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <input type="time" value="09:00" class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg pl-10 pr-4 py-3 text-gray-700 transition-colors outline-none">
+                    </div>
+                    <p class="text-xs text-gray-400 mt-2">Set the exact renewal time for timely alerts</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Payment & Status -->
+        <div class="bg-white rounded-2xl p-8 mb-6 shadow-sm border border-gray-100">
+            <div class="flex items-center mb-6">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center mr-3 bg-yellow-100 text-yellow-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+                    </svg>
+                </div>
+                <h2 class="text-lg font-semibold text-gray-900">Payment & Status</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <!-- Status Pills -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-900 mb-2">Status</label>
+                    <div class="flex gap-2">
+                        <button @click="status = 'active'" :class="status === 'active' ? 'bg-emerald-200 text-emerald-800' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'" class="px-5 py-2.5 rounded-full text-sm font-medium transition">Active</button>
+                        <button @click="status = 'paused'" :class="status === 'paused' ? 'bg-orange-200 text-orange-800' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'" class="px-5 py-2.5 rounded-full text-sm font-medium transition">Paused</button>
+                        <button @click="status = 'cancelled'" :class="status === 'cancelled' ? 'bg-red-200 text-red-800' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'" class="px-5 py-2.5 rounded-full text-sm font-medium transition">Cancelled</button>
+                    </div>
+                </div>
+
+                <!-- Linked Card -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-900 mb-2">Linked Card</label>
+                    <div class="relative">
+                        <select class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 transition-colors outline-none appearance-none cursor-pointer">
+                            <option>Select a saved card</option>
+                            <option>Visa •••• 5426</option>
+                            <option>Mastercard •••• 8832</option>
+                            <option>Amex •••• 3001</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-gray-500">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Sharing & Ownership -->
+        <div class="bg-white rounded-2xl p-8 mb-6 shadow-sm border border-gray-100">
+            <div class="flex items-center mb-6">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center mr-3 bg-purple-100 text-purple-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                    </svg>
+                </div>
+                <h2 class="text-lg font-semibold text-gray-900">Sharing & Ownership</h2>
+            </div>
+
+            <!-- Radio Toggle -->
+            <div class="flex items-center gap-6 mb-4">
+                <label class="flex items-center cursor-pointer">
+                    <input type="radio" name="sharing" value="justme" x-model="sharing" class="w-4 h-4 text-slate-900 focus:ring-slate-900 border-gray-300">
+                    <span class="ml-2 text-gray-700 font-medium">Just me</span>
+                </label>
+                <label class="flex items-center cursor-pointer">
+                    <input type="radio" name="sharing" value="shared" x-model="sharing" class="w-4 h-4 text-slate-900 focus:ring-slate-900 border-gray-300">
+                    <span class="ml-2 text-gray-700 font-medium">Shared with others</span>
+                </label>
+            </div>
+
+            <!-- Conditional Section: Shared -->
+            <div x-show="sharing === 'shared'" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 transform -translate-y-2" x-transition:enter-end="opacity-100 transform translate-y-0" class="mt-6 border-t border-gray-100 pt-6">
+                
+                <div class="mb-5">
+                    <label class="block text-sm font-semibold text-gray-900 mb-2">Split Type</label>
+                    <div class="inline-flex bg-gray-100 rounded-lg p-1">
+                        <button @click="splitType = 'equal'" :class="splitType === 'equal' ? 'bg-slate-900 text-white shadow' : 'text-gray-500 hover:text-gray-900'" class="px-5 py-2 rounded-md text-sm font-medium transition">Equal</button>
+                        <button @click="splitType = 'custom'" :class="splitType === 'custom' ? 'bg-slate-900 text-white shadow' : 'text-gray-500 hover:text-gray-900'" class="px-5 py-2 rounded-md text-sm font-medium transition">Custom</button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-gray-900 mb-2">Participants</label>
+                    <div class="space-y-2 mb-3">
+                        <!-- Dynamic List -->
+                        <template x-for="(person, index) in participants" :key="index">
+                            <div class="flex items-center justify-between bg-gray-50 px-4 py-2.5 rounded-lg border border-gray-200">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 bg-purple-200 rounded-full flex items-center justify-center text-xs font-bold text-purple-700 uppercase" x-text="person.charAt(0)"></div>
+                                    <span class="text-sm font-medium text-gray-700" x-text="person"></span>
+                                </div>
+                                <button @click="removeParticipant(index)" class="text-gray-400 hover:text-red-500 p-1">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <input type="text" x-model="newParticipant" @keydown.enter.prevent="addParticipant()" placeholder="Enter participant name" class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 placeholder-gray-400 transition-colors outline-none">
+                        <button @click="addParticipant()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-600 rounded-lg w-12 flex items-center justify-center transition shadow-sm">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Account Info -->
+        <div class="bg-white rounded-2xl p-8 mb-6 shadow-sm border border-gray-100">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center mr-3 bg-slate-200 text-slate-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
+                        </svg>
+                    </div>
+                    <h2 class="text-lg font-semibold text-gray-900">Account Info</h2>
+                </div>
+                <span class="bg-gray-100 text-gray-500 text-xs px-2.5 py-1 rounded font-medium">Optional</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-900 mb-2">Account Email</label>
+                    <input type="email" value="user@example.com" class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 placeholder-gray-400 transition-colors outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-900 mb-2">Account Password</label>
+                    <div class="relative" x-data="{ showPass: false }">
+                        <input :type="showPass ? 'text' : 'password'" value="password123" class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 placeholder-gray-400 transition-colors outline-none pr-10">
+                        <button @click="showPass = !showPass" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none">
+                            <svg x-show="!showPass" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                            <svg x-show="showPass" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path></svg>
+                        </button>
+                    </div>
+                    <div class="flex items-center mt-2 text-xs text-gray-400">
+                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                        Stored securely with encryption
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. Notifications -->
+        <div class="bg-white rounded-2xl p-8 mb-6 shadow-sm border border-gray-100">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center mr-3 bg-rose-100 text-rose-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <h2 class="text-lg font-semibold text-gray-900">Notifications</h2>
+                </div>
+                <!-- Toggle Switch -->
+                <div class="flex items-center">
+                    <span class="mr-3 text-sm font-medium text-gray-900" x-text="notificationsOn ? 'On' : 'Off'"></span>
+                    <button @click="notificationsOn = !notificationsOn" 
+                            :class="notificationsOn ? 'bg-slate-900' : 'bg-gray-200'" 
+                            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none">
+                        <span aria-hidden="true" 
+                              :class="notificationsOn ? 'translate-x-5' : 'translate-x-0'" 
+                              class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+                    </button>
+                </div>
+            </div>
+
+            <div x-show="notificationsOn" class="mt-4 border-t border-gray-50 pt-4">
+                <label class="block text-sm font-semibold text-gray-900 mb-1">Reminder Offsets</label>
+                <p class="text-xs text-gray-400 mb-3">Get notified before your subscription renews</p>
+                
+                <div class="flex flex-wrap gap-2 items-center">
+                    <!-- Existing Tags -->
+                    <template x-for="(reminder, index) in reminders" :key="index">
+                        <span class="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-slate-900 text-white shadow-sm">
+                            <span x-text="reminder"></span>
+                            <button @click="removeReminder(index)" class="ml-2 inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white focus:outline-none transition">
+                                <span class="sr-only">Remove</span>
+                                <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </span>
+                    </template>
+
+                    <!-- Add New -->
+                    <div class="flex items-center gap-2 bg-gray-50 p-1 rounded-lg border border-gray-200">
+                        <input type="number" x-model="newReminderVal" placeholder="0" class="w-12 bg-transparent text-center text-sm outline-none">
+                        <span class="text-sm text-gray-500 whitespace-nowrap">days before</span>
+                        <button @click="addReminder()" class="bg-white border border-gray-200 text-xs font-semibold rounded px-3 py-1 text-gray-700 hover:bg-gray-50 shadow-sm transition">
+                            + Add
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. Notes -->
+        <div class="bg-white rounded-2xl p-8 mb-8 shadow-sm border border-gray-100">
+            <div class="flex items-center mb-4">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center mr-3 bg-yellow-100 text-yellow-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                    </svg>
+                </div>
+                <h2 class="text-lg font-semibold text-gray-900">Notes</h2>
+            </div>
+            <textarea placeholder="Add any additional details about this subscription..." class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 placeholder-gray-400 transition-colors outline-none min-h-[120px] resize-none"></textarea>
+        </div>
+
+        <!-- Footer Actions -->
+        <div class="flex flex-col md:flex-row items-center gap-4">
+            <button class="w-full md:flex-1 bg-slate-900 text-white font-semibold py-4 px-6 rounded-xl hover:bg-slate-800 transition shadow-lg shadow-slate-900/20 transform active:scale-[0.99]">
+                + Add Subscription
+            </button>
+            <button class="w-full md:w-auto bg-white border border-gray-200 text-gray-700 font-semibold py-4 px-8 rounded-xl hover:bg-gray-50 transition">
+                Cancel
+            </button>
+        </div>
+
+    </div>
+
+    <!-- Logic Script -->
+    <script>
+        function subscriptionForm() {
+            return {
+                status: 'active', // active, paused, cancelled
+                sharing: 'justme', // justme, shared
+                splitType: 'equal', // equal, custom
+                
+                // Participants Logic
+                participants: [],
+                newParticipant: '',
+                addParticipant() {
+                    if (this.newParticipant.trim() !== '') {
+                        this.participants.push(this.newParticipant);
+                        this.newParticipant = '';
+                    }
+                },
+                removeParticipant(index) {
+                    this.participants.splice(index, 1);
+                },
+
+                // Notifications Logic
+                notificationsOn: true,
+                reminders: ['1 day before', '3 days before'],
+                newReminderVal: '',
+                addReminder() {
+                    if (this.newReminderVal) {
+                        this.reminders.push(this.newReminderVal + ' days before');
+                        this.newReminderVal = '';
+                    }
+                },
+                removeReminder(index) {
+                    this.reminders.splice(index, 1);
+                }
+            }
+        }
+    </script>
+</body>
+</html>

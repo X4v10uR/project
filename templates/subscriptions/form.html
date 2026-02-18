@@ -1,488 +1,367 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}{{ title }} - Subly{% endblock %}
 
 {% block content %}
-<div>
-    <div>
-        <h1>{{ title }}</h1>
-        <p>Enter the details of your recurring subscription.</p>
-    </div>
+<div class="subscription-form-page max-w-4xl mx-auto px-4 py-6 md:py-8">
+    <form method="post" id="subscription-form" novalidate>
+        {% csrf_token %}
 
-    <div>
-        <form method="post">
-            {% csrf_token %}
-
-            {% if form.non_field_errors %}
-            <div class="errorlist">
-                {{ form.non_field_errors }}
-            </div>
-            {% endif %}
-
+        <div class="flex items-center mb-8">
+            <a href="{% url 'subscriptions:list' %}" class="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm text-gray-600 hover:bg-gray-50 mr-4 transition border border-gray-100">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"></path>
+                </svg>
+            </a>
             <div>
-                {% for field in form %}
-                    {% if field.name != 'reminders_enabled' and field.name != 'is_shared' and field.name != 'split_type' and field.name != 'account_email' and field.name != 'account_password' %}
-                        <div class="{% if field.name == 'notes' %}notes-container{% endif %}">
-                            <label for="{{ field.id_for_label }}">
-                                <span>
-                                    {{ field.label }}
-                                    {% if field.name == 'service_name' %}
-                                        <span>Icon preview will appear as you type</span>
-                                    {% endif %}
-                                    {% if field.name == 'renewal_time' or field.name == 'account_email' or field.name == 'account_password' %}
-                                        <span>(Optional)</span>
-                                    {% endif %}
-                                </span>
-                                {% if field.name == 'card' %}
-                                    <a href="{% url 'subscriptions:card_list' %}">Manage Cards</a>
-                                {% endif %}
-                            </label>
-                            <div class="{% if field.name == 'service_name' %}service-name-input-container{% endif %}">
-                                {{ field }}
-                                {% if field.name == 'service_name' %}
-                                    <div id="icon-preview" style="display: none;">
-                                        <img id="service-icon" src="" alt="" style="display: none;">
-                                        <div id="fallback-icon">
-                                            <span id="fallback-letter">S</span>
-                                        </div>
-                                    </div>
-                                {% endif %}
-                            </div>
-                            {% if field.help_text %}<p>{{ field.help_text }}</p>{% endif %}
-                            {% if field.name == 'card' and not field.field.queryset %}
-                                <p>No cards added yet. <a href="{% url 'subscriptions:card_create' %}">Add one from the Cards page</a>.</p>
-                            {% endif %}
-                            {% if field.errors %}<p class="error">{{ field.errors.0 }}</p>{% endif %}
-                        </div>
-                    {% endif %}
-                {% endfor %}
+                <h1 class="text-2xl font-bold text-gray-900">
+                    {% if is_edit_mode %}Edit Subscription{% else %}Add Subscription{% endif %}
+                </h1>
+                <p class="text-gray-500 text-sm mt-1">Track a subscription by filling out the details below.</p>
+            </div>
+        </div>
+
+        {% if form.non_field_errors %}
+        <div class="subscription-alert mb-6">
+            {% for error in form.non_field_errors %}
+            <p>{{ error }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- 1. Core Details -->
+        <section class="subscription-section-card">
+            <div class="subscription-section-heading">
+                <div class="subscription-icon-chip bg-emerald-100 text-emerald-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.546-3.131 1.567-4.357"></path>
+                    </svg>
+                </div>
+                <h2 class="text-lg font-semibold text-gray-900">Core Details</h2>
             </div>
 
-            <!-- Enhanced Shared Subscription Section -->
-            <div>
-                <h3>Sharing & Ownership</h3>
-
-                <!-- Ownership Selector -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                 <div>
-                    <label>Who is this subscription for?</label>
-                    <div>
-                        <label>
-                            <input type="radio" name="{{ form.is_shared.name }}" value="False" {% if not form.is_shared.value %}checked{% endif %}>
-                            <span>
-                                <span>
-                                    <span id="ownership-solo-label">Just me</span>
-                                    <span id="ownership-solo-desc">I pay the full amount</span>
-                                </span>
-                            </span>
-                        </label>
-
-                        <label>
-                            <input type="radio" name="{{ form.is_shared.name }}" value="True" {% if form.is_shared.value %}checked{% endif %}>
-                            <span>
-                                <span>
-                                    <span id="ownership-shared-label">Shared with others</span>
-                                    <span id="ownership-shared-desc">Split cost with others</span>
-                                </span>
-                            </span>
-                        </label>
+                    <label for="id_service_name" class="subscription-label">Service Name</label>
+                    <div class="relative">
+                        <input id="id_service_name" name="service_name" type="text" value="{{ service_name_value }}" placeholder="e.g., Netflix, Spotify" class="subscription-input pr-24" maxlength="100" required>
+                        <div id="service-icon-preview" class="absolute inset-y-0 right-3 flex items-center gap-2 hidden">
+                            <img id="service-icon-image" src="" alt="" class="w-6 h-6 rounded-full object-contain bg-white hidden">
+                            <span id="service-icon-fallback" class="w-6 h-6 rounded-full bg-slate-900 text-white text-xs font-semibold flex items-center justify-center">S</span>
+                        </div>
                     </div>
+                    <p class="subscription-help">Type a service name to preview icon/fallback.</p>
+                    {% if form.service_name.errors %}<p class="subscription-error">{{ form.service_name.errors.0 }}</p>{% endif %}
                 </div>
 
-                <!-- Shared Settings (Conditional) -->
-                <div id="shared-settings" class="hidden">
-                    <!-- Split Type -->
-                    <div>
-                        <label>How is the cost divided?</label>
-                        <div>
-                            {% for radio in form.split_type %}
-                                <label>
-                                    {{ radio.tag }}
-                                    <div>
-                                        <span class="outer-circle"><span class="inner-circle"></span></span>
-                                        {{ radio.choice_label }}
-                                    </div>
-                                </label>
+                <div>
+                    <label for="id_plan_name" class="subscription-label">Plan Name</label>
+                    <input id="id_plan_name" name="plan_name" type="text" value="{{ plan_name_value }}" placeholder="e.g., Premium 4K, Family Plan" class="subscription-input" maxlength="100">
+                    {% if form.plan_name.errors %}<p class="subscription-error">{{ form.plan_name.errors.0 }}</p>{% endif %}
+                </div>
+
+                <div>
+                    <label for="id_category" class="subscription-label">Category</label>
+                    <input id="id_category" name="category" value="{{ category_value }}" list="category-suggestions" type="text" placeholder="e.g., Streaming, Utilities, Software" class="subscription-input" maxlength="50" required>
+                    <datalist id="category-suggestions">
+                        {% for category in category_suggestions %}
+                        <option value="{{ category }}"></option>
+                        {% endfor %}
+                    </datalist>
+                    {% if form.category.errors %}<p class="subscription-error">{{ form.category.errors.0 }}</p>{% endif %}
+                </div>
+
+                <div>
+                    <label for="id_billing_cycle" class="subscription-label">Billing Cycle</label>
+                    <div class="relative">
+                        <select id="id_billing_cycle" name="billing_cycle" class="subscription-input appearance-none cursor-pointer" required>
+                            <option value="">Select billing cycle</option>
+                            {% for value, label in form.fields.billing_cycle.choices %}
+                            <option value="{{ value }}" {% if billing_cycle_value == value %}selected{% endif %}>{{ label }}</option>
                             {% endfor %}
+                        </select>
+                        <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-gray-500">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
                         </div>
                     </div>
+                    {% if form.billing_cycle.errors %}<p class="subscription-error">{{ form.billing_cycle.errors.0 }}</p>{% endif %}
+                </div>
 
-                    <!-- Participants -->
-                    <div>
-                        <div>
-                            <label>Participants</label>
-                            <button type="button" id="add-participant">Add Person</button>
-                        </div>
-
-                        <div id="participants-list">
-                            <!-- User's Row (Fixed) -->
-                            <div class="user-row">
-                                <div><span>You (Owner)</span></div>
-                                <div>
-                                    <div>
-                                        <span>$</span>
-                                        <input type="text" id="user-share-display" disabled value="0.00">
-                                        <span>USD</span>
-                                    </div>
-                                </div>
+                <div>
+                    <label for="id_cost" class="subscription-label">Cost</label>
+                    <div class="flex gap-2">
+                        <input id="id_cost" name="cost" type="number" step="0.01" value="{{ cost_value }}" placeholder="0.00" class="subscription-input w-2/3" required>
+                        <div class="relative w-1/3">
+                            <select id="id_currency" name="currency" class="subscription-input appearance-none cursor-pointer font-semibold">
+                                {% if currency_value and currency_value != 'USD' and currency_value != 'EUR' and currency_value != 'GBP' and currency_value != 'INR' and currency_value != 'CAD' and currency_value != 'AUD' %}
+                                <option value="{{ currency_value }}" selected>{{ currency_value }}</option>
+                                {% endif %}
+                                <option value="USD" {% if currency_value == 'USD' or not currency_value %}selected{% endif %}>USD</option>
+                                <option value="EUR" {% if currency_value == 'EUR' %}selected{% endif %}>EUR</option>
+                                <option value="GBP" {% if currency_value == 'GBP' %}selected{% endif %}>GBP</option>
+                                <option value="INR" {% if currency_value == 'INR' %}selected{% endif %}>INR</option>
+                                <option value="CAD" {% if currency_value == 'CAD' %}selected{% endif %}>CAD</option>
+                                <option value="AUD" {% if currency_value == 'AUD' %}selected{% endif %}>AUD</option>
+                            </select>
+                            <div class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-gray-500">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
                             </div>
-
-                            <!-- Existing Participants (for Edit) -->
-                            {% if form.instance.pk %}
-                                {% for participant in form.instance.participants.all %}
-                                    <div class="participant-row">
-                                        <div><input type="text" name="participant_name" value="{{ participant.name }}" placeholder="Name (e.g. John)"></div>
-                                        <div>
-                                            <div>
-                                                <span>$</span>
-                                                <input type="number" name="participant_share" step="0.01" value="{{ participant.share_amount }}" placeholder="0.00" class="participant-share-input">
-                                            </div>
-                                        </div>
-                                        <button type="button" class="remove-participant">Remove</button>
-                                    </div>
-                                {% endfor %}
-                            {% endif %}
                         </div>
                     </div>
+                    {% if form.cost.errors %}<p class="subscription-error">{{ form.cost.errors.0 }}</p>{% endif %}
+                    {% if form.currency.errors %}<p class="subscription-error">{{ form.currency.errors.0 }}</p>{% endif %}
+                </div>
 
-                    <!-- Total Validation Error -->
-                    <div id="split-error" class="hidden">
-                        <h3>Split Total Mismatch</h3>
-                        <p>The sum of all shares must equal the total subscription cost (<span id="total-cost-display"></span>).</p>
+                <div>
+                    <label for="id_start_date" class="subscription-label">Start Date</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"></path>
+                            </svg>
+                        </div>
+                        <input id="id_start_date" name="start_date" type="date" value="{{ start_date_value }}" class="subscription-input pl-10 subscription-date-input" required>
                     </div>
+                    {% if form.start_date.errors %}<p class="subscription-error">{{ form.start_date.errors.0 }}</p>{% endif %}
+                </div>
+
+                <div class="md:col-span-2">
+                    <label for="id_renewal_time" class="subscription-label">Renewal Time</label>
+                    <div class="relative max-w-sm">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <input id="id_renewal_time" name="renewal_time" type="time" value="{{ renewal_time_value|default:'15:00' }}" class="subscription-input pl-10">
+                    </div>
+                    <p class="subscription-help">Set the exact renewal time for alerts.</p>
+                    {% if form.renewal_time.errors %}<p class="subscription-error">{{ form.renewal_time.errors.0 }}</p>{% endif %}
                 </div>
             </div>
+        </section>
 
-            <!-- Account Credentials Section -->
-            <div>
-                <div>
-                    <h3>Account Used for This Subscription</h3>
-                    <span>Optional</span>
+        <!-- 2. Payment & Status -->
+        <section class="subscription-section-card">
+            <div class="subscription-section-heading">
+                <div class="subscription-icon-chip bg-yellow-100 text-yellow-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"></path>
+                    </svg>
                 </div>
-                <div>
-                    <p>This helps you remember which account is used for this subscription, especially if you have multiple accounts. For security, passwords are encrypted before they are saved.</p>
-                </div>
-                <div>
-                    <div>
-                        <label for="{{ form.account_email.id_for_label }}">Account Email</label>
-                        {{ form.account_email }}
-                        {% if form.account_email.errors %}<p class="error">{{ form.account_email.errors.0 }}</p>{% endif %}
-                    </div>
-                    <div>
-                        <label for="{{ form.account_password.id_for_label }}">Account Password</label>
-                        {{ form.account_password }}
-                        <p>Leave blank while editing to keep the existing password.</p>
-                        {% if form.account_password.errors %}<p class="error">{{ form.account_password.errors.0 }}</p>{% endif %}
-                    </div>
-                </div>
+                <h2 class="text-lg font-semibold text-gray-900">Payment &amp; Status</h2>
             </div>
 
-            <h3>Reminder Settings</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <div>
+                    <label class="subscription-label">Status</label>
+                    <input type="hidden" id="id_status" name="status" value="{{ status_selected }}">
+                    <div class="flex gap-2">
+                        <button type="button" data-status-option="active" class="subscription-status-pill">Active</button>
+                        <button type="button" data-status-option="paused" class="subscription-status-pill">Paused</button>
+                        <button type="button" data-status-option="cancelled" class="subscription-status-pill">Cancelled</button>
+                    </div>
+                    {% if form.status.errors %}<p class="subscription-error">{{ form.status.errors.0 }}</p>{% endif %}
+                </div>
 
-            <div>
-                <label for="{{ form.reminders_enabled.id_for_label }}">
-                    <input type="checkbox" name="{{ form.reminders_enabled.name }}" id="{{ form.reminders_enabled.id_for_label }}" {% if form.reminders_enabled.value %}checked{% endif %}>
-                    <span>Enable renewal notifications for this subscription</span>
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label for="id_card" class="subscription-label mb-0">Linked Card</label>
+                        <a href="{% url 'subscriptions:card_list' %}" class="text-xs text-slate-600 hover:text-slate-900">Manage cards</a>
+                    </div>
+                    <div class="relative">
+                        <select id="id_card" name="card" class="subscription-input appearance-none cursor-pointer">
+                            <option value="">Select a saved card</option>
+                            {% for card in form.fields.card.queryset %}
+                            <option value="{{ card.pk }}" {% if selected_card_id == card.pk|stringformat:'s' %}selected{% endif %}>{{ card }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-gray-500">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    {% if form.card.errors %}<p class="subscription-error">{{ form.card.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Sharing & Ownership -->
+        <section class="subscription-section-card">
+            <div class="subscription-section-heading">
+                <div class="subscription-icon-chip bg-purple-100 text-purple-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"></path>
+                    </svg>
+                </div>
+                <h2 class="text-lg font-semibold text-gray-900">Sharing &amp; Ownership</h2>
+            </div>
+
+            <div class="flex items-center gap-6 mb-4">
+                <label class="flex items-center cursor-pointer">
+                    <input type="radio" name="is_shared" value="False" class="w-4 h-4 text-slate-900 focus:ring-slate-900 border-gray-300" {% if not is_shared_selected %}checked{% endif %}>
+                    <span class="ml-2 text-gray-700 font-medium">Just me</span>
+                </label>
+                <label class="flex items-center cursor-pointer">
+                    <input type="radio" name="is_shared" value="True" class="w-4 h-4 text-slate-900 focus:ring-slate-900 border-gray-300" {% if is_shared_selected %}checked{% endif %}>
+                    <span class="ml-2 text-gray-700 font-medium">Shared with others</span>
                 </label>
             </div>
+            {% if form.is_shared.errors %}<p class="subscription-error mb-4">{{ form.is_shared.errors.0 }}</p>{% endif %}
 
-            <div id="offsets-section">
-                <p>Reminder offsets (days before renewal):</p>
-                <div id="offsets-list">
-                    {% if form.instance.pk %}
-                        {% for offset in form.instance.offsets.all %}
-                            <div class="offset-tag" data-days="{{ offset.days_before }}">
-                                <span>{{ offset.days_before }} days before</span>
-                                <button type="button" onclick="deleteOffset({{ offset.pk }})">Remove</button>
-                            </div>
-                        {% empty %}
-                            <p id="no-offsets-msg">No custom offsets. Using default (3 days before).</p>
-                        {% endfor %}
-                    {% else %}
-                        <p id="no-offsets-msg">No custom offsets. Using default (3 days before).</p>
-                    {% endif %}
+            <div id="shared-settings" class="mt-6 border-t border-gray-100 pt-6">
+                <div class="mb-5">
+                    <label class="subscription-label">Split Type</label>
+                    <input type="hidden" id="id_split_type" name="split_type" value="{{ split_type_selected|default:'equal' }}">
+                    <div class="inline-flex bg-gray-100 rounded-lg p-1">
+                        <button type="button" data-split-option="equal" class="subscription-split-pill">Equal</button>
+                        <button type="button" data-split-option="custom" class="subscription-split-pill">Custom</button>
+                    </div>
+                    {% if form.split_type.errors %}<p class="subscription-error">{{ form.split_type.errors.0 }}</p>{% endif %}
                 </div>
 
                 <div>
-                    <input type="number" id="new-offset-days" min="1" max="30" placeholder="3">
-                    {% if form.instance.pk %}
-                        <button type="button" onclick="addOffset({{ form.instance.pk }})">Add Offset</button>
-                    {% else %}
-                        <button type="button" id="add-offset-btn">Add Offset</button>
-                    {% endif %}
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="subscription-label mb-0">Participants</label>
+                        <div class="flex items-center gap-2 text-xs text-slate-500">
+                            <span>Your share:</span>
+                            <input type="text" id="user-share-display" value="0.00" class="w-20 bg-transparent border-0 p-0 text-sm font-semibold text-slate-700" disabled>
+                        </div>
+                    </div>
+
+                    <div id="participants-list" class="space-y-2 mb-3"></div>
+
+                    <div class="flex gap-2">
+                        <input type="text" id="new-participant-name" placeholder="Enter participant name" class="subscription-input">
+                        <button type="button" id="add-participant-btn" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-600 rounded-lg w-12 flex items-center justify-center transition shadow-sm">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div id="split-error" class="subscription-alert mt-3 hidden">
+                        <p>The sum of participant shares cannot exceed the total cost.</p>
+                    </div>
                 </div>
+            </div>
+        </section>
+
+        <!-- 4. Account Info -->
+        <section class="subscription-section-card">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center">
+                    <div class="subscription-icon-chip bg-slate-200 text-slate-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"></path>
+                        </svg>
+                    </div>
+                    <h2 class="text-lg font-semibold text-gray-900">Account Info</h2>
+                </div>
+                <span class="bg-gray-100 text-gray-500 text-xs px-2.5 py-1 rounded font-medium">Optional</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <div>
+                    <label for="id_account_email" class="subscription-label">Account Email</label>
+                    <input id="id_account_email" name="account_email" type="email" value="{{ account_email_value }}" class="subscription-input" placeholder="user@example.com">
+                    {% if form.account_email.errors %}<p class="subscription-error">{{ form.account_email.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="id_account_password" class="subscription-label">Account Password</label>
+                    <div class="relative">
+                        <input id="id_account_password" name="account_password" type="password" value="" class="subscription-input pr-10" placeholder="{% if is_edit_mode %}Leave blank to keep existing{% else %}Enter account password{% endif %}">
+                        <button type="button" id="toggle-password-btn" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none">
+                            <svg id="password-eye-open" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                            </svg>
+                            <svg id="password-eye-closed" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="subscription-help">
+                        {% if is_edit_mode %}Leave blank to keep your existing password.{% else %}Stored securely with encryption.{% endif %}
+                    </p>
+                    {% if form.account_password.errors %}<p class="subscription-error">{{ form.account_password.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. Notifications -->
+        <section class="subscription-section-card">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center">
+                    <div class="subscription-icon-chip bg-rose-100 text-rose-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <h2 class="text-lg font-semibold text-gray-900">Notifications</h2>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span id="reminder-toggle-label" class="text-sm font-medium text-gray-900">{% if reminders_enabled_selected %}On{% else %}Off{% endif %}</span>
+                    <input type="checkbox" id="id_reminders_enabled" name="reminders_enabled" class="sr-only" {% if reminders_enabled_selected %}checked{% endif %}>
+                    <button type="button" id="reminders-toggle-btn" class="subscription-switch {% if reminders_enabled_selected %}is-on{% endif %}">
+                        <span class="subscription-switch-knob"></span>
+                    </button>
+                </div>
+            </div>
+
+            <div id="offsets-section" class="mt-4 border-t border-gray-50 pt-4">
+                <label class="subscription-label">Reminder Offsets</label>
+                <p class="subscription-help mb-3">Get notified before renewal (1-30 days).</p>
+
+                <div id="offsets-list" class="flex flex-wrap gap-2 items-center mb-3"></div>
                 <div id="offset-inputs-container"></div>
-            </div>
 
-            <div>
-                <a href="{% url 'subscriptions:list' %}">Cancel</a>
-                <button type="submit">Save Subscription</button>
+                <div class="flex items-center gap-2 bg-gray-50 p-1 rounded-lg border border-gray-200 max-w-sm">
+                    <input type="number" id="new-offset-days" min="1" max="30" placeholder="3" class="w-14 bg-transparent text-center text-sm outline-none text-gray-700">
+                    <span class="text-sm text-gray-500 whitespace-nowrap">days before</span>
+                    <button type="button" id="add-offset-btn" class="bg-white border border-gray-200 text-xs font-semibold rounded px-3 py-1 text-gray-700 hover:bg-gray-50 shadow-sm transition">
+                        + Add
+                    </button>
+                </div>
+                {% if form.reminders_enabled.errors %}<p class="subscription-error mt-2">{{ form.reminders_enabled.errors.0 }}</p>{% endif %}
             </div>
-        </form>
-    </div>
+        </section>
+
+        <!-- 6. Notes -->
+        <section class="subscription-section-card mb-8">
+            <div class="subscription-section-heading">
+                <div class="subscription-icon-chip bg-yellow-100 text-yellow-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"></path>
+                    </svg>
+                </div>
+                <h2 class="text-lg font-semibold text-gray-900">Notes</h2>
+            </div>
+            <textarea id="id_notes" name="notes" placeholder="Add any additional details..." class="subscription-input min-h-[120px] resize-none">{{ notes_value }}</textarea>
+            {% if form.notes.errors %}<p class="subscription-error mt-2">{{ form.notes.errors.0 }}</p>{% endif %}
+        </section>
+
+        <div class="flex flex-col md:flex-row items-center gap-4">
+            <button id="save-subscription-btn" type="submit" class="w-full md:flex-1 bg-slate-900 text-white font-semibold py-4 px-6 rounded-xl hover:bg-slate-800 transition shadow-lg shadow-slate-900/20 active:scale-[0.99]">
+                {% if is_edit_mode %}Save Changes{% else %}+ Add Subscription{% endif %}
+            </button>
+            <a href="{% url 'subscriptions:list' %}" class="w-full md:w-auto text-center bg-white border border-gray-200 text-gray-700 font-semibold py-4 px-8 rounded-xl hover:bg-gray-50 transition">
+                Cancel
+            </a>
+        </div>
+    </form>
+
+    {{ participant_seed|json_script:"participant-seed-data" }}
+    {{ reminder_seed|json_script:"reminder-seed-data" }}
 </div>
+{% endblock %}
 
-<script>
-    function deleteOffset(offsetId) {
-        if (confirm('Are you sure you want to delete this reminder?')) {
-            fetch(`/subscriptions/offset/${offsetId}/delete/`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            }).then(response => {
-                if (response.ok) window.location.reload();
-            });
-        }
-    }
-
-    function addOffset(subId) {
-        const days = document.getElementById('new-offset-days').value;
-        if (!days) return;
-
-        const formData = new FormData();
-        formData.append('days_before', days);
-
-        fetch(`/subscriptions/${subId}/offset/add/`, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        }).then(response => {
-            if (response.ok) window.location.reload();
-        });
-    }
-
-    document.addEventListener('DOMContentLoaded', function () {
-        const remindersToggle = document.getElementById('{{ form.reminders_enabled.id_for_label }}');
-        const offsetsSection = document.getElementById('offsets-section');
-
-        if (remindersToggle && offsetsSection) {
-            remindersToggle.addEventListener('change', function () {
-                if (this.checked) {
-                    offsetsSection.classList.remove('opacity-50', 'pointer-events-none');
-                } else {
-                    offsetsSection.classList.add('opacity-50', 'pointer-events-none');
-                }
-            });
-        }
-        const serviceNameField = document.getElementById('id_service_name');
-        const iconPreview = document.getElementById('icon-preview');
-        const serviceIcon = document.getElementById('service-icon');
-        const fallbackIcon = document.getElementById('fallback-icon');
-        const fallbackLetter = document.getElementById('fallback-letter');
-
-        const serviceMappings = {
-            'chatgpt plus': 'openai', 'chat gpt': 'openai', 'openai': 'openai',
-            'adobe cc': 'adobe', 'adobe creative cloud': 'adobe',
-            'disney+': 'disney-plus', 'disney plus': 'disney-plus',
-            'amazon prime': 'amazon-prime-video', 'prime video': 'amazon-prime-video',
-            'youtube premium': 'youtube', 'google drive': 'google-drive',
-            'google workspace': 'google-workspace', 'microsoft 365': 'microsoft-365',
-            'office 365': 'microsoft-365', 'icloud': 'icloud', 'dropbox': 'dropbox',
-            'github': 'github', 'gitlab': 'gitlab', 'bitbucket': 'bitbucket',
-            'aws': 'amazon-web-services', 'amazon web services': 'amazon-web-services',
-            'google cloud': 'google-cloud', 'azure': 'microsoft-azure',
-            'digital ocean': 'digitalocean', 'linode': 'linode', 'vultr': 'vultr',
-        };
-
-        function generateIconUrl(serviceName) {
-            if (!serviceName) return null;
-            const serviceLower = serviceName.toLowerCase().trim();
-            let iconName;
-            if (serviceMappings[serviceLower]) {
-                iconName = serviceMappings[serviceLower];
-            } else {
-                iconName = serviceLower.replace(/ /g, '-').replace(/\+/g, '-plus').replace(/&/g, '-and').replace(/\./g, '').replace(/[()]/g, '').replace(/_/g, '-');
-            }
-            return `https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/${iconName}.svg`;
-        }
-
-        function updateIconPreview() {
-            const serviceName = serviceNameField.value.trim();
-            if (!serviceName) {
-                iconPreview.style.display = 'none';
-                return;
-            }
-            iconPreview.style.display = 'flex';
-            fallbackLetter.textContent = serviceName[0].toUpperCase();
-            const iconUrl = generateIconUrl(serviceName);
-            if (iconUrl) {
-                serviceIcon.src = iconUrl;
-                serviceIcon.style.display = 'block';
-                fallbackIcon.style.display = 'none';
-                serviceIcon.onerror = function () {
-                    serviceIcon.style.display = 'none';
-                    fallbackIcon.style.display = 'flex';
-                };
-            }
-        }
-
-        if (serviceNameField) {
-            serviceNameField.addEventListener('input', updateIconPreview);
-            updateIconPreview();
-        }
-
-        const costInput = document.getElementById('id_cost');
-        const sharedSettings = document.getElementById('shared-settings');
-        const participantsList = document.getElementById('participants-list');
-        const addParticipantBtn = document.getElementById('add-participant');
-        const splitTypeInputs = document.querySelectorAll('input[name="split_type"]');
-        const isSharedInputs = document.querySelectorAll('input[name="is_shared"]');
-        const userShareDisplay = document.getElementById('user-share-display');
-        const splitError = document.getElementById('split-error');
-        const totalCostDisplay = document.getElementById('total-cost-display');
-        const saveBtn = document.querySelector('button[type="submit"]');
-
-        function toggleSharedSettings() {
-            const isShared = document.querySelector('input[name="is_shared"]:checked')?.value === 'True';
-            if (isShared) {
-                sharedSettings.classList.remove('hidden');
-                calculateSplits();
-            } else {
-                sharedSettings.classList.add('hidden');
-            }
-        }
-
-        function getSplitType() {
-            return document.querySelector('input[name="split_type"]:checked').value;
-        }
-
-        function calculateSplits() {
-            const totalCost = parseFloat(costInput.value) || 0;
-            const splitType = getSplitType();
-            const participantRows = document.querySelectorAll('.participant-row');
-            const participantCount = participantRows.length;
-            const totalPeople = participantCount + 1;
-            totalCostDisplay.textContent = totalCost.toFixed(2);
-            if (splitType === 'equal') {
-                const sharePerPerson = totalCost / totalPeople;
-                userShareDisplay.value = sharePerPerson.toFixed(2);
-                document.querySelectorAll('.participant-share-input').forEach(input => {
-                    input.value = sharePerPerson.toFixed(2);
-                    input.readOnly = true;
-                });
-                splitError.classList.add('hidden');
-                saveBtn.disabled = false;
-            } else {
-                document.querySelectorAll('.participant-share-input').forEach(input => { input.readOnly = false; });
-                let othersTotal = 0;
-                document.querySelectorAll('.participant-share-input').forEach(input => { othersTotal += parseFloat(input.value) || 0; });
-                const userShare = totalCost - othersTotal;
-                userShareDisplay.value = userShare.toFixed(2);
-                if (userShare < 0 || Math.abs(userShare + othersTotal - totalCost) > 0.01) {
-                    splitError.classList.remove('hidden');
-                    saveBtn.disabled = true;
-                } else {
-                    splitError.classList.add('hidden');
-                    saveBtn.disabled = false;
-                }
-            }
-        }
-
-        function addParticipant() {
-            const div = document.createElement('div');
-            div.className = 'participant-row';
-            div.innerHTML = `<div><input type="text" name="participant_name" placeholder="Name (e.g. John)"></div><div><div><span>$</span><input type="number" name="participant_share" step="0.01" placeholder="0.00" class="participant-share-input"></div></div><button type="button" class="remove-participant">Remove</button>`;
-            participantsList.appendChild(div);
-            calculateSplits();
-        }
-
-        isSharedInputs.forEach(input => input.addEventListener('change', toggleSharedSettings));
-        splitTypeInputs.forEach(input => input.addEventListener('change', calculateSplits));
-        costInput.addEventListener('input', calculateSplits);
-        addParticipantBtn.addEventListener('click', addParticipant);
-        participantsList.addEventListener('click', function (e) {
-            if (e.target.closest('.remove-participant')) {
-                e.target.closest('.participant-row').remove();
-                calculateSplits();
-            }
-        });
-        participantsList.addEventListener('input', function (e) {
-            if (e.target.classList.contains('participant-share-input')) {
-                calculateSplits();
-            }
-        });
-        document.querySelector('form').addEventListener('submit', function (e) {
-            const isShared = document.querySelector('input[name="is_shared"]:checked')?.value === 'True';
-            if (isShared) {
-                const participantRows = document.querySelectorAll('.participant-row');
-                const hasValidParticipants = Array.from(participantRows).some(row => {
-                    const nameInput = row.querySelector('input[name="participant_name"]');
-                    return nameInput && nameInput.value.trim() !== '';
-                });
-                if (!hasValidParticipants) {
-                    e.preventDefault();
-                    alert('Please add at least one participant for shared subscriptions, or select "Just me".');
-                    return false;
-                }
-            }
-        });
-
-        const addOffsetBtn = document.getElementById('add-offset-btn');
-        const offsetsList = document.getElementById('offsets-list');
-        const offsetInputsContainer = document.getElementById('offset-inputs-container');
-        const newOffsetDaysInput = document.getElementById('new-offset-days');
-        let offsetCounter = 0;
-
-        function addNewOffset() {
-            const days = parseInt(newOffsetDaysInput.value);
-            if (!days || days < 1 || days > 30) {
-                alert('Please enter a valid number between 1 and 30 days.');
-                return;
-            }
-            const existingOffsets = document.querySelectorAll('.offset-tag');
-            for (let tag of existingOffsets) { if (parseInt(tag.dataset.days) === days) { alert('This reminder offset already exists.'); return; } }
-            const noOffsetsMsg = document.getElementById('no-offsets-msg');
-            if (noOffsetsMsg) noOffsetsMsg.remove();
-            const tagDiv = document.createElement('div');
-            tagDiv.className = 'offset-tag';
-            tagDiv.dataset.days = days;
-            tagDiv.dataset.offsetId = offsetCounter;
-            tagDiv.innerHTML = `<span>${days} days before</span><button type="button" class="remove-offset-btn">Remove</button>`;
-            offsetsList.appendChild(tagDiv);
-            const hiddenInput = document.createElement('input');
-            hiddenInput.type = 'hidden';
-            hiddenInput.name = 'reminder_offsets';
-            hiddenInput.value = days;
-            hiddenInput.id = `offset-input-${offsetCounter}`;
-            offsetInputsContainer.appendChild(hiddenInput);
-            offsetCounter++;
-            newOffsetDaysInput.value = '';
-        }
-
-        function removeNewOffset(offsetId) {
-            const tag = document.querySelector(`.offset-tag[data-offset-id="${offsetId}"]`);
-            if (tag) tag.remove();
-            const hiddenInput = document.getElementById(`offset-input-${offsetId}`);
-            if (hiddenInput) hiddenInput.remove();
-            const remainingOffsets = document.querySelectorAll('.offset-tag');
-            if (remainingOffsets.length === 0) {
-                const noOffsetsMsg = document.createElement('p');
-                noOffsetsMsg.id = 'no-offsets-msg';
-                noOffsetsMsg.textContent = 'No custom offsets. Using default (3 days before).';
-                offsetsList.appendChild(noOffsetsMsg);
-            }
-        }
-
-        if (addOffsetBtn) addOffsetBtn.addEventListener('click', addNewOffset);
-        if (offsetsList) {
-            offsetsList.addEventListener('click', function (e) {
-                const removeBtn = e.target.closest('.remove-offset-btn');
-                if (removeBtn) {
-                    const tag = removeBtn.closest('.offset-tag');
-                    if (tag && tag.dataset.offsetId !== undefined) { removeNewOffset(tag.dataset.offsetId); }
-                }
-            });
-        }
-        if (newOffsetDaysInput) {
-            newOffsetDaysInput.addEventListener('keypress', function (e) {
-                if (e.key === 'Enter') { e.preventDefault(); if (addOffsetBtn) addNewOffset(); }
-            });
-        }
-        toggleSharedSettings();
-    });
-</script>
+{% block extra_js %}
+<script src="{% static 'subscriptions/form.js' %}"></script>
 {% endblock %}

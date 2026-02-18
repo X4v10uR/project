@@ -10,6 +10,19 @@ from .models import Subscription, ReminderOffset, Card, SubscriptionParticipant
 from .forms import SubscriptionForm, CardForm
 from django.http import JsonResponse
 
+CATEGORY_SUGGESTIONS = [
+    "Streaming",
+    "Music",
+    "Video",
+    "Software",
+    "Utilities",
+    "Cloud",
+    "Gaming",
+    "Productivity",
+    "Education",
+    "News",
+]
+
 
 def _parse_participants_data(request):
     participant_names = request.POST.getlist('participant_name')
@@ -72,6 +85,164 @@ def _build_subscription_prefill(get_params):
         allowed['billing_cycle'] = billing_cycle
 
     return allowed
+
+
+def _is_truthy(raw_value):
+    return raw_value in (True, "True", "true", "1", 1, "on")
+
+
+def _format_date_input(raw_value):
+    if not raw_value:
+        return ""
+    if hasattr(raw_value, "strftime"):
+        return raw_value.strftime("%Y-%m-%d")
+    return str(raw_value)
+
+
+def _format_time_input(raw_value):
+    if not raw_value:
+        return ""
+    if hasattr(raw_value, "strftime"):
+        return raw_value.strftime("%H:%M")
+    return str(raw_value)[:5]
+
+
+def _string_value(raw_value):
+    if raw_value is None:
+        return ""
+    return str(raw_value)
+
+
+def _build_participant_seed(*, subscription=None, post_data=None):
+    if post_data is not None:
+        participant_names = post_data.getlist("participant_name")
+        participant_shares = post_data.getlist("participant_share")
+
+        seed = []
+        for idx, raw_name in enumerate(participant_names):
+            raw_share = ""
+            if idx < len(participant_shares):
+                raw_share = participant_shares[idx]
+
+            name = (raw_name or "").strip()
+            share = (raw_share or "").strip()
+            if not name and not share:
+                continue
+            seed.append({"name": name, "share": share})
+        return seed
+
+    if subscription and subscription.pk:
+        return [
+            {
+                "name": participant.name,
+                "share": _string_value(participant.share_amount),
+            }
+            for participant in subscription.participants.all()
+        ]
+
+    return []
+
+
+def _build_reminder_seed(*, subscription=None, post_data=None):
+    if post_data is not None:
+        return _parse_reminder_offsets(post_data.getlist("reminder_offsets"))
+
+    if subscription and subscription.pk:
+        return list(
+            subscription.offsets.order_by("days_before").values_list("days_before", flat=True)
+        )
+
+    return []
+
+
+def _sync_reminder_offsets(subscription, reminder_offsets):
+    desired_offsets = sorted(set(reminder_offsets))
+    existing_offsets = set(
+        subscription.offsets.values_list("days_before", flat=True)
+    )
+
+    to_remove = existing_offsets - set(desired_offsets)
+    if to_remove:
+        subscription.offsets.filter(days_before__in=to_remove).delete()
+
+    to_add = [
+        ReminderOffset(subscription=subscription, days_before=days)
+        for days in desired_offsets
+        if days not in existing_offsets
+    ]
+    if to_add:
+        ReminderOffset.objects.bulk_create(to_add)
+
+
+def _build_subscription_form_context(request, form, title, *, subscription=None):
+    post_data = request.POST if request.method == "POST" else None
+    is_edit_mode = bool(subscription and subscription.pk)
+    instance = subscription if is_edit_mode else form.instance
+
+    if form.is_bound:
+        is_shared_selected = _is_truthy(form.data.get("is_shared"))
+        split_type_selected = form.data.get("split_type") or "equal"
+        status_selected = form.data.get("status") or "active"
+        reminders_enabled_selected = _is_truthy(form.data.get("reminders_enabled"))
+        selected_card_id = _string_value(form.data.get("card"))
+    else:
+        is_shared_selected = bool(getattr(instance, "is_shared", False))
+        split_type_selected = getattr(instance, "split_type", None) or "equal"
+        status_selected = getattr(instance, "status", None) or "active"
+        reminders_enabled_selected = bool(
+            getattr(instance, "reminders_enabled", True)
+        )
+        selected_card_id = _string_value(getattr(instance, "card_id", ""))
+
+    service_name_value = form.data.get("service_name") if form.is_bound else form.initial.get("service_name", getattr(instance, "service_name", ""))
+    plan_name_value = form.data.get("plan_name") if form.is_bound else form.initial.get("plan_name", getattr(instance, "plan_name", ""))
+    category_value = form.data.get("category") if form.is_bound else form.initial.get("category", getattr(instance, "category", ""))
+    billing_cycle_value = form.data.get("billing_cycle") if form.is_bound else form.initial.get("billing_cycle", getattr(instance, "billing_cycle", ""))
+    cost_value = form.data.get("cost") if form.is_bound else form.initial.get("cost", getattr(instance, "cost", ""))
+    currency_value = form.data.get("currency") if form.is_bound else form.initial.get("currency", getattr(instance, "currency", "USD"))
+    start_date_raw = form.data.get("start_date") if form.is_bound else form.initial.get("start_date", getattr(instance, "start_date", None))
+    renewal_time_raw = form.data.get("renewal_time") if form.is_bound else form.initial.get("renewal_time", getattr(instance, "renewal_time", None))
+    account_email_value = form.data.get("account_email") if form.is_bound else form.initial.get("account_email", getattr(instance, "account_email", ""))
+    notes_value = form.data.get("notes") if form.is_bound else form.initial.get("notes", getattr(instance, "notes", ""))
+
+    context = {
+        "form": form,
+        "title": title,
+        "is_edit_mode": is_edit_mode,
+        "is_shared_selected": is_shared_selected,
+        "split_type_selected": split_type_selected,
+        "status_selected": status_selected,
+        "reminders_enabled_selected": reminders_enabled_selected,
+        "selected_card_id": selected_card_id,
+        "service_name_value": _string_value(service_name_value),
+        "plan_name_value": _string_value(plan_name_value),
+        "category_value": _string_value(category_value),
+        "billing_cycle_value": _string_value(billing_cycle_value),
+        "cost_value": _string_value(cost_value),
+        "currency_value": _string_value(currency_value),
+        "start_date_value": _format_date_input(start_date_raw),
+        "renewal_time_value": _format_time_input(renewal_time_raw),
+        "account_email_value": _string_value(account_email_value),
+        "notes_value": _string_value(notes_value),
+        "participant_seed": _build_participant_seed(
+            subscription=subscription, post_data=post_data
+        ),
+        "reminder_seed": _build_reminder_seed(
+            subscription=subscription, post_data=post_data
+        ),
+        "category_suggestions": CATEGORY_SUGGESTIONS,
+    }
+    return context
+
+
+def _render_subscription_form(request, form, title, *, subscription=None):
+    return render(
+        request,
+        "subscriptions/form.html",
+        _build_subscription_form_context(
+            request, form, title, subscription=subscription
+        ),
+    )
 
 @login_required
 def card_list(request):
@@ -172,6 +343,9 @@ def subscription_create(request):
         if form.is_valid():
             subscription = form.save(commit=False)
             subscription.user = request.user
+            reminder_offsets = _parse_reminder_offsets(
+                request.POST.getlist("reminder_offsets")
+            )
             
             # Handle shared subscription logic
             is_shared = form.cleaned_data.get('is_shared')
@@ -180,7 +354,9 @@ def subscription_create(request):
                 participants_data, participants_error = _parse_participants_data(request)
                 if participants_error:
                     form.add_error(None, participants_error)
-                    return render(request, 'subscriptions/form.html', {'form': form, 'title': 'Add Subscription'})
+                    return _render_subscription_form(
+                        request, form, 'Add Subscription'
+                    )
 
                 total_participants = len(participants_data) + 1  # +1 for user
                 participants_to_create = []
@@ -202,7 +378,9 @@ def subscription_create(request):
 
                     if subscription.user_cost < 0:
                         form.add_error(None, 'The sum of participant shares exceeds the total cost.')
-                        return render(request, 'subscriptions/form.html', {'form': form, 'title': 'Add Subscription'})
+                        return _render_subscription_form(
+                            request, form, 'Add Subscription'
+                        )
 
                     participants_to_create = [
                         SubscriptionParticipant(
@@ -216,24 +394,19 @@ def subscription_create(request):
                 with transaction.atomic():
                     subscription.save()  # Save with user_cost
                     SubscriptionParticipant.objects.bulk_create(participants_to_create)
+                    _sync_reminder_offsets(subscription, reminder_offsets)
                 
             else:
                 subscription.user_cost = subscription.cost
-                subscription.save()
-            
-            # Handle reminder offsets from POST data
-            reminder_offsets = _parse_reminder_offsets(request.POST.getlist('reminder_offsets'))
-            for days in reminder_offsets:
-                ReminderOffset.objects.get_or_create(
-                    subscription=subscription,
-                    days_before=days
-                )
+                with transaction.atomic():
+                    subscription.save()
+                    _sync_reminder_offsets(subscription, reminder_offsets)
             
             return redirect('subscriptions:list')
     else:
         initial = _build_subscription_prefill(request.GET)
         form = SubscriptionForm(user=request.user, initial=initial)
-    return render(request, 'subscriptions/form.html', {'form': form, 'title': 'Add Subscription'})
+    return _render_subscription_form(request, form, 'Add Subscription')
 
 @login_required
 def subscription_update(request, pk):
@@ -242,6 +415,9 @@ def subscription_update(request, pk):
         form = SubscriptionForm(request.POST, instance=subscription, user=request.user)
         if form.is_valid():
             subscription = form.save(commit=False)
+            reminder_offsets = _parse_reminder_offsets(
+                request.POST.getlist("reminder_offsets")
+            )
             
             # Handle shared subscription logic
             is_shared = form.cleaned_data.get('is_shared')
@@ -251,7 +427,12 @@ def subscription_update(request, pk):
                 participants_data, participants_error = _parse_participants_data(request)
                 if participants_error:
                     form.add_error(None, participants_error)
-                    return render(request, 'subscriptions/form.html', {'form': form, 'title': 'Edit Subscription'})
+                    return _render_subscription_form(
+                        request,
+                        form,
+                        'Edit Subscription',
+                        subscription=subscription,
+                    )
 
                 total_participants = len(participants_data) + 1  # +1 for user
 
@@ -272,7 +453,12 @@ def subscription_update(request, pk):
 
                     if subscription.user_cost < 0:
                         form.add_error(None, 'The sum of participant shares exceeds the total cost.')
-                        return render(request, 'subscriptions/form.html', {'form': form, 'title': 'Edit Subscription'})
+                        return _render_subscription_form(
+                            request,
+                            form,
+                            'Edit Subscription',
+                            subscription=subscription,
+                        )
 
                     participants_to_create = [
                         SubscriptionParticipant(
@@ -288,16 +474,23 @@ def subscription_update(request, pk):
                     # Replace participant list only after all validations pass.
                     subscription.participants.all().delete()
                     SubscriptionParticipant.objects.bulk_create(participants_to_create)
+                    _sync_reminder_offsets(subscription, reminder_offsets)
             else:
                 subscription.user_cost = subscription.cost
                 with transaction.atomic():
                     subscription.save()
                     subscription.participants.all().delete()  # Cleanup if switched from Shared to Solo
+                    _sync_reminder_offsets(subscription, reminder_offsets)
 
             return redirect('subscriptions:list')
     else:
         form = SubscriptionForm(instance=subscription, user=request.user)
-    return render(request, 'subscriptions/form.html', {'form': form, 'title': 'Edit Subscription'})
+    return _render_subscription_form(
+        request,
+        form,
+        'Edit Subscription',
+        subscription=subscription,
+    )
 
 @login_required
 def subscription_delete(request, pk):

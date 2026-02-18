@@ -17,7 +17,7 @@
     {% include 'components/navbar.html' %}
     {% endif %}
 
-    <main{% if user.is_authenticated %} class="min-h-screen md:pl-60 p-4 md:p-7"{% endif %}>
+    <main{% if user.is_authenticated %} class="min-h-screen md:pl-60 p-3 md:p-5"{% endif %}>
         {% block content %}{% endblock %}
     </main>
 
