@@ -119,6 +119,55 @@ class DashboardViewTest(TestCase):
         self.assertEqual(_days_left_text(today - timedelta(days=1), today), '1 day overdue')
         self.assertEqual(_days_left_text(today - timedelta(days=3), today), '3 days overdue')
 
+    def test_service_color_is_consistent_across_sections(self):
+        Subscription.objects.create(
+            user=self.user,
+            service_name='Spotify',
+            category='Music',
+            billing_cycle='monthly',
+            cost=Decimal('9.99'),
+            start_date=date.today(),
+            status='active',
+        )
+
+        response = self.client.get(reverse('dashboard:home'))
+        upcoming = next(
+            item for item in response.context['upcoming_bills']
+            if not item['is_placeholder'] and item['service_name'] == 'Spotify'
+        )
+        subscriptions_item = next(
+            item for item in response.context['subscriptions_panel']
+            if not item['is_placeholder'] and item['title'] == 'Spotify'
+        )
+        active_item = next(
+            item for item in response.context['active_subscriptions_panel']
+            if not item['is_placeholder'] and item['title'] == 'Spotify'
+        )
+
+        self.assertEqual(upcoming['bg_style'], subscriptions_item['bg_style'])
+        self.assertEqual(subscriptions_item['bg_style'], active_item['bg_style'])
+
+    def test_visible_subscriptions_use_distinct_colors(self):
+        for service_name in ['Spotify', 'Netflix', 'Apple TV']:
+            Subscription.objects.create(
+                user=self.user,
+                service_name=service_name,
+                category='Streaming',
+                billing_cycle='monthly',
+                cost=Decimal('10.00'),
+                start_date=date.today(),
+                status='active',
+            )
+
+        response = self.client.get(reverse('dashboard:home'))
+        visible_items = [
+            item for item in response.context['subscriptions_panel']
+            if not item['is_placeholder']
+        ]
+        colors = [item['bg_style'] for item in visible_items]
+
+        self.assertEqual(len(colors), len(set(colors)))
+
 
 class LandingPageTest(TestCase):
     def test_authenticated_user_redirected_to_dashboard(self):

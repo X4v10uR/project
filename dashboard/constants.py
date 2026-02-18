@@ -1,12 +1,26 @@
-CARD_THEME_BY_SERVICE = {
-    'spotify': 'spotify-bg',
-    'netflix': 'netflix-bg',
-    'apple tv': 'apple-bg',
-    'apple': 'apple-bg',
-    'apple music': 'apple-bg',
-    'creative cloud': 'creative-cloud-bg',
-    'adobe creative cloud': 'creative-cloud-bg',
+SERVICE_COLOR_PREFERENCES = {
+    # Palette aligned to NEW_UI/dashboard.png.
+    'spotify': '#7BCFC0',
+    'netflix': '#B5A5E7',
+    'apple tv': '#E7E964',
+    'apple': '#E7E964',
+    'apple music': '#E7E964',
+    'creative cloud': '#AFC0DE',
+    'adobe creative cloud': '#AFC0DE',
 }
+
+CARD_COLOR_PALETTE = [
+    '#7BCFC0',  # mint
+    '#B5A5E7',  # lavender
+    '#E7E964',  # lemon
+    '#AFC0DE',  # cloud blue
+    '#F4C3A8',  # peach
+    '#9ED6EA',  # sky
+    '#C3DDA6',  # sage
+    '#E7B3C6',  # rose
+    '#D8C6A5',  # sand
+    '#C7BEEA',  # lilac
+]
 
 CARD_THEME_ROTATION = [
     'spotify-bg',

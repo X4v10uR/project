@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
+import hashlib
 from urllib.parse import urlencode
 
 from django.urls import reverse
@@ -9,12 +10,13 @@ from subscriptions.models import Subscription, Transaction
 from subscriptions.services import refresh_subscription_renewal_date
 
 from .constants import (
-    CARD_THEME_BY_SERVICE,
+    CARD_COLOR_PALETTE,
     CARD_THEME_ROTATION,
     PLACEHOLDER_ACTIVE,
     PLACEHOLDER_SUBSCRIPTION,
     PLACEHOLDER_TRANSACTION,
     PLACEHOLDER_UPCOMING,
+    SERVICE_COLOR_PREFERENCES,
 )
 
 
@@ -70,11 +72,71 @@ def _days_left_text(renewal_date, today):
     return f'{days} days left'
 
 
-def _service_theme(service_name, index):
-    normalized = (service_name or '').strip().lower()
-    if normalized in CARD_THEME_BY_SERVICE:
-        return CARD_THEME_BY_SERVICE[normalized]
-    return CARD_THEME_ROTATION[index % len(CARD_THEME_ROTATION)]
+def _normalized_service_name(service_name):
+    return (service_name or '').strip().lower()
+
+
+def _stable_bucket(value):
+    digest = hashlib.sha256(value.encode('utf-8')).hexdigest()
+    return int(digest[:8], 16)
+
+
+def _generate_pastel_color(seed_text, used_colors):
+    base_hue = _stable_bucket(seed_text) % 360
+    for offset in range(0, 360, 17):
+        candidate = f"hsl({(base_hue + offset) % 360} 65% 74%)"
+        if candidate not in used_colors:
+            return candidate
+    return f"hsl({base_hue} 65% 74%)"
+
+
+def _pick_distinct_palette_color(seed_text, used_colors):
+    if not CARD_COLOR_PALETTE:
+        return _generate_pastel_color(seed_text, used_colors)
+
+    start_index = _stable_bucket(seed_text) % len(CARD_COLOR_PALETTE)
+    for step in range(len(CARD_COLOR_PALETTE)):
+        candidate = CARD_COLOR_PALETTE[(start_index + step) % len(CARD_COLOR_PALETTE)]
+        if candidate not in used_colors:
+            return candidate
+    return _generate_pastel_color(seed_text, used_colors)
+
+
+def _build_service_color_map(active_subscriptions, recent_transactions):
+    service_order = []
+
+    def _add_service(name):
+        normalized = _normalized_service_name(name)
+        if normalized and normalized not in service_order:
+            service_order.append(normalized)
+
+    for subscription in active_subscriptions:
+        _add_service(subscription.service_name)
+    for transaction in recent_transactions:
+        _add_service(transaction.service_name_snapshot)
+
+    used_colors = set()
+    color_map = {}
+
+    for normalized in service_order:
+        preferred = SERVICE_COLOR_PREFERENCES.get(normalized)
+        if preferred and preferred not in used_colors:
+            color = preferred
+        else:
+            color = _pick_distinct_palette_color(normalized, used_colors)
+
+        color_map[normalized] = color
+        used_colors.add(color)
+
+    return color_map
+
+
+def _service_bg_style(service_name, service_color_map):
+    normalized = _normalized_service_name(service_name)
+    color = service_color_map.get(normalized)
+    if not color:
+        color = _pick_distinct_palette_color(normalized or 'service', set())
+    return f'background-color: {color};'
 
 
 def _greeting_name(email):
@@ -102,11 +164,12 @@ def _renewal_view_all_url():
     return f'{base}?{query}'
 
 
-def _build_upcoming_item(subscription, index, today):
+def _build_upcoming_item(subscription, index, today, service_color_map):
     effective_cost = subscription.user_cost if subscription.is_shared else subscription.cost
     return {
         'is_placeholder': False,
-        'bg_class': _service_theme(subscription.service_name, index),
+        'bg_class': '',
+        'bg_style': _service_bg_style(subscription.service_name, service_color_map),
         'service_name': subscription.service_name,
         'amount': _format_money(effective_cost, subscription.currency),
         'days_left_text': _days_left_text(subscription.renewal_date, today),
@@ -122,6 +185,7 @@ def _build_upcoming_placeholder(index):
         {
             'is_placeholder': True,
             'bg_class': CARD_THEME_ROTATION[index % len(CARD_THEME_ROTATION)],
+            'bg_style': '',
             'edit_url': '',
             'icon_url': '',
             'icon_fallback': '+',
@@ -130,10 +194,11 @@ def _build_upcoming_placeholder(index):
     return data
 
 
-def _build_subscription_panel_item(subscription, index):
+def _build_subscription_panel_item(subscription, index, service_color_map):
     return {
         'is_placeholder': False,
-        'bg_class': _service_theme(subscription.service_name, index),
+        'bg_class': '',
+        'bg_style': _service_bg_style(subscription.service_name, service_color_map),
         'title': subscription.service_name,
         'subtitle': f"{_format_money(_monthly_cost(subscription), subscription.currency)}/monthly",
         'create_url': (
@@ -158,6 +223,7 @@ def _build_subscription_placeholder(index):
         {
             'is_placeholder': True,
             'bg_class': CARD_THEME_ROTATION[index % len(CARD_THEME_ROTATION)],
+            'bg_style': '',
             'create_url': '',
             'icon_url': '',
             'icon_fallback': '+',
@@ -175,12 +241,13 @@ def _duration_label(subscription):
     return mapping.get(subscription.billing_cycle, '1 month')
 
 
-def _build_active_item(subscription, index):
+def _build_active_item(subscription, index, service_color_map):
     effective_cost = subscription.user_cost if subscription.is_shared else subscription.cost
     card_last4 = subscription.card.last4 if subscription.card else None
     return {
         'is_placeholder': False,
-        'bg_class': _service_theme(subscription.service_name, index),
+        'bg_class': '',
+        'bg_style': _service_bg_style(subscription.service_name, service_color_map),
         'title': subscription.service_name,
         'duration_label': _duration_label(subscription),
         'amount': _format_money(effective_cost, subscription.currency),
@@ -198,6 +265,7 @@ def _build_active_placeholder(index):
         {
             'is_placeholder': True,
             'bg_class': CARD_THEME_ROTATION[index % len(CARD_THEME_ROTATION)],
+            'bg_style': '',
             'edit_url': '',
             'icon_url': '',
             'icon_fallback': '+',
@@ -206,10 +274,11 @@ def _build_active_placeholder(index):
     return data
 
 
-def _build_transaction_item(transaction, index):
+def _build_transaction_item(transaction, index, service_color_map):
     return {
         'is_placeholder': False,
-        'bg_class': _service_theme(transaction.service_name_snapshot, index),
+        'bg_class': '',
+        'swatch_style': _service_bg_style(transaction.service_name_snapshot, service_color_map),
         'title': transaction.service_name_snapshot,
         'timestamp': timezone.localtime(transaction.charged_at).strftime('%b %d, %I:%M %p'),
         'amount': f"-{_format_money(transaction.amount, transaction.currency)}",
@@ -222,6 +291,7 @@ def _build_transaction_placeholder(index):
         {
             'is_placeholder': True,
             'bg_class': CARD_THEME_ROTATION[index % len(CARD_THEME_ROTATION)],
+            'swatch_style': '',
         }
     )
     return data
@@ -263,21 +333,25 @@ def build_dashboard_view_model(user, today=None):
         else Decimal('0.00')
     )
 
+    recent_transactions_qs = list(
+        Transaction.objects.filter(user=user).select_related('subscription')[:2]
+    )
+    service_color_map = _build_service_color_map(active_subs, recent_transactions_qs)
+
     upcoming_items = [
-        _build_upcoming_item(sub, index, today)
+        _build_upcoming_item(sub, index, today, service_color_map)
         for index, sub in enumerate(upcoming_renewals[:3])
     ]
     subscription_panel_items = [
-        _build_subscription_panel_item(sub, index)
+        _build_subscription_panel_item(sub, index, service_color_map)
         for index, sub in enumerate(active_subs[:3])
     ]
     active_panel_items = [
-        _build_active_item(sub, index)
+        _build_active_item(sub, index, service_color_map)
         for index, sub in enumerate(active_subs[:2])
     ]
-    recent_transactions_qs = Transaction.objects.filter(user=user).select_related('subscription')[:2]
     recent_transaction_items = [
-        _build_transaction_item(txn, index)
+        _build_transaction_item(txn, index, service_color_map)
         for index, txn in enumerate(recent_transactions_qs)
     ]
 
