@@ -16,6 +16,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const remindersCheckbox = document.getElementById("id_reminders_enabled");
     const remindersToggleButton = document.getElementById("reminders-toggle-btn");
+    const remindersToggleKnob = document.getElementById("reminders-toggle-knob");
     const remindersToggleLabel = document.getElementById("reminder-toggle-label");
     const offsetsSection = document.getElementById("offsets-section");
     const offsetsList = document.getElementById("offsets-list");
@@ -33,6 +34,8 @@ document.addEventListener("DOMContentLoaded", function () {
     const iconImage = document.getElementById("service-icon-image");
     const iconFallback = document.getElementById("service-icon-fallback");
 
+    const startDateInput = document.getElementById("id_start_date");
+
     const passwordInput = document.getElementById("id_account_password");
     const togglePasswordButton = document.getElementById("toggle-password-btn");
     const passwordEyeOpen = document.getElementById("password-eye-open");
@@ -48,6 +51,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initializeParticipantControls();
     initializeReminderControls();
     initializeServiceIconPreview();
+    initializeStartDateInput();
     initializePasswordToggle();
     initializeSubmitValidation();
 
@@ -56,6 +60,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!script) {
             return fallback;
         }
+
         try {
             return JSON.parse(script.textContent);
         } catch (error) {
@@ -66,6 +71,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function normalizeReminderOffsets(rawOffsets) {
         const seen = new Set();
         const normalized = [];
+
         rawOffsets.forEach(function (rawValue) {
             const parsed = parseInt(rawValue, 10);
             if (Number.isNaN(parsed) || parsed < 1 || parsed > 30 || seen.has(parsed)) {
@@ -74,13 +80,29 @@ document.addEventListener("DOMContentLoaded", function () {
             seen.add(parsed);
             normalized.push(parsed);
         });
+
         normalized.sort(function (a, b) {
             return a - b;
         });
         return normalized;
     }
 
+    function removeClasses(element, classes) {
+        classes.forEach(function (className) {
+            element.classList.remove(className);
+        });
+    }
+
+    function isSharedSelected() {
+        const selected = form.querySelector('input[name="is_shared"]:checked');
+        return selected ? selected.value === "True" : false;
+    }
+
     function initializeStatusControls() {
+        if (!statusInput || !statusButtons.length) {
+            return;
+        }
+
         const statusClassMap = {
             active: ["bg-emerald-200", "text-emerald-800"],
             paused: ["bg-orange-200", "text-orange-800"],
@@ -90,16 +112,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
         function syncStatusButtons() {
             const activeStatus = statusInput.value || "active";
+
             statusButtons.forEach(function (button) {
                 const buttonStatus = button.dataset.statusOption;
-                const activeClasses = statusClassMap[buttonStatus] || statusClassMap.active;
-                button.classList.remove.apply(button.classList, inactiveClasses);
-                button.classList.remove.apply(button.classList, statusClassMap.active);
-                button.classList.remove.apply(button.classList, statusClassMap.paused);
-                button.classList.remove.apply(button.classList, statusClassMap.cancelled);
+
+                removeClasses(button, inactiveClasses);
+                Object.keys(statusClassMap).forEach(function (key) {
+                    removeClasses(button, statusClassMap[key]);
+                });
 
                 if (buttonStatus === activeStatus) {
-                    button.classList.add.apply(button.classList, activeClasses);
+                    button.classList.add.apply(button.classList, statusClassMap[buttonStatus] || statusClassMap.active);
                 } else {
                     button.classList.add.apply(button.classList, inactiveClasses);
                 }
@@ -117,8 +140,13 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function initializeSplitControls() {
+        if (!splitTypeInput || !splitButtons.length || !sharedSettings) {
+            return;
+        }
+
         function syncSplitButtons() {
             const splitType = splitTypeInput.value || "equal";
+
             splitButtons.forEach(function (button) {
                 if (button.dataset.splitOption === splitType) {
                     button.classList.add("bg-slate-900", "text-white", "shadow");
@@ -130,18 +158,17 @@ document.addEventListener("DOMContentLoaded", function () {
             });
         }
 
-        function isSharedSelected() {
-            const selected = form.querySelector('input[name="is_shared"]:checked');
-            return selected ? selected.value === "True" : false;
-        }
-
         function toggleSharedSettings() {
             if (isSharedSelected()) {
                 sharedSettings.classList.remove("hidden");
             } else {
                 sharedSettings.classList.add("hidden");
-                splitError.classList.add("hidden");
-                saveButton.disabled = false;
+                if (splitError) {
+                    splitError.classList.add("hidden");
+                }
+                if (saveButton) {
+                    saveButton.disabled = false;
+                }
             }
             calculateSplits();
         }
@@ -163,21 +190,41 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function createParticipantRow(name, share) {
-        const row = document.createElement("div");
-        row.className = "participant-row flex items-center gap-2 bg-gray-50 px-3 py-2.5 rounded-lg border border-gray-200";
+        if (!participantsList) {
+            return null;
+        }
 
-        const nameInput = document.createElement("input");
-        nameInput.type = "text";
-        nameInput.name = "participant_name";
-        nameInput.value = name || "";
-        nameInput.placeholder = "Participant name";
-        nameInput.className = "subscription-input !py-2 !px-3 !bg-white flex-1";
+        const participantName = (name || "").trim();
+
+        const row = document.createElement("div");
+        row.className = "participant-row flex items-center justify-between bg-gray-50 px-4 py-2.5 rounded-lg border border-gray-200 gap-3";
+
+        const leftWrap = document.createElement("div");
+        leftWrap.className = "flex items-center gap-3 min-w-0 flex-1";
+
+        const avatar = document.createElement("div");
+        avatar.className = "w-8 h-8 bg-purple-200 rounded-full flex items-center justify-center text-xs font-bold text-purple-700 uppercase";
+        avatar.textContent = participantName ? participantName.charAt(0) : "?";
+
+        const label = document.createElement("span");
+        label.className = "participant-name-label text-sm font-medium text-gray-700 truncate";
+        label.textContent = participantName;
+
+        const hiddenNameInput = document.createElement("input");
+        hiddenNameInput.type = "hidden";
+        hiddenNameInput.name = "participant_name";
+        hiddenNameInput.className = "participant-name-input";
+        hiddenNameInput.value = participantName;
+
+        leftWrap.appendChild(avatar);
+        leftWrap.appendChild(label);
+        leftWrap.appendChild(hiddenNameInput);
 
         const shareWrap = document.createElement("div");
-        shareWrap.className = "relative w-28 shrink-0";
+        shareWrap.className = "participant-share-wrap flex items-center gap-1";
 
         const currencyPrefix = document.createElement("span");
-        currencyPrefix.className = "absolute left-2 top-1/2 -translate-y-1/2 text-sm text-gray-500";
+        currencyPrefix.className = "text-xs text-gray-500";
         currencyPrefix.textContent = "$";
 
         const shareInput = document.createElement("input");
@@ -185,7 +232,11 @@ document.addEventListener("DOMContentLoaded", function () {
         shareInput.step = "0.01";
         shareInput.name = "participant_share";
         shareInput.value = share || "";
-        shareInput.className = "participant-share-input subscription-input !py-2 !pl-6 !pr-2 !bg-white text-sm";
+        shareInput.placeholder = "0.00";
+        shareInput.className = "participant-share-input w-20 bg-white border border-gray-200 rounded-md px-2 py-1 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent";
+
+        shareWrap.appendChild(currencyPrefix);
+        shareWrap.appendChild(shareInput);
 
         const removeButton = document.createElement("button");
         removeButton.type = "button";
@@ -196,9 +247,7 @@ document.addEventListener("DOMContentLoaded", function () {
             "</svg>"
         );
 
-        shareWrap.appendChild(currencyPrefix);
-        shareWrap.appendChild(shareInput);
-        row.appendChild(nameInput);
+        row.appendChild(leftWrap);
         row.appendChild(shareWrap);
         row.appendChild(removeButton);
 
@@ -207,81 +256,128 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function getParticipantRows() {
+        if (!participantsList) {
+            return [];
+        }
         return Array.from(participantsList.querySelectorAll(".participant-row"));
     }
 
     function getNamedParticipantRows() {
         return getParticipantRows().filter(function (row) {
-            const nameInput = row.querySelector('input[name="participant_name"]');
+            const nameInput = row.querySelector(".participant-name-input");
             return nameInput && nameInput.value.trim() !== "";
         });
     }
 
     function getCurrentSplitType() {
-        return splitTypeInput.value || "equal";
+        return splitTypeInput ? splitTypeInput.value || "equal" : "equal";
+    }
+
+    function syncParticipantShareVisibility(isCustom) {
+        getParticipantRows().forEach(function (row) {
+            const shareWrap = row.querySelector(".participant-share-wrap");
+            const shareInput = row.querySelector('input[name="participant_share"]');
+            if (!shareWrap || !shareInput) {
+                return;
+            }
+
+            shareWrap.classList.toggle("hidden", !isCustom);
+            shareInput.readOnly = !isCustom;
+        });
     }
 
     function calculateSplits() {
-        const isShared = (form.querySelector('input[name="is_shared"]:checked') || {}).value === "True";
-        if (!isShared) {
-            userShareDisplay.value = normalizeCurrencyValue(costInput.value).toFixed(2);
-            return;
-        }
-
-        const totalCost = normalizeCurrencyValue(costInput.value);
+        const totalCost = normalizeCurrencyValue(costInput ? costInput.value : 0);
         const splitType = getCurrentSplitType();
         const participantRows = getParticipantRows();
         const namedParticipantRows = getNamedParticipantRows();
-        const namedCount = namedParticipantRows.length;
+
+        if (!isSharedSelected()) {
+            syncParticipantShareVisibility(false);
+            if (userShareDisplay) {
+                userShareDisplay.textContent = totalCost.toFixed(2);
+            }
+            if (splitError) {
+                splitError.classList.add("hidden");
+            }
+            if (saveButton) {
+                saveButton.disabled = false;
+            }
+            return;
+        }
 
         if (splitType === "equal") {
-            const divisor = namedCount > 0 ? namedCount + 1 : 1;
+            syncParticipantShareVisibility(false);
+            const divisor = namedParticipantRows.length > 0 ? namedParticipantRows.length + 1 : 1;
             const sharePerPerson = divisor > 0 ? totalCost / divisor : totalCost;
+
             participantRows.forEach(function (row) {
+                const nameInput = row.querySelector(".participant-name-input");
                 const shareInput = row.querySelector('input[name="participant_share"]');
-                if (!shareInput) {
+                if (!nameInput || !shareInput) {
                     return;
                 }
-                shareInput.readOnly = true;
-                if (row.querySelector('input[name="participant_name"]').value.trim() !== "") {
+
+                if (nameInput.value.trim() !== "") {
                     shareInput.value = sharePerPerson.toFixed(2);
                 } else {
                     shareInput.value = "";
                 }
             });
-            userShareDisplay.value = sharePerPerson.toFixed(2);
-            splitError.classList.add("hidden");
-            saveButton.disabled = false;
+
+            if (userShareDisplay) {
+                userShareDisplay.textContent = sharePerPerson.toFixed(2);
+            }
+
+            if (splitError) {
+                splitError.classList.add("hidden");
+            }
+            if (saveButton) {
+                saveButton.disabled = false;
+            }
             return;
         }
 
+        syncParticipantShareVisibility(true);
+
         let othersTotal = 0;
         participantRows.forEach(function (row) {
+            const nameInput = row.querySelector(".participant-name-input");
             const shareInput = row.querySelector('input[name="participant_share"]');
-            const nameInput = row.querySelector('input[name="participant_name"]');
-            if (!shareInput || !nameInput) {
-                return;
-            }
-            shareInput.readOnly = false;
-            if (nameInput.value.trim() === "") {
+            if (!nameInput || !shareInput || nameInput.value.trim() === "") {
                 return;
             }
             othersTotal += normalizeCurrencyValue(shareInput.value);
         });
 
         const userShare = totalCost - othersTotal;
-        userShareDisplay.value = userShare.toFixed(2);
+        if (userShareDisplay) {
+            userShareDisplay.textContent = userShare.toFixed(2);
+        }
+
         if (userShare < 0) {
-            splitError.classList.remove("hidden");
-            saveButton.disabled = true;
+            if (splitError) {
+                splitError.classList.remove("hidden");
+            }
+            if (saveButton) {
+                saveButton.disabled = true;
+            }
             return;
         }
 
-        splitError.classList.add("hidden");
-        saveButton.disabled = false;
+        if (splitError) {
+            splitError.classList.add("hidden");
+        }
+        if (saveButton) {
+            saveButton.disabled = false;
+        }
     }
 
     function initializeParticipantControls() {
+        if (!participantsList || !newParticipantNameInput || !addParticipantButton) {
+            return;
+        }
+
         participantSeed.forEach(function (participant) {
             createParticipantRow(participant.name || "", participant.share || "");
         });
@@ -309,6 +405,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!removeButton) {
                 return;
             }
+
             const row = removeButton.closest(".participant-row");
             if (!row) {
                 return;
@@ -318,25 +415,30 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
         participantsList.addEventListener("input", function (event) {
-            if (
-                event.target.matches('input[name="participant_name"]') ||
-                event.target.matches('input[name="participant_share"]')
-            ) {
-                calculateSplits();
+            if (!event.target.matches('input[name="participant_share"]')) {
+                return;
             }
+            calculateSplits();
         });
 
-        costInput.addEventListener("input", calculateSplits);
+        if (costInput) {
+            costInput.addEventListener("input", calculateSplits);
+        }
+
         calculateSplits();
     }
 
     function renderReminderOffsets() {
+        if (!offsetsList || !offsetsInputsContainer) {
+            return;
+        }
+
         offsetsList.innerHTML = "";
         offsetsInputsContainer.innerHTML = "";
 
         if (!reminderOffsets.length) {
             const emptyMsg = document.createElement("p");
-            emptyMsg.className = "text-sm text-gray-400";
+            emptyMsg.className = "text-xs text-gray-400";
             emptyMsg.textContent = "No custom offsets. Default notification logic is used.";
             offsetsList.appendChild(emptyMsg);
             return;
@@ -372,14 +474,32 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function setReminderSectionState() {
+        if (!remindersCheckbox || !remindersToggleButton || !remindersToggleKnob || !remindersToggleLabel || !offsetsSection) {
+            return;
+        }
+
         const enabled = remindersCheckbox.checked;
         remindersToggleLabel.textContent = enabled ? "On" : "Off";
-        remindersToggleButton.classList.toggle("is-on", enabled);
+        remindersToggleButton.classList.toggle("bg-slate-900", enabled);
+        remindersToggleButton.classList.toggle("bg-gray-200", !enabled);
+        remindersToggleKnob.classList.toggle("translate-x-5", enabled);
+        remindersToggleKnob.classList.toggle("translate-x-0", !enabled);
         offsetsSection.classList.toggle("opacity-50", !enabled);
         offsetsSection.classList.toggle("pointer-events-none", !enabled);
     }
 
     function initializeReminderControls() {
+        if (
+            !remindersCheckbox ||
+            !remindersToggleButton ||
+            !offsetsList ||
+            !offsetsInputsContainer ||
+            !newOffsetDaysInput ||
+            !addOffsetButton
+        ) {
+            return;
+        }
+
         remindersToggleButton.addEventListener("click", function () {
             remindersCheckbox.checked = !remindersCheckbox.checked;
             setReminderSectionState();
@@ -392,10 +512,12 @@ document.addEventListener("DOMContentLoaded", function () {
             if (Number.isNaN(value) || value < 1 || value > 30) {
                 return;
             }
+
             if (reminderOffsets.indexOf(value) !== -1) {
                 newOffsetDaysInput.value = "";
                 return;
             }
+
             reminderOffsets.push(value);
             reminderOffsets = normalizeReminderOffsets(reminderOffsets);
             newOffsetDaysInput.value = "";
@@ -415,10 +537,12 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!removeButton) {
                 return;
             }
+
             const tag = removeButton.closest("[data-days]");
             if (!tag) {
                 return;
             }
+
             const days = parseInt(tag.dataset.days, 10);
             reminderOffsets = reminderOffsets.filter(function (value) {
                 return value !== days;
@@ -431,6 +555,10 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function initializeServiceIconPreview() {
+        if (!serviceNameInput || !iconImage || !iconFallback) {
+            return;
+        }
+
         const serviceMappings = {
             "chatgpt plus": "openai",
             "chat gpt": "openai",
@@ -464,6 +592,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!serviceName) {
                 return "";
             }
+
             const serviceLower = serviceName.toLowerCase().trim();
             let iconName = serviceMappings[serviceLower];
             if (!iconName) {
@@ -481,24 +610,35 @@ document.addEventListener("DOMContentLoaded", function () {
         function updateServiceIcon() {
             const serviceName = serviceNameInput.value.trim();
             if (!serviceName) {
-                iconPreview.classList.add("hidden");
+                if (iconPreview) {
+                    iconPreview.classList.remove("hidden");
+                }
                 iconImage.classList.add("hidden");
+                iconFallback.classList.remove("hidden");
                 iconFallback.textContent = "S";
                 return;
             }
 
-            iconPreview.classList.remove("hidden");
+            if (iconPreview) {
+                iconPreview.classList.remove("hidden");
+            }
+
             iconFallback.textContent = serviceName.charAt(0).toUpperCase();
             const iconUrl = generateIconUrl(serviceName);
             if (!iconUrl) {
                 iconImage.classList.add("hidden");
+                iconFallback.classList.remove("hidden");
                 return;
             }
 
             iconImage.classList.remove("hidden");
             iconImage.src = iconUrl;
+            iconImage.onload = function () {
+                iconFallback.classList.add("hidden");
+            };
             iconImage.onerror = function () {
                 iconImage.classList.add("hidden");
+                iconFallback.classList.remove("hidden");
             };
         }
 
@@ -506,7 +646,32 @@ document.addEventListener("DOMContentLoaded", function () {
         updateServiceIcon();
     }
 
+    function initializeStartDateInput() {
+        if (!startDateInput) {
+            return;
+        }
+
+        function syncDateMode() {
+            if (startDateInput.value) {
+                startDateInput.type = "date";
+                return;
+            }
+            startDateInput.type = "text";
+        }
+
+        startDateInput.addEventListener("focus", function () {
+            startDateInput.type = "date";
+        });
+
+        startDateInput.addEventListener("blur", syncDateMode);
+        syncDateMode();
+    }
+
     function initializePasswordToggle() {
+        if (!togglePasswordButton || !passwordInput || !passwordEyeOpen || !passwordEyeClosed) {
+            return;
+        }
+
         togglePasswordButton.addEventListener("click", function () {
             const shouldShow = passwordInput.type === "password";
             passwordInput.type = shouldShow ? "text" : "password";
@@ -517,8 +682,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function initializeSubmitValidation() {
         form.addEventListener("submit", function (event) {
-            const isShared = (form.querySelector('input[name="is_shared"]:checked') || {}).value === "True";
-            if (!isShared) {
+            if (!isSharedSelected()) {
                 return;
             }
 
@@ -529,7 +693,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
 
-            if (!splitError.classList.contains("hidden")) {
+            if (splitError && !splitError.classList.contains("hidden")) {
                 event.preventDefault();
             }
         });

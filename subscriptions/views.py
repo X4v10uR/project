@@ -547,3 +547,4 @@ def update_subscription_status(request, pk):
             return redirect('subscriptions:list')
         return JsonResponse({'status': 'error', 'message': 'Invalid status'}, status=400)
     return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+
