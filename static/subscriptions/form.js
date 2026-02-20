@@ -54,6 +54,10 @@ document.addEventListener("DOMContentLoaded", function () {
     initializeStartDateInput();
     initializePasswordToggle();
     initializeSubmitValidation();
+    initializeCustomSelects();
+    initializeShareIndicators();
+    initializeDatePicker();
+    initializeSummaryPreview();
 
     function readJsonScript(scriptId, fallback) {
         const script = document.getElementById(scriptId);
@@ -677,6 +681,485 @@ document.addEventListener("DOMContentLoaded", function () {
             passwordEyeOpen.classList.toggle("hidden", shouldShow);
             passwordEyeClosed.classList.toggle("hidden", !shouldShow);
         });
+    }
+
+    function initializeCustomSelects() {
+        const maps = [
+            {
+                select: "id_category",
+                trigger: "catTrig",
+                value: "catVal",
+                drop: "catDrop",
+                placeholder: "Select a category",
+                usePlaceholder: true,
+            },
+            {
+                select: "id_billing_cycle",
+                trigger: "cycTrig",
+                value: "cycVal",
+                drop: "cycDrop",
+                placeholder: "Select billing cycle",
+                usePlaceholder: true,
+            },
+            {
+                select: "id_currency",
+                trigger: "curTrig",
+                value: "curVal",
+                drop: "curDrop",
+                placeholder: "USD",
+                usePlaceholder: false,
+            },
+            {
+                select: "id_card",
+                trigger: "cardTrig",
+                value: "cardVal",
+                drop: "cardDrop",
+                placeholder: "Select a saved card",
+                usePlaceholder: true,
+            },
+        ];
+
+        const activeMaps = maps
+            .map(function (mapConfig) {
+                const selectEl = document.getElementById(mapConfig.select);
+                const triggerEl = document.getElementById(mapConfig.trigger);
+                const valueEl = document.getElementById(mapConfig.value);
+                const dropEl = document.getElementById(mapConfig.drop);
+                if (!selectEl || !triggerEl || !valueEl || !dropEl) {
+                    return null;
+                }
+                return {
+                    config: mapConfig,
+                    selectEl: selectEl,
+                    triggerEl: triggerEl,
+                    valueEl: valueEl,
+                    dropEl: dropEl,
+                };
+            })
+            .filter(Boolean);
+
+        if (!activeMaps.length) {
+            return;
+        }
+
+        function closeDrops(exceptId) {
+            activeMaps.forEach(function (map) {
+                if (map.dropEl.id !== exceptId) {
+                    map.dropEl.classList.remove("open");
+                }
+            });
+        }
+
+        activeMaps.forEach(function (map) {
+            const selectEl = map.selectEl;
+            const triggerEl = map.triggerEl;
+            const valueEl = map.valueEl;
+            const dropEl = map.dropEl;
+            const mapConfig = map.config;
+
+            dropEl.innerHTML = "";
+            Array.from(selectEl.options).forEach(function (option) {
+                if (!option.value) {
+                    return;
+                }
+
+                const item = document.createElement("div");
+                item.className = "sel-opt";
+                item.dataset.value = option.value;
+                item.innerHTML =
+                    '<span></span><svg class="chk" viewBox="0 0 24 24" fill="none" stroke="#030213" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+                item.querySelector("span").textContent = option.textContent.trim();
+                item.addEventListener("click", function () {
+                    selectEl.value = option.value;
+                    selectEl.dispatchEvent(new Event("change", { bubbles: true }));
+                    sync();
+                    closeDrops();
+                });
+                dropEl.appendChild(item);
+            });
+
+            function sync() {
+                const hasValue = selectEl.value !== "";
+                const selectedOption = selectEl.options[selectEl.selectedIndex];
+                valueEl.textContent = hasValue && selectedOption ? selectedOption.textContent.trim() : mapConfig.placeholder;
+                if (mapConfig.usePlaceholder) {
+                    triggerEl.classList.toggle("ph", !hasValue);
+                }
+
+                dropEl.querySelectorAll(".sel-opt").forEach(function (item) {
+                    item.classList.toggle("selected", item.dataset.value === selectEl.value);
+                });
+            }
+
+            triggerEl.addEventListener("click", function () {
+                const shouldOpen = !dropEl.classList.contains("open");
+                closeDrops();
+                dropEl.classList.toggle("open", shouldOpen);
+            });
+
+            selectEl.addEventListener("change", sync);
+            sync();
+        });
+
+        document.addEventListener("click", function (event) {
+            activeMaps.forEach(function (map) {
+                if (
+                    !map.triggerEl.contains(event.target) &&
+                    !map.dropEl.contains(event.target)
+                ) {
+                    map.dropEl.classList.remove("open");
+                }
+            });
+        });
+    }
+
+    function initializeShareIndicators() {
+        const justMeIndicator = document.getElementById("rJustMe");
+        const sharedIndicator = document.getElementById("rShared");
+        if (!justMeIndicator && !sharedIndicator) {
+            return;
+        }
+
+        function syncShareIndicator() {
+            const current = isSharedInputs.find(function (input) {
+                return input.checked;
+            });
+            const value = current ? current.value : "False";
+
+            if (justMeIndicator) {
+                justMeIndicator.className = "radio" + (value === "False" ? " on" : "");
+            }
+            if (sharedIndicator) {
+                sharedIndicator.className = "radio" + (value === "True" ? " on" : "");
+            }
+        }
+
+        isSharedInputs.forEach(function (input) {
+            input.addEventListener("change", syncShareIndicator);
+        });
+
+        syncShareIndicator();
+    }
+
+    function initializeDatePicker() {
+        const dateInput = startDateInput;
+        const dateTrigger = document.getElementById("dateTrig");
+        const dateLabel = document.getElementById("dateLabel");
+        const calendar = document.getElementById("calPop");
+        const calendarLabel = document.getElementById("calLabel");
+        const calendarDays = document.getElementById("calDays");
+        const calendarPrev = document.getElementById("calPrev");
+        const calendarNext = document.getElementById("calNext");
+
+        if (!dateInput || !dateTrigger || !dateLabel || !calendar || !calendarLabel || !calendarDays) {
+            return;
+        }
+
+        const months = [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+        ];
+
+        function parseIso(raw) {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(raw || "")) {
+                return null;
+            }
+            const parts = raw.split("-").map(Number);
+            return new Date(parts[0], parts[1] - 1, parts[2]);
+        }
+
+        function toIso(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, "0");
+            const day = String(date.getDate()).padStart(2, "0");
+            return year + "-" + month + "-" + day;
+        }
+
+        let selectedDate = parseIso(dateInput.value);
+        let year = selectedDate ? selectedDate.getFullYear() : new Date().getFullYear();
+        let month = selectedDate ? selectedDate.getMonth() : new Date().getMonth();
+
+        function setDateLabel() {
+            if (!selectedDate) {
+                dateTrigger.classList.add("nodate");
+                dateTrigger.classList.remove("hasdate");
+                dateLabel.textContent = "Pick a date";
+                return;
+            }
+
+            dateTrigger.classList.remove("nodate");
+            dateTrigger.classList.add("hasdate");
+            dateLabel.textContent =
+                months[selectedDate.getMonth()] +
+                " " +
+                selectedDate.getDate() +
+                ", " +
+                selectedDate.getFullYear();
+        }
+
+        function renderCalendar() {
+            calendarLabel.textContent = months[month] + " " + year;
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const previousMonthDays = new Date(year, month, 0).getDate();
+            let html = "";
+
+            for (let i = firstDay - 1; i >= 0; i--) {
+                html +=
+                    '<button type="button" class="cal-day out" disabled>' +
+                    (previousMonthDays - i) +
+                    "</button>";
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const isSelected =
+                    selectedDate &&
+                    selectedDate.getDate() === day &&
+                    selectedDate.getMonth() === month &&
+                    selectedDate.getFullYear() === year;
+                html +=
+                    '<button type="button" class="cal-day' +
+                    (isSelected ? " sel" : "") +
+                    '" data-day="' +
+                    day +
+                    '">' +
+                    day +
+                    "</button>";
+            }
+
+            calendarDays.innerHTML = html;
+        }
+
+        dateTrigger.addEventListener("click", function () {
+            calendar.classList.toggle("open");
+            renderCalendar();
+        });
+
+        calendarDays.addEventListener("click", function (event) {
+            const button = event.target.closest("[data-day]");
+            if (!button) {
+                return;
+            }
+
+            const day = Number(button.dataset.day);
+            selectedDate = new Date(year, month, day);
+            dateInput.value = toIso(selectedDate);
+            dateInput.dispatchEvent(new Event("change", { bubbles: true }));
+            calendar.classList.remove("open");
+            setDateLabel();
+        });
+
+        if (calendarPrev) {
+            calendarPrev.addEventListener("click", function () {
+                month -= 1;
+                if (month < 0) {
+                    month = 11;
+                    year -= 1;
+                }
+                renderCalendar();
+            });
+        }
+
+        if (calendarNext) {
+            calendarNext.addEventListener("click", function () {
+                month += 1;
+                if (month > 11) {
+                    month = 0;
+                    year += 1;
+                }
+                renderCalendar();
+            });
+        }
+
+        document.addEventListener("click", function (event) {
+            if (!calendar.contains(event.target) && !dateTrigger.contains(event.target)) {
+                calendar.classList.remove("open");
+            }
+        });
+
+        setDateLabel();
+    }
+
+    function initializeSummaryPreview() {
+        const summarySection = document.getElementById("sumSec");
+        if (!serviceNameInput || !summarySection) {
+            return;
+        }
+
+        const planInput = document.getElementById("id_plan_name");
+        const currencyInput = document.getElementById("id_currency");
+        const billingCycleInput = document.getElementById("id_billing_cycle");
+        const categoryInput = document.getElementById("id_category");
+        const summaryLetter = document.getElementById("sumLetter");
+        const summaryName = document.getElementById("sumName");
+        const summaryPlan = document.getElementById("sumPlan");
+        const summaryCost = document.getElementById("sumCost");
+        const summaryCycle = document.getElementById("sumCycle");
+        const summaryTags = document.getElementById("sumTags");
+
+        const serviceMap = {
+            netflix: { bg: "#f5f07a", letter: "N" },
+            spotify: { bg: "#a8f0c8", letter: "S" },
+            youtube: { bg: "#fca5a5", letter: "Y" },
+            github: { bg: "#1a1a2e", letter: "G" },
+        };
+        const currencyMap = {
+            USD: "$",
+            EUR: "EUR ",
+            GBP: "GBP ",
+            INR: "INR ",
+            CAD: "CAD ",
+            AUD: "AUD ",
+        };
+        const shortMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+        function parseIso(raw) {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(raw || "")) {
+                return null;
+            }
+            const parts = raw.split("-").map(Number);
+            return new Date(parts[0], parts[1] - 1, parts[2]);
+        }
+
+        function updateSummary() {
+            const serviceName = (serviceNameInput.value || "").trim();
+            if (!serviceName) {
+                summarySection.style.display = "none";
+                return;
+            }
+
+            summarySection.style.display = "block";
+            const service = serviceMap[serviceName.toLowerCase()] || {
+                bg: "#e5e7eb",
+                letter: serviceName.charAt(0).toUpperCase(),
+            };
+            summarySection.style.backgroundColor = service.bg;
+
+            if (summaryLetter) {
+                summaryLetter.textContent = service.letter;
+                summaryLetter.style.color = service.bg === "#1a1a2e" ? "#fff" : "#1a1a2e";
+            }
+            if (summaryName) {
+                summaryName.textContent = serviceName;
+            }
+
+            const plan = planInput ? (planInput.value || "").trim() : "";
+            if (summaryPlan) {
+                summaryPlan.style.display = plan ? "block" : "none";
+                summaryPlan.textContent = plan;
+            }
+
+            const rawCost = costInput ? (costInput.value || "").trim() : "";
+            const parsedCost = parseFloat(rawCost);
+            if (summaryCost) {
+                if (rawCost && !Number.isNaN(parsedCost)) {
+                    const code = currencyInput ? currencyInput.value : "USD";
+                    summaryCost.style.display = "block";
+                    summaryCost.textContent = (currencyMap[code] || code + " ") + parsedCost.toFixed(2);
+                } else {
+                    summaryCost.style.display = "none";
+                }
+            }
+
+            if (summaryCycle) {
+                const cycleOption =
+                    billingCycleInput && billingCycleInput.selectedIndex >= 0
+                        ? billingCycleInput.options[billingCycleInput.selectedIndex]
+                        : null;
+                const cycleText = cycleOption && billingCycleInput.value ? cycleOption.textContent.toLowerCase() : "";
+                summaryCycle.style.display = cycleText ? "block" : "none";
+                summaryCycle.textContent = cycleText ? "/" + cycleText : "";
+            }
+
+            if (summaryTags) {
+                const tags = [];
+                if (categoryInput && categoryInput.value && categoryInput.selectedIndex >= 0) {
+                    tags.push(categoryInput.options[categoryInput.selectedIndex].textContent);
+                }
+                if (statusInput && statusInput.value) {
+                    tags.push(statusInput.value);
+                }
+                if (startDateInput && /^\d{4}-\d{2}-\d{2}$/.test(startDateInput.value)) {
+                    const parsedDate = parseIso(startDateInput.value);
+                    if (parsedDate) {
+                        tags.push(
+                            "Since " +
+                                shortMonths[parsedDate.getMonth()] +
+                                " " +
+                                parsedDate.getDate() +
+                                ", " +
+                                parsedDate.getFullYear()
+                        );
+                    }
+                }
+
+                const sharedSelected = isSharedInputs.find(function (input) {
+                    return input.checked;
+                });
+                const participantCount = participantsList
+                    ? participantsList.querySelectorAll(".participant-row").length
+                    : 0;
+                if (sharedSelected && sharedSelected.value === "True" && participantCount > 0) {
+                    tags.push(
+                        "Shared with " +
+                            participantCount +
+                            " " +
+                            (participantCount === 1 ? "person" : "people")
+                    );
+                }
+
+                summaryTags.innerHTML = tags
+                    .map(function (tag) {
+                        return (
+                            '<span style="font-size:12px;background:rgba(255,255,255,0.4);border-radius:10px;padding:4px 8px;color:#374151;text-transform:capitalize;">' +
+                            tag.replace(/</g, "&lt;") +
+                            "</span>"
+                        );
+                    })
+                    .join("");
+            }
+        }
+
+        ["id_service_name", "id_plan_name", "id_cost", "id_currency", "id_billing_cycle", "id_category", "id_start_date"].forEach(
+            function (id) {
+                const element = document.getElementById(id);
+                if (!element) {
+                    return;
+                }
+                element.addEventListener("input", updateSummary);
+                element.addEventListener("change", updateSummary);
+            }
+        );
+
+        statusButtons.forEach(function (button) {
+            button.addEventListener("click", function () {
+                setTimeout(updateSummary, 0);
+            });
+        });
+
+        isSharedInputs.forEach(function (input) {
+            input.addEventListener("change", updateSummary);
+        });
+
+        if (participantsList) {
+            new MutationObserver(updateSummary).observe(participantsList, {
+                childList: true,
+                subtree: true,
+            });
+        }
+
+        updateSummary();
     }
 
     function initializeSubmitValidation() {
