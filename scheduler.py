@@ -20,7 +20,6 @@ import os
 import sys
 import django
 import argparse
-from datetime import datetime, time
 
 # Add the project directory to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -30,6 +29,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'subly.settings')
 django.setup()
 
 from subscriptions.services import BillingService, NotificationService
+from django.utils import timezone
 import logging
 
 # Configure logging
@@ -73,7 +73,7 @@ def main():
         target_time = None
         if args.time_based:
             # Use current time for filtering
-            target_time = datetime.now().time()
+            target_time = timezone.localtime().time()
             logger.info(f"Using time-based filtering: {target_time.strftime('%I:%M %p')}")
         
         # First, record renewal charges for subscriptions due today.

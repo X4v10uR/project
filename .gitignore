@@ -5,6 +5,7 @@ __pycache__/
 
 # Virtual environment
 venv/
+.venv/
 
 # VS Code
 .vscode/
@@ -14,5 +15,14 @@ media/
 
 # Static files (if collected)
 staticfiles/
+
+# Local environment and database files
+.env
+.env.*
+env.txt
+db.sqlite3
+
+# Frontend dependencies/build artifacts
+theme/static_src/node_modules/
 
 *.log

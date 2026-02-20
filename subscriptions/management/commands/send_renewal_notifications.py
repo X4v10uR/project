@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand
-from datetime import date, timedelta, time
+from datetime import timedelta, time
+from django.utils import timezone
 from subscriptions.models import NotificationLog
 from subscriptions.services import NotificationService
 import logging
@@ -47,7 +48,7 @@ class Command(BaseCommand):
         
         target_date = None
         if days_before is not None:
-            target_date = date.today() + timedelta(days=days_before)
+            target_date = timezone.localdate() + timedelta(days=days_before)
             self.stdout.write(f"Looking for subscriptions renewing on {target_date}")
         else:
             self.stdout.write("Looking for subscriptions with reminder offsets due today")

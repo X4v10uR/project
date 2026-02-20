@@ -23,6 +23,10 @@ class CardForm(forms.ModelForm):
         self.fields['last4'].widget.attrs['style'] = 'padding-left: 9.5rem;'
 
 class SubscriptionForm(forms.ModelForm):
+    account_email = forms.EmailField(
+        required=False,
+        widget=forms.EmailInput(attrs={'placeholder': 'e.g. user@example.com'}),
+    )
 
     card = forms.ModelChoiceField(
         queryset=Card.objects.none(),
@@ -41,7 +45,6 @@ class SubscriptionForm(forms.ModelForm):
             'notes': forms.Textarea(attrs={'rows': 3}),
             'is_shared': forms.RadioSelect(choices=[(False, 'Just me'), (True, 'Shared')]),
             'split_type': forms.RadioSelect(attrs={'class': 'sr-only peer'}),
-            'account_email': forms.EmailInput(attrs={'placeholder': 'e.g. user@example.com'}),
             'account_password': forms.PasswordInput(render_value=False, attrs={'placeholder': 'Enter account password'}),
         }
 
@@ -65,6 +68,12 @@ class SubscriptionForm(forms.ModelForm):
         
         # Add help text for renewal_time field
         self.fields['renewal_time'].help_text = "Setting the time defines the exact time subscription is ending. Notifications will be sent at this time 3 days before renewal."
+
+    def clean_account_email(self):
+        account_email = self.cleaned_data.get('account_email')
+        if not account_email:
+            return None
+        return account_email.strip()
 
     def clean_account_password(self):
         account_password = self.cleaned_data.get('account_password')

@@ -77,3 +77,28 @@ class SubscriptionAccountFieldsTest(TestCase):
         updated_sub = form.save()
         self.assertEqual(updated_sub.account_password, original_password_value)
         self.assertEqual(updated_sub.get_account_password(), "secretpassword123")
+
+    def test_form_rejects_invalid_account_email(self):
+        form = SubscriptionForm(
+            data={
+                'service_name': "Netflix",
+                'category': "Streaming",
+                'billing_cycle': "monthly",
+                'cost': "15.00",
+                'currency': "USD",
+                'start_date': date.today().isoformat(),
+                'renewal_time': "15:00",
+                'status': "active",
+                'reminders_enabled': "on",
+                'card': "",
+                'notes': "",
+                'is_shared': "False",
+                'split_type': "equal",
+                'account_email': "invalid-email",
+                'account_password': "",
+            },
+            user=self.user
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('account_email', form.errors)

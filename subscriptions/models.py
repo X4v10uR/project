@@ -1,8 +1,9 @@
 from django.db import models
 from django.conf import settings
-from datetime import date, time
+from datetime import time
 from dateutil.relativedelta import relativedelta
 from django.core.validators import MinLengthValidator, RegexValidator
+from django.utils import timezone
 import base64
 import hashlib
 
@@ -131,9 +132,8 @@ class Subscription(models.Model):
         """Calculate the next upcoming renewal date relative to today."""
         if not self.start_date:
             return None
-            
-        from datetime import date
-        today = date.today()
+
+        today = timezone.localdate()
         renewal = self.start_date
         
         # If it's a future subscription, the first renewal is one cycle after start

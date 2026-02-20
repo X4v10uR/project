@@ -11,7 +11,7 @@ from subscriptions.models import Subscription
 
 def seed_data():
     # Create a demo user
-    demo_email = 'demo1@subly.com'
+    demo_email = 'demo@subly.com'
     user, created = User.objects.get_or_create(email=demo_email)
     if created:
         user.set_password('demo1234')

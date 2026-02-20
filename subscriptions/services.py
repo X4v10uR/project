@@ -1,11 +1,12 @@
 import logging
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import IntegrityError
 from django.template.loader import render_to_string
+from django.utils import timezone
 
 from .models import NotificationLog, Subscription, Transaction
 
@@ -17,7 +18,7 @@ def refresh_subscription_renewal_date(subscription):
     Keep renewal_date synchronized for long-lived records.
     Returns the up-to-date renewal_date.
     """
-    today = date.today()
+    today = timezone.localdate()
     if subscription.renewal_date and subscription.renewal_date >= today:
         return subscription.renewal_date
 
@@ -59,7 +60,7 @@ class BillingService:
 
     @staticmethod
     def get_due_renewals(target_date=None):
-        charge_date = target_date or date.today()
+        charge_date = target_date or timezone.localdate()
         active_subs = Subscription.objects.filter(status='active').select_related('user')
 
         due_subscriptions = []
@@ -72,7 +73,7 @@ class BillingService:
 
     @staticmethod
     def record_renewal_charges(target_date=None, dry_run=False):
-        charge_date = target_date or date.today()
+        charge_date = target_date or timezone.localdate()
         due_subscriptions = BillingService.get_due_renewals(target_date=charge_date)
 
         results = {
@@ -201,7 +202,7 @@ class NotificationService:
     @staticmethod
     def get_subscriptions_due_for_notification(target_time=None, days_before=None):
         """Get subscriptions and offsets that need renewal notifications today."""
-        today = date.today()
+        today = timezone.localdate()
 
         # Subscriptions with reminders enabled
         active_subs = Subscription.objects.filter(
@@ -239,10 +240,10 @@ class NotificationService:
         # Filter by time if provided
         if target_time:
             time_window_start = (
-                datetime.combine(date.today(), target_time) - timedelta(hours=1)
+                datetime.combine(today, target_time) - timedelta(hours=1)
             ).time()
             time_window_end = (
-                datetime.combine(date.today(), target_time) + timedelta(hours=1)
+                datetime.combine(today, target_time) + timedelta(hours=1)
             ).time()
 
             due_notifications = [

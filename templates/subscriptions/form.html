@@ -242,8 +242,9 @@
                     <div>
                         <input id="id_account_password" name="account_password" type="password" value=""
                             placeholder="{% if is_edit_mode %}Leave blank to keep existing{% else %}Enter account password{% endif %}">
-                        <button type="button" id="toggle-password-btn">
-
+                        <button type="button" id="toggle-password-btn" aria-label="Toggle password visibility">
+                            <span id="password-eye-open">Show</span>
+                            <span id="password-eye-closed" class="hidden">Hide</span>
                         </button>
                     </div>
                     <p>{% if is_edit_mode %}Leave blank to keep your existing password.{% else %}Stored securely with
@@ -260,8 +261,7 @@
             </div>
             <div>
                 <span id="reminder-toggle-label">{% if reminders_enabled_selected %}On{% else %}Off{% endif %}</span>
-                <input type="checkbox" id="id_reminders_enabled" name="reminders_enabled" class="sr-only" {% if
-                    reminders_enabled_selected %}checked{% endif %}>
+                <input type="checkbox" id="id_reminders_enabled" name="reminders_enabled" class="sr-only" {% if reminders_enabled_selected %}checked{% endif %}>
                 <button type="button" id="reminders-toggle-btn">
                     <span id="reminders-toggle-knob"></span>
                 </button>

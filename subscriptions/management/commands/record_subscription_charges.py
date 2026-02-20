@@ -1,6 +1,7 @@
 from datetime import date
 
 from django.core.management.base import BaseCommand, CommandError
+from django.utils import timezone
 
 from subscriptions.services import BillingService
 
@@ -21,7 +22,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        target_date = date.today()
+        target_date = timezone.localdate()
         input_date = options.get("date")
         if input_date:
             try:
