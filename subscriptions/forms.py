@@ -75,6 +75,12 @@ class SubscriptionForm(forms.ModelForm):
             return None
         return account_email.strip()
 
+    def clean_currency(self):
+        currency = self.cleaned_data.get("currency")
+        if not currency:
+            return currency
+        return currency.strip().upper()
+
     def clean_account_password(self):
         account_password = self.cleaned_data.get('account_password')
 

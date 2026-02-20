@@ -266,24 +266,17 @@
           <label for="id_cost" class="lbl">Cost</label>
           <div style="display:flex;gap:8px;">
             <input id="id_cost" name="cost" type="number" step="0.01" value="{{ cost_value }}" class="ui-input" style="flex:1;" placeholder="0.00" required>
-            <select id="id_currency" name="currency" class="native-select">
-              {% if currency_value and currency_value != 'USD' and currency_value != 'EUR' and currency_value != 'GBP' and currency_value != 'INR' and currency_value != 'CAD' and currency_value != 'AUD' %}
-              <option value="{{ currency_value }}" selected>{{ currency_value }}</option>
-              {% endif %}
-              <option value="USD" {% if currency_value == 'USD' or not currency_value %}selected{% endif %}>USD</option>
-              <option value="EUR" {% if currency_value == 'EUR' %}selected{% endif %}>EUR</option>
-              <option value="GBP" {% if currency_value == 'GBP' %}selected{% endif %}>GBP</option>
-              <option value="INR" {% if currency_value == 'INR' %}selected{% endif %}>INR</option>
-              <option value="CAD" {% if currency_value == 'CAD' %}selected{% endif %}>CAD</option>
-              <option value="AUD" {% if currency_value == 'AUD' %}selected{% endif %}>AUD</option>
-            </select>
-            <div style="position:relative;width:96px;flex-shrink:0;">
-              <button type="button" id="curTrig" class="sel-trigger" style="width:96px;">
-                <span id="curVal">USD</span>
-                <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-              </button>
-              <div id="curDrop" class="sel-drop" style="width:120px;"></div>
-            </div>
+            <input
+              id="id_currency"
+              name="currency"
+              type="text"
+              value="{{ currency_value }}"
+              class="ui-input"
+              style="width:96px;flex-shrink:0;text-transform:uppercase;"
+              placeholder="USD"
+              maxlength="3"
+              required
+            >
           </div>
           {% if form.cost.errors %}<p class="field-error">{{ form.cost.errors.0 }}</p>{% endif %}
           {% if form.currency.errors %}<p class="field-error">{{ form.currency.errors.0 }}</p>{% endif %}

@@ -702,14 +702,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 usePlaceholder: true,
             },
             {
-                select: "id_currency",
-                trigger: "curTrig",
-                value: "curVal",
-                drop: "curDrop",
-                placeholder: "USD",
-                usePlaceholder: false,
-            },
-            {
                 select: "id_card",
                 trigger: "cardTrig",
                 value: "cardVal",
@@ -1064,7 +1056,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const parsedCost = parseFloat(rawCost);
             if (summaryCost) {
                 if (rawCost && !Number.isNaN(parsedCost)) {
-                    const code = currencyInput ? currencyInput.value : "USD";
+                    const code = currencyInput ? (currencyInput.value || "").trim().toUpperCase() || "USD" : "USD";
                     summaryCost.style.display = "block";
                     summaryCost.textContent = (currencyMap[code] || code + " ") + parsedCost.toFixed(2);
                 } else {
