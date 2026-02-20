@@ -4,116 +4,65 @@
 {% block title %}{{ title }} - Subly{% endblock %}
 
 {% block extra_css %}
-<style>
-    .subscription-form-page {
-        font-family: 'Inter', sans-serif;
-    }
-
-    .subscription-form-page ::-webkit-scrollbar {
-        width: 8px;
-    }
-
-    .subscription-form-page ::-webkit-scrollbar-track {
-        background: #f1f1f1;
-    }
-
-    .subscription-form-page ::-webkit-scrollbar-thumb {
-        background: #c1c1c1;
-        border-radius: 4px;
-    }
-
-    .subscription-form-page ::-webkit-scrollbar-thumb:hover {
-        background: #a8a8a8;
-    }
-
-    .subscription-form-page input[type="date"]::-webkit-inner-spin-button,
-    .subscription-form-page input[type="date"]::-webkit-calendar-picker-indicator {
-        background: transparent;
-        bottom: 0;
-        color: transparent;
-        cursor: pointer;
-        height: auto;
-        left: 0;
-        position: absolute;
-        right: 0;
-        top: 0;
-        width: auto;
-    }
-
-    /* Keep notification toggle dimensions stable even if utility CSS is stale */
-    #reminders-toggle-btn {
-        width: 2.75rem;
-        height: 1.5rem;
-    }
-
-    #reminders-toggle-knob {
-        width: 1.25rem;
-        height: 1.25rem;
-    }
-</style>
 {% endblock %}
 
 {% block content %}
-<div class="subscription-form-page max-w-4xl mx-auto px-4 py-10">
+<div>
     <form method="post" id="subscription-form" novalidate>
         {% csrf_token %}
 
         {% if form.non_field_errors %}
-        <div class="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div>
             {% for error in form.non_field_errors %}
             <p>{{ error }}</p>
             {% endfor %}
         </div>
         {% endif %}
 
-        <div class="flex items-center mb-8">
-            <a href="{% url 'subscriptions:list' %}" class="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm text-gray-600 hover:bg-gray-50 mr-4 transition border border-gray-100">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-                </svg>
+        <div>
+            <a href="{% url 'subscriptions:list' %}">
+
             </a>
             <div>
-                <h1 class="text-2xl font-bold text-gray-900">{% if is_edit_mode %}Edit Subscription{% else %}Add Subscription{% endif %}</h1>
-                <p class="text-gray-500 text-sm mt-1">Track a new subscription by filling out the details below.</p>
+                <h1>{% if is_edit_mode %}Edit Subscription{% else %}Add Subscription{% endif %}</h1>
+                <p>Track a new subscription by filling out the details below.</p>
             </div>
         </div>
 
-        <div class="bg-white rounded-2xl p-8 mb-6 shadow-sm border border-gray-100">
-            <div class="flex items-center mb-6">
-                <div class="w-10 h-10 rounded-xl flex items-center justify-center mr-3 bg-emerald-100 text-emerald-600">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.546-3.131 1.567-4.357" />
-                    </svg>
-                </div>
-                <h2 class="text-lg font-semibold text-gray-900">Core Details</h2>
+        <div>
+            <div>
+
+                <h2>Core Details</h2>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                <div class="col-span-1">
-                    <label for="id_service_name" class="block text-sm font-semibold text-gray-900 mb-2">Service Name</label>
-                    <div class="relative">
-                        <input id="id_service_name" name="service_name" type="text" value="{{ service_name_value }}" maxlength="100" required placeholder="e.g., Netflix, Spotify" class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 placeholder-gray-400 transition-colors outline-none pr-10">
-                        <div id="service-icon-preview" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
-                            <span class="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                                <img id="service-icon-image" src="" alt="" class="w-5 h-5 hidden">
-                                <span id="service-icon-fallback" class="text-[10px] leading-none font-semibold text-gray-700">S</span>
+            <div>
+                <div>
+                    <label for="id_service_name">Service Name</label>
+                    <div>
+                        <input id="id_service_name" name="service_name" type="text" value="{{ service_name_value }}"
+                            maxlength="100" required placeholder="e.g., Netflix, Spotify">
+                        <div id="service-icon-preview">
+                            <span>
+                                <img id="service-icon-image" src="" alt="" class="hidden">
+                                <span id="service-icon-fallback">S</span>
                             </span>
                         </div>
                     </div>
-                    <p class="text-xs text-gray-400 mt-2">Type a service name to see its icon preview</p>
-                    {% if form.service_name.errors %}<p class="text-xs text-red-600 mt-2">{{ form.service_name.errors.0 }}</p>{% endif %}
+                    <p>Type a service name to see its icon preview</p>
+                    {% if form.service_name.errors %}<p>{{ form.service_name.errors.0 }}</p>{% endif %}
                 </div>
 
-                <div class="col-span-1">
-                    <label for="id_plan_name" class="block text-sm font-semibold text-gray-900 mb-2">Plan Name</label>
-                    <input id="id_plan_name" name="plan_name" type="text" value="{{ plan_name_value }}" maxlength="100" placeholder="e.g., Premium 4K, Family Plan" class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 placeholder-gray-400 transition-colors outline-none">
-                    {% if form.plan_name.errors %}<p class="text-xs text-red-600 mt-2">{{ form.plan_name.errors.0 }}</p>{% endif %}
+                <div>
+                    <label for="id_plan_name">Plan Name</label>
+                    <input id="id_plan_name" name="plan_name" type="text" value="{{ plan_name_value }}" maxlength="100"
+                        placeholder="e.g., Premium 4K, Family Plan">
+                    {% if form.plan_name.errors %}<p>{{ form.plan_name.errors.0 }}</p>{% endif %}
                 </div>
 
-                <div class="col-span-1">
-                    <label for="id_category" class="block text-sm font-semibold text-gray-900 mb-2">Category</label>
-                    <div class="relative">
-                        <select id="id_category" name="category" required class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 transition-colors outline-none appearance-none cursor-pointer">
+                <div>
+                    <label for="id_category">Category</label>
+                    <div>
+                        <select id="id_category" name="category" required>
                             <option value="" {% if not category_value %}selected{% endif %}>Select a category</option>
                             {% if category_value %}
                             <option value="{{ category_value }}" selected>{{ category_value }}</option>
@@ -124,37 +73,35 @@
                             {% endif %}
                             {% endfor %}
                         </select>
-                        <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-gray-500">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
+
                     </div>
-                    {% if form.category.errors %}<p class="text-xs text-red-600 mt-2">{{ form.category.errors.0 }}</p>{% endif %}
+                    {% if form.category.errors %}<p>{{ form.category.errors.0 }}</p>{% endif %}
                 </div>
 
-                <div class="col-span-1">
-                    <label for="id_billing_cycle" class="block text-sm font-semibold text-gray-900 mb-2">Billing Cycle</label>
-                    <div class="relative">
-                        <select id="id_billing_cycle" name="billing_cycle" required class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 transition-colors outline-none appearance-none cursor-pointer">
+                <div>
+                    <label for="id_billing_cycle">Billing Cycle</label>
+                    <div>
+                        <select id="id_billing_cycle" name="billing_cycle" required>
                             <option value="">Select billing cycle</option>
                             {% for value, label in form.fields.billing_cycle.choices %}
                             {% if value %}
-                            <option value="{{ value }}" {% if billing_cycle_value == value %}selected{% endif %}>{{ label }}</option>
+                            <option value="{{ value }}" {% if billing_cycle_value == value %}selected{% endif %}>{{ label
+                                }}</option>
                             {% endif %}
                             {% endfor %}
                         </select>
-                        <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-gray-500">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
+
                     </div>
-                    {% if form.billing_cycle.errors %}<p class="text-xs text-red-600 mt-2">{{ form.billing_cycle.errors.0 }}</p>{% endif %}
+                    {% if form.billing_cycle.errors %}<p>{{ form.billing_cycle.errors.0 }}</p>{% endif %}
                 </div>
 
-                <div class="col-span-1">
-                    <label for="id_cost" class="block text-sm font-semibold text-gray-900 mb-2">Cost</label>
-                    <div class="flex gap-2">
-                        <input id="id_cost" name="cost" type="number" step="0.01" value="{{ cost_value }}" placeholder="0.00" required class="w-2/3 bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 placeholder-gray-400 transition-colors outline-none">
-                        <div class="relative w-1/3">
-                            <select id="id_currency" name="currency" class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 font-semibold transition-colors outline-none appearance-none cursor-pointer">
+                <div>
+                    <label for="id_cost">Cost</label>
+                    <div>
+                        <input id="id_cost" name="cost" type="number" step="0.01" value="{{ cost_value }}"
+                            placeholder="0.00" required>
+                        <div>
+                            <select id="id_currency" name="currency">
                                 {% if currency_value and currency_value != 'USD' and currency_value != 'EUR' and currency_value != 'GBP' and currency_value != 'INR' and currency_value != 'CAD' and currency_value != 'AUD' %}
                                 <option value="{{ currency_value }}" selected>{{ currency_value }}</option>
                                 {% endif %}
@@ -165,221 +112,193 @@
                                 <option value="CAD" {% if currency_value == 'CAD' %}selected{% endif %}>CAD</option>
                                 <option value="AUD" {% if currency_value == 'AUD' %}selected{% endif %}>AUD</option>
                             </select>
-                            <div class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-gray-500">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                            </div>
                         </div>
                     </div>
-                    {% if form.cost.errors %}<p class="text-xs text-red-600 mt-2">{{ form.cost.errors.0 }}</p>{% endif %}
-                    {% if form.currency.errors %}<p class="text-xs text-red-600 mt-2">{{ form.currency.errors.0 }}</p>{% endif %}
+                    {% if form.cost.errors %}<p>{{ form.cost.errors.0 }}</p>{% endif %}
+                    {% if form.currency.errors %}<p>{{ form.currency.errors.0 }}</p>{% endif %}
                 </div>
 
-                <div class="col-span-1">
-                    <label for="id_start_date" class="block text-sm font-semibold text-gray-900 mb-2">Start Date</label>
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                            </svg>
-                        </div>
-                        <input id="id_start_date" name="start_date" type="{% if start_date_value %}date{% else %}text{% endif %}" value="{{ start_date_value }}" placeholder="Pick a date" required class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg pl-10 pr-4 py-3 text-gray-700 placeholder-gray-500 transition-colors outline-none">
+                <div>
+                    <label for="id_start_date">Start Date</label>
+                    <div>
+
+                        <input id="id_start_date" name="start_date"
+                            type="{% if start_date_value %}date{% else %}text{% endif %}" value="{{ start_date_value }}"
+                            placeholder="Pick a date" required>
                     </div>
-                    {% if form.start_date.errors %}<p class="text-xs text-red-600 mt-2">{{ form.start_date.errors.0 }}</p>{% endif %}
+                    {% if form.start_date.errors %}<p>{{ form.start_date.errors.0 }}</p>{% endif %}
                 </div>
 
-                <div class="col-span-1 md:col-span-2">
-                    <label for="id_renewal_time" class="block text-sm font-semibold text-gray-900 mb-2">Renewal Time</label>
-                    <div class="relative max-w-sm">
-                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </div>
-                        <input id="id_renewal_time" name="renewal_time" type="time" value="{{ renewal_time_value|default:'09:00' }}" class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg pl-10 pr-4 py-3 text-gray-700 transition-colors outline-none">
+                <div>
+                    <label for="id_renewal_time">Renewal Time</label>
+                    <div>
+
+                        <input id="id_renewal_time" name="renewal_time" type="time"
+                            value="{{ renewal_time_value|default:'09:00' }}">
                     </div>
-                    <p class="text-xs text-gray-400 mt-2">Set the exact renewal time for timely alerts</p>
-                    {% if form.renewal_time.errors %}<p class="text-xs text-red-600 mt-2">{{ form.renewal_time.errors.0 }}</p>{% endif %}
+                    <p>Set the exact renewal time for timely alerts</p>
+                    {% if form.renewal_time.errors %}<p>{{ form.renewal_time.errors.0 }}</p>{% endif %}
                 </div>
             </div>
         </div>
 
-        <div class="bg-white rounded-2xl p-8 mb-6 shadow-sm border border-gray-100">
-            <div class="flex items-center mb-6">
-                <div class="w-10 h-10 rounded-xl flex items-center justify-center mr-3 bg-yellow-100 text-yellow-600">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
-                    </svg>
-                </div>
-                <h2 class="text-lg font-semibold text-gray-900">Payment &amp; Status</h2>
+        <div>
+            <div>
+
+                <h2>Payment &amp; Status</h2>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+            <div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-900 mb-2">Status</label>
+                    <label>Status</label>
                     <input type="hidden" id="id_status" name="status" value="{{ status_selected }}">
-                    <div class="flex gap-2">
-                        <button type="button" data-status-option="active" class="px-5 py-2.5 rounded-full text-sm font-medium transition bg-gray-100 text-gray-500 hover:bg-gray-200">Active</button>
-                        <button type="button" data-status-option="paused" class="px-5 py-2.5 rounded-full text-sm font-medium transition bg-gray-100 text-gray-500 hover:bg-gray-200">Paused</button>
-                        <button type="button" data-status-option="cancelled" class="px-5 py-2.5 rounded-full text-sm font-medium transition bg-gray-100 text-gray-500 hover:bg-gray-200">Cancelled</button>
+                    <div>
+                        <button type="button" data-status-option="active">Active</button>
+                        <button type="button" data-status-option="paused">Paused</button>
+                        <button type="button" data-status-option="cancelled">Cancelled</button>
                     </div>
-                    {% if form.status.errors %}<p class="text-xs text-red-600 mt-2">{{ form.status.errors.0 }}</p>{% endif %}
+                    {% if form.status.errors %}<p>{{ form.status.errors.0 }}</p>{% endif %}
                 </div>
 
                 <div>
-                    <label for="id_card" class="block text-sm font-semibold text-gray-900 mb-2">Linked Card</label>
-                    <div class="relative">
-                        <select id="id_card" name="card" class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 transition-colors outline-none appearance-none cursor-pointer">
+                    <label for="id_card">Linked Card</label>
+                    <div>
+                        <select id="id_card" name="card">
                             <option value="">Select a saved card</option>
                             {% for card in form.fields.card.queryset %}
                             <option value="{{ card.pk }}" {% if selected_card_id == card.pk|stringformat:'s' %}selected{% endif %}>{{ card }}</option>
                             {% endfor %}
                         </select>
-                        <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-gray-500">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
+
                     </div>
-                    {% if form.card.errors %}<p class="text-xs text-red-600 mt-2">{{ form.card.errors.0 }}</p>{% endif %}
+                    {% if form.card.errors %}<p>{{ form.card.errors.0 }}</p>{% endif %}
                 </div>
             </div>
         </div>
 
-        <div class="bg-white rounded-2xl p-8 mb-6 shadow-sm border border-gray-100">
-            <div class="flex items-center mb-6">
-                <div class="w-10 h-10 rounded-xl flex items-center justify-center mr-3 bg-purple-100 text-purple-600">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                    </svg>
-                </div>
-                <h2 class="text-lg font-semibold text-gray-900">Sharing &amp; Ownership</h2>
+        <div>
+            <div>
+
+                <h2>Sharing &amp; Ownership</h2>
             </div>
 
-            <div class="flex items-center gap-6 mb-4">
-                <label class="flex items-center cursor-pointer">
-                    <input type="radio" name="is_shared" value="False" class="w-4 h-4 text-slate-900 focus:ring-slate-900 border-gray-300" {% if not is_shared_selected %}checked{% endif %}>
-                    <span class="ml-2 text-gray-700 font-medium">Just me</span>
+            <div>
+                <label>
+                    <input type="radio" name="is_shared" value="False" {% if not is_shared_selected %}checked{% endif %}>
+                    <span>Just me</span>
                 </label>
-                <label class="flex items-center cursor-pointer">
-                    <input type="radio" name="is_shared" value="True" class="w-4 h-4 text-slate-900 focus:ring-slate-900 border-gray-300" {% if is_shared_selected %}checked{% endif %}>
-                    <span class="ml-2 text-gray-700 font-medium">Shared with others</span>
+                <label>
+                    <input type="radio" name="is_shared" value="True" {% if is_shared_selected %}checked{% endif %}>
+                    <span>Shared with others</span>
                 </label>
             </div>
-            {% if form.is_shared.errors %}<p class="text-xs text-red-600 mb-4">{{ form.is_shared.errors.0 }}</p>{% endif %}
+            {% if form.is_shared.errors %}<p>{{ form.is_shared.errors.0 }}</p>{% endif %}
 
-            <div id="shared-settings" class="mt-6 border-t border-gray-100 pt-6">
-                <div class="mb-5">
-                    <label class="block text-sm font-semibold text-gray-900 mb-2">Split Type</label>
-                    <input type="hidden" id="id_split_type" name="split_type" value="{{ split_type_selected|default:'equal' }}">
-                    <div class="inline-flex bg-gray-100 rounded-lg p-1">
-                        <button type="button" data-split-option="equal" class="px-5 py-2 rounded-md text-sm font-medium transition text-gray-500 hover:text-gray-900">Equal</button>
-                        <button type="button" data-split-option="custom" class="px-5 py-2 rounded-md text-sm font-medium transition text-gray-500 hover:text-gray-900">Custom</button>
+            <div id="shared-settings">
+                <div>
+                    <label>Split Type</label>
+                    <input type="hidden" id="id_split_type" name="split_type"
+                        value="{{ split_type_selected|default:'equal' }}">
+                    <div>
+                        <button type="button" data-split-option="equal">Equal</button>
+                        <button type="button" data-split-option="custom">Custom</button>
                     </div>
-                    <p class="text-xs text-gray-500 mt-2">Your share: <span id="user-share-display" class="font-semibold text-gray-700">0.00</span></p>
-                    {% if form.split_type.errors %}<p class="text-xs text-red-600 mt-2">{{ form.split_type.errors.0 }}</p>{% endif %}
+                    <p>Your share: <span id="user-share-display">0.00</span></p>
+                    {% if form.split_type.errors %}<p>{{ form.split_type.errors.0 }}</p>{% endif %}
                 </div>
 
                 <div>
-                    <label class="block text-sm font-semibold text-gray-900 mb-2">Participants</label>
-                    <div id="participants-list" class="space-y-2 mb-3"></div>
+                    <label>Participants</label>
+                    <div id="participants-list"></div>
 
-                    <div class="flex gap-2">
-                        <input type="text" id="new-participant-name" placeholder="Enter participant name" class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 placeholder-gray-400 transition-colors outline-none">
-                        <button type="button" id="add-participant-btn" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-600 rounded-lg w-12 flex items-center justify-center transition shadow-sm">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    <div>
+                        <input type="text" id="new-participant-name" placeholder="Enter participant name">
+                        <button type="button" id="add-participant-btn">
+
                         </button>
                     </div>
-                    <div id="split-error" class="hidden mt-3 text-xs text-red-600">The sum of participant shares cannot exceed the total cost.</div>
+                    <div id="split-error" class="hidden">The sum of participant shares cannot exceed the total cost.
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="bg-white rounded-2xl p-8 mb-6 shadow-sm border border-gray-100">
-            <div class="flex items-center justify-between mb-6">
-                <div class="flex items-center">
-                    <div class="w-10 h-10 rounded-xl flex items-center justify-center mr-3 bg-slate-200 text-slate-600">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
-                        </svg>
-                    </div>
-                    <h2 class="text-lg font-semibold text-gray-900">Account Info</h2>
-                </div>
-                <span class="bg-gray-100 text-gray-500 text-xs px-2.5 py-1 rounded font-medium">Optional</span>
-            </div>
+        <div>
+            <div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <h2>Account Info</h2>
+            </div>
+            <span>Optional</span>
+
+            <div>
                 <div>
-                    <label for="id_account_email" class="block text-sm font-semibold text-gray-900 mb-2">Account Email</label>
-                    <input id="id_account_email" name="account_email" type="email" value="{{ account_email_value }}" placeholder="user@example.com" class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 placeholder-gray-400 transition-colors outline-none">
-                    {% if form.account_email.errors %}<p class="text-xs text-red-600 mt-2">{{ form.account_email.errors.0 }}</p>{% endif %}
+                    <label for="id_account_email">Account Email</label>
+                    <input id="id_account_email" name="account_email" type="email" value="{{ account_email_value }}"
+                        placeholder="user@example.com">
+                    {% if form.account_email.errors %}<p>{{ form.account_email.errors.0 }}</p>{% endif %}
                 </div>
                 <div>
-                    <label for="id_account_password" class="block text-sm font-semibold text-gray-900 mb-2">Account Password</label>
-                    <div class="relative">
-                        <input id="id_account_password" name="account_password" type="password" value="" class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 placeholder-gray-400 transition-colors outline-none pr-10" placeholder="{% if is_edit_mode %}Leave blank to keep existing{% else %}Enter account password{% endif %}">
-                        <button type="button" id="toggle-password-btn" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none">
-                            <svg id="password-eye-open" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
-                            <svg id="password-eye-closed" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path></svg>
+                    <label for="id_account_password">Account Password</label>
+                    <div>
+                        <input id="id_account_password" name="account_password" type="password" value=""
+                            placeholder="{% if is_edit_mode %}Leave blank to keep existing{% else %}Enter account password{% endif %}">
+                        <button type="button" id="toggle-password-btn">
+
                         </button>
                     </div>
-                    <p class="text-xs text-gray-400 mt-2">{% if is_edit_mode %}Leave blank to keep your existing password.{% else %}Stored securely with encryption.{% endif %}</p>
-                    {% if form.account_password.errors %}<p class="text-xs text-red-600 mt-2">{{ form.account_password.errors.0 }}</p>{% endif %}
+                    <p>{% if is_edit_mode %}Leave blank to keep your existing password.{% else %}Stored securely with
+                        encryption.{% endif %}</p>
+                    {% if form.account_password.errors %}<p>{{ form.account_password.errors.0 }}</p>{% endif %}
                 </div>
             </div>
         </div>
 
-        <div class="bg-white rounded-2xl p-8 mb-6 shadow-sm border border-gray-100">
-            <div class="flex items-center justify-between mb-4">
-                <div class="flex items-center">
-                    <div class="w-10 h-10 rounded-xl flex items-center justify-center mr-3 bg-rose-100 text-rose-600">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                    </div>
-                    <h2 class="text-lg font-semibold text-gray-900">Notifications</h2>
-                </div>
-                <div class="flex items-center">
-                    <span id="reminder-toggle-label" class="mr-3 text-sm font-medium text-gray-900">{% if reminders_enabled_selected %}On{% else %}Off{% endif %}</span>
-                    <input type="checkbox" id="id_reminders_enabled" name="reminders_enabled" class="sr-only" {% if reminders_enabled_selected %}checked{% endif %}>
-                    <button type="button" id="reminders-toggle-btn" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out {% if reminders_enabled_selected %}bg-slate-900{% else %}bg-gray-200{% endif %}">
-                        <span id="reminders-toggle-knob" aria-hidden="true" class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {% if reminders_enabled_selected %}translate-x-5{% else %}translate-x-0{% endif %}"></span>
+        <div>
+            <div>
+
+                <h2>Notifications</h2>
+            </div>
+            <div>
+                <span id="reminder-toggle-label">{% if reminders_enabled_selected %}On{% else %}Off{% endif %}</span>
+                <input type="checkbox" id="id_reminders_enabled" name="reminders_enabled" class="sr-only" {% if
+                    reminders_enabled_selected %}checked{% endif %}>
+                <button type="button" id="reminders-toggle-btn">
+                    <span id="reminders-toggle-knob"></span>
+                </button>
+            </div>
+        </div>
+
+        <div id="offsets-section" class="{% if not reminders_enabled_selected %}hidden{% endif %}">
+            <label>Reminder Offsets</label>
+            <p>Get notified before your subscription renews</p>
+            <div id="offset-inputs-container"></div>
+
+            <div>
+                <div id="offsets-list"></div>
+
+                <div>
+                    <input type="number" id="new-offset-days" min="1" max="30" placeholder="0">
+                    <span>days before</span>
+                    <button type="button" id="add-offset-btn">
+                        + Add
                     </button>
                 </div>
             </div>
-
-            <div id="offsets-section" class="mt-4 border-t border-gray-50 pt-4 {% if not reminders_enabled_selected %}hidden{% endif %}">
-                <label class="block text-sm font-semibold text-gray-900 mb-1">Reminder Offsets</label>
-                <p class="text-xs text-gray-400 mb-3">Get notified before your subscription renews</p>
-                <div id="offset-inputs-container"></div>
-
-                <div class="flex flex-wrap gap-2 items-center">
-                    <div id="offsets-list" class="flex flex-wrap gap-2 items-center"></div>
-
-                    <div class="flex items-center gap-2 bg-gray-50 p-1 rounded-lg border border-gray-200">
-                        <input type="number" id="new-offset-days" min="1" max="30" placeholder="0" class="w-12 bg-transparent text-center text-sm outline-none">
-                        <span class="text-sm text-gray-500 whitespace-nowrap">days before</span>
-                        <button type="button" id="add-offset-btn" class="bg-white border border-gray-200 text-xs font-semibold rounded px-3 py-1 text-gray-700 hover:bg-gray-50 shadow-sm transition">
-                            + Add
-                        </button>
-                    </div>
-                </div>
-                {% if form.reminders_enabled.errors %}<p class="text-xs text-red-600 mt-2">{{ form.reminders_enabled.errors.0 }}</p>{% endif %}
-            </div>
+            {% if form.reminders_enabled.errors %}<p>{{ form.reminders_enabled.errors.0 }}</p>{% endif %}
         </div>
 
-        <div class="bg-white rounded-2xl p-8 mb-8 shadow-sm border border-gray-100">
-            <div class="flex items-center mb-4">
-                <div class="w-10 h-10 rounded-xl flex items-center justify-center mr-3 bg-yellow-100 text-yellow-600">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-                    </svg>
-                </div>
-                <h2 class="text-lg font-semibold text-gray-900">Notes</h2>
+        <div>
+            <div>
+
+                <h2>Notes</h2>
             </div>
-            <textarea id="id_notes" name="notes" placeholder="Add any additional details about this subscription..." class="w-full bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-slate-900 focus:border-transparent rounded-lg px-4 py-3 text-gray-700 placeholder-gray-400 transition-colors outline-none min-h-[120px] resize-none">{{ notes_value }}</textarea>
-            {% if form.notes.errors %}<p class="text-xs text-red-600 mt-2">{{ form.notes.errors.0 }}</p>{% endif %}
+            <textarea id="id_notes" name="notes"
+                placeholder="Add any additional details about this subscription...">{{ notes_value }}</textarea>
+            {% if form.notes.errors %}<p>{{ form.notes.errors.0 }}</p>{% endif %}
         </div>
 
-        <div class="flex flex-col md:flex-row items-center gap-4">
-            <button id="save-subscription-btn" type="submit" class="w-full md:flex-1 bg-slate-900 text-white font-semibold py-4 px-6 rounded-xl hover:bg-slate-800 transition shadow-lg shadow-slate-900/20 transform active:scale-[0.99] flex items-center justify-center gap-2">
+        <div>
+            <button id="save-subscription-btn" type="submit">
                 {% if is_edit_mode %}
                 <span>Save Changes</span>
                 {% else %}
@@ -387,7 +306,7 @@
                 <span>Add Subscription</span>
                 {% endif %}
             </button>
-            <a href="{% url 'subscriptions:list' %}" class="w-full md:w-auto bg-white border border-gray-200 text-gray-700 font-semibold py-4 px-8 rounded-xl hover:bg-gray-50 transition text-center">
+            <a href="{% url 'subscriptions:list' %}">
                 Cancel
             </a>
         </div>
@@ -401,4 +320,3 @@
 {% block extra_js %}
 <script src="{% static 'subscriptions/form.js' %}"></script>
 {% endblock %}
-
