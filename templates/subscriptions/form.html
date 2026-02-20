@@ -4,319 +4,797 @@
 {% block title %}{{ title }} - Subly{% endblock %}
 
 {% block extra_css %}
+  <style>
+    /* ── theme.css base ── */
+    *,*::before,*::after{box-sizing:border-box;}
+    *{border-color:rgba(0,0,0,0.1);outline-color:rgba(179,179,179,0.5);}
+    .sub-form{font-family:'Inter',system-ui,sans-serif;font-size:16px;background:#f7f7f9;color:oklch(0.145 0 0);-webkit-font-smoothing:antialiased;}
+    h1{font-size:1.5rem;font-weight:500;line-height:1.5;margin:0;}
+    h3{font-size:1.125rem;font-weight:500;line-height:1.5;margin:0;}
+    p{margin:0;}
+    :root{
+      --input-bg:#f3f3f5;
+      --border:#rgba(0,0,0,0.1);
+      --muted-fg:#717182;
+      --accent:#e9ebef;
+      --ring-shadow:0 0 0 3px rgba(179,179,179,0.5);
+      --primary:#030213;
+      --switch-bg:#cbced4;
+    }
+
+    /* INPUT — h-9=36px rounded-md=8px border bg-input-bg px-3 py-1 text-sm transition-[color,box-shadow] */
+    .ui-input{display:flex;height:36px;width:100%;min-width:0;padding:4px 12px;background:#f3f3f5;border:1px solid rgba(0,0,0,0.1);border-radius:8px;font-size:14px;font-weight:400;font-family:inherit;color:oklch(0.145 0 0);outline:none;transition:color .15s,box-shadow .15s;}
+    .ui-input::placeholder{color:#717182;}
+    .ui-input:focus-visible{border-color:oklch(0.708 0 0);box-shadow:0 0 0 3px rgba(179,179,179,.5);}
+    input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+    input[type=number]{-moz-appearance:textfield;}
+    input[type=time]::-webkit-calendar-picker-indicator{opacity:.5;cursor:pointer;}
+
+    /* TEXTAREA — resize-none rounded-md border bg-input-bg px-3 py-2 text-sm min-h-[120px] */
+    .ui-textarea{display:block;width:100%;min-height:120px;padding:8px 12px;background:#f3f3f5;border:1px solid rgba(0,0,0,0.1);border-radius:8px;font-size:14px;font-weight:400;font-family:inherit;color:oklch(0.145 0 0);outline:none;resize:none;transition:color .15s,box-shadow .15s;}
+    .ui-textarea::placeholder{color:#717182;}
+    .ui-textarea:focus-visible{border-color:oklch(0.708 0 0);box-shadow:0 0 0 3px rgba(179,179,179,.5);}
+
+    /* BUTTON BASE — inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-all */
+    .ui-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;font-size:14px;font-weight:500;font-family:inherit;white-space:nowrap;cursor:pointer;transition:all .15s;outline:none;border:1px solid transparent;flex-shrink:0;}
+    .ui-btn:focus-visible{border-color:oklch(0.708 0 0);box-shadow:0 0 0 3px rgba(179,179,179,.5);}
+
+    /* variant=outline: h-9=36px px-4 py-2 border bg-background hover:bg-accent */
+    .ui-btn-outline{height:36px;padding:8px 16px;background:#fff;color:oklch(0.145 0 0);border-color:rgba(0,0,0,0.1);}
+    .ui-btn-outline:hover{background:#e9ebef;}
+    /* size=icon: size-9=36x36 */
+    .ui-btn-icon{width:36px;height:36px;padding:0;}
+    /* size=sm: h-8=32px px-3 gap-1.5 */
+    .ui-btn-sm{height:32px;padding:0 12px;gap:6px;}
+
+    /* SELECT TRIGGER — h-9=36px rounded-md border bg-input-bg px-3 py-2 text-sm flex justify-between gap-2 */
+    .sel-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;height:36px;width:100%;padding:8px 12px;background:#f3f3f5;border:1px solid rgba(0,0,0,0.1);border-radius:8px;font-size:14px;font-family:inherit;font-weight:400;color:oklch(0.145 0 0);cursor:pointer;outline:none;white-space:nowrap;text-align:left;transition:color .15s,box-shadow .15s;}
+    .sel-trigger.ph{color:#717182;}
+    .sel-trigger:focus-visible{border-color:oklch(0.708 0 0);box-shadow:0 0 0 3px rgba(179,179,179,.5);}
+    .sel-trigger .chev{opacity:.5;flex-shrink:0;color:#717182;}
+
+    /* SELECT DROPDOWN — z-50 rounded-md border shadow-md p-1 */
+    .sel-drop{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:50;background:#fff;border:1px solid rgba(0,0,0,0.1);border-radius:8px;box-shadow:0 4px 6px -1px rgba(0,0,0,.1),0 2px 4px -2px rgba(0,0,0,.1);padding:4px;max-height:260px;overflow-y:auto;}
+    .sel-drop.open{display:block;}
+    /* SelectItem — py-1.5 pr-8 pl-2 text-sm rounded-sm=6px focus:bg-accent */
+    .sel-opt{display:flex;align-items:center;gap:8px;padding:6px 32px 6px 8px;font-size:14px;font-family:inherit;border-radius:6px;cursor:default;position:relative;user-select:none;color:oklch(0.145 0 0);}
+    .sel-opt:hover,.sel-opt:focus{background:#e9ebef;}
+    .sel-opt .chk{display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);width:14px;height:14px;}
+    .sel-opt.selected .chk{display:block;}
+
+    /* DATE BUTTON — Button variant=outline + justify-start + bg-input-background */
+    .date-btn{display:flex;align-items:center;justify-content:flex-start;gap:8px;height:36px;width:100%;padding:8px 16px;background:#f3f3f5;border:1px solid rgba(0,0,0,0.1);border-radius:8px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;outline:none;transition:all .15s;text-align:left;}
+    .date-btn.nodate{color:#717182;}.date-btn.hasdate{color:oklch(0.145 0 0);}
+    .date-btn:hover{background:#e9ebef;}
+    .date-btn:focus-visible{border-color:oklch(0.708 0 0);box-shadow:0 0 0 3px rgba(179,179,179,.5);}
+
+    /* POPOVER — z-50 w-72=288px rounded-md border p-4 shadow-md sideOffset=4 */
+    .popover{display:none;position:absolute;z-index:50;top:calc(100% + 4px);left:0;width:288px;background:#fff;border:1px solid rgba(0,0,0,0.1);border-radius:8px;padding:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,.1),0 2px 4px -2px rgba(0,0,0,.1);}
+    .popover.open{display:block;}
+
+    /* CALENDAR — DayPicker classes */
+    .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;}
+    .cal-head{text-align:center;font-size:.8rem;font-weight:400;color:#717182;padding:4px 0;}
+    /* day = ghost button size-8=32px p-0 rounded-md */
+    .cal-day{width:32px;height:32px;display:flex;align-items:center;justify-content:center;margin:auto;border-radius:8px;font-size:14px;font-weight:400;font-family:inherit;cursor:pointer;color:oklch(0.145 0 0);border:none;background:transparent;transition:background .1s;outline:none;}
+    .cal-day:hover:not(.sel):not(.out){background:#e9ebef;}
+    .cal-day.today:not(.sel){background:#e9ebef;color:#030213;}
+    .cal-day.sel{background:#030213;color:#fff;}
+    .cal-day.out{color:#717182;cursor:default;}
+    /* nav_button size-7=28px opacity-50 hover:100 outline variant */
+    .cal-nav{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(0,0,0,0.1);background:transparent;cursor:pointer;opacity:.5;transition:opacity .15s;outline:none;}
+    .cal-nav:hover{opacity:1;}
+
+    /* SWITCH — h-[1.15rem]=18.4px w-8=32px rounded-full border-transparent */
+    .sw-track{position:relative;display:inline-flex;align-items:center;width:32px;height:1.15rem;border-radius:9999px;border:1px solid transparent;background:#cbced4;cursor:pointer;transition:background .2s;flex-shrink:0;outline:none;}
+    .sw-track.on{background:#030213;}
+    .sw-track:focus-visible{box-shadow:0 0 0 3px rgba(179,179,179,.5);}
+    /* thumb: size-4=16px rounded-full bg-card=white, checked: translateX(14px) = calc(100%-2px) */
+    .sw-thumb{width:16px;height:16px;border-radius:9999px;background:#fff;transform:translateX(0);transition:transform .2s;pointer-events:none;}
+    .sw-track.on .sw-thumb{transform:translateX(14px);}
+
+    /* RADIO — size-4=16px rounded-full border-input shadow-xs */
+    .radio{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:9999px;border:1px solid rgba(0,0,0,0.1);background:#f3f3f5;box-shadow:0 1px 2px rgba(0,0,0,.05);cursor:pointer;flex-shrink:0;transition:color .15s,box-shadow .15s;outline:none;}
+    .radio:focus-visible{border-color:oklch(0.708 0 0);box-shadow:0 0 0 3px rgba(179,179,179,.5);}
+    /* indicator: CircleIcon fill-primary size-2=8px */
+    .radio-dot{display:none;width:8px;height:8px;border-radius:9999px;background:#030213;}
+    .radio.on{border-color:#030213;}
+    .radio.on .radio-dot{display:block;}
+
+    /* BADGE secondary — rounded-md=8px border-transparent bg-secondary text-secondary-foreground px-2 py-0.5 text-xs */
+    .badge{display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid transparent;background:oklch(0.95 0.0058 264.53);color:#030213;padding:2px 8px;font-size:12px;font-weight:500;font-family:inherit;white-space:nowrap;}
+
+    /* PARTICIPANT ROW — bg-gray-50=f9fafb rounded-xl=14px px-4 py-3 */
+    .p-row{display:flex;align-items:center;gap:12px;background:#f9fafb;border-radius:14px;padding:12px 16px;margin-bottom:8px;}
+    .p-row:last-child{margin-bottom:0;}
+    /* avatar: w-8=32px h-8=32px rounded-full bg-[#d5b8f5] */
+    .p-avatar{width:32px;height:32px;border-radius:9999px;background:#d5b8f5;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;color:#374151;}
+
+    /* OFFSET TAG — bg-[#1a1a2e] text-white rounded-full px-3 py-1.5 */
+    .o-tag{display:inline-flex;align-items:center;gap:6px;background:#1a1a2e;color:#fff;border-radius:9999px;padding:6px 12px;}
+    .o-tag span{font-size:12px;}
+    .o-remove{display:flex;align-items:center;color:#9ca3af;cursor:pointer;background:none;border:none;padding:0;outline:none;transition:color .15s;line-height:0;}
+    .o-remove:hover{color:#fff;}
+
+    /* RESPONSIVE */
+    @media(min-width:640px){.act-btns{flex-direction:row!important;} .cancel-btn{width:128px!important;flex:none!important;}}
+    @media(min-width:768px){.g2{grid-template-columns:repeat(2,minmax(0,1fr))!important;}}
+
+    /* SECTION */
+    .card{background:#fff;border-radius:16px;border:1px solid #f3f4f6;padding:24px;}
+    .sec-icon{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .sec-hdr{display:flex;align-items:center;gap:8px;margin-bottom:24px;}
+    .lbl{font-size:14px;font-weight:500;line-height:1;}
+    .hint{font-size:12px;color:#9ca3af;}
+    .space-8{display:flex;flex-direction:column;gap:8px;}
+    .space-12{display:flex;flex-direction:column;gap:12px;}
+    .hidden{display:none!important;}
+    .native-select{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;}
+    .field-error{font-size:12px;color:#b91c1c;line-height:1.4;}
+    .form-errors{margin-bottom:16px;border:1px solid #fecaca;background:#fef2f2;padding:12px 14px;border-radius:12px;}
+    .form-errors p{font-size:12px;color:#991b1b;line-height:1.45;}
+    .bg-emerald-200{background:#a8f0c8!important;}
+    .text-emerald-800{color:#1f2937!important;}
+    .bg-orange-200{background:#f5f07a!important;}
+    .text-orange-800{color:#1f2937!important;}
+    .bg-red-200{background:#fee2e2!important;}
+    .text-red-800{color:#b91c1c!important;}
+    .bg-gray-100{background:#f3f4f6!important;}
+    .text-gray-500{color:#6b7280!important;}
+    .bg-slate-900{background:#1a1a2e!important;}
+    .text-white{color:#fff!important;}
+    .hover\:bg-gray-200:hover{background:#e9ebef!important;}
+    .hover\:text-gray-900:hover{color:#1f2937!important;}
+    .shadow{box-shadow:0 1px 2px rgba(0,0,0,.1)!important;}
+    .translate-x-5{transform:translateX(14px)!important;}
+    .translate-x-0{transform:translateX(0)!important;}
+    #participants-list .participant-row{display:flex;align-items:center;gap:12px;background:#f9fafb;border-radius:14px;padding:12px 16px;margin-bottom:8px;border:1px solid #f3f4f6;}
+    #participants-list .participant-name-label{flex:1;font-size:14px;color:#374151;}
+    #participants-list .participant-share-input{width:80px;height:32px;font-size:14px;background:#f3f3f5;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:4px 8px;}
+    #participants-list .participant-share-wrap.hidden{display:none!important;}
+    #participants-list .remove-participant{background:none;border:none;padding:0;color:#9ca3af;cursor:pointer;}
+    #offsets-list [data-days]{display:inline-flex;align-items:center;gap:6px;background:#1a1a2e;color:#fff;border-radius:9999px;padding:6px 12px;margin:0 8px 8px 0;font-size:12px;}
+    #offsets-list [data-days] button{background:none;border:none;padding:0;color:#9ca3af;cursor:pointer;}
+  </style>
 {% endblock %}
 
 {% block content %}
-<div>
-    <form method="post" id="subscription-form" novalidate>
-        {% csrf_token %}
+<div class="sub-form" style="padding:32px 16px;">
+<div style="max-width:896px;margin:0 auto;padding-bottom:48px;">
+  <form method="post" id="subscription-form" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="form-errors">
+      {% for error in form.non_field_errors %}
+      <p>{{ error }}</p>
+      {% endfor %}
+    </div>
+    {% endif %}
 
-        {% if form.non_field_errors %}
-        <div>
-            {% for error in form.non_field_errors %}
-            <p>{{ error }}</p>
+  <!-- Header: flex items-center gap-4 mb-8 -->
+  <div style="display:flex;align-items:center;gap:16px;margin-bottom:32px;">
+    <a href="{% url 'subscriptions:list' %}"
+      style="width:40px;height:40px;border-radius:14px;background:#fff;border:1px solid #f3f4f6;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s;flex-shrink:0;outline:none;"
+      onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='#fff'">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4b5563" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    </a>
+    <div>
+      <h1 style="color:#1a1a2e;">{% if is_edit_mode %}Edit Subscription{% else %}Add Subscription{% endif %}</h1>
+      <p style="font-size:14px;color:#6b7280;margin-top:2px;">Track a new subscription by filling out the details below.</p>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:24px;">
+
+    <!-- ══ SECTION 1: Core Details ══ -->
+    <section class="card">
+      <div class="sec-hdr">
+        <div class="sec-icon" style="background:#a8f0c8;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        </div>
+        <h3 style="color:#1a1a2e;">Core Details</h3>
+      </div>
+      <div class="g2" style="display:grid;grid-template-columns:1fr;gap:20px;">
+
+        <!-- Service Name + Icon Preview -->
+        <div class="space-8">
+          <label for="id_service_name" class="lbl">Service Name</label>
+          <div style="display:flex;gap:12px;align-items:center;">
+            <input id="id_service_name" name="service_name" type="text" value="{{ service_name_value }}" maxlength="100" required class="ui-input" style="flex:1;" placeholder="e.g., Netflix, Spotify">
+            <div id="service-icon-preview" style="width:40px;height:40px;border-radius:14px;background:#f3f3f5;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .2s;">
+              <span>
+                <img id="service-icon-image" src="" alt="" class="hidden" style="width:18px;height:18px;">
+                <span id="service-icon-fallback" style="font-size:14px;color:#9ca3af;">S</span>
+              </span>
+            </div>
+          </div>
+          <p class="hint">Type a service name to see its icon preview</p>
+          {% if form.service_name.errors %}<p class="field-error">{{ form.service_name.errors.0 }}</p>{% endif %}
+        </div>
+
+        <!-- Plan Name -->
+        <div class="space-8">
+          <label for="id_plan_name" class="lbl">Plan Name</label>
+          <input id="id_plan_name" name="plan_name" type="text" value="{{ plan_name_value }}" maxlength="100" class="ui-input" placeholder="e.g., Premium 4K, Family Plan">
+          {% if form.plan_name.errors %}<p class="field-error">{{ form.plan_name.errors.0 }}</p>{% endif %}
+        </div>
+
+        <div class="space-8">
+          <label class="lbl">Category</label>
+          <select id="id_category" name="category" required class="native-select">
+            <option value="" {% if not category_value %}selected{% endif %}>Select a category</option>
+            {% if category_value %}
+            <option value="{{ category_value }}" selected>{{ category_value }}</option>
+            {% endif %}
+            {% for suggestion in category_suggestions %}
+            {% if suggestion|lower != category_value|lower %}
+            <option value="{{ suggestion }}">{{ suggestion }}</option>
+            {% endif %}
             {% endfor %}
-        </div>
-        {% endif %}
-
-        <div>
-            <a href="{% url 'subscriptions:list' %}">
-
-            </a>
-            <div>
-                <h1>{% if is_edit_mode %}Edit Subscription{% else %}Add Subscription{% endif %}</h1>
-                <p>Track a new subscription by filling out the details below.</p>
-            </div>
-        </div>
-
-        <div>
-            <div>
-
-                <h2>Core Details</h2>
-            </div>
-
-            <div>
-                <div>
-                    <label for="id_service_name">Service Name</label>
-                    <div>
-                        <input id="id_service_name" name="service_name" type="text" value="{{ service_name_value }}"
-                            maxlength="100" required placeholder="e.g., Netflix, Spotify">
-                        <div id="service-icon-preview">
-                            <span>
-                                <img id="service-icon-image" src="" alt="" class="hidden">
-                                <span id="service-icon-fallback">S</span>
-                            </span>
-                        </div>
-                    </div>
-                    <p>Type a service name to see its icon preview</p>
-                    {% if form.service_name.errors %}<p>{{ form.service_name.errors.0 }}</p>{% endif %}
-                </div>
-
-                <div>
-                    <label for="id_plan_name">Plan Name</label>
-                    <input id="id_plan_name" name="plan_name" type="text" value="{{ plan_name_value }}" maxlength="100"
-                        placeholder="e.g., Premium 4K, Family Plan">
-                    {% if form.plan_name.errors %}<p>{{ form.plan_name.errors.0 }}</p>{% endif %}
-                </div>
-
-                <div>
-                    <label for="id_category">Category</label>
-                    <div>
-                        <select id="id_category" name="category" required>
-                            <option value="" {% if not category_value %}selected{% endif %}>Select a category</option>
-                            {% if category_value %}
-                            <option value="{{ category_value }}" selected>{{ category_value }}</option>
-                            {% endif %}
-                            {% for suggestion in category_suggestions %}
-                            {% if suggestion|lower != category_value|lower %}
-                            <option value="{{ suggestion }}">{{ suggestion }}</option>
-                            {% endif %}
-                            {% endfor %}
-                        </select>
-
-                    </div>
-                    {% if form.category.errors %}<p>{{ form.category.errors.0 }}</p>{% endif %}
-                </div>
-
-                <div>
-                    <label for="id_billing_cycle">Billing Cycle</label>
-                    <div>
-                        <select id="id_billing_cycle" name="billing_cycle" required>
-                            <option value="">Select billing cycle</option>
-                            {% for value, label in form.fields.billing_cycle.choices %}
-                            {% if value %}
-                            <option value="{{ value }}" {% if billing_cycle_value == value %}selected{% endif %}>{{ label
-                                }}</option>
-                            {% endif %}
-                            {% endfor %}
-                        </select>
-
-                    </div>
-                    {% if form.billing_cycle.errors %}<p>{{ form.billing_cycle.errors.0 }}</p>{% endif %}
-                </div>
-
-                <div>
-                    <label for="id_cost">Cost</label>
-                    <div>
-                        <input id="id_cost" name="cost" type="number" step="0.01" value="{{ cost_value }}"
-                            placeholder="0.00" required>
-                        <div>
-                            <select id="id_currency" name="currency">
-                                {% if currency_value and currency_value != 'USD' and currency_value != 'EUR' and currency_value != 'GBP' and currency_value != 'INR' and currency_value != 'CAD' and currency_value != 'AUD' %}
-                                <option value="{{ currency_value }}" selected>{{ currency_value }}</option>
-                                {% endif %}
-                                <option value="USD" {% if currency_value == 'USD' or not currency_value %}selected{% endif %}>USD</option>
-                                <option value="EUR" {% if currency_value == 'EUR' %}selected{% endif %}>EUR</option>
-                                <option value="GBP" {% if currency_value == 'GBP' %}selected{% endif %}>GBP</option>
-                                <option value="INR" {% if currency_value == 'INR' %}selected{% endif %}>INR</option>
-                                <option value="CAD" {% if currency_value == 'CAD' %}selected{% endif %}>CAD</option>
-                                <option value="AUD" {% if currency_value == 'AUD' %}selected{% endif %}>AUD</option>
-                            </select>
-                        </div>
-                    </div>
-                    {% if form.cost.errors %}<p>{{ form.cost.errors.0 }}</p>{% endif %}
-                    {% if form.currency.errors %}<p>{{ form.currency.errors.0 }}</p>{% endif %}
-                </div>
-
-                <div>
-                    <label for="id_start_date">Start Date</label>
-                    <div>
-
-                        <input id="id_start_date" name="start_date"
-                            type="{% if start_date_value %}date{% else %}text{% endif %}" value="{{ start_date_value }}"
-                            placeholder="Pick a date" required>
-                    </div>
-                    {% if form.start_date.errors %}<p>{{ form.start_date.errors.0 }}</p>{% endif %}
-                </div>
-
-                <div>
-                    <label for="id_renewal_time">Renewal Time</label>
-                    <div>
-
-                        <input id="id_renewal_time" name="renewal_time" type="time"
-                            value="{{ renewal_time_value|default:'09:00' }}">
-                    </div>
-                    <p>Set the exact renewal time for timely alerts</p>
-                    {% if form.renewal_time.errors %}<p>{{ form.renewal_time.errors.0 }}</p>{% endif %}
-                </div>
-            </div>
-        </div>
-
-        <div>
-            <div>
-
-                <h2>Payment &amp; Status</h2>
-            </div>
-
-            <div>
-                <div>
-                    <label>Status</label>
-                    <input type="hidden" id="id_status" name="status" value="{{ status_selected }}">
-                    <div>
-                        <button type="button" data-status-option="active">Active</button>
-                        <button type="button" data-status-option="paused">Paused</button>
-                        <button type="button" data-status-option="cancelled">Cancelled</button>
-                    </div>
-                    {% if form.status.errors %}<p>{{ form.status.errors.0 }}</p>{% endif %}
-                </div>
-
-                <div>
-                    <label for="id_card">Linked Card</label>
-                    <div>
-                        <select id="id_card" name="card">
-                            <option value="">Select a saved card</option>
-                            {% for card in form.fields.card.queryset %}
-                            <option value="{{ card.pk }}" {% if selected_card_id == card.pk|stringformat:'s' %}selected{% endif %}>{{ card }}</option>
-                            {% endfor %}
-                        </select>
-
-                    </div>
-                    {% if form.card.errors %}<p>{{ form.card.errors.0 }}</p>{% endif %}
-                </div>
-            </div>
-        </div>
-
-        <div>
-            <div>
-
-                <h2>Sharing &amp; Ownership</h2>
-            </div>
-
-            <div>
-                <label>
-                    <input type="radio" name="is_shared" value="False" {% if not is_shared_selected %}checked{% endif %}>
-                    <span>Just me</span>
-                </label>
-                <label>
-                    <input type="radio" name="is_shared" value="True" {% if is_shared_selected %}checked{% endif %}>
-                    <span>Shared with others</span>
-                </label>
-            </div>
-            {% if form.is_shared.errors %}<p>{{ form.is_shared.errors.0 }}</p>{% endif %}
-
-            <div id="shared-settings">
-                <div>
-                    <label>Split Type</label>
-                    <input type="hidden" id="id_split_type" name="split_type"
-                        value="{{ split_type_selected|default:'equal' }}">
-                    <div>
-                        <button type="button" data-split-option="equal">Equal</button>
-                        <button type="button" data-split-option="custom">Custom</button>
-                    </div>
-                    <p>Your share: <span id="user-share-display">0.00</span></p>
-                    {% if form.split_type.errors %}<p>{{ form.split_type.errors.0 }}</p>{% endif %}
-                </div>
-
-                <div>
-                    <label>Participants</label>
-                    <div id="participants-list"></div>
-
-                    <div>
-                        <input type="text" id="new-participant-name" placeholder="Enter participant name">
-                        <button type="button" id="add-participant-btn">
-
-                        </button>
-                    </div>
-                    <div id="split-error" class="hidden">The sum of participant shares cannot exceed the total cost.
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div>
-            <div>
-
-                <h2>Account Info</h2>
-            </div>
-            <span>Optional</span>
-
-            <div>
-                <div>
-                    <label for="id_account_email">Account Email</label>
-                    <input id="id_account_email" name="account_email" type="email" value="{{ account_email_value }}"
-                        placeholder="user@example.com">
-                    {% if form.account_email.errors %}<p>{{ form.account_email.errors.0 }}</p>{% endif %}
-                </div>
-                <div>
-                    <label for="id_account_password">Account Password</label>
-                    <div>
-                        <input id="id_account_password" name="account_password" type="password" value=""
-                            placeholder="{% if is_edit_mode %}Leave blank to keep existing{% else %}Enter account password{% endif %}">
-                        <button type="button" id="toggle-password-btn" aria-label="Toggle password visibility">
-                            <span id="password-eye-open">Show</span>
-                            <span id="password-eye-closed" class="hidden">Hide</span>
-                        </button>
-                    </div>
-                    <p>{% if is_edit_mode %}Leave blank to keep your existing password.{% else %}Stored securely with
-                        encryption.{% endif %}</p>
-                    {% if form.account_password.errors %}<p>{{ form.account_password.errors.0 }}</p>{% endif %}
-                </div>
-            </div>
-        </div>
-
-        <div>
-            <div>
-
-                <h2>Notifications</h2>
-            </div>
-            <div>
-                <span id="reminder-toggle-label">{% if reminders_enabled_selected %}On{% else %}Off{% endif %}</span>
-                <input type="checkbox" id="id_reminders_enabled" name="reminders_enabled" class="sr-only" {% if reminders_enabled_selected %}checked{% endif %}>
-                <button type="button" id="reminders-toggle-btn">
-                    <span id="reminders-toggle-knob"></span>
-                </button>
-            </div>
-        </div>
-
-        <div id="offsets-section" class="{% if not reminders_enabled_selected %}hidden{% endif %}">
-            <label>Reminder Offsets</label>
-            <p>Get notified before your subscription renews</p>
-            <div id="offset-inputs-container"></div>
-
-            <div>
-                <div id="offsets-list"></div>
-
-                <div>
-                    <input type="number" id="new-offset-days" min="1" max="30" placeholder="0">
-                    <span>days before</span>
-                    <button type="button" id="add-offset-btn">
-                        + Add
-                    </button>
-                </div>
-            </div>
-            {% if form.reminders_enabled.errors %}<p>{{ form.reminders_enabled.errors.0 }}</p>{% endif %}
-        </div>
-
-        <div>
-            <div>
-
-                <h2>Notes</h2>
-            </div>
-            <textarea id="id_notes" name="notes"
-                placeholder="Add any additional details about this subscription...">{{ notes_value }}</textarea>
-            {% if form.notes.errors %}<p>{{ form.notes.errors.0 }}</p>{% endif %}
-        </div>
-
-        <div>
-            <button id="save-subscription-btn" type="submit">
-                {% if is_edit_mode %}
-                <span>Save Changes</span>
-                {% else %}
-                <span>+</span>
-                <span>Add Subscription</span>
-                {% endif %}
+          </select>
+          <div style="position:relative;">
+            <button type="button" id="catTrig" class="sel-trigger ph">
+              <span id="catVal">Select a category</span>
+              <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
-            <a href="{% url 'subscriptions:list' %}">
-                Cancel
-            </a>
+            <div id="catDrop" class="sel-drop"></div>
+          </div>
+          {% if form.category.errors %}<p class="field-error">{{ form.category.errors.0 }}</p>{% endif %}
         </div>
-    </form>
 
-    {{ participant_seed|json_script:"participant-seed-data" }}
-    {{ reminder_seed|json_script:"reminder-seed-data" }}
+        <div class="space-8">
+          <label class="lbl">Billing Cycle</label>
+          <select id="id_billing_cycle" name="billing_cycle" required class="native-select">
+            <option value="">Select billing cycle</option>
+            {% for value, label in form.fields.billing_cycle.choices %}
+            {% if value %}
+            <option value="{{ value }}" {% if billing_cycle_value == value %}selected{% endif %}>{{ label }}</option>
+            {% endif %}
+            {% endfor %}
+          </select>
+          <div style="position:relative;">
+            <button type="button" id="cycTrig" class="sel-trigger ph">
+              <span id="cycVal">Select billing cycle</span>
+              <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div id="cycDrop" class="sel-drop"></div>
+          </div>
+          {% if form.billing_cycle.errors %}<p class="field-error">{{ form.billing_cycle.errors.0 }}</p>{% endif %}
+        </div>
+
+        <div class="space-8">
+          <label for="id_cost" class="lbl">Cost</label>
+          <div style="display:flex;gap:8px;">
+            <input id="id_cost" name="cost" type="number" step="0.01" value="{{ cost_value }}" class="ui-input" style="flex:1;" placeholder="0.00" required>
+            <select id="id_currency" name="currency" class="native-select">
+              {% if currency_value and currency_value != 'USD' and currency_value != 'EUR' and currency_value != 'GBP' and currency_value != 'INR' and currency_value != 'CAD' and currency_value != 'AUD' %}
+              <option value="{{ currency_value }}" selected>{{ currency_value }}</option>
+              {% endif %}
+              <option value="USD" {% if currency_value == 'USD' or not currency_value %}selected{% endif %}>USD</option>
+              <option value="EUR" {% if currency_value == 'EUR' %}selected{% endif %}>EUR</option>
+              <option value="GBP" {% if currency_value == 'GBP' %}selected{% endif %}>GBP</option>
+              <option value="INR" {% if currency_value == 'INR' %}selected{% endif %}>INR</option>
+              <option value="CAD" {% if currency_value == 'CAD' %}selected{% endif %}>CAD</option>
+              <option value="AUD" {% if currency_value == 'AUD' %}selected{% endif %}>AUD</option>
+            </select>
+            <div style="position:relative;width:96px;flex-shrink:0;">
+              <button type="button" id="curTrig" class="sel-trigger" style="width:96px;">
+                <span id="curVal">USD</span>
+                <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div id="curDrop" class="sel-drop" style="width:120px;"></div>
+            </div>
+          </div>
+          {% if form.cost.errors %}<p class="field-error">{{ form.cost.errors.0 }}</p>{% endif %}
+          {% if form.currency.errors %}<p class="field-error">{{ form.currency.errors.0 }}</p>{% endif %}
+        </div>
+
+        <div class="space-8">
+          <label class="lbl">Start Date</label>
+          <input id="id_start_date" name="start_date" type="{% if start_date_value %}date{% else %}text{% endif %}" value="{{ start_date_value }}" placeholder="Pick a date" required class="native-select">
+          <div style="position:relative;">
+            <button type="button" id="dateTrig" class="date-btn nodate">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#717182" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span id="dateLabel">Pick a date</span>
+            </button>
+            <div id="calPop" class="popover">
+              <div style="display:flex;justify-content:center;align-items:center;padding-top:4px;position:relative;margin-bottom:16px;">
+                <button type="button" class="cal-nav" id="calPrev" style="position:absolute;left:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+                <span id="calLabel" style="font-size:14px;font-weight:500;color:oklch(0.145 0 0);"></span>
+                <button type="button" class="cal-nav" id="calNext" style="position:absolute;right:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+              </div>
+              <div class="cal-grid" style="margin-bottom:4px;">
+                <div class="cal-head">Su</div><div class="cal-head">Mo</div><div class="cal-head">Tu</div>
+                <div class="cal-head">We</div><div class="cal-head">Th</div><div class="cal-head">Fr</div><div class="cal-head">Sa</div>
+              </div>
+              <div id="calDays" class="cal-grid"></div>
+            </div>
+          </div>
+          {% if form.start_date.errors %}<p class="field-error">{{ form.start_date.errors.0 }}</p>{% endif %}
+        </div>
+
+        <!-- Renewal Time -->
+        <div class="space-8">
+          <label for="id_renewal_time" class="lbl">Renewal Time</label>
+          <div style="position:relative;">
+            <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);pointer-events:none;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#717182" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <input id="id_renewal_time" name="renewal_time" type="time" value="{{ renewal_time_value|default:'09:00' }}" class="ui-input" style="padding-left:40px;">
+          </div>
+          <p class="hint">Set the exact renewal time for timely alerts</p>
+          {% if form.renewal_time.errors %}<p class="field-error">{{ form.renewal_time.errors.0 }}</p>{% endif %}
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ SECTION 2: Payment & Status ══ -->
+    <section class="card">
+      <div class="sec-hdr">
+        <div class="sec-icon" style="background:#f5f07a;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        </div>
+        <h3 style="color:#1a1a2e;">Payment &amp; Status</h3>
+      </div>
+      <div class="g2" style="display:grid;grid-template-columns:1fr;gap:20px;">
+        <div class="space-12">
+          <label class="lbl">Status</label>
+          <input type="hidden" id="id_status" name="status" value="{{ status_selected }}">
+          <div style="display:flex;gap:8px;">
+            <button id="stActive" type="button" data-status-option="active" style="padding:8px 16px;border-radius:14px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;border:none;transition:all .15s;">Active</button>
+            <button id="stPaused" type="button" data-status-option="paused" style="padding:8px 16px;border-radius:14px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;border:none;transition:all .15s;">Paused</button>
+            <button id="stCancel" type="button" data-status-option="cancelled" style="padding:8px 16px;border-radius:14px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;border:none;transition:all .15s;">Cancelled</button>
+          </div>
+          {% if form.status.errors %}<p class="field-error">{{ form.status.errors.0 }}</p>{% endif %}
+        </div>
+        <div class="space-8">
+          <label class="lbl">Linked Card</label>
+          <select id="id_card" name="card" class="native-select">
+            <option value="">Select a saved card</option>
+            {% for card in form.fields.card.queryset %}
+            <option value="{{ card.pk }}" {% if selected_card_id == card.pk|stringformat:'s' %}selected{% endif %}>{{ card }}</option>
+            {% endfor %}
+          </select>
+          <div style="position:relative;">
+            <button type="button" id="cardTrig" class="sel-trigger ph">
+              <span id="cardVal" style="display:flex;align-items:center;gap:8px;">Select a saved card</span>
+              <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div id="cardDrop" class="sel-drop"></div>
+          </div>
+          {% if form.card.errors %}<p class="field-error">{{ form.card.errors.0 }}</p>{% endif %}
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ SECTION 3: Sharing & Ownership ══ -->
+    <section class="card">
+      <div class="sec-hdr">
+        <div class="sec-icon" style="background:#d5b8f5;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <h3 style="color:#1a1a2e;">Sharing &amp; Ownership</h3>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div style="display:flex;gap:16px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
+            <input type="radio" name="is_shared" value="False" class="native-select" {% if not is_shared_selected %}checked{% endif %}>
+            <div id="rJustMe" class="radio"><div class="radio-dot"></div></div>
+            <span style="font-size:14px;font-weight:400;color:#374151;">Just me</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
+            <input type="radio" name="is_shared" value="True" class="native-select" {% if is_shared_selected %}checked{% endif %}>
+            <div id="rShared" class="radio"><div class="radio-dot"></div></div>
+            <span style="font-size:14px;font-weight:400;color:#374151;">Shared with others</span>
+          </label>
+        </div>
+        {% if form.is_shared.errors %}<p class="field-error">{{ form.is_shared.errors.0 }}</p>{% endif %}
+        <div id="shared-settings" class="{% if not is_shared_selected %}hidden{% endif %}" style="display:flex;flex-direction:column;gap:16px;padding-top:8px;border-top:1px solid #f9fafb;">
+          <div class="space-8" style="padding-top:16px;">
+            <label class="lbl">Split Type</label>
+            <input type="hidden" id="id_split_type" name="split_type" value="{{ split_type_selected|default:'equal' }}">
+            <div style="display:flex;gap:8px;">
+              <button id="spEqual" type="button" data-split-option="equal" style="padding:8px 16px;border-radius:14px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;border:none;transition:all .15s;">Equal</button>
+              <button id="spCustom" type="button" data-split-option="custom" style="padding:8px 16px;border-radius:14px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;border:none;transition:all .15s;">Custom</button>
+            </div>
+            <p class="hint">Your share: <span id="user-share-display">0.00</span></p>
+            {% if form.split_type.errors %}<p class="field-error">{{ form.split_type.errors.0 }}</p>{% endif %}
+          </div>
+          <div class="space-12">
+            <label class="lbl">Participants</label>
+            <div id="participants-list"></div>
+            <div style="display:flex;gap:8px;">
+              <input id="new-participant-name" type="text" class="ui-input" placeholder="Enter participant name">
+              <button type="button" id="add-participant-btn" class="ui-btn ui-btn-outline ui-btn-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+            </div>
+            <div id="split-error" class="hidden field-error">The sum of participant shares cannot exceed the total cost.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ SECTION 4: Account Info ══ -->
+    <section class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+        <div class="sec-hdr" style="margin-bottom:0;">
+          <div class="sec-icon" style="background:#c8d0e0;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+          </div>
+          <h3 style="color:#1a1a2e;">Account Info</h3>
+        </div>
+        <span class="badge">Optional</span>
+      </div>
+      <div class="g2" style="display:grid;grid-template-columns:1fr;gap:20px;">
+        <div class="space-8">
+          <label for="id_account_email" class="lbl">Account Email</label>
+          <input id="id_account_email" name="account_email" type="email" value="{{ account_email_value }}" class="ui-input" placeholder="user@example.com">
+          {% if form.account_email.errors %}<p class="field-error">{{ form.account_email.errors.0 }}</p>{% endif %}
+        </div>
+        <div class="space-8">
+          <label for="id_account_password" class="lbl">Account Password</label>
+          <div style="position:relative;">
+            <input id="id_account_password" name="account_password" type="password" value="" class="ui-input" placeholder="{% if is_edit_mode %}Leave blank to keep existing{% else %}Enter account password{% endif %}" style="padding-right:56px;">
+            <button type="button" id="toggle-password-btn" aria-label="Toggle password visibility" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;padding:0;cursor:pointer;color:#9ca3af;display:flex;line-height:0;transition:color .15s;outline:none;" onmouseover="this.style.color='#4b5563'" onmouseout="this.style.color='#9ca3af'">
+              <span id="password-eye-open" style="font-size:11px;">Show</span>
+              <span id="password-eye-closed" class="hidden" style="font-size:11px;">Hide</span>
+            </button>
+          </div>
+          <p style="font-size:12px;color:#9ca3af;display:flex;align-items:center;gap:4px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+            {% if is_edit_mode %}Leave blank to keep your existing password.{% else %}Stored securely with encryption.{% endif %}
+          </p>
+          {% if form.account_password.errors %}<p class="field-error">{{ form.account_password.errors.0 }}</p>{% endif %}
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ SECTION 5: Notifications ══ -->
+    <section class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+        <div class="sec-hdr" style="margin-bottom:0;">
+          <div class="sec-icon" style="background:#fca5a5;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <h3 style="color:#1a1a2e;">Notifications</h3>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span id="reminder-toggle-label" style="font-size:14px;color:#6b7280;">{% if reminders_enabled_selected %}On{% else %}Off{% endif %}</span>
+          <input type="checkbox" id="id_reminders_enabled" name="reminders_enabled" class="native-select" {% if reminders_enabled_selected %}checked{% endif %}>
+          <button type="button" id="reminders-toggle-btn" class="sw-track">
+            <span id="reminders-toggle-knob" class="sw-thumb"></span>
+          </button>
+        </div>
+      </div>
+      <div id="offsets-section" class="{% if not reminders_enabled_selected %}hidden{% endif %}" style="display:flex;flex-direction:column;gap:16px;">
+        <div>
+          <label class="lbl" style="display:block;margin-bottom:8px;">Reminder Offsets</label>
+          <p class="hint" style="margin-bottom:12px;">Get notified before your subscription renews</p>
+          <div id="offset-inputs-container"></div>
+          <div id="offsets-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;"></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input id="new-offset-days" type="number" class="ui-input" placeholder="Days before" min="1" max="30" style="width:160px;">
+            <span style="font-size:14px;color:#9ca3af;">days before</span>
+            <button type="button" id="add-offset-btn" class="ui-btn ui-btn-outline ui-btn-sm">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add
+            </button>
+          </div>
+        </div>
+        {% if form.reminders_enabled.errors %}<p class="field-error">{{ form.reminders_enabled.errors.0 }}</p>{% endif %}
+      </div>
+    </section>
+
+    <!-- ══ SECTION 6: Notes ══ -->
+    <section class="card">
+      <div class="sec-hdr">
+        <div class="sec-icon" style="background:#fcd34d;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </div>
+        <h3 style="color:#1a1a2e;">Notes</h3>
+      </div>
+      <textarea id="id_notes" name="notes" class="ui-textarea" placeholder="Add any additional details about this subscription...">{{ notes_value }}</textarea>
+      {% if form.notes.errors %}<p class="field-error">{{ form.notes.errors.0 }}</p>{% endif %}
+    </section>
+
+    <!-- ══ Summary Preview (conditional) ══ -->
+    <!-- rounded-2xl=16px p-6=24px relative overflow-hidden, bg = serviceIcon.bg -->
+    <section id="sumSec" style="display:none;border-radius:16px;padding:24px;position:relative;overflow:hidden;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <!-- w-12=48px h-12=48px rounded-xl=14px bg-white/60 -->
+          <div style="width:48px;height:48px;border-radius:14px;background:rgba(255,255,255,0.6);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <span id="sumLetter" style="font-size:18px;font-weight:500;"></span>
+          </div>
+          <div>
+            <p id="sumName" style="font-weight:500;color:#1f2937;"></p>
+            <p id="sumPlan" style="font-size:14px;color:#4b5563;display:none;"></p>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <!-- text-2xl=24px text-gray-800 -->
+          <p id="sumCost" style="font-size:24px;font-weight:500;color:#1f2937;display:none;"></p>
+          <p id="sumCycle" style="font-size:12px;color:#4b5563;display:none;"></p>
+        </div>
+      </div>
+      <!-- flex flex-wrap gap-2 mt-4=16px: text-xs bg-white/40 rounded-lg=10px px-2 py-1 -->
+      <div id="sumTags" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;"></div>
+    </section>
+
+    <!-- ══ Action Buttons: flex flex-col sm:flex-row gap-3=12px pt-2=8px ══ -->
+    <div class="act-btns" style="display:flex;flex-direction:column;gap:12px;padding-top:8px;">
+      <button id="save-subscription-btn" type="submit"
+        style="flex:1;height:48px;border-radius:14px;background:#1a1a2e;color:#fff;border:none;cursor:pointer;font-size:16px;font-weight:500;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s;outline:none;"
+        onmouseover="this.style.background='#2a2a4e'" onmouseout="this.style.background='#1a1a2e'"
+        onfocus="this.style.boxShadow='0 0 0 3px rgba(179,179,179,.5)'" onblur="this.style.boxShadow='none'">
+        {% if is_edit_mode %}
+        <span>Save Changes</span>
+        {% else %}
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span>Add Subscription</span>
+        {% endif %}
+      </button>
+      <a href="{% url 'subscriptions:list' %}" class="cancel-btn"
+        style="height:48px;border-radius:14px;background:#fff;color:oklch(0.145 0 0);border:1px solid rgba(0,0,0,0.1);cursor:pointer;font-size:14px;font-weight:500;font-family:inherit;transition:all .15s;outline:none;"
+        onmouseover="this.style.background='#e9ebef'" onmouseout="this.style.background='#fff'"
+        onfocus="this.style.boxShadow='0 0 0 3px rgba(179,179,179,.5)'" onblur="this.style.boxShadow='none'">
+        Cancel
+      </a>
+    </div>
+
+  </div>
+  </form>
+  {{ participant_seed|json_script:"participant-seed-data" }}
+  {{ reminder_seed|json_script:"reminder-seed-data" }}
+</div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script src="{% static 'subscriptions/form.js' %}"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const maps = [
+    { select: "id_category", trigger: "catTrig", value: "catVal", drop: "catDrop", ph: "Select a category", usePlaceholder: true },
+    { select: "id_billing_cycle", trigger: "cycTrig", value: "cycVal", drop: "cycDrop", ph: "Select billing cycle", usePlaceholder: true },
+    { select: "id_currency", trigger: "curTrig", value: "curVal", drop: "curDrop", ph: "USD", usePlaceholder: false },
+    { select: "id_card", trigger: "cardTrig", value: "cardVal", drop: "cardDrop", ph: "Select a saved card", usePlaceholder: true }
+  ];
+
+  function closeDrops(except) {
+    maps.forEach(function (m) {
+      const d = document.getElementById(m.drop);
+      if (d && d.id !== except) d.classList.remove("open");
+    });
+  }
+
+  maps.forEach(function (m) {
+    const s = document.getElementById(m.select);
+    const t = document.getElementById(m.trigger);
+    const v = document.getElementById(m.value);
+    const d = document.getElementById(m.drop);
+    if (!s || !t || !v || !d) return;
+
+    d.innerHTML = "";
+    Array.from(s.options).forEach(function (o) {
+      if (!o.value) return;
+      const item = document.createElement("div");
+      item.className = "sel-opt";
+      item.dataset.value = o.value;
+      item.innerHTML = '<span></span><svg class="chk" viewBox="0 0 24 24" fill="none" stroke="#030213" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+      item.querySelector("span").textContent = o.textContent.trim();
+      item.addEventListener("click", function () {
+        s.value = o.value;
+        s.dispatchEvent(new Event("change", { bubbles: true }));
+        sync();
+        closeDrops();
+      });
+      d.appendChild(item);
+    });
+
+    function sync() {
+      const hasValue = s.value !== "";
+      const opt = s.options[s.selectedIndex];
+      v.textContent = hasValue && opt ? opt.textContent.trim() : m.ph;
+      if (m.usePlaceholder) t.classList.toggle("ph", !hasValue);
+      d.querySelectorAll(".sel-opt").forEach(function (item) {
+        item.classList.toggle("selected", item.dataset.value === s.value);
+      });
+    }
+
+    t.addEventListener("click", function () {
+      const open = !d.classList.contains("open");
+      closeDrops();
+      d.classList.toggle("open", open);
+    });
+    s.addEventListener("change", sync);
+    sync();
+  });
+
+  const shareInputs = Array.from(document.querySelectorAll('input[name="is_shared"]'));
+  const just = document.getElementById("rJustMe");
+  const shared = document.getElementById("rShared");
+  function syncShare() {
+    const current = shareInputs.find(function (i) { return i.checked; });
+    const val = current ? current.value : "False";
+    if (just) just.className = "radio" + (val === "False" ? " on" : "");
+    if (shared) shared.className = "radio" + (val === "True" ? " on" : "");
+  }
+  shareInputs.forEach(function (i) { i.addEventListener("change", function () { syncShare(); updateSummary(); }); });
+  syncShare();
+
+  const dateInput = document.getElementById("id_start_date");
+  const dateTrig = document.getElementById("dateTrig");
+  const dateLabel = document.getElementById("dateLabel");
+  const cal = document.getElementById("calPop");
+  const calLabel = document.getElementById("calLabel");
+  const calDays = document.getElementById("calDays");
+  const calPrev = document.getElementById("calPrev");
+  const calNext = document.getElementById("calNext");
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  function parseIso(raw) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw || "")) return null;
+    const p = raw.split("-").map(Number);
+    return new Date(p[0], p[1] - 1, p[2]);
+  }
+  function toIso(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + d;
+  }
+
+  let selected = dateInput ? parseIso(dateInput.value) : null;
+  let year = selected ? selected.getFullYear() : new Date().getFullYear();
+  let month = selected ? selected.getMonth() : new Date().getMonth();
+
+  function setDateLabel() {
+    if (!dateTrig || !dateLabel) return;
+    if (!selected) {
+      dateTrig.classList.add("nodate");
+      dateTrig.classList.remove("hasdate");
+      dateLabel.textContent = "Pick a date";
+      return;
+    }
+    dateTrig.classList.remove("nodate");
+    dateTrig.classList.add("hasdate");
+    dateLabel.textContent = months[selected.getMonth()] + " " + selected.getDate() + ", " + selected.getFullYear();
+  }
+
+  function renderCal() {
+    if (!calLabel || !calDays) return;
+    calLabel.textContent = months[month] + " " + year;
+    const fd = new Date(year, month, 1).getDay();
+    const dim = new Date(year, month + 1, 0).getDate();
+    const prev = new Date(year, month, 0).getDate();
+    let html = "";
+    for (let i = fd - 1; i >= 0; i--) html += '<button type="button" class="cal-day out" disabled>' + (prev - i) + "</button>";
+    for (let d = 1; d <= dim; d++) {
+      const sel = selected && selected.getDate() === d && selected.getMonth() === month && selected.getFullYear() === year;
+      html += '<button type="button" class="cal-day' + (sel ? " sel" : "") + '" data-day="' + d + '">' + d + "</button>";
+    }
+    calDays.innerHTML = html;
+  }
+
+  if (dateTrig && cal) {
+    dateTrig.addEventListener("click", function () {
+      cal.classList.toggle("open");
+      renderCal();
+    });
+  }
+  if (calDays) {
+    calDays.addEventListener("click", function (e) {
+      const btn = e.target.closest("[data-day]");
+      if (!btn || !dateInput) return;
+      const d = Number(btn.dataset.day);
+      selected = new Date(year, month, d);
+      dateInput.value = toIso(selected);
+      dateInput.dispatchEvent(new Event("change", { bubbles: true }));
+      cal.classList.remove("open");
+      setDateLabel();
+    });
+  }
+  if (calPrev) calPrev.addEventListener("click", function () { month--; if (month < 0) { month = 11; year--; } renderCal(); });
+  if (calNext) calNext.addEventListener("click", function () { month++; if (month > 11) { month = 0; year++; } renderCal(); });
+
+  document.addEventListener("click", function (e) {
+    maps.forEach(function (m) {
+      const t = document.getElementById(m.trigger);
+      const d = document.getElementById(m.drop);
+      if (t && d && !t.contains(e.target) && !d.contains(e.target)) d.classList.remove("open");
+    });
+    if (cal && dateTrig && !cal.contains(e.target) && !dateTrig.contains(e.target)) cal.classList.remove("open");
+  });
+
+  const serviceMap = {
+    netflix: { bg: "#f5f07a", l: "N" },
+    spotify: { bg: "#a8f0c8", l: "S" },
+    youtube: { bg: "#fca5a5", l: "Y" },
+    github: { bg: "#1a1a2e", l: "G" }
+  };
+  const ccy = { USD: "$", EUR: "EUR ", GBP: "GBP ", INR: "INR ", CAD: "CAD ", AUD: "AUD " };
+  const shortMonths = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+  function updateSummary() {
+    const nameEl = document.getElementById("id_service_name");
+    const planEl = document.getElementById("id_plan_name");
+    const costEl = document.getElementById("id_cost");
+    const curEl = document.getElementById("id_currency");
+    const cycleEl = document.getElementById("id_billing_cycle");
+    const categoryEl = document.getElementById("id_category");
+    const statusEl = document.getElementById("id_status");
+    const sumSec = document.getElementById("sumSec");
+    if (!nameEl || !sumSec) return;
+    const name = (nameEl.value || "").trim();
+    if (!name) {
+      sumSec.style.display = "none";
+      return;
+    }
+    sumSec.style.display = "block";
+    const svc = serviceMap[name.toLowerCase().trim()] || { bg: "#e5e7eb", l: name.charAt(0).toUpperCase() };
+    sumSec.style.backgroundColor = svc.bg;
+    const letter = document.getElementById("sumLetter");
+    const sumName = document.getElementById("sumName");
+    const sumPlan = document.getElementById("sumPlan");
+    const sumCost = document.getElementById("sumCost");
+    const sumCycle = document.getElementById("sumCycle");
+    const sumTags = document.getElementById("sumTags");
+    if (letter) {
+      letter.textContent = svc.l;
+      letter.style.color = svc.bg === "#1a1a2e" ? "#fff" : "#1a1a2e";
+    }
+    if (sumName) sumName.textContent = name;
+    const plan = planEl ? (planEl.value || "").trim() : "";
+    if (sumPlan) {
+      sumPlan.style.display = plan ? "block" : "none";
+      sumPlan.textContent = plan;
+    }
+    const rawCost = costEl ? (costEl.value || "").trim() : "";
+    const parsedCost = parseFloat(rawCost);
+    if (sumCost) {
+      if (rawCost && !Number.isNaN(parsedCost)) {
+        const code = curEl ? curEl.value : "USD";
+        sumCost.style.display = "block";
+        sumCost.textContent = (ccy[code] || (code + " ")) + parsedCost.toFixed(2);
+      } else {
+        sumCost.style.display = "none";
+      }
+    }
+    if (sumCycle) {
+      const cycleOpt = cycleEl && cycleEl.selectedIndex >= 0 ? cycleEl.options[cycleEl.selectedIndex] : null;
+      const text = cycleOpt && cycleEl.value ? cycleOpt.textContent.toLowerCase() : "";
+      sumCycle.style.display = text ? "block" : "none";
+      sumCycle.textContent = text ? "/" + text : "";
+    }
+    if (sumTags) {
+      const tags = [];
+      if (categoryEl && categoryEl.value && categoryEl.selectedIndex >= 0) tags.push(categoryEl.options[categoryEl.selectedIndex].textContent);
+      if (statusEl && statusEl.value) tags.push(statusEl.value);
+      if (dateInput && /^\d{4}-\d{2}-\d{2}$/.test(dateInput.value)) {
+        const dt = parseIso(dateInput.value);
+        tags.push("Since " + shortMonths[dt.getMonth()] + " " + dt.getDate() + ", " + dt.getFullYear());
+      }
+      const shared = shareInputs.find(function (i) { return i.checked; });
+      const count = document.querySelectorAll("#participants-list .participant-row").length;
+      if (shared && shared.value === "True" && count > 0) tags.push("Shared with " + count + " " + (count === 1 ? "person" : "people"));
+      sumTags.innerHTML = tags.map(function (t) {
+        return '<span style="font-size:12px;background:rgba(255,255,255,0.4);border-radius:10px;padding:4px 8px;color:#374151;text-transform:capitalize;">' + t.replace(/</g, "&lt;") + "</span>";
+      }).join("");
+    }
+  }
+
+  ["id_service_name","id_plan_name","id_cost","id_currency","id_billing_cycle","id_category","id_start_date"].forEach(function (id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", updateSummary);
+    el.addEventListener("change", updateSummary);
+  });
+  const statusBtns = document.querySelectorAll("[data-status-option]");
+  statusBtns.forEach(function (b) { b.addEventListener("click", function () { setTimeout(updateSummary, 0); }); });
+  const participants = document.getElementById("participants-list");
+  if (participants) {
+    new MutationObserver(updateSummary).observe(participants, { childList: true, subtree: true });
+  }
+
+  setDateLabel();
+  updateSummary();
+});
+</script>
 {% endblock %}
