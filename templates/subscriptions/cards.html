@@ -1,82 +1,81 @@
 {% extends "base.html" %}
+{% load static %}
 
-{% block title %}My Cards - Subly{% endblock %}
+{% block title %}Payment Methods - Subly{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  .cards-screen-wrap { margin: -0.75rem; }
+  @media (min-width: 768px) {
+    .cards-screen-wrap { margin: -1.25rem; }
+  }
+
+  #cards-app {
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+    font-family: 'Space Grotesk', sans-serif;
+    background: #F0F2F6;
+    color: #111827;
+  }
+
+  #cards-app .mono { font-family: 'JetBrains Mono', monospace; }
+
+  #cards-app .card-visual { aspect-ratio: 1.586 / 1; border-radius: 1rem; overflow: hidden; position: relative; cursor: pointer; transition: transform 0.25s, box-shadow 0.25s; }
+  #cards-app .card-visual:hover { transform: scale(1.01); }
+  #cards-app .card-visual.selected { box-shadow: 0 0 0 2.5px #BBCC00, 0 8px 24px rgba(0,0,0,0.12); transform: scale(1.02); }
+
+  #cards-app .gradient-dark { background: linear-gradient(135deg, #1A1A1A 0%, #2A2A2A 50%, #111111 100%); }
+  #cards-app .gradient-navy { background: linear-gradient(135deg, #0D1B4B 0%, #162660 50%, #0A1535 100%); }
+  #cards-app .gradient-forest { background: linear-gradient(135deg, #0A2A1A 0%, #0F3A22 50%, #071A10 100%); }
+  #cards-app .gradient-plum { background: linear-gradient(135deg, #2A0A3A 0%, #3A1050 50%, #1A0625 100%); }
+  #cards-app .gradient-rose { background: linear-gradient(135deg, #3A0A1A 0%, #4A1025 50%, #250610 100%); }
+
+  #cards-app .chip-dark { background: linear-gradient(135deg, #D4AF37, #F5D060); }
+  #cards-app .chip-navy { background: linear-gradient(135deg, #7EC8E3, #A8DCF0); }
+  #cards-app .chip-forest { background: linear-gradient(135deg, #6ECF8E, #A0E8B8); }
+  #cards-app .chip-plum { background: linear-gradient(135deg, #C86EE0, #E0A0F0); }
+  #cards-app .chip-rose { background: linear-gradient(135deg, #E06E8E, #F0A0B8); }
+
+  #cards-app ::-webkit-scrollbar { width: 4px; height: 4px; }
+  #cards-app ::-webkit-scrollbar-track { background: #E5E7EB; }
+  #cards-app ::-webkit-scrollbar-thumb { background: #C4C9D4; border-radius: 4px; }
+
+  #cards-app .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(6px); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+  #cards-app .modal { background: #FFFFFF; border: 1px solid #E2E5EA; border-radius: 1.5rem; width: 100%; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.15); max-height: 90vh; overflow-y: auto; }
+
+  #cards-app .toggle-track { width: 48px; height: 24px; border-radius: 12px; position: relative; cursor: pointer; transition: background 0.2s; }
+  #cards-app .toggle-thumb { position: absolute; top: 2px; width: 20px; height: 20px; background: white; border-radius: 50%; transition: left 0.2s; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  #cards-app .fade-in { animation: fadeIn 0.2s ease forwards; }
+
+  #cards-app .detail-panel { width: 320px; flex-shrink: 0; border-left: 1px solid #E2E5EA; height: 100%; overflow-y: auto; background: #FAFBFC; }
+  #cards-app .stat-card { background: #FFFFFF; border-radius: 16px; padding: 16px; border: 1px solid #E8EBF0; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+</style>
+{% endblock %}
 
 {% block content %}
-<div>
-    <div>
-        <div>
-            <h1>Payment Cards</h1>
-            <p>Manage your saved cards for subscription tracking.</p>
-        </div>
-        <a href="{% url 'subscriptions:card_create' %}">
-            Add Card
-        </a>
-    </div>
-
-    {% if cards %}
-    <div>
-        {% for card in cards %}
-        <div>
-            <div>
-                <!-- Card Header -->
-                <div>
-                    <div>
-                        {% if card.get_brand_icon_url %}
-                        <div>
-                            <img src="{{ card.get_brand_icon_url }}" alt="{{ card.brand }}">
-                        </div>
-                        {% else %}
-                        <div>
-                            <!-- Placeholder for card icon -->
-                        </div>
-                        {% endif %}
-                        <h3>{{ card.nickname }}</h3>
-                    </div>
-                    {% if card.brand and not card.get_brand_icon_url %}
-                    <span>{{ card.brand }}</span>
-                    {% endif %}
-                </div>
-
-                <!-- Card Number Display -->
-                <div>
-                    <p>Card Number</p>
-                    <div>
-                        <span>•••• •••• ••••</span>
-                        <span>{{ card.last4 }}</span>
-                    </div>
-                </div>
-
-                <!-- Footer Actions -->
-                <div>
-                    <a href="{% url 'subscriptions:card_update' card.pk %}">Edit</a>
-                    <span>|</span>
-                    <form action="{% url 'subscriptions:card_delete' card.pk %}" method="post"
-                        onsubmit="return confirm('Are you sure you want to delete this card?');">
-                        {% csrf_token %}
-                        <button type="submit">Delete</button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Safe Badge -->
-            <div>
-                <p>Secure</p>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-    {% else %}
-    <div>
-        <div>
-            <!-- No cards icon placeholder -->
-        </div>
-        <h3>No cards added yet</h3>
-        <p>Add a card to easily associate it with your subscriptions. We only store the last 4 digits for reference.</p>
-        <a href="{% url 'subscriptions:card_create' %}">
-            Add your first card
-        </a>
-    </div>
-    {% endif %}
+<div class="cards-screen-wrap">
+  <div id="cards-app"></div>
 </div>
+
+{{ cards_initial_state|json_script:"cards-initial-state" }}
+<script>
+  window.CARDS_API_URLS = {
+    state: "{% url 'subscriptions:cards_api_state' %}",
+    create: "{% url 'subscriptions:cards_api_create' %}",
+    update: "{% url 'subscriptions:cards_api_update' 987654321 %}",
+    setPrimary: "{% url 'subscriptions:cards_api_set_primary' 987654321 %}",
+    remove: "{% url 'subscriptions:cards_api_delete' 987654321 %}"
+  };
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="{% static 'subscriptions/cards.js' %}"></script>
 {% endblock %}

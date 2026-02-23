@@ -14,6 +14,11 @@ urlpatterns = [
     
     # Card URLs
     path('cards/', views.card_list, name='card_list'),
+    path('cards/api/state/', views.cards_api_state, name='cards_api_state'),
+    path('cards/api/create/', views.cards_api_create, name='cards_api_create'),
+    path('cards/api/<int:pk>/update/', views.cards_api_update, name='cards_api_update'),
+    path('cards/api/<int:pk>/set-primary/', views.cards_api_set_primary, name='cards_api_set_primary'),
+    path('cards/api/<int:pk>/delete/', views.cards_api_delete, name='cards_api_delete'),
     path('cards/add/', views.card_create, name='card_create'),
     path('cards/<int:pk>/edit/', views.card_update, name='card_update'),
     path('cards/<int:pk>/delete/', views.card_delete, name='card_delete'),

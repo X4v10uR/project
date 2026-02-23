@@ -18,6 +18,19 @@ def _build_account_password_fernet():
     return Fernet(base64.urlsafe_b64encode(key_material))
 
 class Card(models.Model):
+    THEME_DARK = "dark"
+    THEME_NAVY = "navy"
+    THEME_FOREST = "forest"
+    THEME_PLUM = "plum"
+    THEME_ROSE = "rose"
+    THEME_CHOICES = [
+        (THEME_DARK, "Midnight"),
+        (THEME_NAVY, "Ocean"),
+        (THEME_FOREST, "Forest"),
+        (THEME_PLUM, "Plum"),
+        (THEME_ROSE, "Rose"),
+    ]
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='cards')
     nickname = models.CharField(max_length=50)
     last4 = models.CharField(
@@ -28,11 +41,20 @@ class Card(models.Model):
         ]
     )
     brand = models.CharField(max_length=20, blank=True, null=True)
+    theme = models.CharField(max_length=20, choices=THEME_CHOICES, default=THEME_DARK)
+    is_primary = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user"],
+                condition=models.Q(is_primary=True),
+                name="uniq_primary_card_per_user",
+            ),
+        ]
 
     def __str__(self):
         brand_display = f" — {self.brand}" if self.brand else ""

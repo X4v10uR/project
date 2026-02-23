@@ -1,6 +1,8 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
+from subscriptions.cards_state import normalize_primary_cards_for_user
 from subscriptions.models import Card, Subscription
 from datetime import date
 
@@ -18,6 +20,8 @@ class CardModelTest(TestCase):
             brand="Visa"
         )
         self.assertEqual(str(card), "Test Card — Visa •••• 1234")
+        self.assertEqual(card.theme, "dark")
+        self.assertFalse(card.is_primary)
 
     def test_last4_validation_length(self):
         card = Card(
@@ -86,3 +90,67 @@ class CardModelTest(TestCase):
         sub.refresh_from_db()
         self.assertIsNone(sub.card)
         self.assertTrue(Subscription.objects.filter(pk=sub.pk).exists())
+
+    def test_only_one_primary_card_allowed_per_user(self):
+        Card.objects.create(
+            user=self.user,
+            nickname="Primary One",
+            last4="1111",
+            brand="visa",
+            is_primary=True,
+        )
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Card.objects.create(
+                    user=self.user,
+                    nickname="Primary Two",
+                    last4="2222",
+                    brand="mastercard",
+                    is_primary=True,
+                )
+
+    def test_primary_normalization_selects_newest_card_when_none_primary(self):
+        older = Card.objects.create(
+            user=self.user,
+            nickname="Older",
+            last4="3333",
+            brand="visa",
+            is_primary=False,
+        )
+        newer = Card.objects.create(
+            user=self.user,
+            nickname="Newer",
+            last4="4444",
+            brand="amex",
+            is_primary=False,
+        )
+
+        normalize_primary_cards_for_user(self.user)
+
+        older.refresh_from_db()
+        newer.refresh_from_db()
+        self.assertFalse(older.is_primary)
+        self.assertTrue(newer.is_primary)
+
+    def test_primary_normalization_keeps_existing_primary_card(self):
+        older = Card.objects.create(
+            user=self.user,
+            nickname="Older",
+            last4="5555",
+            brand="visa",
+            is_primary=True,
+        )
+        newer = Card.objects.create(
+            user=self.user,
+            nickname="Newer",
+            last4="6666",
+            brand="mastercard",
+            is_primary=False,
+        )
+
+        normalize_primary_cards_for_user(self.user)
+
+        older.refresh_from_db()
+        newer.refresh_from_db()
+        self.assertTrue(older.is_primary)
+        self.assertFalse(newer.is_primary)
