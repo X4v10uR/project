@@ -49,6 +49,14 @@ const THEMES = [
   { key:'rose',   label:'Rose',     color:'#4A1025' },
 ];
 const BRANDS = ['visa','mastercard','amex','discover','jcb'];
+const BRAND_LOGO_URLS = {
+  visa: 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/visa.svg',
+  mastercard: 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/mastercard.svg',
+  amex: 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/american-express.svg',
+  discover: 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/discover-card.svg',
+};
+
+const JCB_INLINE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 432.37 324.5" style="width:100%;height:100%;display:block;"><defs><style>.a{fill:url(#a);}.b{fill:url(#b);}.c{fill:url(#c);}.d{fill:url(#d);}.e{fill:url(#e);}</style><linearGradient id="a" x1="148.19" y1="270.12" x2="213.35" y2="270.12" gradientTransform="matrix(2.05, 0, 0, -2.05, -4.47, 736.29)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#007940"/><stop offset="0.23" stop-color="#00873f"/><stop offset="0.74" stop-color="#40a737"/><stop offset="1" stop-color="#5cb531"/></linearGradient><linearGradient id="b" x1="148.18" y1="280.2" x2="213.29" y2="280.2" xlink:href="#a"/><linearGradient id="c" x1="148.18" y1="291.29" x2="213.35" y2="291.29" xlink:href="#a"/><linearGradient id="d" x1="2.3" y1="280.27" x2="68.47" y2="280.27" gradientTransform="matrix(2.05, 0, 0, -2.05, -4.47, 736.29)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1f286f"/><stop offset="0.48" stop-color="#004e94"/><stop offset="0.83" stop-color="#0066b1"/><stop offset="1" stop-color="#006fbc"/></linearGradient><linearGradient id="e" x1="74.89" y1="280.13" x2="139.16" y2="280.13" gradientTransform="matrix(2.05, 0, 0, -2.05, -4.47, 736.29)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6c2c2f"/><stop offset="0.17" stop-color="#882730"/><stop offset="0.57" stop-color="#be1833"/><stop offset="0.86" stop-color="#dc0436"/><stop offset="1" stop-color="#e60039"/></linearGradient></defs><path class="a" d="M325.69,197h31.2c.89,0,3-.3,3.86-.3a13.92,13.92,0,0,0,11-14,14.41,14.41,0,0,0-11-14,15.52,15.52,0,0,0-3.86-.3h-31.2V197Z"/><path class="b" d="M353.32,0a54.09,54.09,0,0,0-54.08,54.08v56.17h76.37a31.36,31.36,0,0,1,5.35.29c17.24.9,30,9.81,30,25.26,0,12.19-8.61,22.59-24.66,24.67v.59c17.53,1.19,30.9,11,30.9,26.15,0,16.35-14.85,27-34.47,27h-83.8v110h79.35a54.09,54.09,0,0,0,54.08-54.08V0Z"/><path class="c" d="M367.89,139.37a12.65,12.65,0,0,0-11-12.78c-.59,0-2.08-.3-3-.3H325.69v26.15h28.23c.89,0,2.67,0,3-.29A12.66,12.66,0,0,0,367.89,139.37Z"/><path class="d" d="M54.38,0A54.08,54.08,0,0,0,.3,54.08V187.51c15.15,7.43,30.9,12.18,46.65,12.18,18.72,0,28.83-11.29,28.83-26.74V110h46.35v62.7c0,24.37-15.15,44.28-66.56,44.28A228,228,0,0,1,0,210.09V323.91H79.34a54.09,54.09,0,0,0,54.09-54.09V0Z"/><path class="e" d="M203.85,0a54.09,54.09,0,0,0-54.08,54.08v70.73c13.67-11.59,37.44-19,75.78-17.24,20.5.89,42.49,6.54,42.49,6.54V137c-11-5.64-24.07-10.7-41-11.89-29.12-2.08-46.65,12.19-46.65,37.15,0,25.26,17.53,39.52,46.65,37.14,16.94-1.18,30-6.53,41-11.88v22.88s-21.69,5.65-42.49,6.54c-38.34,1.78-62.11-5.65-75.78-17.24V324.5h79.34a54.08,54.08,0,0,0,54.08-54.08V0Z"/></svg>`;
 
 function apiUrlForCard(template, cardId) {
   return (template || '').replace(CARD_ROUTE_SENTINEL, String(cardId));
@@ -127,7 +135,7 @@ function primaryCard() { return state.cards.find(c => c.isPrimary); }
 // SVG BRAND ICONS
 // ─────────────────────────────────────────────
 function brandIconSVG(brand, size='md', onCard=true) {
-  const px = size === 'sm' ? 24 : size === 'lg' ? 52 : 36;
+  const px = size === 'sm' ? 24 : size === 'lg' ? 52 : size === 'xl' ? 88 : 36;
   const fill = onCard ? 'white' : '#374151';
   if (brand === 'visa') return `<svg width="${px}" height="${px*0.4}" viewBox="0 0 60 20"><text x="0" y="18" font-family="Arial Black, Arial" font-weight="900" font-style="italic" font-size="22" fill="${fill}" letter-spacing="-1">VISA</text></svg>`;
   if (brand === 'mastercard') {
@@ -141,6 +149,30 @@ function brandIconSVG(brand, size='md', onCard=true) {
     return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect x="0" y="0" width="${w/3}" height="${h}" rx="4" fill="#003087"/><rect x="${w/3}" y="0" width="${w/3}" height="${h}" rx="4" fill="#CC0000"/><rect x="${w/3*2}" y="0" width="${w/3}" height="${h}" rx="4" fill="#007B40"/><text x="${w/2}" y="${h*0.68}" font-family="Arial" font-weight="800" font-size="${h*0.55}" fill="white" text-anchor="middle">JCB</text></svg>`;
   }
   return '';
+}
+
+function brandSelectorLogoHTML(brand) {
+  if (brand === 'jcb') {
+    return `
+      <span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;">
+        <span style="display:block;width:78%;height:40px;">
+          ${JCB_INLINE_SVG}
+        </span>
+      </span>
+    `;
+  }
+
+  const logoUrl = BRAND_LOGO_URLS[brand];
+  const alt = BRAND_LABELS[brand] || brand;
+  if (!logoUrl) {
+    return brandIconSVG(brand, 'md', false);
+  }
+
+  return `
+    <img src="${logoUrl}" alt="${alt}" style="height:40px;width:auto;max-width:78%;max-height:40px;object-fit:contain;"
+      onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+    <span style="display:none;align-items:center;justify-content:center;width:100%;height:100%;">${brandIconSVG(brand, 'md', false)}</span>
+  `;
 }
 
 // ─────────────────────────────────────────────
@@ -468,9 +500,8 @@ function renderAddModal() {
   const f = modalForm;
 
   const brandButtons = BRANDS.map(b => `
-    <button type="button" onclick="setModalField('brand','${b}')" style="position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:12px 8px;border-radius:12px;border:1px solid ${f.brand===b ? '#BBCC00' : '#E2E5EA'};background:${f.brand===b ? '#FAFFF0' : '#F8F9FB'};cursor:pointer;transition:all 0.15s;">
-      <div style="height:24px;display:flex;align-items:center;">${brandIconSVG(b,'sm',false)}</div>
-      <span style="color:#6B7280;font-size:0.75rem;font-weight:500;">${BRAND_LABELS[b]}</span>
+    <button type="button" onclick="setModalField('brand','${b}')" style="position:relative;display:flex;align-items:center;justify-content:center;padding:10px;border-radius:12px;border:1px solid ${f.brand===b ? '#BBCC00' : '#E2E5EA'};background:${f.brand===b ? '#FAFFF0' : '#F8F9FB'};cursor:pointer;transition:all 0.15s;min-height:88px;">
+      <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:6px;">${brandSelectorLogoHTML(b)}</div>
       ${f.brand===b ? `<div style="position:absolute;top:6px;right:6px;width:16px;height:16px;border-radius:50%;background:#DEFF1A;display:flex;align-items:center;justify-content:center;"><i data-lucide="check" style="width:10px;height:10px;color:#111;"></i></div>` : ''}
     </button>`).join('');
 
@@ -485,21 +516,21 @@ function renderAddModal() {
 
   return `
     <div class="backdrop" id="add-modal-backdrop" onclick="handleBackdropClick(event,'add-modal-backdrop')">
-      <div class="modal fade-in" style="max-width:680px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid #E8EBF0;">
+      <div class="modal fade-in" style="max-width:680px;max-height:calc(100vh - 1rem);overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 22px;border-bottom:1px solid #E8EBF0;">
           <div>
             <h2 style="color:#111827;font-size:1.25rem;font-weight:700;margin:0;">${isEdit ? 'Edit Card' : 'Add New Card'}</h2>
-            <p style="color:#9CA3AF;font-size:0.875rem;margin:4px 0 0;">${isEdit ? 'Update your card details' : 'Add a payment card to your account'}</p>
+            <p style="color:#9CA3AF;font-size:0.875rem;margin:2px 0 0;">${isEdit ? 'Update your card details' : 'Add a payment card to your account'}</p>
           </div>
           <button onclick="closeAddModal()" style="width:36px;height:36px;border-radius:50%;background:#F3F4F6;border:1px solid #E5E7EB;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#6B7280;transition:all 0.15s;" onmouseover="this.style.background='#E5E7EB';this.style.color='#111827'" onmouseout="this.style.background='#F3F4F6';this.style.color='#6B7280'">
             <i data-lucide="x" style="width:16px;height:16px;"></i>
           </button>
         </div>
         <form onsubmit="handleModalSubmit(event)">
-          <div style="padding:24px;">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+          <div style="padding:20px 22px 18px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
               <!-- Left: Form -->
-              <div style="display:flex;flex-direction:column;gap:20px;">
+              <div style="display:flex;flex-direction:column;gap:18px;">
                 <div>
                   <label style="display:block;color:#374151;font-size:0.875rem;font-weight:600;margin-bottom:8px;">Card Nickname</label>
                   <input type="text" id="modal-nickname" value="${escHtml(f.nickname)}" oninput="setModalField('nickname',this.value)" placeholder='e.g. "Work Amex"'
@@ -538,13 +569,13 @@ function renderAddModal() {
                   </div>
                 </div>
                 <div id="card-preview">${cardVisualHTML(previewCard, false)}</div>
-                <div style="margin-top:16px;padding:16px;background:#F8F9FB;border-radius:12px;border:1px solid #E2E5EA;display:flex;flex-direction:column;gap:8px;">
+                <div style="margin-top:14px;padding:16px;background:#F8F9FB;border-radius:12px;border:1px solid #E2E5EA;display:flex;flex-direction:column;gap:8px;">
                   ${previewRow('Brand', BRAND_LABELS[f.brand] || 'Visa')}
                   ${previewRow('Number', `<span class="mono">•••• ${f.last4 || '0000'}</span>`)}
                   ${previewRow('Nickname', f.nickname || '—')}
                   ${previewRow('Primary', `<span style="color:${f.isPrimary ? '#7A8C00' : '#9CA3AF'};font-weight:600;">${f.isPrimary ? 'Yes' : 'No'}</span>`)}
                 </div>
-                <div style="margin-top:auto;padding-top:16px;display:flex;flex-direction:column;gap:8px;width:100%;">
+                <div style="margin-top:auto;padding-top:14px;display:flex;flex-direction:column;gap:8px;width:100%;">
                   <button type="submit" id="modal-submit-btn" style="width:100%;padding:12px;border-radius:12px;background:#DEFF1A;color:#111;border:none;cursor:pointer;font-size:0.875rem;font-weight:700;font-family:inherit;transition:background 0.15s;" onmouseover="this.style.background='#CCEE00'" onmouseout="this.style.background='#DEFF1A'">${isEdit ? 'Save Changes' : 'Add Card'}</button>
                   <button type="button" onclick="closeAddModal()" style="width:100%;padding:12px;border-radius:12px;border:1px solid #E2E5EA;color:#6B7280;background:#F3F4F6;cursor:pointer;font-size:0.875rem;font-weight:600;font-family:inherit;transition:all 0.15s;" onmouseover="this.style.background='#E5E7EB';this.style.color='#111827'" onmouseout="this.style.background='#F3F4F6';this.style.color='#6B7280'">Cancel</button>
                 </div>
@@ -644,9 +675,44 @@ function showApiError(err) {
   window.alert(message);
 }
 
+function captureFocusSnapshot() {
+  const active = document.activeElement;
+  if (!active || !active.id) return null;
+
+  const snapshot = { id: active.id };
+  if (typeof active.selectionStart === 'number' && typeof active.selectionEnd === 'number') {
+    snapshot.selectionStart = active.selectionStart;
+    snapshot.selectionEnd = active.selectionEnd;
+  }
+  return snapshot;
+}
+
+function renderAppKeepingFocus(snapshot) {
+  renderApp();
+  if (!snapshot || !snapshot.id) return;
+
+  const next = document.getElementById(snapshot.id);
+  if (!next) return;
+
+  next.focus({ preventScroll: true });
+  if (typeof snapshot.selectionStart === 'number' && typeof next.setSelectionRange === 'function') {
+    const valueLength = typeof next.value === 'string' ? next.value.length : 0;
+    const start = Math.min(snapshot.selectionStart, valueLength);
+    const end = Math.min(
+      typeof snapshot.selectionEnd === 'number' ? snapshot.selectionEnd : start,
+      valueLength,
+    );
+    next.setSelectionRange(start, end);
+  }
+}
+
 function handleCardClick(cardId) { state.selectedCardId = state.selectedCardId === String(cardId) ? null : String(cardId); renderApp(); }
 function closeDetailPanel() { state.selectedCardId = null; renderApp(); }
-function handleSearch(val) { state.search = val; renderApp(); }
+function handleSearch(val) {
+  const focusSnapshot = captureFocusSnapshot();
+  state.search = val;
+  renderAppKeepingFocus(focusSnapshot);
+}
 
 function openAddModal() {
   modalForm = { nickname:'', last4:'', brand:'visa', isPrimary:false, theme:'dark' };
@@ -665,8 +731,19 @@ function openEditModal(cardId) {
   renderApp();
 }
 function closeAddModal() { state.addModalOpen = false; state.editCardId = null; renderApp(); }
-function setModalField(field, value) { modalForm[field] = value; if (modalErrors[field]) modalErrors[field] = ''; renderApp(); }
-function handleLast4Input(val) { const d = val.replace(/\D/g,'').slice(0,4); modalForm.last4 = d; if (modalErrors.last4) modalErrors.last4 = ''; renderApp(); }
+function setModalField(field, value) {
+  const focusSnapshot = captureFocusSnapshot();
+  modalForm[field] = value;
+  if (modalErrors[field]) modalErrors[field] = '';
+  renderAppKeepingFocus(focusSnapshot);
+}
+function handleLast4Input(val) {
+  const focusSnapshot = captureFocusSnapshot();
+  const d = val.replace(/\D/g,'').slice(0,4);
+  modalForm.last4 = d;
+  if (modalErrors.last4) modalErrors.last4 = '';
+  renderAppKeepingFocus(focusSnapshot);
+}
 function togglePrimary() { modalForm.isPrimary = !modalForm.isPrimary; renderApp(); }
 
 async function handleModalSubmit(e) {
@@ -793,4 +870,3 @@ function applyInitialModalState() {
 
 applyInitialModalState();
 renderApp();
-
