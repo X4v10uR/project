@@ -522,22 +522,21 @@ function renderAddModal() {
                   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">${brandButtons}</div>
                 </div>
                 <div>
-                  <label style="display:block;color:#374151;font-size:0.875rem;font-weight:600;margin-bottom:8px;">Card Theme</label>
+                  <label style="display:block;color:#374151;font-size:0.875rem;font-weight:600;margin:0 0 8px;">Card Theme</label>
                   <div style="display:flex;gap:8px;">${themeButtons}</div>
-                </div>
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;background:#F8F9FB;border-radius:12px;border:1px solid #E2E5EA;">
-                  <div>
-                    <p style="color:#111827;font-size:0.875rem;font-weight:600;margin:0;">Set as Primary Card</p>
-                    <p style="color:#9CA3AF;font-size:0.75rem;margin:4px 0 0;">Default card for new subscriptions</p>
-                  </div>
-                  <div class="toggle-track" style="background:${f.isPrimary ? '#DEFF1A' : '#E5E7EB'};" onclick="togglePrimary()">
-                    <div class="toggle-thumb" style="left:${f.isPrimary ? '26px' : '2px'};"></div>
-                  </div>
                 </div>
               </div>
               <!-- Right: Preview -->
-              <div>
-                <label style="display:block;color:#374151;font-size:0.875rem;font-weight:600;margin-bottom:12px;">Live Preview</label>
+              <div style="display:flex;flex-direction:column;height:100%;">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;">
+                  <label style="display:block;color:#374151;font-size:0.875rem;font-weight:600;margin:0;">Live Preview</label>
+                  <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                    <span style="color:#6B7280;font-size:0.75rem;font-weight:600;">Set as Primary</span>
+                    <div class="toggle-track" style="background:${f.isPrimary ? '#DEFF1A' : '#E5E7EB'};" onclick="togglePrimary()">
+                      <div class="toggle-thumb" style="left:${f.isPrimary ? '26px' : '2px'};"></div>
+                    </div>
+                  </div>
+                </div>
                 <div id="card-preview">${cardVisualHTML(previewCard, false)}</div>
                 <div style="margin-top:16px;padding:16px;background:#F8F9FB;border-radius:12px;border:1px solid #E2E5EA;display:flex;flex-direction:column;gap:8px;">
                   ${previewRow('Brand', BRAND_LABELS[f.brand] || 'Visa')}
@@ -545,12 +544,12 @@ function renderAddModal() {
                   ${previewRow('Nickname', f.nickname || '—')}
                   ${previewRow('Primary', `<span style="color:${f.isPrimary ? '#7A8C00' : '#9CA3AF'};font-weight:600;">${f.isPrimary ? 'Yes' : 'No'}</span>`)}
                 </div>
+                <div style="margin-top:auto;padding-top:16px;display:flex;flex-direction:column;gap:8px;width:100%;">
+                  <button type="submit" id="modal-submit-btn" style="width:100%;padding:12px;border-radius:12px;background:#DEFF1A;color:#111;border:none;cursor:pointer;font-size:0.875rem;font-weight:700;font-family:inherit;transition:background 0.15s;" onmouseover="this.style.background='#CCEE00'" onmouseout="this.style.background='#DEFF1A'">${isEdit ? 'Save Changes' : 'Add Card'}</button>
+                  <button type="button" onclick="closeAddModal()" style="width:100%;padding:12px;border-radius:12px;border:1px solid #E2E5EA;color:#6B7280;background:#F3F4F6;cursor:pointer;font-size:0.875rem;font-weight:600;font-family:inherit;transition:all 0.15s;" onmouseover="this.style.background='#E5E7EB';this.style.color='#111827'" onmouseout="this.style.background='#F3F4F6';this.style.color='#6B7280'">Cancel</button>
+                </div>
               </div>
             </div>
-          </div>
-          <div style="padding:0 24px 24px;display:flex;gap:12px;">
-            <button type="button" onclick="closeAddModal()" style="flex:1;padding:12px;border-radius:12px;border:1px solid #E2E5EA;color:#6B7280;background:#F3F4F6;cursor:pointer;font-size:0.875rem;font-weight:600;font-family:inherit;transition:all 0.15s;" onmouseover="this.style.background='#E5E7EB';this.style.color='#111827'" onmouseout="this.style.background='#F3F4F6';this.style.color='#6B7280'">Cancel</button>
-            <button type="submit" id="modal-submit-btn" style="flex:1;padding:12px;border-radius:12px;background:#DEFF1A;color:#111;border:none;cursor:pointer;font-size:0.875rem;font-weight:700;font-family:inherit;transition:background 0.15s;" onmouseover="this.style.background='#CCEE00'" onmouseout="this.style.background='#DEFF1A'">${isEdit ? 'Save Changes' : 'Add Card'}</button>
           </div>
         </form>
       </div>
