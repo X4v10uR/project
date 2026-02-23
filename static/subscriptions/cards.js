@@ -175,6 +175,35 @@ function brandSelectorLogoHTML(brand) {
   `;
 }
 
+function brandCardLogoHTML(brand, compact=false) {
+  const logoHeight = compact ? 20 : 24;
+  const fallback = brandIconSVG(brand, compact ? 'sm' : 'md', true);
+
+  if (brand === 'jcb') {
+    return `
+      <span style="display:flex;align-items:center;justify-content:flex-end;height:${logoHeight}px;">
+        <span style="display:block;width:${compact ? 38 : 48}px;height:${logoHeight}px;">
+          ${JCB_INLINE_SVG}
+        </span>
+      </span>
+    `;
+  }
+
+  const logoUrl = BRAND_LOGO_URLS[brand];
+  const alt = BRAND_LABELS[brand] || brand;
+  if (!logoUrl) {
+    return fallback;
+  }
+
+  return `
+    <span style="display:flex;align-items:center;justify-content:flex-end;height:${logoHeight}px;min-width:${compact ? 44 : 56}px;">
+      <img src="${logoUrl}" alt="${alt}" style="height:${logoHeight}px;width:auto;max-width:${compact ? 56 : 72}px;object-fit:contain;display:block;"
+        onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+      <span style="display:none;align-items:center;justify-content:flex-end;height:100%;">${fallback}</span>
+    </span>
+  `;
+}
+
 // ─────────────────────────────────────────────
 // CARD VISUAL HTML (cards stay dark — real credit cards are dark)
 // ─────────────────────────────────────────────
@@ -209,14 +238,14 @@ function cardVisualHTML(card, isSelected=false, compact=false) {
           ${primaryBadge}
         </div>
         <div>
-          <p class="mono" style="color:rgba(255,255,255,0.85);letter-spacing:0.2em;${numSize};">•••• •••• •••• ${card.last4 || '0000'}</p>
+          <p class="mono" data-preview-last4="1" style="color:rgba(255,255,255,0.85);letter-spacing:0.2em;${numSize};">•••• •••• •••• ${card.last4 || '0000'}</p>
         </div>
         <div style="display:flex;align-items:flex-end;justify-content:space-between;">
           <div>
             <p style="color:rgba(255,255,255,0.5);${labelSize};text-transform:uppercase;letter-spacing:0.1em;margin-bottom:2px;">Card Holder</p>
-            <p style="color:white;${nameSize};max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${card.nickname || 'My Card'}</p>
+            <p data-preview-nickname="1" style="color:white;${nameSize};max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${card.nickname || 'My Card'}</p>
           </div>
-          <div>${brandIconSVG(card.brand, compact ? 'sm' : 'md', true)}</div>
+          <div style="display:flex;align-items:flex-end;justify-content:flex-end;">${brandCardLogoHTML(card.brand, compact)}</div>
         </div>
       </div>
     </div>`;
@@ -498,6 +527,7 @@ let modalErrors = {};
 function renderAddModal() {
   const isEdit = !!state.editCardId;
   const f = modalForm;
+  const digitsNeeded = 4 - f.last4.length;
 
   const brandButtons = BRANDS.map(b => `
     <button type="button" onclick="setModalField('brand','${b}')" style="position:relative;display:flex;align-items:center;justify-content:center;padding:10px;border-radius:12px;border:1px solid ${f.brand===b ? '#BBCC00' : '#E2E5EA'};background:${f.brand===b ? '#FAFFF0' : '#F8F9FB'};cursor:pointer;transition:all 0.15s;min-height:88px;">
@@ -546,7 +576,7 @@ function renderAddModal() {
                     onfocus="this.style.borderColor='#BBCC00';this.style.background='#FFFFF8';this.style.boxShadow='0 0 0 3px rgba(222,255,26,0.2)'"
                     onblur="this.style.borderColor='${modalErrors.last4 ? '#FCA5A5' : '#E2E5EA'}';this.style.background='#F8F9FB';this.style.boxShadow='none'" />
                   ${modalErrors.last4 ? `<p style="display:flex;align-items:center;gap:4px;color:#DC2626;font-size:0.75rem;margin:6px 0 0;"><i data-lucide="alert-circle" style="width:12px;height:12px;"></i>${modalErrors.last4}</p>` : ''}
-                  ${!modalErrors.last4 && f.last4.length > 0 && f.last4.length < 4 ? `<p style="color:#9CA3AF;font-size:0.75rem;margin:6px 0 0;">${4-f.last4.length} more digit${f.last4.length!==3?'s':''} needed</p>` : ''}
+                  <p id="modal-last4-hint" style="color:#9CA3AF;font-size:0.75rem;margin:6px 0 0;display:${!modalErrors.last4 && f.last4.length > 0 && f.last4.length < 4 ? 'block' : 'none'};">${digitsNeeded > 1 ? `${digitsNeeded} more digits needed` : '1 more digit needed'}</p>
                 </div>
                 <div>
                   <label style="display:block;color:#374151;font-size:0.875rem;font-weight:600;margin-bottom:8px;">Card Brand</label>
@@ -570,10 +600,22 @@ function renderAddModal() {
                 </div>
                 <div id="card-preview">${cardVisualHTML(previewCard, false)}</div>
                 <div style="margin-top:14px;padding:16px;background:#F8F9FB;border-radius:12px;border:1px solid #E2E5EA;display:flex;flex-direction:column;gap:8px;">
-                  ${previewRow('Brand', BRAND_LABELS[f.brand] || 'Visa')}
-                  ${previewRow('Number', `<span class="mono">•••• ${f.last4 || '0000'}</span>`)}
-                  ${previewRow('Nickname', f.nickname || '—')}
-                  ${previewRow('Primary', `<span style="color:${f.isPrimary ? '#7A8C00' : '#9CA3AF'};font-weight:600;">${f.isPrimary ? 'Yes' : 'No'}</span>`)}
+                  <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.875rem;">
+                    <span style="color:#6B7280;">Brand</span>
+                    <span id="preview-brand-val" style="color:#111827;font-weight:500;">${BRAND_LABELS[f.brand] || 'Visa'}</span>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.875rem;">
+                    <span style="color:#6B7280;">Number</span>
+                    <span id="preview-number-val" class="mono" style="color:#111827;font-weight:500;">•••• ${f.last4 || '0000'}</span>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.875rem;">
+                    <span style="color:#6B7280;">Nickname</span>
+                    <span id="preview-nickname-val" style="color:#111827;font-weight:500;">${f.nickname || '—'}</span>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.875rem;">
+                    <span style="color:#6B7280;">Primary</span>
+                    <span id="preview-primary-val" style="color:${f.isPrimary ? '#7A8C00' : '#9CA3AF'};font-weight:600;">${f.isPrimary ? 'Yes' : 'No'}</span>
+                  </div>
                 </div>
                 <div style="margin-top:auto;padding-top:14px;display:flex;flex-direction:column;gap:8px;width:100%;">
                   <button type="submit" id="modal-submit-btn" style="width:100%;padding:12px;border-radius:12px;background:#DEFF1A;color:#111;border:none;cursor:pointer;font-size:0.875rem;font-weight:700;font-family:inherit;transition:background 0.15s;" onmouseover="this.style.background='#CCEE00'" onmouseout="this.style.background='#DEFF1A'">${isEdit ? 'Save Changes' : 'Add Card'}</button>
@@ -585,10 +627,6 @@ function renderAddModal() {
         </form>
       </div>
     </div>`;
-}
-
-function previewRow(label, valHtml) {
-  return `<div style="display:flex;align-items:center;justify-content:space-between;font-size:0.875rem;"><span style="color:#6B7280;">${label}</span><span style="color:#111827;font-weight:500;">${valHtml}</span></div>`;
 }
 
 // ─────────────────────────────────────────────
@@ -706,6 +744,61 @@ function renderAppKeepingFocus(snapshot) {
   }
 }
 
+function updateModalLiveUI() {
+  if (!state.addModalOpen) return;
+
+  const previewCard = {
+    nickname: modalForm.nickname || 'My Card',
+    last4: modalForm.last4 || '0000',
+    brand: modalForm.brand,
+    isPrimary: modalForm.isPrimary,
+    theme: modalForm.theme,
+  };
+
+  const cardPreview = document.getElementById('card-preview');
+  if (cardPreview) {
+    const last4Node = cardPreview.querySelector('[data-preview-last4]');
+    const nicknameNode = cardPreview.querySelector('[data-preview-nickname]');
+    if (last4Node && nicknameNode) {
+      last4Node.textContent = `•••• •••• •••• ${modalForm.last4 || '0000'}`;
+      nicknameNode.textContent = modalForm.nickname || 'My Card';
+    } else {
+      cardPreview.innerHTML = cardVisualHTML(previewCard, false);
+    }
+  }
+
+  const brandValue = document.getElementById('preview-brand-val');
+  if (brandValue) {
+    brandValue.textContent = BRAND_LABELS[modalForm.brand] || 'Visa';
+  }
+
+  const numberValue = document.getElementById('preview-number-val');
+  if (numberValue) {
+    numberValue.textContent = `•••• ${modalForm.last4 || '0000'}`;
+  }
+
+  const nicknameValue = document.getElementById('preview-nickname-val');
+  if (nicknameValue) {
+    nicknameValue.textContent = modalForm.nickname || '—';
+  }
+
+  const primaryValue = document.getElementById('preview-primary-val');
+  if (primaryValue) {
+    primaryValue.textContent = modalForm.isPrimary ? 'Yes' : 'No';
+    primaryValue.style.color = modalForm.isPrimary ? '#7A8C00' : '#9CA3AF';
+  }
+
+  const hint = document.getElementById('modal-last4-hint');
+  if (hint) {
+    const digitsNeeded = 4 - modalForm.last4.length;
+    const showHint = !modalErrors.last4 && modalForm.last4.length > 0 && modalForm.last4.length < 4;
+    hint.style.display = showHint ? 'block' : 'none';
+    if (showHint) {
+      hint.textContent = digitsNeeded > 1 ? `${digitsNeeded} more digits needed` : '1 more digit needed';
+    }
+  }
+}
+
 function handleCardClick(cardId) { state.selectedCardId = state.selectedCardId === String(cardId) ? null : String(cardId); renderApp(); }
 function closeDetailPanel() { state.selectedCardId = null; renderApp(); }
 function handleSearch(val) {
@@ -732,17 +825,35 @@ function openEditModal(cardId) {
 }
 function closeAddModal() { state.addModalOpen = false; state.editCardId = null; renderApp(); }
 function setModalField(field, value) {
+  const hadError = !!modalErrors[field];
   const focusSnapshot = captureFocusSnapshot();
   modalForm[field] = value;
-  if (modalErrors[field]) modalErrors[field] = '';
+  if (hadError) {
+    modalErrors[field] = '';
+    renderAppKeepingFocus(focusSnapshot);
+    return;
+  }
+  if (field === 'nickname') {
+    updateModalLiveUI();
+    return;
+  }
   renderAppKeepingFocus(focusSnapshot);
 }
 function handleLast4Input(val) {
+  const hadError = !!modalErrors.last4;
   const focusSnapshot = captureFocusSnapshot();
   const d = val.replace(/\D/g,'').slice(0,4);
   modalForm.last4 = d;
-  if (modalErrors.last4) modalErrors.last4 = '';
-  renderAppKeepingFocus(focusSnapshot);
+  const input = document.getElementById('modal-last4');
+  if (input && input.value !== d) {
+    input.value = d;
+  }
+  if (hadError) {
+    modalErrors.last4 = '';
+    renderAppKeepingFocus(focusSnapshot);
+    return;
+  }
+  updateModalLiveUI();
 }
 function togglePrimary() { modalForm.isPrimary = !modalForm.isPrimary; renderApp(); }
 
