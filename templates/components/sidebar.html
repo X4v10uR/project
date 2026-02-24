@@ -1,15 +1,15 @@
 {% with ns=request.resolver_match.namespace name=request.resolver_match.url_name %}
-<aside class="app-sidebar w-full md:fixed md:inset-y-0 md:left-0 md:w-60 bg-[#f4f5f8] border-r border-slate-200 flex flex-col z-30">
+<aside class="app-sidebar w-full md:fixed md:inset-y-0 md:left-0 md:w-60 flex flex-col z-30">
     <div class="px-5 py-6">
-        <a href="{% url 'dashboard:home' %}" class="inline-flex items-center gap-3">
+        <a href="{% url 'dashboard:home' %}" class="app-sidebar-brand">
             <span class="w-9 h-9 rounded-xl bg-[#171a35] text-white font-semibold text-sm flex items-center justify-center">S</span>
             <span class="text-2xl font-medium text-[#0f172a] tracking-tight">SubTracker</span>
         </a>
     </div>
 
-    <nav class="px-3 pb-5 space-y-1.5">
+    <nav class="app-sidebar-nav space-y-1.5">
         <a href="{% url 'dashboard:home' %}"
-           class="flex items-center gap-3 rounded-2xl px-4 py-2 text-base font-medium transition {% if ns == 'dashboard' %}bg-[#171a35] text-white shadow-sm{% else %}text-slate-500 hover:bg-white{% endif %}">
+           class="app-sidebar-link {% if ns == 'dashboard' %}is-active{% endif %}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h6v6H4V4zm0 10h6v6H4v-6zm10-10h6v6h-6V4zm0 10h6v6h-6v-6z"/>
             </svg>
@@ -17,7 +17,7 @@
         </a>
 
         <a href="{% url 'subscriptions:create' %}"
-           class="flex items-center gap-3 rounded-2xl px-4 py-2 text-base font-medium transition {% if ns == 'subscriptions' and name == 'create' %}bg-[#171a35] text-white shadow-sm{% else %}text-slate-500 hover:bg-white{% endif %}">
+           class="app-sidebar-link {% if ns == 'subscriptions' and name == 'create' %}is-active{% endif %}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14"/>
                 <circle cx="12" cy="12" r="9" stroke-width="2"></circle>
@@ -26,7 +26,7 @@
         </a>
 
         <a href="{% url 'subscriptions:list' %}"
-           class="flex items-center gap-3 rounded-2xl px-4 py-2 text-base font-medium transition {% if ns == 'subscriptions' and name != 'create' and name|slice:':5' != 'card_' %}bg-[#171a35] text-white shadow-sm{% else %}text-slate-500 hover:bg-white{% endif %}">
+           class="app-sidebar-link {% if ns == 'subscriptions' and name != 'create' and name|slice:':5' != 'card_' %}is-active{% endif %}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <rect x="3" y="6" width="18" height="12" rx="2" stroke-width="2"></rect>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18"/>
@@ -35,7 +35,7 @@
         </a>
 
         <a href="{% url 'subscriptions:card_list' %}"
-           class="flex items-center gap-3 rounded-2xl px-4 py-2 text-base font-medium transition {% if ns == 'subscriptions' and name|slice:':5' == 'card_' %}bg-[#171a35] text-white shadow-sm{% else %}text-slate-500 hover:bg-white{% endif %}">
+           class="app-sidebar-link {% if ns == 'subscriptions' and name|slice:':5' == 'card_' %}is-active{% endif %}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <rect x="2" y="5" width="20" height="14" rx="2" stroke-width="2"></rect>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2 10h20"/>
@@ -44,7 +44,7 @@
             <span>Cards</span>
         </a>
 
-        <span class="flex items-center gap-3 rounded-2xl px-4 py-2 text-base font-medium text-slate-500/80">
+        <span class="app-sidebar-link app-sidebar-static">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8a4 4 0 100 8 4 4 0 000-8zm8 4a8.04 8.04 0 01-.23 1.9l2.08 1.62-2 3.46-2.52-1a8.08 8.08 0 01-3.3 1.9l-.38 2.68h-4l-.38-2.68a8.08 8.08 0 01-3.3-1.9l-2.52 1-2-3.46 2.08-1.62A8.04 8.04 0 014 12c0-.65.08-1.29.23-1.9L2.15 8.48l2-3.46 2.52 1a8.08 8.08 0 013.3-1.9l.38-2.68h4l.38 2.68a8.08 8.08 0 013.3 1.9l2.52-1 2 3.46-2.08 1.62c.15.61.23 1.25.23 1.9z"/>
             </svg>
@@ -52,10 +52,10 @@
         </span>
     </nav>
 
-    <div class="mt-auto px-3 py-5 border-t border-slate-200">
+    <div class="app-sidebar-footer">
         <form action="{% url 'accounts:logout' %}" method="post">
             {% csrf_token %}
-            <button type="submit" class="w-full flex items-center gap-3 rounded-2xl px-4 py-2 text-base font-medium text-slate-500 hover:bg-white transition">
+            <button type="submit" class="app-sidebar-link w-full">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H3m0 0l4-4m-4 4l4 4m5 5h6a2 2 0 002-2V5a2 2 0 00-2-2h-6"/>
                 </svg>
