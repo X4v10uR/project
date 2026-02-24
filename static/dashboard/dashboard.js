@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     initBalanceTrendChart();
+    initBalanceTrendToggle();
     initActiveSubscriptionsScroller();
 });
 
@@ -35,13 +36,16 @@ function initBalanceTrendChart() {
         if (Array.isArray(parsed)) {
             points = parsed
                 .map(function (value) { return Number(value); })
-                .filter(function (value) { return Number.isFinite(value); });
+                .filter(function (value) {
+                    return typeof value === 'number' && isFinite(value);
+                });
         }
     } catch (error) {
         points = [];
     }
 
     if (!points.length) {
+        updateBalanceTrendMetrics([]);
         return;
     }
 
@@ -49,13 +53,22 @@ function initBalanceTrendChart() {
         points = [points[0], points[0]];
     }
 
-    const min = Math.min.apply(null, points);
-    const max = Math.max.apply(null, points);
+    updateBalanceTrendMetrics(points);
+
+    // Light smoothing to avoid harsh spikes and keep a trading-chart feel.
+    const smoothedPoints = points.map(function (point, index) {
+        const prev = points[Math.max(0, index - 1)];
+        const next = points[Math.min(points.length - 1, index + 1)];
+        return (prev * 0.25) + (point * 0.5) + (next * 0.25);
+    });
+
+    const min = Math.min.apply(null, smoothedPoints);
+    const max = Math.max.apply(null, smoothedPoints);
     const range = max - min || 1;
 
     const width = 100;
     const height = 32;
-    const topPadding = 2;
+    const topPadding = 3;
     const bottomPadding = 3;
     const leftPadding = 2;
     const rightPadding = 2;
@@ -63,7 +76,7 @@ function initBalanceTrendChart() {
     const graphHeight = height - topPadding - bottomPadding;
     const stepX = points.length > 1 ? graphWidth / (points.length - 1) : graphWidth;
 
-    const coordinates = points.map(function (point, index) {
+    const coordinates = smoothedPoints.map(function (point, index) {
         const ratio = (point - min) / range;
         return {
             x: leftPadding + (stepX * index),
@@ -71,33 +84,135 @@ function initBalanceTrendChart() {
         };
     });
 
-    const linePath = coordinates
-        .map(function (point, index) {
-            const command = index === 0 ? 'M' : 'L';
-            return command + ' ' + point.x.toFixed(2) + ' ' + point.y.toFixed(2);
-        })
-        .join(' ');
+    const linePath = buildSmoothPath(coordinates);
+    const svgNs = 'http://www.w3.org/2000/svg';
 
-    const firstPoint = coordinates[0];
-    const lastPoint = coordinates[coordinates.length - 1];
-    const floorY = (height - bottomPadding).toFixed(2);
-    const areaPath = linePath
-        + ' L ' + lastPoint.x.toFixed(2) + ' ' + floorY
-        + ' L ' + firstPoint.x.toFixed(2) + ' ' + floorY
-        + ' Z';
-    const gradientId = 'balance-trend-fill-' + Math.random().toString(36).slice(2, 9);
+    while (chart.firstChild) {
+        chart.removeChild(chart.firstChild);
+    }
 
-    chart.innerHTML = [
-        '<defs>',
-        '  <linearGradient id="' + gradientId + '" x1="0" y1="0" x2="0" y2="1">',
-        '    <stop offset="0%" stop-color="rgba(96, 165, 250, 0.32)" />',
-        '    <stop offset="100%" stop-color="rgba(96, 165, 250, 0)" />',
-        '  </linearGradient>',
-        '</defs>',
-        '<path d="' + areaPath + '" fill="url(#' + gradientId + ')" />',
-        '<path d="' + linePath + '" fill="none" stroke="#93c5fd" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />',
-        '<circle cx="' + lastPoint.x.toFixed(2) + '" cy="' + lastPoint.y.toFixed(2) + '" r="1.8" fill="#bfdbfe" />',
-    ].join('');
+    const glowLine = document.createElementNS(svgNs, 'path');
+    glowLine.setAttribute('d', linePath);
+    glowLine.setAttribute('fill', 'none');
+    glowLine.setAttribute('stroke', '#22c55e');
+    glowLine.setAttribute('stroke-width', '2.4');
+    glowLine.setAttribute('stroke-opacity', '0.2');
+    glowLine.setAttribute('stroke-linecap', 'round');
+    glowLine.setAttribute('stroke-linejoin', 'round');
+    glowLine.setAttribute('vector-effect', 'non-scaling-stroke');
+    chart.appendChild(glowLine);
+
+    const line = document.createElementNS(svgNs, 'path');
+    line.setAttribute('d', linePath);
+    line.setAttribute('fill', 'none');
+    line.setAttribute('stroke', '#2ee67d');
+    line.setAttribute('stroke-width', '1.05');
+    line.setAttribute('stroke-opacity', '0.98');
+    line.setAttribute('stroke-linecap', 'round');
+    line.setAttribute('stroke-linejoin', 'round');
+    line.setAttribute('vector-effect', 'non-scaling-stroke');
+    chart.appendChild(line);
+}
+
+function updateBalanceTrendMetrics(points) {
+    const totalNode = document.querySelector('.js-balance-trend-total');
+    const peakNode = document.querySelector('.js-balance-trend-peak');
+    const activeNode = document.querySelector('.js-balance-trend-active');
+    if (!totalNode || !peakNode || !activeNode) {
+        return;
+    }
+
+    if (!points.length) {
+        totalNode.textContent = '$0.00';
+        peakNode.textContent = '$0.00';
+        activeNode.textContent = '0/0';
+        return;
+    }
+
+    const total = points.reduce(function (sum, value) { return sum + value; }, 0);
+    const peak = Math.max.apply(null, points);
+    const activeDays = points.filter(function (value) { return value > 0; }).length;
+
+    totalNode.textContent = formatTrendAmount(total);
+    peakNode.textContent = formatTrendAmount(peak);
+    activeNode.textContent = String(activeDays) + '/' + String(points.length);
+}
+
+function formatTrendAmount(value) {
+    if (typeof value !== 'number' || !isFinite(value)) {
+        return '$0.00';
+    }
+
+    if (Math.abs(value) >= 1000) {
+        return '$' + value.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    }
+    return '$' + value.toFixed(2);
+}
+
+function initBalanceTrendToggle() {
+    const toggle = document.querySelector('.js-balance-trend-toggle');
+    const panel = document.querySelector('.js-balance-trend-panel');
+    if (!toggle || !panel) {
+        return;
+    }
+
+    const storageKey = 'dashboard.balanceTrendCollapsed';
+    let isCollapsed = false;
+    try {
+        isCollapsed = window.localStorage.getItem(storageKey) === '1';
+    } catch (error) {
+        isCollapsed = false;
+    }
+
+    const applyState = function () {
+        panel.classList.toggle('is-collapsed', isCollapsed);
+        toggle.classList.toggle('is-collapsed', isCollapsed);
+        toggle.setAttribute('aria-expanded', String(!isCollapsed));
+        toggle.setAttribute(
+            'aria-label',
+            isCollapsed ? 'Expand balance trend chart' : 'Collapse balance trend chart',
+        );
+        toggle.title = isCollapsed ? 'Expand chart' : 'Collapse chart';
+    };
+
+    applyState();
+
+    toggle.addEventListener('click', function () {
+        isCollapsed = !isCollapsed;
+        applyState();
+        try {
+            window.localStorage.setItem(storageKey, isCollapsed ? '1' : '0');
+        } catch (error) {
+            // Ignore storage write errors (private mode / blocked storage).
+        }
+    });
+}
+
+function buildSmoothPath(points) {
+    if (!points.length) {
+        return '';
+    }
+
+    if (points.length === 1) {
+        return 'M ' + points[0].x.toFixed(2) + ' ' + points[0].y.toFixed(2);
+    }
+
+    let path = 'M ' + points[0].x.toFixed(2) + ' ' + points[0].y.toFixed(2);
+    for (let index = 1; index < points.length; index += 1) {
+        const previous = points[index - 1];
+        const current = points[index];
+        const dx = current.x - previous.x;
+        const cp1x = previous.x + (dx * 0.45);
+        const cp1y = previous.y;
+        const cp2x = current.x - (dx * 0.45);
+        const cp2y = current.y;
+        path += ' C '
+            + cp1x.toFixed(2) + ' ' + cp1y.toFixed(2) + ', '
+            + cp2x.toFixed(2) + ' ' + cp2y.toFixed(2) + ', '
+            + current.x.toFixed(2) + ' ' + current.y.toFixed(2);
+    }
+
+    return path;
 }
 
 function initActiveSubscriptionsScroller() {

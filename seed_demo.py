@@ -1,65 +1,154 @@
 import os
 import django
-import random
-from datetime import date, timedelta
+from datetime import date, time, timedelta
+from decimal import Decimal
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'subly.settings')
 django.setup()
 
 from accounts.models import User
-from subscriptions.models import Subscription
+from subscriptions.models import Subscription, Transaction
+
+
+DEMO_EMAIL = 'demo@subly.com'
+DEMO_PASSWORD = 'demo1234'
+
+
+def _days_ago(base_date, days):
+    return base_date - timedelta(days=days)
+
 
 def seed_data():
-    # Create a demo user
-    demo_email = 'demo@subly.com'
-    user, created = User.objects.get_or_create(email=demo_email)
+    user, created = User.objects.get_or_create(email=DEMO_EMAIL)
+    user.set_password(DEMO_PASSWORD)
+    user.save()
+
     if created:
-        user.set_password('demo1234')
-        user.save()
-        print(f"Created demo user: {demo_email}")
+        print(f"Created demo user: {DEMO_EMAIL}")
+    else:
+        print(f"Updated demo user password: {DEMO_EMAIL}")
 
-    # Sample subscriptions
-    services = [
-        ('Netflix', 'Streaming', 'monthly', 15.99),
-        ('Spotify', 'Streaming', 'monthly', 9.99),
-        ('AWS', 'Cloud', 'monthly', 45.50),
-        ('GitHub', 'Software', 'monthly', 4.00),
-        ('Fitbit', 'Health', 'monthly', 50.00),
-        ('Adobe CC', 'Software', 'monthly', 52.99),
-        ('Disney+', 'Streaming', 'yearly', 79.99),
-        ('OpenAI', 'Software', 'monthly', 20.00),
-        ('Google One', 'Cloud', 'monthly', 20.00),
-        ('Youtube Premium', 'Music', 'monthly', 15.99),
-        ('Spotify', 'Music', 'monthly', 9.99),
-    ]
-
+    # Reset subscriptions so this script is deterministic every run.
     Subscription.objects.filter(user=user).delete()
+    print("Cleared existing demo subscriptions and related transactions.")
 
     today = date.today()
+    demo_subscriptions = [
+        {
+            'service_name': 'Netflix',
+            'category': 'Streaming',
+            'billing_cycle': 'monthly',
+            'cost': Decimal('15.99'),
+            'status': 'active',
+            'start_date': _days_ago(today, 220),
+        },
+        {
+            'service_name': 'Spotify',
+            'category': 'Music',
+            'billing_cycle': 'monthly',
+            'cost': Decimal('9.99'),
+            'status': 'active',
+            'start_date': _days_ago(today, 180),
+        },
+        {
+            'service_name': 'AWS',
+            'category': 'Cloud',
+            'billing_cycle': 'monthly',
+            'cost': Decimal('45.50'),
+            'status': 'active',
+            'start_date': _days_ago(today, 150),
+        },
+        {
+            'service_name': 'Notion',
+            'category': 'Software',
+            'billing_cycle': 'monthly',
+            'cost': Decimal('12.00'),
+            'status': 'active',
+            'start_date': _days_ago(today, 90),
+        },
+        {
+            'service_name': 'Disney+',
+            'category': 'Streaming',
+            'billing_cycle': 'yearly',
+            'cost': Decimal('79.99'),
+            'status': 'active',
+            'start_date': _days_ago(today, 360),
+        },
+        {
+            'service_name': 'GitHub',
+            'category': 'Software',
+            'billing_cycle': 'monthly',
+            'cost': Decimal('4.00'),
+            'status': 'paused',
+            'start_date': _days_ago(today, 110),
+        },
+        {
+            'service_name': 'Adobe CC',
+            'category': 'Software',
+            'billing_cycle': 'monthly',
+            'cost': Decimal('52.99'),
+            'status': 'cancelled',
+            'start_date': _days_ago(today, 260),
+        },
+    ]
 
-    for name, cat, cycle, cost in services:
-        # Random start date in the last few months
-        days_ago = random.randint(30, 180)
-        start_date = today - timedelta(days=days_ago)
-        
-        status = random.choice(['active', 'paused', 'cancelled'])
-        
-        sub = Subscription.objects.create(
+    subscriptions_by_service = {}
+    for entry in demo_subscriptions:
+        subscription = Subscription.objects.create(
             user=user,
-            service_name=name,
-            category=cat,
-            billing_cycle=cycle,
-            cost=cost,
+            service_name=entry['service_name'],
+            category=entry['category'],
+            billing_cycle=entry['billing_cycle'],
+            cost=entry['cost'],
             currency='USD',
-            renewal_time='09:00',
+            renewal_time=time(9, 0),
             split_type='equal',
-            account_email='test@test.com',
-            account_password='password',
-            start_date=start_date,
-            status=status,
-            notes=f"Personal {name} subscription."
+            account_email='demo@subly.com',
+            account_password='demo-password',
+            start_date=entry['start_date'],
+            status=entry['status'],
+            notes=f"Seeded demo subscription for {entry['service_name']}.",
         )
-        print(f"Created subscription: {name}")
+        subscriptions_by_service[entry['service_name']] = subscription
+        print(
+            f"Created subscription: {entry['service_name']} "
+            f"({entry['status']}) start={entry['start_date']}"
+        )
+
+    # Fixed 30-day trend data for dashboard graph testing.
+    # Each tuple: (service_name, days_ago, amount)
+    trend_transactions = [
+        ('Netflix', 29, Decimal('15.99')),
+        ('Spotify', 26, Decimal('9.99')),
+        ('AWS', 22, Decimal('45.50')),
+        ('Notion', 19, Decimal('12.00')),
+        ('Netflix', 15, Decimal('15.99')),
+        ('Disney+', 12, Decimal('79.99')),
+        ('Spotify', 8, Decimal('9.99')),
+        ('AWS', 5, Decimal('45.50')),
+        ('Notion', 2, Decimal('12.00')),
+    ]
+
+    for service_name, days_ago, amount in trend_transactions:
+        subscription = subscriptions_by_service.get(service_name)
+        if not subscription:
+            continue
+
+        charge_date = _days_ago(today, days_ago)
+        Transaction.objects.create(
+            user=user,
+            subscription=subscription,
+            service_name_snapshot=service_name,
+            amount=amount,
+            currency='USD',
+            charged_for_date=charge_date,
+            source=Transaction.SOURCE_RENEWAL,
+        )
+        print(
+            f"Created transaction: {service_name} "
+            f"date={charge_date.isoformat()} amount=${amount}"
+        )
+
 
 if __name__ == '__main__':
     seed_data()
