@@ -18,8 +18,87 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    initBalanceTrendChart();
     initActiveSubscriptionsScroller();
 });
+
+function initBalanceTrendChart() {
+    const chart = document.querySelector('.js-balance-trend-graph');
+    const dataNode = document.getElementById('balance-trend-points');
+    if (!chart || !dataNode) {
+        return;
+    }
+
+    let points = [];
+    try {
+        const parsed = JSON.parse(dataNode.textContent || '[]');
+        if (Array.isArray(parsed)) {
+            points = parsed
+                .map(function (value) { return Number(value); })
+                .filter(function (value) { return Number.isFinite(value); });
+        }
+    } catch (error) {
+        points = [];
+    }
+
+    if (!points.length) {
+        return;
+    }
+
+    if (points.length === 1) {
+        points = [points[0], points[0]];
+    }
+
+    const min = Math.min.apply(null, points);
+    const max = Math.max.apply(null, points);
+    const range = max - min || 1;
+
+    const width = 100;
+    const height = 32;
+    const topPadding = 2;
+    const bottomPadding = 3;
+    const leftPadding = 2;
+    const rightPadding = 2;
+    const graphWidth = width - leftPadding - rightPadding;
+    const graphHeight = height - topPadding - bottomPadding;
+    const stepX = points.length > 1 ? graphWidth / (points.length - 1) : graphWidth;
+
+    const coordinates = points.map(function (point, index) {
+        const ratio = (point - min) / range;
+        return {
+            x: leftPadding + (stepX * index),
+            y: topPadding + (graphHeight * (1 - ratio)),
+        };
+    });
+
+    const linePath = coordinates
+        .map(function (point, index) {
+            const command = index === 0 ? 'M' : 'L';
+            return command + ' ' + point.x.toFixed(2) + ' ' + point.y.toFixed(2);
+        })
+        .join(' ');
+
+    const firstPoint = coordinates[0];
+    const lastPoint = coordinates[coordinates.length - 1];
+    const floorY = (height - bottomPadding).toFixed(2);
+    const areaPath = linePath
+        + ' L ' + lastPoint.x.toFixed(2) + ' ' + floorY
+        + ' L ' + firstPoint.x.toFixed(2) + ' ' + floorY
+        + ' Z';
+    const gradientId = 'balance-trend-fill-' + Math.random().toString(36).slice(2, 9);
+
+    chart.innerHTML = [
+        '<defs>',
+        '  <linearGradient id="' + gradientId + '" x1="0" y1="0" x2="0" y2="1">',
+        '    <stop offset="0%" stop-color="rgba(96, 165, 250, 0.32)" />',
+        '    <stop offset="100%" stop-color="rgba(96, 165, 250, 0)" />',
+        '  </linearGradient>',
+        '</defs>',
+        '<path d="' + areaPath + '" fill="url(#' + gradientId + ')" />',
+        '<path d="' + linePath + '" fill="none" stroke="#93c5fd" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />',
+        '<circle cx="' + lastPoint.x.toFixed(2) + '" cy="' + lastPoint.y.toFixed(2) + '" r="1.8" fill="#bfdbfe" />',
+    ].join('');
+}
 
 function initActiveSubscriptionsScroller() {
     const viewport = document.querySelector('.js-active-subscriptions-viewport');

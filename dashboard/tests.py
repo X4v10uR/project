@@ -29,7 +29,9 @@ class DashboardViewTest(TestCase):
         self.assertTemplateUsed(response, 'dashboard/dashboard.html')
         for key in ['total_active', 'total_paused', 'total_cancelled', 'total_shared',
                      'monthly_spend', 'yearly_spend', 'avg_monthly_spend',
-                     'upcoming_renewals', 'status_dist']:
+                     'upcoming_renewals', 'status_dist',
+                     'balance_trend_points', 'balance_trend_start_label',
+                     'balance_trend_end_label', 'balance_trend_has_activity']:
             self.assertIn(key, response.context)
 
     def test_dashboard_fixed_slot_sections_are_padded(self):
@@ -91,6 +93,47 @@ class DashboardViewTest(TestCase):
 
         self.assertIn('$5.00', display)
         self.assertIn('EUR 7.00', display)
+
+    def test_balance_trend_points_cover_30_days(self):
+        response = self.client.get(reverse('dashboard:home'))
+        points = response.context['balance_trend_points']
+
+        self.assertEqual(len(points), 30)
+        self.assertEqual(
+            response.context['balance_trend_start_label'],
+            (date.today() - timedelta(days=29)).strftime('%b %d'),
+        )
+        self.assertEqual(
+            response.context['balance_trend_end_label'],
+            date.today().strftime('%b %d'),
+        )
+
+    def test_balance_trend_uses_recent_transactions(self):
+        subscription = Subscription.objects.create(
+            user=self.user,
+            service_name='Spotify',
+            category='Music',
+            billing_cycle='monthly',
+            cost=Decimal('9.99'),
+            start_date=date.today(),
+            status='active',
+        )
+
+        transaction_date = date.today() - timedelta(days=2)
+        subscription.transactions.create(
+            user=self.user,
+            service_name_snapshot='Spotify',
+            amount=Decimal('9.99'),
+            currency='USD',
+            charged_for_date=transaction_date,
+        )
+
+        response = self.client.get(reverse('dashboard:home'))
+        points = response.context['balance_trend_points']
+
+        self.assertEqual(len(points), 30)
+        self.assertTrue(response.context['balance_trend_has_activity'])
+        self.assertAlmostEqual(points[-3], 9.99, places=2)
 
     def test_dashboard_refreshes_stale_renewal_dates(self):
         today = date.today()

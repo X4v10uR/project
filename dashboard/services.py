@@ -47,6 +47,35 @@ def _format_currency_breakdown(totals):
     return ' + '.join(parts)
 
 
+def _build_balance_trend_points(user, today, window_days=30):
+    window_days = max(2, int(window_days or 30))
+    start_date = today - timedelta(days=window_days - 1)
+    totals_by_date = {}
+
+    recent_transactions = Transaction.objects.filter(
+        user=user,
+        charged_for_date__range=[start_date, today],
+    ).only('charged_for_date', 'amount')
+    for transaction in recent_transactions:
+        running_total = totals_by_date.get(transaction.charged_for_date, Decimal('0.00'))
+        totals_by_date[transaction.charged_for_date] = running_total + transaction.amount
+
+    points = []
+    has_activity = False
+    for offset in range(window_days):
+        point_date = start_date + timedelta(days=offset)
+        amount = _quantize_money(totals_by_date.get(point_date, Decimal('0.00')))
+        has_activity = has_activity or amount > Decimal('0.00')
+        points.append(float(amount))
+
+    return {
+        'points': points,
+        'start_label': start_date.strftime('%b %d'),
+        'end_label': today.strftime('%b %d'),
+        'has_activity': has_activity,
+    }
+
+
 def _monthly_cost(subscription):
     cost = subscription.user_cost if subscription.is_shared else subscription.cost
     if subscription.billing_cycle == 'weekly':
@@ -362,6 +391,7 @@ def build_dashboard_view_model(user, today=None):
 
     next_renewal = upcoming_renewals.first()
     chip_date = next_renewal.renewal_date.strftime('%m/%d') if next_renewal and next_renewal.renewal_date else '--/--'
+    balance_trend = _build_balance_trend_points(user, today, window_days=30)
 
     return {
         # Header / actions
@@ -373,6 +403,10 @@ def build_dashboard_view_model(user, today=None):
         # Main balance block
         'monthly_spend_display': _format_currency_breakdown(monthly_spend_by_currency),
         'balance_chip_date': chip_date,
+        'balance_trend_points': balance_trend['points'],
+        'balance_trend_start_label': balance_trend['start_label'],
+        'balance_trend_end_label': balance_trend['end_label'],
+        'balance_trend_has_activity': balance_trend['has_activity'],
         # Dashboard sections
         'upcoming_bills': upcoming_bills,
         'subscriptions_panel': subscriptions_panel,
