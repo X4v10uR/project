@@ -223,16 +223,101 @@
         border-color: rgba(148, 163, 184, 0.35);
         background: rgba(30, 41, 59, 0.55);
     }
+
+    .dashboard-shell {
+        width: min(100%, 84rem);
+        max-width: 100%;
+        margin-inline: auto;
+        overflow-x: clip;
+    }
+
+    .dashboard-main-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.875rem;
+        overflow-x: clip;
+    }
+
+    .dashboard-col {
+        min-width: 0;
+        overflow-x: clip;
+    }
+
+    .dashboard-section-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }
+
+    .dashboard-upcoming-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 13.5rem), 1fr));
+        gap: 0.625rem;
+    }
+
+    .dashboard-row-content {
+        min-width: 0;
+    }
+
+    .dashboard-row-content p {
+        overflow-wrap: anywhere;
+    }
+
+    .dashboard-col.space-y-4 > :not([hidden]) ~ :not([hidden]) {
+        margin-top: 0.875rem;
+    }
+
+    .dashboard-col .space-y-2\.5 > :not([hidden]) ~ :not([hidden]) {
+        margin-top: 0.5rem;
+    }
+
+    .dashboard-balance-card {
+        padding: 1rem;
+    }
+
+    .dashboard-upcoming-card {
+        padding: 0.85rem;
+    }
+
+    .dashboard-subscription-row {
+        padding: 0.8rem;
+    }
+
+    .dashboard-panel-card {
+        padding: 0.9rem;
+    }
+
+    .dashboard-active-card {
+        padding: 0.7rem;
+    }
+
+    .dashboard-recent-row {
+        padding: 0.45rem 0.55rem;
+    }
+
+    @media (min-width: 1400px) {
+        .dashboard-main-grid {
+            grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
+        }
+    }
+
+    @media (min-width: 768px) and (max-width: 1439px) {
+        .dashboard-shell {
+            max-width: 72rem;
+        }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 
     <!-- Main Container -->
-    <div class="max-w-[76rem] mx-auto">
+    <div class="dashboard-shell">
 
         <!-- Header -->
-        <div class="flex items-center justify-between mb-5">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-5">
             <div class="flex items-center gap-3">
                 <div class="w-9 h-9 bg-gray-300 rounded-full flex items-center justify-center">
                     <span class="text-sm text-gray-600 font-medium">{{ avatar_initial }}</span>
@@ -247,14 +332,14 @@
         </div>
 
         <!-- Grid Layout -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="dashboard-main-grid">
 
             <!-- Left Column -->
-            <div class="lg:col-span-2 space-y-4">
+            <div class="dashboard-col space-y-4">
 
                 <!-- Balance Card -->
-                <div class="balance-card text-white p-5 rounded-3xl shadow-lg">
-                    <div class="flex justify-between items-start mb-3">
+                <div class="dashboard-balance-card balance-card text-white p-5 rounded-3xl shadow-lg">
+                    <div class="flex flex-wrap justify-between items-start gap-2 mb-3">
                         <div>
                             <p class="text-gray-400 text-xs mb-1.5">Your balance</p>
                             <h2 class="text-3xl font-semibold js-balance-display">{{ balance_display }}</h2>
@@ -279,7 +364,7 @@
                     </div>
                     <div class="balance-adjust-editor hidden js-balance-adjust-editor" data-url="{% url 'dashboard:adjust_balance' %}">
                         <label for="balance-adjust-input" class="text-[11px] text-gray-300 block mb-1.5">Set displayed balance (USD)</label>
-                        <div class="flex items-center gap-2">
+                        <div class="flex flex-wrap items-center gap-2">
                             <input id="balance-adjust-input" type="number" step="0.01" class="balance-adjust-input js-balance-adjust-input" value="{{ balance_adjusted_amount }}">
                             <button type="button" class="balance-adjust-button balance-adjust-button-save js-balance-adjust-save">Save</button>
                             <button type="button" class="balance-adjust-button balance-adjust-button-cancel js-balance-adjust-cancel">Cancel</button>
@@ -318,15 +403,15 @@
 
                 <!-- Upcoming Bills -->
                 <div>
-                    <div class="flex justify-between items-center mb-3">
+                    <div class="dashboard-section-header mb-3">
                         <h3 class="text-xl font-semibold text-gray-800">Upcoming Bill</h3>
                         <a href="{{ upcoming_view_all_url }}" class="text-sm text-gray-600 hover:text-gray-800 px-3 py-1.5 border border-gray-300 rounded-full">View All</a>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                    <div class="dashboard-upcoming-grid">
                         {% for bill in upcoming_bills %}
                         <div
-                            class="{{ bill.bg_class }} p-4 rounded-3xl card-hover {% if bill.is_placeholder %}opacity-70{% else %}cursor-pointer js-clickable-card{% endif %}"
+                            class="dashboard-upcoming-card {{ bill.bg_class }} p-4 rounded-3xl card-hover {% if bill.is_placeholder %}opacity-70{% else %}cursor-pointer js-clickable-card{% endif %}"
                             {% if bill.bg_style %}style="{{ bill.bg_style }}"{% endif %}
                             {% if not bill.is_placeholder %}data-url="{{ bill.edit_url }}"{% endif %}
                         >
@@ -351,7 +436,7 @@
 
                 <!-- Subscriptions Section -->
                 <div>
-                    <div class="flex justify-between items-center mb-3">
+                    <div class="dashboard-section-header mb-3">
                         <div>
                             <h3 class="text-xl font-semibold text-gray-800">Subscriptions</h3>
                             <p class="text-sm text-gray-500">Subscribe multiple platforms only in one place.</p>
@@ -361,8 +446,8 @@
 
                     <div class="space-y-2.5">
                         {% for item in subscriptions_panel %}
-                        <div class="{{ item.bg_class }} p-4 rounded-3xl flex items-center justify-between card-hover {% if item.is_placeholder %}opacity-70{% endif %}" {% if item.bg_style %}style="{{ item.bg_style }}"{% endif %}>
-                            <div class="flex items-center gap-3">
+                        <div class="dashboard-subscription-row {{ item.bg_class }} p-4 rounded-3xl flex items-center justify-between card-hover {% if item.is_placeholder %}opacity-70{% endif %}" {% if item.bg_style %}style="{{ item.bg_style }}"{% endif %}>
+                            <div class="flex items-center gap-3 min-w-0">
                                 <div class="w-10 h-10 bg-white/40 backdrop-blur rounded-full flex items-center justify-center overflow-hidden">
                                     {% if item.icon_url %}
                                     <img src="{{ item.icon_url }}" alt="{{ item.title }}" class="w-6 h-6"
@@ -370,7 +455,7 @@
                                     {% endif %}
                                     <span class="w-6 h-6 items-center justify-center text-sm font-semibold {% if item.icon_url %}hidden{% else %}flex{% endif %}">{{ item.icon_fallback }}</span>
                                 </div>
-                                <div>
+                                <div class="dashboard-row-content">
                                     <p class="font-medium text-gray-800 text-sm">{{ item.title }}</p>
                                     <p class="text-gray-600 text-sm">{{ item.subtitle }}</p>
                                 </div>
@@ -392,18 +477,18 @@
             </div>
 
             <!-- Right Column -->
-            <div class="space-y-4">
+            <div class="dashboard-col space-y-4">
 
                 <!-- Active Subscriptions -->
-                <div class="bg-white p-4 rounded-3xl shadow-sm">
+                <div class="dashboard-panel-card bg-white p-4 rounded-3xl shadow-sm">
                     <h3 class="text-xl font-semibold text-gray-800 mb-3">Active Subscriptions</h3>
 
                     <div class="active-subscriptions-viewport js-active-subscriptions-viewport" data-visible-cards="2" data-scroll-interval="1">
                         <div class="active-subscriptions-track js-active-subscriptions-track">
                             {% for active in active_subscriptions_panel %}
-                            <div class="{{ active.bg_class }} p-3 rounded-2xl active-subscription-card {% if active.is_placeholder %}opacity-70{% endif %}" {% if active.bg_style %}style="{{ active.bg_style }}"{% endif %}>
+                            <div class="dashboard-active-card {{ active.bg_class }} p-3 rounded-2xl active-subscription-card {% if active.is_placeholder %}opacity-70{% endif %}" {% if active.bg_style %}style="{{ active.bg_style }}"{% endif %}>
                                 <div class="flex items-center justify-between mb-2">
-                                    <div class="flex items-center gap-3">
+                                    <div class="flex items-center gap-3 min-w-0">
                                         <div class="w-8 h-8 bg-white/40 backdrop-blur rounded-full flex items-center justify-center overflow-hidden">
                                             {% if active.icon_url %}
                                             <img src="{{ active.icon_url }}" alt="{{ active.title }}" class="w-4 h-4"
@@ -411,7 +496,7 @@
                                             {% endif %}
                                             <span class="w-4 h-4 items-center justify-center text-xs font-semibold {% if active.icon_url %}hidden{% else %}flex{% endif %}">{{ active.icon_fallback }}</span>
                                         </div>
-                                        <div>
+                                        <div class="dashboard-row-content">
                                             <p class="font-medium text-gray-800 text-sm">{{ active.title }}</p>
                                             <span class="text-xs bg-white/50 px-2 py-1 rounded-full text-gray-700">{{ active.duration_label }}</span>
                                         </div>
@@ -438,17 +523,17 @@
                 </div>
 
                 <!-- Recent Transactions -->
-                <div class="bg-white p-4 rounded-3xl shadow-sm">
+                <div class="dashboard-panel-card bg-white p-4 rounded-3xl shadow-sm">
                     <h3 class="text-xl font-semibold text-gray-800 mb-3">Recent Transactions</h3>
 
                     <div class="space-y-2.5">
                         {% for txn in recent_transactions %}
-                        <div class="flex items-center justify-between p-2 bg-gray-50 rounded-xl {% if txn.is_placeholder %}opacity-70{% endif %}">
-                            <div class="flex items-center gap-3">
+                        <div class="dashboard-recent-row flex items-center justify-between p-2 bg-gray-50 rounded-xl {% if txn.is_placeholder %}opacity-70{% endif %}">
+                            <div class="flex items-center gap-3 min-w-0">
                                 <div class="w-8 h-8 {{ txn.bg_class }} rounded-full flex items-center justify-center" {% if txn.swatch_style %}style="{{ txn.swatch_style }}"{% endif %}>
                                     <span class="text-xs font-semibold text-gray-800">{{ txn.title|slice:":1"|upper }}</span>
                                 </div>
-                                <div>
+                                <div class="dashboard-row-content">
                                     <p class="font-medium text-gray-800 text-sm">{{ txn.title }}</p>
                                     <p class="text-xs text-gray-500">{{ txn.timestamp }}</p>
                                 </div>

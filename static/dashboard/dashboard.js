@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', function () {
     initBalanceTrendToggle();
     initBalanceAdjuster();
     initActiveSubscriptionsScroller();
+    initMinorOverflowGuard();
 });
 
 function getCookie(name) {
@@ -483,4 +484,46 @@ function initActiveSubscriptionsScroller() {
     });
 
     window.addEventListener('resize', setViewportHeight);
+}
+
+function initMinorOverflowGuard() {
+    const maxHorizontalOverflowPx = 8;
+    const maxVerticalOverflowPx = 20;
+
+    const applyGuard = function () {
+        const root = document.documentElement;
+        const body = document.body;
+        if (!root || !body) {
+            return;
+        }
+
+        const horizontalOverflow = Math.max(0, Math.ceil(root.scrollWidth - root.clientWidth));
+        const verticalOverflow = Math.max(0, Math.ceil(root.scrollHeight - root.clientHeight));
+
+        if (horizontalOverflow > 0 && horizontalOverflow <= maxHorizontalOverflowPx) {
+            root.style.overflowX = 'hidden';
+            body.style.overflowX = 'hidden';
+        }
+
+        if (verticalOverflow > 0 && verticalOverflow <= maxVerticalOverflowPx) {
+            root.style.overflowY = 'hidden';
+            body.style.overflowY = 'hidden';
+        }
+    };
+
+    let rafId = null;
+    const scheduleGuard = function () {
+        if (rafId !== null) {
+            return;
+        }
+        rafId = window.requestAnimationFrame(function () {
+            rafId = null;
+            applyGuard();
+        });
+    };
+
+    scheduleGuard();
+    window.addEventListener('load', scheduleGuard);
+    window.addEventListener('resize', scheduleGuard);
+    window.setTimeout(scheduleGuard, 0);
 }
