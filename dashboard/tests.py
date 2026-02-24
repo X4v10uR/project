@@ -1,3 +1,4 @@
+import json
 from datetime import date, timedelta
 from decimal import Decimal
 from urllib.parse import parse_qs, urlparse
@@ -8,6 +9,7 @@ from django.urls import reverse
 
 from dashboard.services import _days_left_text
 from subscriptions.models import Subscription
+from dashboard.models import BalanceAdjustment
 
 User = get_user_model()
 
@@ -31,7 +33,8 @@ class DashboardViewTest(TestCase):
                      'monthly_spend', 'yearly_spend', 'avg_monthly_spend',
                      'upcoming_renewals', 'status_dist',
                      'balance_trend_points', 'balance_trend_start_label',
-                     'balance_trend_end_label', 'balance_trend_has_activity']:
+                     'balance_trend_end_label', 'balance_trend_has_activity',
+                     'balance_display', 'balance_base_display', 'balance_adjustment_display']:
             self.assertIn(key, response.context)
 
     def test_dashboard_fixed_slot_sections_are_padded(self):
@@ -134,6 +137,63 @@ class DashboardViewTest(TestCase):
         self.assertEqual(len(points), 30)
         self.assertTrue(response.context['balance_trend_has_activity'])
         self.assertAlmostEqual(points[-3], 9.99, places=2)
+
+    def test_balance_display_includes_manual_adjustment(self):
+        Subscription.objects.create(
+            user=self.user,
+            service_name='Streaming Service',
+            category='Streaming',
+            billing_cycle='monthly',
+            cost=Decimal('20.00'),
+            currency='USD',
+            start_date=date.today(),
+            status='active',
+        )
+        BalanceAdjustment.objects.create(user=self.user, amount=Decimal('5.25'))
+
+        response = self.client.get(reverse('dashboard:home'))
+        self.assertEqual(response.context['balance_display'], '$25.25')
+        self.assertEqual(response.context['balance_base_display'], '$20.00')
+        self.assertEqual(response.context['balance_adjustment_display'], '+$5.25')
+
+    def test_adjust_balance_endpoint_sets_target_balance(self):
+        Subscription.objects.create(
+            user=self.user,
+            service_name='Cloud Service',
+            category='Cloud',
+            billing_cycle='monthly',
+            cost=Decimal('40.00'),
+            currency='USD',
+            start_date=date.today(),
+            status='active',
+        )
+
+        response = self.client.post(
+            reverse('dashboard:adjust_balance'),
+            data=json.dumps({'target_balance': '55.50'}),
+            content_type='application/json',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload['ok'])
+        self.assertEqual(payload['balance_display'], '$55.50')
+        self.assertEqual(payload['balance_base_display'], '$40.00')
+        self.assertEqual(payload['balance_adjustment_display'], '+$15.50')
+
+        adjustment = BalanceAdjustment.objects.get(user=self.user)
+        self.assertEqual(adjustment.amount, Decimal('15.50'))
+
+    def test_adjust_balance_endpoint_rejects_invalid_amount(self):
+        response = self.client.post(
+            reverse('dashboard:adjust_balance'),
+            data=json.dumps({'target_balance': 'not-a-number'}),
+            content_type='application/json',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(response.status_code, 400)
+        payload = response.json()
+        self.assertFalse(payload['ok'])
 
     def test_dashboard_refreshes_stale_renewal_dates(self):
         today = date.today()

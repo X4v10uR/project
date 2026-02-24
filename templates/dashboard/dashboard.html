@@ -139,6 +139,90 @@
         font-weight: 600;
         line-height: 1.1;
     }
+
+    .balance-adjust-meta {
+        margin-top: 0.35rem;
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        flex-wrap: wrap;
+    }
+
+    .balance-adjust-pill {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 9999px;
+        padding: 0.22rem 0.5rem;
+        font-size: 11px;
+        line-height: 1;
+        color: rgb(203 213 225);
+        background: rgba(51, 65, 85, 0.35);
+    }
+
+    .balance-adjust-action {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid rgba(34, 197, 94, 0.45);
+        border-radius: 9999px;
+        padding: 0.22rem 0.6rem;
+        font-size: 11px;
+        line-height: 1;
+        color: rgb(134 239 172);
+        background: rgba(22, 101, 52, 0.25);
+        transition: background-color 140ms ease, border-color 140ms ease;
+    }
+
+    .balance-adjust-action:hover {
+        background: rgba(22, 101, 52, 0.4);
+        border-color: rgba(74, 222, 128, 0.7);
+    }
+
+    .balance-adjust-editor {
+        margin-top: 0.7rem;
+        background: rgba(15, 23, 42, 0.45);
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        border-radius: 0.75rem;
+        padding: 0.6rem;
+    }
+
+    .balance-adjust-input {
+        width: 100%;
+        height: 2rem;
+        padding: 0.25rem 0.55rem;
+        border-radius: 0.55rem;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(15, 23, 42, 0.65);
+        color: rgb(226 232 240);
+        font-size: 0.875rem;
+        outline: none;
+    }
+
+    .balance-adjust-input:focus {
+        border-color: rgba(74, 222, 128, 0.75);
+        box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
+    }
+
+    .balance-adjust-button {
+        height: 2rem;
+        border-radius: 0.55rem;
+        border: 1px solid transparent;
+        padding: 0 0.7rem;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1;
+    }
+
+    .balance-adjust-button-save {
+        color: rgb(22, 101, 52);
+        background: rgb(134, 239, 172);
+    }
+
+    .balance-adjust-button-cancel {
+        color: rgb(226 232 240);
+        border-color: rgba(148, 163, 184, 0.35);
+        background: rgba(30, 41, 59, 0.55);
+    }
 </style>
 {% endblock %}
 
@@ -173,7 +257,12 @@
                     <div class="flex justify-between items-start mb-3">
                         <div>
                             <p class="text-gray-400 text-xs mb-1.5">Your balance</p>
-                            <h2 class="text-3xl font-semibold">{{ monthly_spend_display }}</h2>
+                            <h2 class="text-3xl font-semibold js-balance-display">{{ balance_display }}</h2>
+                            <div class="balance-adjust-meta">
+                                <span class="balance-adjust-pill js-balance-base-pill">Base {{ balance_base_display }}</span>
+                                <span class="balance-adjust-pill js-balance-adjustment-pill">Adj {{ balance_adjustment_display }}</span>
+                                <button type="button" class="balance-adjust-action js-balance-edit-open">Adjust</button>
+                            </div>
                         </div>
                         <button
                             type="button"
@@ -187,6 +276,15 @@
                                 <span class="balance-chip-switch-knob"></span>
                             </span>
                         </button>
+                    </div>
+                    <div class="balance-adjust-editor hidden js-balance-adjust-editor" data-url="{% url 'dashboard:adjust_balance' %}">
+                        <label for="balance-adjust-input" class="text-[11px] text-gray-300 block mb-1.5">Set displayed balance (USD)</label>
+                        <div class="flex items-center gap-2">
+                            <input id="balance-adjust-input" type="number" step="0.01" class="balance-adjust-input js-balance-adjust-input" value="{{ balance_adjusted_amount }}">
+                            <button type="button" class="balance-adjust-button balance-adjust-button-save js-balance-adjust-save">Save</button>
+                            <button type="button" class="balance-adjust-button balance-adjust-button-cancel js-balance-adjust-cancel">Cancel</button>
+                        </div>
+                        <p class="text-[10px] text-gray-400 mt-1.5 js-balance-adjust-status" role="status" aria-live="polite"></p>
                     </div>
                     <div id="balance-trend-panel" class="balance-trend-panel js-balance-trend-panel">
                         <div class="balance-trend-graph-wrap">
@@ -369,5 +467,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'dashboard/dashboard.js' %}?v=20260224-3"></script>
+<script src="{% static 'dashboard/dashboard.js' %}?v=20260224-4"></script>
 {% endblock %}

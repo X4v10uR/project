@@ -20,8 +20,24 @@ document.addEventListener('DOMContentLoaded', function () {
 
     initBalanceTrendChart();
     initBalanceTrendToggle();
+    initBalanceAdjuster();
     initActiveSubscriptionsScroller();
 });
+
+function getCookie(name) {
+    if (!document.cookie) {
+        return null;
+    }
+
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i += 1) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === name + '=') {
+            return decodeURIComponent(cookie.substring(name.length + 1));
+        }
+    }
+    return null;
+}
 
 function initBalanceTrendChart() {
     const chart = document.querySelector('.js-balance-trend-graph');
@@ -184,6 +200,129 @@ function initBalanceTrendToggle() {
             window.localStorage.setItem(storageKey, isCollapsed ? '1' : '0');
         } catch (error) {
             // Ignore storage write errors (private mode / blocked storage).
+        }
+    });
+}
+
+function initBalanceAdjuster() {
+    const editor = document.querySelector('.js-balance-adjust-editor');
+    if (!editor) {
+        return;
+    }
+
+    const openButton = document.querySelector('.js-balance-edit-open');
+    const cancelButton = editor.querySelector('.js-balance-adjust-cancel');
+    const saveButton = editor.querySelector('.js-balance-adjust-save');
+    const input = editor.querySelector('.js-balance-adjust-input');
+    const status = editor.querySelector('.js-balance-adjust-status');
+    const updateUrl = editor.dataset.url;
+    if (!openButton || !cancelButton || !saveButton || !input || !updateUrl) {
+        return;
+    }
+
+    const showEditor = function () {
+        editor.classList.remove('hidden');
+        input.focus();
+        input.select();
+    };
+
+    const hideEditor = function () {
+        editor.classList.add('hidden');
+        if (status) {
+            status.textContent = '';
+        }
+    };
+
+    openButton.addEventListener('click', function () {
+        if (editor.classList.contains('hidden')) {
+            showEditor();
+            return;
+        }
+        hideEditor();
+    });
+
+    cancelButton.addEventListener('click', hideEditor);
+
+    const applyBalanceSnapshot = function (payload) {
+        const balanceNode = document.querySelector('.js-balance-display');
+        const basePillNode = document.querySelector('.js-balance-base-pill');
+        const adjustmentPillNode = document.querySelector('.js-balance-adjustment-pill');
+        if (balanceNode && payload.balance_display) {
+            balanceNode.textContent = payload.balance_display;
+        }
+        if (basePillNode && payload.balance_base_display) {
+            basePillNode.textContent = 'Base ' + payload.balance_base_display;
+        }
+        if (adjustmentPillNode && payload.balance_adjustment_display) {
+            adjustmentPillNode.textContent = 'Adj ' + payload.balance_adjustment_display;
+        }
+        if (typeof payload.balance_adjusted_amount === 'number') {
+            input.value = payload.balance_adjusted_amount.toFixed(2);
+        }
+    };
+
+    const submitUpdate = function () {
+        const value = Number(input.value);
+        if (!isFinite(value)) {
+            if (status) {
+                status.textContent = 'Please enter a valid amount.';
+            }
+            return;
+        }
+
+        saveButton.disabled = true;
+        saveButton.textContent = 'Saving...';
+        if (status) {
+            status.textContent = '';
+        }
+
+        fetch(updateUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': getCookie('csrftoken') || '',
+            },
+            body: JSON.stringify({ target_balance: value }),
+        })
+            .then(function (response) {
+                return response.json().catch(function () { return {}; }).then(function (data) {
+                    return { ok: response.ok, data: data };
+                });
+            })
+            .then(function (result) {
+                if (!result.ok || result.data.ok === false) {
+                    const message = result.data.message || 'Failed to update balance.';
+                    throw new Error(message);
+                }
+
+                applyBalanceSnapshot(result.data);
+                if (status) {
+                    status.textContent = 'Balance updated.';
+                }
+                window.setTimeout(function () {
+                    hideEditor();
+                }, 350);
+            })
+            .catch(function (error) {
+                if (status) {
+                    status.textContent = error.message || 'Failed to update balance.';
+                }
+            })
+            .finally(function () {
+                saveButton.disabled = false;
+                saveButton.textContent = 'Save';
+            });
+    };
+
+    saveButton.addEventListener('click', submitUpdate);
+    input.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            submitUpdate();
+        } else if (event.key === 'Escape') {
+            event.preventDefault();
+            hideEditor();
         }
     });
 }

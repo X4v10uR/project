@@ -9,6 +9,7 @@ from django.utils import timezone
 from subscriptions.models import Subscription, Transaction
 from subscriptions.services import refresh_subscription_renewal_date
 
+from .models import BalanceAdjustment
 from .constants import (
     CARD_COLOR_PALETTE,
     CARD_THEME_ROTATION,
@@ -36,6 +37,13 @@ def _money_symbol(currency_code):
 def _format_money(amount, currency='USD'):
     symbol = _money_symbol(currency)
     return f"{symbol}{_quantize_money(amount)}"
+
+
+def _format_signed_money(amount, currency='USD'):
+    quantized = _quantize_money(amount)
+    sign = '+' if quantized >= Decimal('0.00') else '-'
+    absolute_amount = quantized.copy_abs()
+    return f"{sign}{_format_money(absolute_amount, currency)}"
 
 
 def _format_currency_breakdown(totals):
@@ -73,6 +81,56 @@ def _build_balance_trend_points(user, today, window_days=30):
         'start_label': start_date.strftime('%b %d'),
         'end_label': today.strftime('%b %d'),
         'has_activity': has_activity,
+    }
+
+
+def _usd_monthly_spend_for_user(user):
+    total = Decimal('0.00')
+    active_subs = Subscription.objects.filter(user=user, status='active')
+    for subscription in active_subs:
+        if (subscription.currency or 'USD').upper() != 'USD':
+            continue
+        total += _monthly_cost(subscription)
+    return _quantize_money(total)
+
+
+def _build_balance_snapshot(user, monthly_spend_by_currency):
+    base_balance = _quantize_money(monthly_spend_by_currency.get('USD', Decimal('0.00')))
+    adjustment_record, _ = BalanceAdjustment.objects.get_or_create(
+        user=user,
+        defaults={'amount': Decimal('0.00')},
+    )
+    adjustment_amount = _quantize_money(adjustment_record.amount or Decimal('0.00'))
+    adjusted_balance = _quantize_money(base_balance + adjustment_amount)
+    return {
+        'display': _format_money(adjusted_balance, 'USD'),
+        'base_display': _format_money(base_balance, 'USD'),
+        'adjustment_display': _format_signed_money(adjustment_amount, 'USD'),
+        'adjustment_amount': float(adjustment_amount),
+        'adjusted_amount': float(adjusted_balance),
+        'base_amount': float(base_balance),
+    }
+
+
+def set_user_balance_target(user, target_balance):
+    base_balance = _usd_monthly_spend_for_user(user)
+    target_balance = _quantize_money(target_balance)
+    adjustment_amount = _quantize_money(target_balance - base_balance)
+
+    adjustment_record, _ = BalanceAdjustment.objects.get_or_create(
+        user=user,
+        defaults={'amount': Decimal('0.00')},
+    )
+    adjustment_record.amount = adjustment_amount
+    adjustment_record.save(update_fields=['amount', 'updated_at'])
+
+    return {
+        'balance_display': _format_money(target_balance, 'USD'),
+        'balance_base_display': _format_money(base_balance, 'USD'),
+        'balance_adjustment_display': _format_signed_money(adjustment_amount, 'USD'),
+        'balance_adjustment_amount': float(adjustment_amount),
+        'balance_adjusted_amount': float(target_balance),
+        'balance_base_amount': float(base_balance),
     }
 
 
@@ -392,6 +450,7 @@ def build_dashboard_view_model(user, today=None):
     next_renewal = upcoming_renewals.first()
     chip_date = next_renewal.renewal_date.strftime('%m/%d') if next_renewal and next_renewal.renewal_date else '--/--'
     balance_trend = _build_balance_trend_points(user, today, window_days=30)
+    balance_snapshot = _build_balance_snapshot(user, monthly_spend_by_currency)
 
     return {
         # Header / actions
@@ -401,6 +460,12 @@ def build_dashboard_view_model(user, today=None):
         'upcoming_view_all_url': _renewal_view_all_url(),
         'subscriptions_view_all_url': reverse('subscriptions:list'),
         # Main balance block
+        'balance_display': balance_snapshot['display'],
+        'balance_base_display': balance_snapshot['base_display'],
+        'balance_adjustment_display': balance_snapshot['adjustment_display'],
+        'balance_adjustment_amount': balance_snapshot['adjustment_amount'],
+        'balance_adjusted_amount': balance_snapshot['adjusted_amount'],
+        'balance_base_amount': balance_snapshot['base_amount'],
         'monthly_spend_display': _format_currency_breakdown(monthly_spend_by_currency),
         'balance_chip_date': chip_date,
         'balance_trend_points': balance_trend['points'],
