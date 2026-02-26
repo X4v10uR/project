@@ -55,8 +55,57 @@ const BRAND_LOGO_URLS = {
   amex: 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/american-express.svg',
   discover: 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/discover-card.svg',
 };
+const ICON_PATHS = {
+  plus: '<line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>',
+  'credit-card': '<rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line>',
+  'trending-up': '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline>',
+  star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>',
+  search: '<circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>',
+  x: '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>',
+  'edit-2': '<path d="M17 3a2.828 2.828 0 1 1 4 4L7 21l-4 1 1-4L17 3z"></path>',
+  'trash-2': '<polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4h6v2"></path>',
+  check: '<polyline points="20 6 9 17 4 12"></polyline>',
+  'alert-circle': '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>',
+  'alert-triangle': '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>',
+  'arrow-right': '<line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline>',
+};
 
 const JCB_INLINE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 432.37 324.5" style="width:100%;height:100%;display:block;"><defs><style>.a{fill:url(#a);}.b{fill:url(#b);}.c{fill:url(#c);}.d{fill:url(#d);}.e{fill:url(#e);}</style><linearGradient id="a" x1="148.19" y1="270.12" x2="213.35" y2="270.12" gradientTransform="matrix(2.05, 0, 0, -2.05, -4.47, 736.29)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#007940"/><stop offset="0.23" stop-color="#00873f"/><stop offset="0.74" stop-color="#40a737"/><stop offset="1" stop-color="#5cb531"/></linearGradient><linearGradient id="b" x1="148.18" y1="280.2" x2="213.29" y2="280.2" xlink:href="#a"/><linearGradient id="c" x1="148.18" y1="291.29" x2="213.35" y2="291.29" xlink:href="#a"/><linearGradient id="d" x1="2.3" y1="280.27" x2="68.47" y2="280.27" gradientTransform="matrix(2.05, 0, 0, -2.05, -4.47, 736.29)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1f286f"/><stop offset="0.48" stop-color="#004e94"/><stop offset="0.83" stop-color="#0066b1"/><stop offset="1" stop-color="#006fbc"/></linearGradient><linearGradient id="e" x1="74.89" y1="280.13" x2="139.16" y2="280.13" gradientTransform="matrix(2.05, 0, 0, -2.05, -4.47, 736.29)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6c2c2f"/><stop offset="0.17" stop-color="#882730"/><stop offset="0.57" stop-color="#be1833"/><stop offset="0.86" stop-color="#dc0436"/><stop offset="1" stop-color="#e60039"/></linearGradient></defs><path class="a" d="M325.69,197h31.2c.89,0,3-.3,3.86-.3a13.92,13.92,0,0,0,11-14,14.41,14.41,0,0,0-11-14,15.52,15.52,0,0,0-3.86-.3h-31.2V197Z"/><path class="b" d="M353.32,0a54.09,54.09,0,0,0-54.08,54.08v56.17h76.37a31.36,31.36,0,0,1,5.35.29c17.24.9,30,9.81,30,25.26,0,12.19-8.61,22.59-24.66,24.67v.59c17.53,1.19,30.9,11,30.9,26.15,0,16.35-14.85,27-34.47,27h-83.8v110h79.35a54.09,54.09,0,0,0,54.08-54.08V0Z"/><path class="c" d="M367.89,139.37a12.65,12.65,0,0,0-11-12.78c-.59,0-2.08-.3-3-.3H325.69v26.15h28.23c.89,0,2.67,0,3-.29A12.66,12.66,0,0,0,367.89,139.37Z"/><path class="d" d="M54.38,0A54.08,54.08,0,0,0,.3,54.08V187.51c15.15,7.43,30.9,12.18,46.65,12.18,18.72,0,28.83-11.29,28.83-26.74V110h46.35v62.7c0,24.37-15.15,44.28-66.56,44.28A228,228,0,0,1,0,210.09V323.91H79.34a54.09,54.09,0,0,0,54.09-54.09V0Z"/><path class="e" d="M203.85,0a54.09,54.09,0,0,0-54.08,54.08v70.73c13.67-11.59,37.44-19,75.78-17.24,20.5.89,42.49,6.54,42.49,6.54V137c-11-5.64-24.07-10.7-41-11.89-29.12-2.08-46.65,12.19-46.65,37.15,0,25.26,17.53,39.52,46.65,37.14,16.94-1.18,30-6.53,41-11.88v22.88s-21.69,5.65-42.49,6.54c-38.34,1.78-62.11-5.65-75.78-17.24V324.5h79.34a54.08,54.08,0,0,0,54.08-54.08V0Z"/></svg>`;
+
+function renderIcons(root = document) {
+  const host = root && root.querySelectorAll ? root : document;
+  const iconNodes = host.querySelectorAll('[data-lucide]');
+
+  iconNodes.forEach((node) => {
+    const iconName = node.getAttribute('data-lucide');
+    const iconMarkup = ICON_PATHS[iconName];
+    if (!iconMarkup) {
+      return;
+    }
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+
+    const style = node.getAttribute('style');
+    if (style) {
+      svg.setAttribute('style', style);
+    }
+
+    const className = node.getAttribute('class');
+    if (className) {
+      svg.setAttribute('class', className);
+    }
+
+    svg.innerHTML = iconMarkup;
+    node.replaceWith(svg);
+  });
+}
 
 function apiUrlForCard(template, cardId) {
   return (template || '').replace(CARD_ROUTE_SENTINEL, String(cardId));
@@ -270,7 +319,7 @@ function renderApp() {
     ${state.addModalOpen ? renderAddModal() : ''}
     ${state.deleteCardId ? renderDeleteModal() : ''}
   `;
-  lucide.createIcons();
+  renderIcons(app);
   bindModalEvents();
 }
 
@@ -861,7 +910,7 @@ async function handleModalSubmit(e) {
   e.preventDefault();
   const errs = {};
   if (!modalForm.nickname.trim()) errs.nickname = 'Card nickname is required';
-  else if (modalForm.nickname.length > 30) errs.nickname = 'Nickname must be 30 characters or fewer';
+  else if (modalForm.nickname.length > 50) errs.nickname = 'Nickname must be 50 characters or fewer';
   if (!modalForm.last4) errs.last4 = 'Last 4 digits are required';
   else if (!/^\d{4}$/.test(modalForm.last4)) errs.last4 = 'Must be exactly 4 digits';
   if (Object.keys(errs).length > 0) { modalErrors = errs; renderApp(); return; }
@@ -872,7 +921,7 @@ async function handleModalSubmit(e) {
     btn.innerHTML = '<i data-lucide="check" style="width:16px;height:16px;"></i> ' + (state.editCardId ? 'Updated!' : 'Added!');
     btn.style.background = '#16A34A';
     btn.style.color = 'white';
-    lucide.createIcons();
+    renderIcons(btn.parentElement || document);
   }
 
   try {

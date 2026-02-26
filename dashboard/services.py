@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 import hashlib
 from urllib.parse import urlencode
@@ -7,7 +7,6 @@ from django.urls import reverse
 from django.utils import timezone
 
 from subscriptions.models import Subscription, Transaction
-from subscriptions.services import refresh_subscription_renewal_date
 
 from .models import BalanceAdjustment
 from .constants import (
@@ -96,11 +95,12 @@ def _usd_monthly_spend_for_user(user):
 
 def _build_balance_snapshot(user, monthly_spend_by_currency):
     base_balance = _quantize_money(monthly_spend_by_currency.get('USD', Decimal('0.00')))
-    adjustment_record, _ = BalanceAdjustment.objects.get_or_create(
-        user=user,
-        defaults={'amount': Decimal('0.00')},
+    adjustment_amount = _quantize_money(
+        BalanceAdjustment.objects.filter(user=user)
+        .values_list('amount', flat=True)
+        .first()
+        or Decimal('0.00')
     )
-    adjustment_amount = _quantize_money(adjustment_record.amount or Decimal('0.00'))
     adjusted_balance = _quantize_money(base_balance + adjustment_amount)
     return {
         'display': _format_money(adjusted_balance, 'USD'),
@@ -141,6 +141,12 @@ def _monthly_cost(subscription):
     if subscription.billing_cycle == 'yearly':
         return cost / Decimal('12')
     return cost
+
+
+def _effective_renewal_date(subscription, today):
+    if subscription.renewal_date and subscription.renewal_date >= today:
+        return subscription.renewal_date
+    return subscription.calculate_renewal_date()
 
 
 def _days_left_text(renewal_date, today):
@@ -253,13 +259,14 @@ def _renewal_view_all_url():
 
 def _build_upcoming_item(subscription, index, today, service_color_map):
     effective_cost = subscription.user_cost if subscription.is_shared else subscription.cost
+    renewal_date = _effective_renewal_date(subscription, today)
     return {
         'is_placeholder': False,
         'bg_class': '',
         'bg_style': _service_bg_style(subscription.service_name, service_color_map),
         'service_name': subscription.service_name,
         'amount': _format_money(effective_cost, subscription.currency),
-        'days_left_text': _days_left_text(subscription.renewal_date, today),
+        'days_left_text': _days_left_text(renewal_date, today),
         'edit_url': reverse('subscriptions:update', args=[subscription.pk]),
         'icon_url': subscription.get_icon_url(),
         'icon_fallback': subscription.get_fallback_icon(),
@@ -389,15 +396,22 @@ def build_dashboard_view_model(user, today=None):
     next_30_days = today + timedelta(days=30)
 
     user_subs = Subscription.objects.filter(user=user).select_related('card')
-    # Keep long-lived records in sync so dashboard cards always show current renewal data.
-    for subscription in user_subs.filter(status='active'):
-        refresh_subscription_renewal_date(subscription)
-
-    active_subs = user_subs.filter(status='active').order_by('renewal_date', 'service_name')
+    active_subs_qs = user_subs.filter(status='active')
+    active_subs = sorted(
+        list(active_subs_qs),
+        key=lambda sub: (
+            _effective_renewal_date(sub, today) or date.max,
+            (sub.service_name or '').lower(),
+        ),
+    )
     paused_subs = user_subs.filter(status='paused')
     cancelled_subs = user_subs.filter(status='cancelled')
-    shared_subs = user_subs.filter(status='active', is_shared=True)
-    upcoming_renewals = active_subs.filter(renewal_date__range=[today, next_30_days])
+    shared_subs = active_subs_qs.filter(is_shared=True)
+    upcoming_renewals = []
+    for sub in active_subs:
+        renewal_date = _effective_renewal_date(sub, today)
+        if renewal_date and today <= renewal_date <= next_30_days:
+            upcoming_renewals.append(sub)
 
     monthly_spend = Decimal('0.00')
     monthly_spend_by_currency = {}
@@ -410,7 +424,7 @@ def build_dashboard_view_model(user, today=None):
         )
 
     yearly_spend = monthly_spend * Decimal('12')
-    active_count = active_subs.count()
+    active_count = len(active_subs)
     paused_count = paused_subs.count()
     cancelled_count = cancelled_subs.count()
     shared_count = shared_subs.count()
@@ -447,8 +461,9 @@ def build_dashboard_view_model(user, today=None):
     active_subscriptions_panel = _slot_pad(active_panel_items, 2, _build_active_placeholder)
     recent_transactions = _slot_pad(recent_transaction_items, 2, _build_transaction_placeholder)
 
-    next_renewal = upcoming_renewals.first()
-    chip_date = next_renewal.renewal_date.strftime('%m/%d') if next_renewal and next_renewal.renewal_date else '--/--'
+    next_renewal = upcoming_renewals[0] if upcoming_renewals else None
+    next_renewal_date = _effective_renewal_date(next_renewal, today) if next_renewal else None
+    chip_date = next_renewal_date.strftime('%m/%d') if next_renewal_date else '--/--'
     balance_trend = _build_balance_trend_points(user, today, window_days=30)
     balance_snapshot = _build_balance_snapshot(user, monthly_spend_by_currency)
 
@@ -482,7 +497,7 @@ def build_dashboard_view_model(user, today=None):
         'total_paused': paused_count,
         'total_cancelled': cancelled_count,
         'total_shared': shared_count,
-        'active_subscriptions': active_subs,
+        'active_subscriptions': active_subs_qs,
         'paused_subscriptions': paused_subs,
         'cancelled_subscriptions': cancelled_subs,
         'shared_subscriptions': shared_subs,

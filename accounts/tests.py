@@ -65,3 +65,20 @@ class AuthRequiredTest(TestCase):
         response = self.client.get(reverse('subscriptions:list'))
         self.assertEqual(response.status_code, 302)
         self.assertIn('/accounts/login/', response.url)
+
+
+class UserManagerTest(TestCase):
+    def test_create_superuser_requires_staff_and_superuser_flags(self):
+        with self.assertRaisesMessage(ValueError, 'Superuser must have is_staff=True.'):
+            User.objects.create_superuser(
+                email='badstaff@example.com',
+                password='password',
+                is_staff=False,
+            )
+
+        with self.assertRaisesMessage(ValueError, 'Superuser must have is_superuser=True.'):
+            User.objects.create_superuser(
+                email='badsuper@example.com',
+                password='password',
+                is_superuser=False,
+            )

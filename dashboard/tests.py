@@ -195,7 +195,7 @@ class DashboardViewTest(TestCase):
         payload = response.json()
         self.assertFalse(payload['ok'])
 
-    def test_dashboard_refreshes_stale_renewal_dates(self):
+    def test_dashboard_does_not_mutate_stale_renewal_dates(self):
         today = date.today()
         subscription = Subscription.objects.create(
             user=self.user,
@@ -215,7 +215,18 @@ class DashboardViewTest(TestCase):
         self.assertEqual(response.status_code, 200)
 
         subscription.refresh_from_db()
-        self.assertGreaterEqual(subscription.renewal_date, today)
+        self.assertEqual(subscription.renewal_date, today - timedelta(days=10))
+        self.assertTrue(
+            any(sub.pk == subscription.pk for sub in response.context['upcoming_renewals'])
+        )
+
+    def test_dashboard_home_does_not_create_balance_adjustment_row(self):
+        self.assertFalse(BalanceAdjustment.objects.filter(user=self.user).exists())
+
+        response = self.client.get(reverse('dashboard:home'))
+        self.assertEqual(response.status_code, 200)
+
+        self.assertFalse(BalanceAdjustment.objects.filter(user=self.user).exists())
 
     def test_days_left_text_handles_overdue_dates(self):
         today = date.today()

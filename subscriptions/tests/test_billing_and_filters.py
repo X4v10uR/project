@@ -163,6 +163,31 @@ class BillingServiceTest(TestCase):
             1,
         )
 
+    def test_edit_after_charge_same_day_keeps_advanced_renewal_date(self):
+        today = date.today()
+        sub = Subscription.objects.create(
+            user=self.user,
+            service_name='Same Day Edit Service',
+            category='Utilities',
+            billing_cycle='monthly',
+            cost=Decimal('8.00'),
+            start_date=today,
+            status='active',
+        )
+        Subscription.objects.filter(pk=sub.pk).update(renewal_date=today)
+
+        BillingService.record_renewal_charges(target_date=today)
+
+        sub.refresh_from_db()
+        expected_next = today + relativedelta(months=1)
+        self.assertEqual(sub.renewal_date, expected_next)
+
+        sub.notes = 'Edited on renewal day after charge capture'
+        sub.save()
+
+        sub.refresh_from_db()
+        self.assertEqual(sub.renewal_date, expected_next)
+
     def test_send_notifications_command_without_days_before_honors_custom_offsets(self):
         today = date.today()
         renewal_date = today + timedelta(days=7)

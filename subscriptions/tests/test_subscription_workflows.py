@@ -1,5 +1,6 @@
 from datetime import date, time, timedelta
 from decimal import Decimal
+from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
@@ -234,4 +235,57 @@ class NotificationServiceTest(TestCase):
         self.assertTrue(
             any(sub.pk == subscription.pk and offset == 3 for sub, offset in due),
             'Expected midnight renewal_time to match the +/-1 hour window around 00:30.',
+        )
+
+    def test_send_reminder_returns_false_when_duplicate_log_exists(self):
+        subscription = Subscription.objects.create(
+            user=self.user,
+            service_name='Duplicate Reservation Service',
+            category='Streaming',
+            billing_cycle='weekly',
+            cost=Decimal('4.99'),
+            start_date=date.today() - timedelta(days=4),
+            status='active',
+            reminders_enabled=True,
+        )
+
+        NotificationLog.objects.create(
+            subscription=subscription,
+            notification_type='renewal_reminder',
+            renewal_date=subscription.renewal_date,
+            days_before=3,
+        )
+
+        with mock.patch('subscriptions.services.send_mail') as mocked_send_mail:
+            was_sent = NotificationService.send_renewal_reminder(subscription, days_before=3)
+
+        self.assertFalse(was_sent)
+        mocked_send_mail.assert_not_called()
+
+    def test_send_reminder_releases_reservation_on_email_failure(self):
+        subscription = Subscription.objects.create(
+            user=self.user,
+            service_name='Reservation Cleanup Service',
+            category='Streaming',
+            billing_cycle='weekly',
+            cost=Decimal('4.99'),
+            start_date=date.today() - timedelta(days=4),
+            status='active',
+            reminders_enabled=True,
+        )
+
+        with mock.patch(
+            'subscriptions.services.send_mail',
+            side_effect=RuntimeError('SMTP unavailable'),
+        ):
+            with self.assertRaises(RuntimeError):
+                NotificationService.send_renewal_reminder(subscription, days_before=3)
+
+        self.assertFalse(
+            NotificationLog.objects.filter(
+                subscription=subscription,
+                notification_type='renewal_reminder',
+                renewal_date=subscription.renewal_date,
+                days_before=3,
+            ).exists()
         )

@@ -1,4 +1,6 @@
+from cryptography.fernet import Fernet
 from django.test import TestCase
+from django.test import override_settings
 from django.contrib.auth import get_user_model
 from subscriptions.forms import SubscriptionForm
 from subscriptions.models import Subscription
@@ -102,3 +104,23 @@ class SubscriptionAccountFieldsTest(TestCase):
 
         self.assertFalse(form.is_valid())
         self.assertIn('account_email', form.errors)
+
+    def test_encrypts_with_explicit_account_password_key(self):
+        encryption_key = Fernet.generate_key().decode("utf-8")
+        with override_settings(
+            ACCOUNT_PASSWORD_ENCRYPTION_KEY=encryption_key,
+            ACCOUNT_PASSWORD_LEGACY_FALLBACK=False,
+        ):
+            sub = Subscription.objects.create(
+                user=self.user,
+                service_name="Drive",
+                category="Storage",
+                billing_cycle="monthly",
+                cost=5.00,
+                start_date=date.today(),
+                account_password="vault-secret",
+            )
+
+            self.assertTrue(sub.account_password.startswith("enc::"))
+            self.assertNotIn("vault-secret", sub.account_password)
+            self.assertEqual(sub.get_account_password(), "vault-secret")

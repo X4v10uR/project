@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.core.mail import send_mail
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.template.loader import render_to_string
 from django.utils import timezone
 
@@ -142,21 +142,6 @@ class NotificationService:
                 )
                 return False
 
-            # Check if notification already sent for this renewal and offset
-            if NotificationLog.objects.filter(
-                subscription=subscription,
-                notification_type='renewal_reminder',
-                renewal_date=subscription.renewal_date,
-                days_before=days_before,
-            ).exists():
-                logger.info(
-                    "Notification already sent for %s at %s days offset to %s",
-                    subscription.service_name,
-                    days_before,
-                    user.email,
-                )
-                return False
-
             # Prepare email context
             context = {
                 'user': user,
@@ -170,23 +155,37 @@ class NotificationService:
             text_content = render_to_string('emails/renewal_reminder.txt', context)
             html_content = render_to_string('emails/renewal_reminder.html', context)
 
-            # Send email
-            send_mail(
-                subject=subject,
-                message=text_content,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                html_message=html_content,
-                fail_silently=False,
-            )
+            try:
+                with transaction.atomic():
+                    notification_log = NotificationLog.objects.create(
+                        subscription=subscription,
+                        notification_type='renewal_reminder',
+                        renewal_date=subscription.renewal_date,
+                        days_before=days_before,
+                    )
+            except IntegrityError:
+                logger.info(
+                    "Notification already reserved for %s at %s days offset to %s",
+                    subscription.service_name,
+                    days_before,
+                    user.email,
+                )
+                return False
 
-            # Log the notification
-            NotificationLog.objects.create(
-                subscription=subscription,
-                notification_type='renewal_reminder',
-                renewal_date=subscription.renewal_date,
-                days_before=days_before,
-            )
+            # Send email
+            try:
+                send_mail(
+                    subject=subject,
+                    message=text_content,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    html_message=html_content,
+                    fail_silently=False,
+                )
+            except Exception:
+                # Release reservation so a later scheduler run can retry.
+                NotificationLog.objects.filter(pk=notification_log.pk).delete()
+                raise
 
             logger.info(
                 "Renewal reminder sent for %s to %s",

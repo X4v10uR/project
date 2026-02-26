@@ -3,6 +3,7 @@ from django.conf import settings
 from datetime import time
 from dateutil.relativedelta import relativedelta
 from django.core.validators import MinLengthValidator, RegexValidator
+from django.core.exceptions import ImproperlyConfigured
 from django.utils import timezone
 import base64
 import hashlib
@@ -13,9 +14,40 @@ from cryptography.fernet import Fernet, InvalidToken
 ACCOUNT_PASSWORD_PREFIX = "enc::"
 
 
-def _build_account_password_fernet():
+def _build_legacy_account_password_fernet():
     key_material = hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).digest()
     return Fernet(base64.urlsafe_b64encode(key_material))
+
+
+def _build_configured_account_password_fernet():
+    raw_key = getattr(settings, "ACCOUNT_PASSWORD_ENCRYPTION_KEY", "")
+    if not raw_key:
+        return None
+
+    try:
+        return Fernet(raw_key.strip().encode("utf-8"))
+    except (TypeError, ValueError) as exc:
+        raise ImproperlyConfigured(
+            "ACCOUNT_PASSWORD_ENCRYPTION_KEY must be a valid Fernet key."
+        ) from exc
+
+
+def _account_password_encrypt_fernet():
+    configured = _build_configured_account_password_fernet()
+    if configured:
+        return configured
+    return _build_legacy_account_password_fernet()
+
+
+def _account_password_decrypt_fernets():
+    configured = _build_configured_account_password_fernet()
+    if not configured:
+        return [_build_legacy_account_password_fernet()]
+
+    fernets = [configured]
+    if getattr(settings, "ACCOUNT_PASSWORD_LEGACY_FALLBACK", True):
+        fernets.append(_build_legacy_account_password_fernet())
+    return fernets
 
 class Card(models.Model):
     THEME_DARK = "dark"
@@ -129,7 +161,7 @@ class Subscription(models.Model):
             self.account_password = None
             return
 
-        encrypted_password = _build_account_password_fernet().encrypt(
+        encrypted_password = _account_password_encrypt_fernet().encrypt(
             raw_password.encode("utf-8")
         ).decode("utf-8")
         self.account_password = f"{ACCOUNT_PASSWORD_PREFIX}{encrypted_password}"
@@ -143,12 +175,14 @@ class Subscription(models.Model):
             return self.account_password
 
         encrypted_password = self.account_password[len(ACCOUNT_PASSWORD_PREFIX) :]
-        try:
-            return _build_account_password_fernet().decrypt(
-                encrypted_password.encode("utf-8")
-            ).decode("utf-8")
-        except InvalidToken:
-            return None
+        for fernet in _account_password_decrypt_fernets():
+            try:
+                return fernet.decrypt(
+                    encrypted_password.encode("utf-8")
+                ).decode("utf-8")
+            except InvalidToken:
+                continue
+        return None
 
     def calculate_renewal_date(self):
         """Calculate the next upcoming renewal date relative to today."""
@@ -182,7 +216,27 @@ class Subscription(models.Model):
 
     def save(self, *args, **kwargs):
         # Always ensure renewal_date is synced with start_date and cycle
-        self.renewal_date = self.calculate_renewal_date()
+        existing_subscription = None
+        if self.pk:
+            existing_subscription = (
+                type(self)
+                .objects.filter(pk=self.pk)
+                .only("start_date", "billing_cycle", "renewal_date")
+                .first()
+            )
+
+        calculated_renewal_date = self.calculate_renewal_date()
+        if (
+            existing_subscription
+            and existing_subscription.start_date == self.start_date
+            and existing_subscription.billing_cycle == self.billing_cycle
+            and existing_subscription.renewal_date
+            and calculated_renewal_date
+            and existing_subscription.renewal_date > calculated_renewal_date
+        ):
+            calculated_renewal_date = existing_subscription.renewal_date
+
+        self.renewal_date = calculated_renewal_date
         
         # If not shared, user pays full cost
         if not self.is_shared:

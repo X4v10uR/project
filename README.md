@@ -41,6 +41,7 @@ A premium Subscription Management SaaS application built with Django and Tailwin
    EMAIL_HOST_USER=your-email@gmail.com
    EMAIL_HOST_PASSWORD=your-gmail-app-password
    DEFAULT_FROM_EMAIL=your-email@gmail.com
+   ACCOUNT_PASSWORD_ENCRYPTION_KEY=your-generated-fernet-key
    
    # For Testing (Console Output)
    EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend

@@ -30,6 +30,7 @@ EMAIL_USE_TLS=True
 EMAIL_HOST_USER=your-email@gmail.com
 EMAIL_HOST_PASSWORD=your-app-password
 DEFAULT_FROM_EMAIL=noreply@subly.com
+ACCOUNT_PASSWORD_ENCRYPTION_KEY=your-generated-fernet-key
 
 # Notification Settings
 NOTIFICATION_DAYS_BEFORE=3
