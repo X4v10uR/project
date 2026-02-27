@@ -257,6 +257,12 @@ def _renewal_view_all_url():
     return f'{base}?{query}'
 
 
+def _subscription_destination_url(subscription):
+    if subscription.team_id:
+        return reverse('accounts:team_detail', args=[subscription.team_id])
+    return reverse('subscriptions:update', args=[subscription.pk])
+
+
 def _build_upcoming_item(subscription, index, today, service_color_map):
     effective_cost = subscription.user_cost if subscription.is_shared else subscription.cost
     renewal_date = _effective_renewal_date(subscription, today)
@@ -267,7 +273,7 @@ def _build_upcoming_item(subscription, index, today, service_color_map):
         'service_name': subscription.service_name,
         'amount': _format_money(effective_cost, subscription.currency),
         'days_left_text': _days_left_text(renewal_date, today),
-        'edit_url': reverse('subscriptions:update', args=[subscription.pk]),
+        'edit_url': _subscription_destination_url(subscription),
         'icon_url': subscription.get_icon_url(),
         'icon_fallback': subscription.get_fallback_icon(),
     }
@@ -289,6 +295,14 @@ def _build_upcoming_placeholder(index):
 
 
 def _build_subscription_panel_item(subscription, index, service_color_map):
+    create_query = {
+        'service_name': subscription.service_name,
+        'category': subscription.category,
+        'billing_cycle': subscription.billing_cycle,
+    }
+    if subscription.team_id:
+        create_query['team'] = subscription.team_id
+
     return {
         'is_placeholder': False,
         'bg_class': '',
@@ -298,13 +312,7 @@ def _build_subscription_panel_item(subscription, index, service_color_map):
         'create_url': (
             reverse('subscriptions:create')
             + '?'
-            + urlencode(
-                {
-                    'service_name': subscription.service_name,
-                    'category': subscription.category,
-                    'billing_cycle': subscription.billing_cycle,
-                }
-            )
+            + urlencode(create_query)
         ),
         'icon_url': subscription.get_icon_url(),
         'icon_fallback': subscription.get_fallback_icon(),
@@ -347,7 +355,7 @@ def _build_active_item(subscription, index, service_color_map):
         'amount': _format_money(effective_cost, subscription.currency),
         'payment_info': f"Payment info: **** {card_last4}" if card_last4 else 'Payment info: Not set',
         'plan_details': f"Plan details: {subscription.plan_name}" if subscription.plan_name else f"Plan details: {subscription.billing_cycle.title()}",
-        'edit_url': reverse('subscriptions:update', args=[subscription.pk]),
+        'edit_url': _subscription_destination_url(subscription),
         'icon_url': subscription.get_icon_url(),
         'icon_fallback': subscription.get_fallback_icon(),
     }
@@ -391,11 +399,24 @@ def _build_transaction_placeholder(index):
     return data
 
 
-def build_dashboard_view_model(user, today=None):
+def build_dashboard_view_model(user, today=None, scope='personal'):
     today = today or timezone.localdate()
     next_30_days = today + timedelta(days=30)
+    scope = (scope or 'personal').lower()
+    if scope not in {'personal', 'teams'}:
+        scope = 'personal'
 
-    user_subs = Subscription.objects.filter(user=user).select_related('card')
+    if scope == 'teams':
+        user_subs = (
+            Subscription.objects.filter(team__memberships__user=user)
+            .select_related('card', 'team', 'user')
+            .distinct()
+        )
+        view_all_url = reverse('accounts:teams_overview')
+    else:
+        user_subs = Subscription.objects.filter(user=user, team__isnull=True).select_related('card')
+        view_all_url = _renewal_view_all_url()
+
     active_subs_qs = user_subs.filter(status='active')
     active_subs = sorted(
         list(active_subs_qs),
@@ -471,9 +492,10 @@ def build_dashboard_view_model(user, today=None):
         # Header / actions
         'avatar_initial': (user.email or 'U')[:1].upper(),
         'greeting_name': _greeting_name(user.email),
-        'bell_url': _renewal_view_all_url(),
-        'upcoming_view_all_url': _renewal_view_all_url(),
-        'subscriptions_view_all_url': reverse('subscriptions:list'),
+        'bell_url': reverse('dashboard:notifications_page'),
+        'upcoming_view_all_url': view_all_url,
+        'subscriptions_view_all_url': reverse('accounts:teams_overview') if scope == 'teams' else reverse('subscriptions:list'),
+        'dashboard_scope': scope,
         # Main balance block
         'balance_display': balance_snapshot['display'],
         'balance_base_display': balance_snapshot['base_display'],

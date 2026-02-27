@@ -81,6 +81,9 @@
                 <!-- Form -->
                 <form method="post">
                     {% csrf_token %}
+                    {% if next %}
+                    <input type="hidden" name="next" value="{{ next }}">
+                    {% endif %}
 
                     {% if form.errors %}
                     <div>
@@ -131,7 +134,7 @@
                     <!-- Sign Up Link -->
                     <div>
                         <span>No Account Yet? </span>
-                        <a href="{% url 'accounts:signup' %}">Get
+                        <a href="{% url 'accounts:signup' %}{% if next %}?next={{ next|urlencode }}{% endif %}">Get
                             Yours Now</a>
                     </div>
                 </form>

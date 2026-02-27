@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family:Arial,sans-serif;background:#f8fafc;padding:16px;">
+    <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+        <h2 style="margin:0 0 10px 0;color:#0f172a;">{{ notification.title }}</h2>
+        {% if notification.body %}
+        <p style="margin:0 0 10px 0;color:#334155;">{{ notification.body }}</p>
+        {% endif %}
+        {% if notification.team %}
+        <p style="margin:0 0 10px 0;color:#475569;font-size:13px;">Team: {{ notification.team.name }}</p>
+        {% endif %}
+        <p style="margin:0;">
+            <a href="{{ site_url }}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;">Open Subly</a>
+        </p>
+        <p style="margin:12px 0 0 0;color:#64748b;font-size:12px;">No credentials are included in this email.</p>
+    </div>
+</body>
+</html>

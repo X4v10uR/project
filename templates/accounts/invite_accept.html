@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Team Invite - Subly{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto bg-white border border-slate-200 rounded-2xl p-6">
+    {% if invite_status == "ready" and invite %}
+    <h1 class="text-xl font-semibold text-slate-900">Accept Team Invitation</h1>
+    <p class="text-sm text-slate-600 mt-1">You were invited to join <span class="font-medium">{{ invite.team.name }}</span> as {{ invite.get_role_display }}.</p>
+    <p class="text-xs text-slate-500 mt-1">This invite expires on {{ invite.expires_at|date:"M d, Y H:i" }}.</p>
+    <form method="post" class="mt-4">
+        {% csrf_token %}
+        <button type="submit" class="px-3 py-2 rounded-lg bg-slate-900 text-white text-sm">Accept Invite</button>
+    </form>
+    {% elif invite_status == "email_mismatch" and invite %}
+    <h1 class="text-xl font-semibold text-slate-900">Email mismatch</h1>
+    <p class="text-sm text-slate-600 mt-2">This invite is bound to <span class="font-medium">{{ invite.email }}</span>. Please log in with that email.</p>
+    {% elif invite_status == "expired" %}
+    <h1 class="text-xl font-semibold text-slate-900">Invite expired</h1>
+    <p class="text-sm text-slate-600 mt-2">This invitation has expired. Ask the team owner to send a new one.</p>
+    {% elif invite_status == "already_used" %}
+    <h1 class="text-xl font-semibold text-slate-900">Invite already used</h1>
+    <p class="text-sm text-slate-600 mt-2">This invitation link has already been accepted.</p>
+    {% elif invite_status == "revoked" %}
+    <h1 class="text-xl font-semibold text-slate-900">Invite revoked</h1>
+    <p class="text-sm text-slate-600 mt-2">This invitation is no longer active.</p>
+    {% else %}
+    <h1 class="text-xl font-semibold text-slate-900">Invalid invitation</h1>
+    <p class="text-sm text-slate-600 mt-2">The link is invalid or no longer available.</p>
+    {% endif %}
+</div>
+{% endblock %}

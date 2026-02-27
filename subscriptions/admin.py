@@ -1,9 +1,15 @@
 from django.contrib import admin
-from .models import NotificationLog, Subscription, Transaction
+from .models import (
+    InAppNotification,
+    NotificationLog,
+    Subscription,
+    TeamSubscriptionRequest,
+    Transaction,
+)
 
 @admin.register(Subscription)
 class SubscriptionAdmin(admin.ModelAdmin):
-    list_display = ['service_name', 'user', 'cost', 'currency', 'billing_cycle', 'renewal_date', 'renewal_time', 'status']
+    list_display = ['service_name', 'user', 'team', 'cost', 'currency', 'billing_cycle', 'renewal_date', 'renewal_time', 'status']
     list_filter = ['status', 'billing_cycle', 'category', 'created_at']
     search_fields = ['service_name', 'user__email', 'category']
     date_hierarchy = 'renewal_date'
@@ -11,7 +17,7 @@ class SubscriptionAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Basic Information', {
-            'fields': ('user', 'service_name', 'category')
+            'fields': ('user', 'team', 'service_name', 'category')
         }),
         ('Billing Details', {
             'fields': ('cost', 'plan_name', 'currency', 'billing_cycle')
@@ -58,3 +64,33 @@ class TransactionAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user', 'subscription')
+
+
+@admin.register(TeamSubscriptionRequest)
+class TeamSubscriptionRequestAdmin(admin.ModelAdmin):
+    list_display = [
+        'id',
+        'team',
+        'requested_by',
+        'status',
+        'reviewed_by',
+        'reviewed_at',
+        'created_at',
+    ]
+    list_filter = ['status', 'created_at', 'reviewed_at']
+    search_fields = ['team__name', 'requested_by__email', 'reviewed_by__email']
+
+
+@admin.register(InAppNotification)
+class InAppNotificationAdmin(admin.ModelAdmin):
+    list_display = [
+        'id',
+        'recipient',
+        'event_type',
+        'team',
+        'subscription',
+        'is_read',
+        'created_at',
+    ]
+    list_filter = ['event_type', 'is_read', 'created_at']
+    search_fields = ['recipient__email', 'title', 'body', 'team__name']

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Teams - Subly{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-5">
+    <div class="bg-white border border-slate-200 rounded-2xl p-5 flex items-center justify-between gap-3">
+        <div>
+            <h1 class="text-xl font-semibold text-slate-900">Teams</h1>
+            <p class="text-sm text-slate-600 mt-1">Subscriptions across all teams you belong to.</p>
+        </div>
+        <a href="{% url 'accounts:team_create' %}" class="inline-flex items-center px-3 py-2 rounded-lg bg-slate-900 text-white text-sm">Create Team</a>
+    </div>
+
+    <div class="bg-white border border-slate-200 rounded-2xl p-5">
+        <h2 class="text-sm font-semibold text-slate-800 mb-3">Your Teams</h2>
+        <div class="flex flex-wrap gap-2">
+            {% for team in teams %}
+            <a href="{% url 'accounts:team_detail' team.pk %}" class="inline-flex items-center px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs hover:bg-slate-200">
+                {{ team.name }}
+            </a>
+            {% empty %}
+            <p class="text-sm text-slate-500">You are not in any teams yet.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="bg-white border border-slate-200 rounded-2xl p-5">
+        <h2 class="text-sm font-semibold text-slate-800 mb-3">Team Subscriptions</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-left text-slate-500 border-b border-slate-100">
+                        <th class="py-2">Service</th>
+                        <th class="py-2">Team</th>
+                        <th class="py-2">Billing</th>
+                        <th class="py-2">Status</th>
+                        <th class="py-2"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sub in team_subscriptions %}
+                    <tr class="border-b border-slate-100">
+                        <td class="py-2">{{ sub.service_name }}</td>
+                        <td class="py-2">
+                            <a href="{% url 'accounts:team_detail' sub.team.pk %}" class="inline-flex px-2 py-1 rounded-full bg-blue-50 text-blue-700 text-xs">
+                                {{ sub.team.name }}
+                            </a>
+                        </td>
+                        <td class="py-2">{{ sub.currency }} {{ sub.cost }} / {{ sub.billing_cycle }}</td>
+                        <td class="py-2">{{ sub.status|title }}</td>
+                        <td class="py-2 text-right">
+                            <a href="{% url 'accounts:team_detail' sub.team.pk %}" class="text-slate-700 hover:text-slate-900">View team</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="py-4 text-slate-500">No team subscriptions yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

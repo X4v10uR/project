@@ -1,4 +1,5 @@
 import os
+import importlib.util
 import environ
 from pathlib import Path
 
@@ -25,6 +26,8 @@ ALLOWED_HOSTS = env('ALLOWED_HOSTS')
 
 # Application definition
 
+HAS_CHANNELS = importlib.util.find_spec("channels") is not None
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -44,6 +47,9 @@ INSTALLED_APPS = [
     'subscriptions',
     'dashboard',
 ]
+
+if HAS_CHANNELS:
+    INSTALLED_APPS.append('channels')
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -75,6 +81,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'subly.wsgi.application'
+ASGI_APPLICATION = 'subly.asgi.application'
 
 
 # Database
@@ -151,3 +158,14 @@ ACCOUNT_PASSWORD_LEGACY_FALLBACK = env.bool('ACCOUNT_PASSWORD_LEGACY_FALLBACK', 
 # Notification Settings
 NOTIFICATION_DAYS_BEFORE = env('NOTIFICATION_DAYS_BEFORE', default=3)
 SITE_URL = env('SITE_URL', default='http://localhost:8000')
+REDIS_URL = env('REDIS_URL', default='redis://127.0.0.1:6379/1')
+
+if HAS_CHANNELS:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [REDIS_URL],
+            },
+        },
+    }

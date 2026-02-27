@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from decimal import Decimal, InvalidOperation
 from datetime import timedelta
 import csv
@@ -9,7 +10,16 @@ from django.db import transaction
 from django.db.models import Count
 from django.utils import timezone
 from django.urls import reverse
-from .models import Subscription, ReminderOffset, Card, SubscriptionParticipant
+from accounts.models import Team
+from accounts.services import is_team_member, is_team_owner
+from .models import (
+    ReminderOffset,
+    Card,
+    Subscription,
+    SubscriptionParticipant,
+    TeamSubscriptionRequest,
+)
+from .notifications import create_notification, create_team_notifications
 from .forms import SubscriptionForm, CardForm
 from django.http import HttpResponse, JsonResponse
 from .cards_state import (
@@ -188,7 +198,7 @@ def _sync_reminder_offsets(subscription, reminder_offsets):
         ReminderOffset.objects.bulk_create(to_add)
 
 
-def _build_subscription_form_context(request, form, title, *, subscription=None):
+def _build_subscription_form_context(request, form, title, *, subscription=None, team_context=None):
     post_data = request.POST if request.method == "POST" else None
     is_edit_mode = bool(subscription and subscription.pk)
     instance = subscription if is_edit_mode else form.instance
@@ -245,16 +255,18 @@ def _build_subscription_form_context(request, form, title, *, subscription=None)
             subscription=subscription, post_data=post_data
         ),
         "category_suggestions": CATEGORY_SUGGESTIONS,
+        "team_context": team_context,
+        "owner_context_label": team_context.name if team_context else "Personal",
     }
     return context
 
 
-def _render_subscription_form(request, form, title, *, subscription=None):
+def _render_subscription_form(request, form, title, *, subscription=None, team_context=None):
     return render(
         request,
         "subscriptions/form.html",
         _build_subscription_form_context(
-            request, form, title, subscription=subscription
+            request, form, title, subscription=subscription, team_context=team_context
         ),
     )
 
@@ -331,6 +343,84 @@ def _parse_move_card_id(user, raw_value):
     if not card:
         return None, "Destination card not found."
     return card, None
+
+
+def _resolve_team_context(request):
+    raw_team_id = request.GET.get("team")
+    if request.method == "POST":
+        raw_team_id = request.POST.get("team_id", raw_team_id)
+
+    if not raw_team_id:
+        return None, None
+
+    try:
+        team_id = int(raw_team_id)
+    except (TypeError, ValueError):
+        return None, "Invalid team context."
+
+    team = Team.objects.filter(pk=team_id).first()
+    if not team:
+        return None, "Team not found."
+
+    if not is_team_member(request.user, team):
+        return None, "You are not a member of that team."
+
+    return team, None
+
+
+def _subscription_is_accessible(user, subscription):
+    if subscription.team_id:
+        return is_team_member(user, subscription.team)
+    return subscription.user_id == user.pk
+
+
+def _subscription_is_owner_editable(user, subscription):
+    if subscription.team_id:
+        return is_team_owner(user, subscription.team)
+    return subscription.user_id == user.pk
+
+
+def _get_subscription_for_access(user, pk, *, require_owner=False):
+    subscription = get_object_or_404(Subscription.objects.select_related('team', 'user'), pk=pk)
+    if require_owner and not _subscription_is_owner_editable(user, subscription):
+        return None
+    if not require_owner and not _subscription_is_accessible(user, subscription):
+        return None
+    return subscription
+
+
+def _request_payload_from_form(subscription, reminder_offsets, participants_data):
+    renewal_time = subscription.renewal_time.strftime("%H:%M") if subscription.renewal_time else None
+    start_date = subscription.start_date.isoformat() if subscription.start_date else None
+
+    encrypted_password = None
+    if subscription.account_password:
+        encrypted_password = subscription.account_password
+
+    payload = {
+        "service_name": subscription.service_name,
+        "plan_name": subscription.plan_name,
+        "category": subscription.category,
+        "billing_cycle": subscription.billing_cycle,
+        "cost": str(subscription.cost),
+        "user_cost": str(subscription.user_cost),
+        "is_shared": bool(subscription.is_shared),
+        "split_type": subscription.split_type,
+        "currency": subscription.currency,
+        "start_date": start_date,
+        "renewal_time": renewal_time,
+        "status": subscription.status,
+        "reminders_enabled": bool(subscription.reminders_enabled),
+        "notes": subscription.notes or "",
+        "account_email": subscription.account_email or None,
+        "account_password": encrypted_password,
+        "participants": [
+            {"name": participant["name"], "share_amount": str(participant["share"])}
+            for participant in participants_data
+        ],
+        "reminder_offsets": reminder_offsets,
+    }
+    return payload
 
 @login_required
 def card_list(request):
@@ -516,7 +606,10 @@ def _build_subscription_list_state(request):
     due_within = request.GET.get('due_within', '')
     sort_by = request.GET.get('sort', 'renewal_date')
 
-    subscriptions = Subscription.objects.filter(user=request.user).annotate(
+    subscriptions = Subscription.objects.filter(
+        user=request.user,
+        team__isnull=True,
+    ).annotate(
         participant_count=Count('participants')
     )
 
@@ -634,24 +727,33 @@ def subscription_export_csv(request):
 
 @login_required
 def subscription_create(request):
+    team_context, team_error = _resolve_team_context(request)
+    if team_error:
+        messages.error(request, team_error)
+        return redirect('accounts:teams_overview')
+
+    is_team_owner_context = bool(team_context and is_team_owner(request.user, team_context))
+
     if request.method == 'POST':
         form = SubscriptionForm(request.POST, user=request.user)
         if form.is_valid():
             subscription = form.save(commit=False)
             subscription.user = request.user
+            subscription.team = team_context
             reminder_offsets = _parse_reminder_offsets(
                 request.POST.getlist("reminder_offsets")
             )
             
             # Handle shared subscription logic
             is_shared = form.cleaned_data.get('is_shared')
+            participants_data = []
             if is_shared:
                 split_type = form.cleaned_data.get('split_type')
                 participants_data, participants_error = _parse_participants_data(request)
                 if participants_error:
                     form.add_error(None, participants_error)
                     return _render_subscription_form(
-                        request, form, 'Add Subscription'
+                        request, form, 'Add Subscription', team_context=team_context
                     )
 
                 total_participants = len(participants_data) + 1  # +1 for user
@@ -675,42 +777,102 @@ def subscription_create(request):
                     if subscription.user_cost < 0:
                         form.add_error(None, 'The sum of participant shares exceeds the total cost.')
                         return _render_subscription_form(
-                            request, form, 'Add Subscription'
+                            request, form, 'Add Subscription', team_context=team_context
                         )
 
-                    participants_to_create = [
-                        SubscriptionParticipant(
-                            subscription=subscription,
-                            name=p_data['name'],
-                            share_amount=p_data['share']
-                        )
-                        for p_data in participants_data
-                    ]
-
-                with transaction.atomic():
-                    subscription.save()  # Save with user_cost
-                    SubscriptionParticipant.objects.bulk_create(participants_to_create)
-                    _sync_reminder_offsets(subscription, reminder_offsets)
-                
             else:
                 subscription.user_cost = subscription.cost
-                with transaction.atomic():
-                    subscription.save()
-                    _sync_reminder_offsets(subscription, reminder_offsets)
+
+            if (
+                team_context
+                and not is_team_owner_context
+            ):
+                # Member flow: create request for owner approval instead of direct team write.
+                if subscription.account_password and not subscription.account_password.startswith("enc::"):
+                    subscription.set_account_password(subscription.account_password)
+
+                request_payload = _request_payload_from_form(
+                    subscription,
+                    reminder_offsets,
+                    participants_data,
+                )
+                team_request = TeamSubscriptionRequest.objects.create(
+                    team=team_context,
+                    requested_by=request.user,
+                    payload=request_payload,
+                )
+
+                create_team_notifications(
+                    team=team_context,
+                    actor=request.user,
+                    event_type='team.request.submitted',
+                    title=f"New subscription request: {subscription.service_name}",
+                    body=f"{request.user.email} submitted a subscription request for approval.",
+                    link_url=reverse('accounts:team_detail', args=[team_context.pk]),
+                    metadata={'request_id': team_request.pk},
+                    send_email_alert=True,
+                )
+                messages.success(request, 'Request submitted for owner approval.')
+                return redirect('accounts:team_detail', team_id=team_context.pk)
+
+            participants_to_create = [
+                SubscriptionParticipant(
+                    subscription=subscription,
+                    name=p_data['name'],
+                    share_amount=(
+                        subscription.user_cost
+                        if is_shared and subscription.split_type == 'equal'
+                        else p_data['share']
+                    ),
+                )
+                for p_data in participants_data
+            ]
+
+            with transaction.atomic():
+                subscription.save()
+                if participants_to_create:
+                    SubscriptionParticipant.objects.bulk_create(participants_to_create)
+                _sync_reminder_offsets(subscription, reminder_offsets)
+
+            if team_context:
+                create_team_notifications(
+                    team=team_context,
+                    actor=request.user,
+                    subscription=subscription,
+                    event_type='subscription.created',
+                    title=f"New subscription added: {subscription.service_name}",
+                    body=f"{request.user.email} added {subscription.service_name}.",
+                    link_url=reverse('accounts:team_detail', args=[team_context.pk]),
+                    metadata={'subscription_id': subscription.pk},
+                    send_email_alert=True,
+                )
             
+            if team_context:
+                return redirect('accounts:team_detail', team_id=team_context.pk)
             return redirect('subscriptions:list')
     else:
         initial = _build_subscription_prefill(request.GET)
         form = SubscriptionForm(user=request.user, initial=initial)
-    return _render_subscription_form(request, form, 'Add Subscription')
+    return _render_subscription_form(
+        request,
+        form,
+        'Add Subscription',
+        team_context=team_context,
+    )
 
 @login_required
 def subscription_update(request, pk):
-    subscription = get_object_or_404(Subscription, pk=pk, user=request.user)
+    subscription = _get_subscription_for_access(request.user, pk, require_owner=True)
+    if not subscription:
+        messages.error(request, 'You do not have permission to edit this subscription.')
+        return redirect('accounts:teams_overview')
+
+    team_context = subscription.team
     if request.method == 'POST':
         form = SubscriptionForm(request.POST, instance=subscription, user=request.user)
         if form.is_valid():
             subscription = form.save(commit=False)
+            subscription.team = team_context
             reminder_offsets = _parse_reminder_offsets(
                 request.POST.getlist("reminder_offsets")
             )
@@ -728,6 +890,7 @@ def subscription_update(request, pk):
                         form,
                         'Edit Subscription',
                         subscription=subscription,
+                        team_context=team_context,
                     )
 
                 total_participants = len(participants_data) + 1  # +1 for user
@@ -754,6 +917,7 @@ def subscription_update(request, pk):
                             form,
                             'Edit Subscription',
                             subscription=subscription,
+                            team_context=team_context,
                         )
 
                     participants_to_create = [
@@ -778,6 +942,20 @@ def subscription_update(request, pk):
                     subscription.participants.all().delete()  # Cleanup if switched from Shared to Solo
                     _sync_reminder_offsets(subscription, reminder_offsets)
 
+            if team_context:
+                create_team_notifications(
+                    team=team_context,
+                    actor=request.user,
+                    subscription=subscription,
+                    event_type='subscription.updated',
+                    title=f"Subscription updated: {subscription.service_name}",
+                    body=f"{request.user.email} updated {subscription.service_name}.",
+                    link_url=reverse('accounts:team_detail', args=[team_context.pk]),
+                    metadata={'subscription_id': subscription.pk},
+                    send_email_alert=True,
+                )
+                return redirect('accounts:team_detail', team_id=team_context.pk)
+
             return redirect('subscriptions:list')
     else:
         form = SubscriptionForm(instance=subscription, user=request.user)
@@ -786,18 +964,46 @@ def subscription_update(request, pk):
         form,
         'Edit Subscription',
         subscription=subscription,
+        team_context=team_context,
     )
 
 @login_required
 def subscription_delete(request, pk):
-    subscription = get_object_or_404(Subscription, pk=pk, user=request.user)
+    subscription = _get_subscription_for_access(request.user, pk, require_owner=True)
+    if not subscription:
+        messages.error(request, 'You do not have permission to delete this subscription.')
+        return redirect('accounts:teams_overview')
+
     if request.method == 'POST':
+        team_context = subscription.team
+        service_name = subscription.service_name
         subscription.delete()
+        if team_context:
+            create_team_notifications(
+                team=team_context,
+                actor=request.user,
+                event_type='subscription.deleted',
+                title=f"Subscription removed: {service_name}",
+                body=f"{request.user.email} removed {service_name}.",
+                link_url=reverse('accounts:team_detail', args=[team_context.pk]),
+                metadata={'service_name': service_name},
+                send_email_alert=True,
+            )
+            return redirect('accounts:team_detail', team_id=team_context.pk)
         return redirect('subscriptions:list')
     return render(request, 'subscriptions/confirm_delete.html', {'subscription': subscription})
+
+
 @login_required
 def delete_reminder_offset(request, pk):
-    offset = get_object_or_404(ReminderOffset, pk=pk, subscription__user=request.user)
+    offset = get_object_or_404(
+        ReminderOffset.objects.select_related('subscription', 'subscription__team', 'subscription__user'),
+        pk=pk,
+    )
+    if not _subscription_is_owner_editable(request.user, offset.subscription):
+        messages.error(request, 'You do not have permission to edit this subscription.')
+        return redirect('accounts:teams_overview')
+
     subscription_id = offset.subscription.id
     if request.method == 'POST':
         offset.delete()
@@ -808,7 +1014,11 @@ def delete_reminder_offset(request, pk):
 
 @login_required
 def add_reminder_offset(request, pk):
-    subscription = get_object_or_404(Subscription, pk=pk, user=request.user)
+    subscription = _get_subscription_for_access(request.user, pk, require_owner=True)
+    if not subscription:
+        messages.error(request, 'You do not have permission to edit this subscription.')
+        return redirect('accounts:teams_overview')
+
     if request.method == 'POST':
         days_before = request.POST.get('days_before')
         try:
@@ -832,12 +1042,27 @@ def add_reminder_offset(request, pk):
 @login_required
 def update_subscription_status(request, pk):
     """Update subscription status via AJAX"""
-    subscription = get_object_or_404(Subscription, pk=pk, user=request.user)
+    subscription = _get_subscription_for_access(request.user, pk, require_owner=True)
+    if not subscription:
+        return JsonResponse({'status': 'error', 'message': 'Not found'}, status=404)
+
     if request.method == 'POST':
         new_status = request.POST.get('status')
         if new_status in ['active', 'paused', 'cancelled']:
             subscription.status = new_status
             subscription.save()
+            if subscription.team_id:
+                create_team_notifications(
+                    team=subscription.team,
+                    actor=request.user,
+                    subscription=subscription,
+                    event_type='subscription.updated',
+                    title=f"Subscription updated: {subscription.service_name}",
+                    body=f"{request.user.email} changed status to {new_status}.",
+                    link_url=reverse('accounts:team_detail', args=[subscription.team_id]),
+                    metadata={'subscription_id': subscription.pk, 'status': new_status},
+                    send_email_alert=True,
+                )
             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
                 return JsonResponse({'status': 'success', 'new_status': new_status})
             return redirect('subscriptions:list')

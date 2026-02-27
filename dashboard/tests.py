@@ -8,7 +8,7 @@ from django.test import TestCase, Client
 from django.urls import reverse
 
 from dashboard.services import _days_left_text
-from subscriptions.models import Subscription
+from subscriptions.models import InAppNotification, Subscription
 from dashboard.models import BalanceAdjustment
 
 User = get_user_model()
@@ -44,14 +44,11 @@ class DashboardViewTest(TestCase):
         self.assertEqual(len(response.context['active_subscriptions_panel']), 2)
         self.assertEqual(len(response.context['recent_transactions']), 2)
 
-    def test_bell_url_contains_due_within_filter(self):
+    def test_bell_url_points_to_notifications_page(self):
         response = self.client.get(reverse('dashboard:home'))
         bell_url = response.context['bell_url']
         parsed = urlparse(bell_url)
-        query = parse_qs(parsed.query)
-        self.assertEqual(query.get('due_within'), ['30'])
-        self.assertEqual(query.get('status'), ['active'])
-        self.assertEqual(query.get('sort'), ['renewal_date'])
+        self.assertEqual(parsed.path, reverse('dashboard:notifications_page'))
 
     def test_shared_count_is_correct(self):
         Subscription.objects.create(
@@ -294,3 +291,46 @@ class LandingPageTest(TestCase):
         response = self.client.get('/')
         # Landing page should be accessible (200) or redirect
         self.assertIn(response.status_code, [200, 302])
+
+
+class NotificationApiTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(email='notify-api@example.com', password='password')
+        self.client.force_login(self.user)
+
+    def test_unread_count_and_mark_read(self):
+        notification = InAppNotification.objects.create(
+            recipient=self.user,
+            event_type='subscription.created',
+            title='New subscription',
+            body='Netflix added',
+        )
+
+        count_response = self.client.get(reverse('dashboard:notifications_unread_count_api'))
+        self.assertEqual(count_response.status_code, 200)
+        self.assertEqual(count_response.json()['unread_count'], 1)
+
+        mark_read_response = self.client.post(reverse('dashboard:notification_mark_read_api', args=[notification.pk]))
+        self.assertEqual(mark_read_response.status_code, 200)
+        self.assertEqual(mark_read_response.json()['unread_count'], 0)
+
+        notification.refresh_from_db()
+        self.assertTrue(notification.is_read)
+
+    def test_mark_all_read_marks_everything(self):
+        InAppNotification.objects.create(
+            recipient=self.user,
+            event_type='team.invite.sent',
+            title='Invite sent',
+        )
+        InAppNotification.objects.create(
+            recipient=self.user,
+            event_type='subscription.updated',
+            title='Subscription updated',
+        )
+
+        response = self.client.post(reverse('dashboard:notifications_mark_all_read_api'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['unread_count'], 0)
+        self.assertEqual(InAppNotification.objects.filter(recipient=self.user, is_read=False).count(), 0)

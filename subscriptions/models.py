@@ -122,6 +122,13 @@ class Subscription(models.Model):
     ]
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='subscriptions')
+    team = models.ForeignKey(
+        'accounts.Team',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='subscriptions',
+    )
     service_name = models.CharField(max_length=100)
     plan_name = models.CharField(max_length=100, blank=True, null=True, help_text="e.g. Basic, Premium, Family Plan")
     category = models.CharField(max_length=50, help_text="e.g. Streaming, Utilities, Software")
@@ -310,6 +317,8 @@ class Subscription(models.Model):
         return self.service_name[0].upper() if self.service_name else 'S'
 
     def __str__(self):
+        if self.team_id:
+            return f"{self.service_name} ({self.team.name})"
         return f"{self.service_name} ({self.user.email})"
 
     class Meta:
@@ -327,6 +336,108 @@ class ReminderOffset(models.Model):
 
     def __str__(self):
         return f"{self.subscription.service_name} - {self.days_before} days before"
+
+
+class TeamSubscriptionRequest(models.Model):
+    STATUS_PENDING = "pending"
+    STATUS_APPROVED = "approved"
+    STATUS_REJECTED = "rejected"
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending"),
+        (STATUS_APPROVED, "Approved"),
+        (STATUS_REJECTED, "Rejected"),
+    ]
+
+    team = models.ForeignKey(
+        'accounts.Team',
+        on_delete=models.CASCADE,
+        related_name='subscription_requests',
+    )
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='subscription_requests',
+    )
+    payload = models.JSONField(default=dict)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_subscription_requests',
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    decision_note = models.TextField(blank=True)
+    created_subscription = models.OneToOneField(
+        Subscription,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='origin_request',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Request {self.pk} for {self.team.name} ({self.status})"
+
+
+class InAppNotification(models.Model):
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='in_app_notifications',
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notifications_triggered',
+    )
+    team = models.ForeignKey(
+        'accounts.Team',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='notifications',
+    )
+    subscription = models.ForeignKey(
+        Subscription,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='in_app_notifications',
+    )
+    event_type = models.CharField(max_length=64)
+    title = models.CharField(max_length=255)
+    body = models.TextField(blank=True)
+    link_url = models.CharField(max_length=255, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    is_read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['recipient', 'is_read', '-created_at']),
+            models.Index(fields=['event_type', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.recipient.email}: {self.title}"
+
+    def mark_read(self):
+        if self.is_read:
+            return
+        self.is_read = True
+        self.read_at = timezone.now()
+        self.save(update_fields=['is_read', 'read_at'])
 
 
 class NotificationLog(models.Model):

@@ -1,6 +1,12 @@
 from django.test import TestCase, Client
+from django.test import override_settings
 from django.urls import reverse
 from django.contrib.auth import get_user_model
+from django.utils import timezone
+from datetime import timedelta
+
+from accounts.models import Team, TeamInvite, TeamMembership
+from accounts.services import create_team_invite
 
 User = get_user_model()
 
@@ -146,3 +152,65 @@ class UserManagerTest(TestCase):
                 password='password',
                 is_superuser=False,
             )
+
+
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+class TeamInviteFlowTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.owner = User.objects.create_user(email='owner-team@example.com', password='password')
+        self.member = User.objects.create_user(email='member-team@example.com', password='password')
+        self.other_user = User.objects.create_user(email='other-team@example.com', password='password')
+
+        self.team = Team.objects.create(name='Alpha Team', created_by=self.owner)
+        TeamMembership.objects.create(team=self.team, user=self.owner, role=TeamMembership.ROLE_OWNER)
+
+    def test_team_create_view_creates_owner_membership(self):
+        self.client.force_login(self.member)
+        response = self.client.post(reverse('accounts:team_create'), {'name': 'New Team'})
+        self.assertEqual(response.status_code, 302)
+        new_team = Team.objects.get(name='New Team')
+        self.assertTrue(
+            TeamMembership.objects.filter(
+                team=new_team,
+                user=self.member,
+                role=TeamMembership.ROLE_OWNER,
+            ).exists()
+        )
+
+    def test_accept_invite_requires_matching_email(self):
+        invite, raw_token = create_team_invite(
+            team=self.team,
+            email=self.member.email,
+            role=TeamMembership.ROLE_MEMBER,
+            invited_by=self.owner,
+        )
+
+        self.client.force_login(self.other_user)
+        response = self.client.get(reverse('accounts:invite_accept', args=[raw_token]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Email mismatch')
+        self.assertFalse(TeamMembership.objects.filter(team=self.team, user=self.other_user).exists())
+
+        self.client.force_login(self.member)
+        post_response = self.client.post(reverse('accounts:invite_accept', args=[raw_token]))
+        self.assertEqual(post_response.status_code, 302)
+        self.assertTrue(TeamMembership.objects.filter(team=self.team, user=self.member).exists())
+
+        invite.refresh_from_db()
+        self.assertIsNotNone(invite.accepted_at)
+
+    def test_expired_invite_cannot_be_accepted(self):
+        invite, raw_token = create_team_invite(
+            team=self.team,
+            email=self.member.email,
+            role=TeamMembership.ROLE_MEMBER,
+            invited_by=self.owner,
+        )
+        TeamInvite.objects.filter(pk=invite.pk).update(expires_at=timezone.now() - timedelta(hours=1))
+
+        self.client.force_login(self.member)
+        response = self.client.get(reverse('accounts:invite_accept', args=[raw_token]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Invite expired')
+        self.assertFalse(TeamMembership.objects.filter(team=self.team, user=self.member).exists())

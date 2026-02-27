@@ -1,5 +1,7 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
+from django.utils import timezone
+import hashlib
 
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -31,3 +33,111 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+
+class Team(models.Model):
+    name = models.CharField(max_length=120)
+    created_by = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.CASCADE,
+        related_name='owned_teams',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name', 'id']
+
+    def __str__(self):
+        return self.name
+
+
+class TeamMembership(models.Model):
+    ROLE_OWNER = 'owner'
+    ROLE_MEMBER = 'member'
+    ROLE_CHOICES = [
+        (ROLE_OWNER, 'Owner'),
+        (ROLE_MEMBER, 'Member'),
+    ]
+
+    team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name='memberships',
+    )
+    user = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.CASCADE,
+        related_name='team_memberships',
+    )
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_MEMBER)
+    invited_by = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='team_memberships_invited',
+    )
+    joined_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = ['team', 'user']
+        ordering = ['team_id', 'user_id']
+
+    def __str__(self):
+        return f"{self.user.email} in {self.team.name} ({self.role})"
+
+    @property
+    def is_owner(self):
+        return self.role == self.ROLE_OWNER
+
+
+class TeamInvite(models.Model):
+    team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name='invites',
+    )
+    email = models.EmailField(db_index=True)
+    role = models.CharField(
+        max_length=20,
+        choices=TeamMembership.ROLE_CHOICES,
+        default=TeamMembership.ROLE_MEMBER,
+    )
+    invited_by = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.CASCADE,
+        related_name='team_invites_sent',
+    )
+    token_hash = models.CharField(max_length=64, unique=True, db_index=True)
+    expires_at = models.DateTimeField()
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    accepted_by = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='team_invites_accepted',
+    )
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Invite {self.email} -> {self.team.name}"
+
+    @staticmethod
+    def hash_token(raw_token):
+        return hashlib.sha256(raw_token.encode('utf-8')).hexdigest()
+
+    def is_expired(self):
+        return timezone.now() >= self.expires_at
+
+    def is_usable(self):
+        return (
+            self.accepted_at is None
+            and self.revoked_at is None
+            and not self.is_expired()
+        )

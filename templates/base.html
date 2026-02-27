@@ -1,3 +1,4 @@
+{% load static %}
 {% load tailwind_tags %}
 <!DOCTYPE html>
 <html lang="en"{% if user.is_authenticated and not hide_sidebar %} class="app-auth-layout"{% endif %}>
@@ -115,6 +116,60 @@
             overflow-x: hidden;
         }
 
+        .global-notification-shell {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 60;
+        }
+
+        .global-notification-button {
+            position: relative;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 0.875rem;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            background: rgba(255, 255, 255, 0.95);
+            color: rgb(51 65 85);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 12px 24px -22px rgba(15, 23, 42, 0.55);
+        }
+
+        .global-notification-count {
+            position: absolute;
+            top: -0.35rem;
+            right: -0.35rem;
+            min-width: 1.1rem;
+            height: 1.1rem;
+            border-radius: 9999px;
+            background: #dc2626;
+            color: #fff;
+            font-size: 10px;
+            line-height: 1.1rem;
+            text-align: center;
+            padding: 0 0.2rem;
+        }
+
+        .global-notification-panel {
+            position: absolute;
+            top: calc(100% + 0.5rem);
+            right: 0;
+            width: min(94vw, 24rem);
+            max-height: 26rem;
+            overflow: hidden;
+            border-radius: 1rem;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            background: #fff;
+            box-shadow: 0 28px 52px -34px rgba(15, 23, 42, 0.65);
+            display: none;
+        }
+
+        .global-notification-panel.is-open {
+            display: block;
+        }
+
         @media (min-width: 768px) {
             .app-sidebar {
                 top: 14px;
@@ -162,10 +217,50 @@
     {% include 'components/navbar.html' %}
     {% endif %}
 
+    {% if user.is_authenticated %}
+    <div class="global-notification-shell" id="global-notification-shell">
+        <button
+            type="button"
+            class="global-notification-button"
+            id="global-notification-toggle"
+            aria-expanded="false"
+            aria-controls="global-notification-panel"
+            title="Notifications"
+        >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+            </svg>
+            <span class="global-notification-count hidden" id="global-notification-count">0</span>
+        </button>
+        <div class="global-notification-panel" id="global-notification-panel">
+            <div class="p-3 border-b border-slate-200 flex items-center justify-between gap-2">
+                <p class="font-semibold text-sm text-slate-800">Notifications</p>
+                <button type="button" id="global-notification-read-all" class="text-xs text-slate-600 hover:text-slate-900">
+                    Mark all read
+                </button>
+            </div>
+            <div id="global-notification-list" class="max-h-80 overflow-y-auto"></div>
+            <div class="p-2 border-t border-slate-100 bg-slate-50 text-right">
+                <a href="{% url 'dashboard:notifications_page' %}" class="text-xs text-slate-700 hover:text-slate-900">View all</a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <main{% if user.is_authenticated and not hide_sidebar %} class="app-main-with-sidebar"{% else %} class="min-h-screen"{% endif %}>
+        {% if messages %}
+        <div class="max-w-5xl mx-auto mb-3 space-y-2">
+            {% for message in messages %}
+            <div class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
         {% block content %}{% endblock %}
     </main>
 
+    {% if user.is_authenticated %}
+    <script src="{% static 'dashboard/notifications.js' %}?v=20260227-1"></script>
+    {% endif %}
     {% block extra_js %}{% endblock %}
 </body>
 

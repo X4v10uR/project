@@ -6,9 +6,11 @@ from django.conf import settings
 from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
 from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils import timezone
 
 from .models import NotificationLog, Subscription, Transaction
+from .notifications import create_notification
 
 logger = logging.getLogger(__name__)
 
@@ -131,29 +133,23 @@ class NotificationService:
     def send_renewal_reminder(subscription, days_before=3):
         """Send a renewal reminder email for a subscription."""
         try:
-            user = subscription.user
+            recipients = []
+            if subscription.team_id:
+                recipients = [
+                    membership.user
+                    for membership in subscription.team.memberships.select_related('user').all()
+                ]
+            else:
+                recipients = [subscription.user]
 
             # Check if reminders are enabled for this subscription
             if not subscription.reminders_enabled:
                 logger.info(
                     "Reminders disabled for %s (User: %s)",
                     subscription.service_name,
-                    user.email,
+                    subscription.user.email,
                 )
                 return False
-
-            # Prepare email context
-            context = {
-                'user': user,
-                'subscription': subscription,
-                'days_before': days_before,
-                'site_url': getattr(settings, 'SITE_URL', 'http://localhost:8000'),
-            }
-
-            # Render email templates
-            subject = render_to_string('emails/renewal_reminder_subject.txt', context).strip()
-            text_content = render_to_string('emails/renewal_reminder.txt', context)
-            html_content = render_to_string('emails/renewal_reminder.html', context)
 
             try:
                 with transaction.atomic():
@@ -168,29 +164,56 @@ class NotificationService:
                     "Notification already reserved for %s at %s days offset to %s",
                     subscription.service_name,
                     days_before,
-                    user.email,
+                    subscription.user.email,
                 )
                 return False
 
-            # Send email
-            try:
-                send_mail(
-                    subject=subject,
-                    message=text_content,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[user.email],
-                    html_message=html_content,
-                    fail_silently=False,
+            for recipient in recipients:
+                context = {
+                    'user': recipient,
+                    'subscription': subscription,
+                    'days_before': days_before,
+                    'site_url': getattr(settings, 'SITE_URL', 'http://localhost:8000'),
+                }
+                subject = render_to_string('emails/renewal_reminder_subject.txt', context).strip()
+                text_content = render_to_string('emails/renewal_reminder.txt', context)
+                html_content = render_to_string('emails/renewal_reminder.html', context)
+
+                try:
+                    send_mail(
+                        subject=subject,
+                        message=text_content,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[recipient.email],
+                        html_message=html_content,
+                        fail_silently=False,
+                    )
+                except Exception:
+                    NotificationLog.objects.filter(pk=notification_log.pk).delete()
+                    raise
+
+                if subscription.team_id:
+                    link_url = reverse('accounts:team_detail', args=[subscription.team_id])
+                else:
+                    link_url = reverse('subscriptions:update', args=[subscription.pk])
+
+                create_notification(
+                    recipient=recipient,
+                    team=subscription.team,
+                    subscription=subscription,
+                    event_type='renewal.reminder',
+                    title=f"Renewal reminder: {subscription.service_name}",
+                    body=f"Renews in {days_before} day(s).",
+                    link_url=link_url,
+                    metadata={
+                        'days_before': days_before,
+                        'renewal_date': subscription.renewal_date.isoformat() if subscription.renewal_date else None,
+                    },
                 )
-            except Exception:
-                # Release reservation so a later scheduler run can retry.
-                NotificationLog.objects.filter(pk=notification_log.pk).delete()
-                raise
 
             logger.info(
-                "Renewal reminder sent for %s to %s",
+                "Renewal reminder sent for %s",
                 subscription.service_name,
-                user.email,
             )
             return True
 

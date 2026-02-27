@@ -163,6 +163,9 @@
 <div style="max-width:896px;margin:0 auto;padding-bottom:48px;">
   <form method="post" id="subscription-form" novalidate>
     {% csrf_token %}
+    {% if team_context %}
+    <input type="hidden" name="team_id" value="{{ team_context.id }}">
+    {% endif %}
     {% if form.non_field_errors %}
     <div class="form-errors">
       {% for error in form.non_field_errors %}
@@ -173,7 +176,7 @@
 
   <!-- Header: flex items-center gap-4 mb-8 -->
   <div style="display:flex;align-items:center;gap:16px;margin-bottom:32px;">
-    <a href="{% url 'subscriptions:list' %}"
+    <a href="{% if team_context %}{% url 'accounts:team_detail' team_context.id %}{% else %}{% url 'subscriptions:list' %}{% endif %}"
       style="width:40px;height:40px;border-radius:14px;background:#fff;border:1px solid #f3f4f6;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s;flex-shrink:0;outline:none;"
       onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='#fff'">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4b5563" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
@@ -181,6 +184,9 @@
     <div>
       <h1 style="color:#1a1a2e;">{% if is_edit_mode %}Edit Subscription{% else %}Add Subscription{% endif %}</h1>
       <p style="font-size:14px;color:#6b7280;margin-top:2px;">Track a new subscription by filling out the details below.</p>
+      <p style="font-size:12px;color:#334155;margin-top:6px;">
+        Context: <span style="display:inline-flex;padding:2px 8px;border-radius:9999px;background:#e2e8f0;">{{ owner_context_label }}</span>
+      </p>
     </div>
   </div>
 
