@@ -1,3 +1,4 @@
+import csv
 from datetime import date, timedelta
 from decimal import Decimal
 from io import StringIO
@@ -68,6 +69,39 @@ class SubscriptionListAndPrefillTest(TestCase):
         self.assertEqual(form.initial['billing_cycle'], 'monthly')
         self.assertEqual(form.initial['plan_name'], 'Family')
         self.assertNotIn('invalid_field', form.initial)
+
+    def test_export_csv_respects_filters(self):
+        today = date.today()
+        Subscription.objects.create(
+            user=self.user,
+            service_name='Active Service',
+            category='Streaming',
+            billing_cycle='monthly',
+            cost=Decimal('10.00'),
+            start_date=today,
+            status='active',
+        )
+        Subscription.objects.create(
+            user=self.user,
+            service_name='Paused Service',
+            category='Streaming',
+            billing_cycle='monthly',
+            cost=Decimal('12.00'),
+            start_date=today,
+            status='paused',
+        )
+
+        response = self.client.get(reverse('subscriptions:export_csv'), {'status': 'active'})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'text/csv')
+        self.assertIn('attachment;', response['Content-Disposition'])
+
+        content = response.content.decode('utf-8')
+        rows = list(csv.DictReader(content.splitlines()))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['Service Name'], 'Active Service')
+        self.assertEqual(rows[0]['Status'], 'active')
 
 
 class BillingServiceTest(TestCase):

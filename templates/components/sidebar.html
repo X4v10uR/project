@@ -44,12 +44,13 @@
             <span>Cards</span>
         </a>
 
-        <span class="app-sidebar-link app-sidebar-static">
+        <a href="{% url 'accounts:settings' %}"
+           class="app-sidebar-link {% if ns == 'accounts' and name == 'settings' %}is-active{% endif %}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8a4 4 0 100 8 4 4 0 000-8zm8 4a8.04 8.04 0 01-.23 1.9l2.08 1.62-2 3.46-2.52-1a8.08 8.08 0 01-3.3 1.9l-.38 2.68h-4l-.38-2.68a8.08 8.08 0 01-3.3-1.9l-2.52 1-2-3.46 2.08-1.62A8.04 8.04 0 014 12c0-.65.08-1.29.23-1.9L2.15 8.48l2-3.46 2.52 1a8.08 8.08 0 013.3-1.9l.38-2.68h4l.38 2.68a8.08 8.08 0 013.3 1.9l2.52-1 2 3.46-2.08 1.62c.15.61.23 1.25.23 1.9z"/>
             </svg>
             <span>Settings</span>
-        </span>
+        </a>
     </nav>
 
     <div class="app-sidebar-footer">

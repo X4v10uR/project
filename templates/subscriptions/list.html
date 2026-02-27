@@ -43,6 +43,9 @@
             <a href="{% url 'subscriptions:create' %}">
                 Add Subscription
             </a>
+            <a href="{% url 'subscriptions:export_csv' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">
+                Export to CSV
+            </a>
         </div>
     </div>
 

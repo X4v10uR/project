@@ -67,6 +67,70 @@ class AuthRequiredTest(TestCase):
         self.assertIn('/accounts/login/', response.url)
 
 
+class SettingsViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='settings@example.com',
+            password='OldStrongPass123!',
+            first_name='Old',
+            last_name='Name',
+        )
+
+    def test_settings_requires_login(self):
+        response = self.client.get(reverse('accounts:settings'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/accounts/login/', response.url)
+
+    def test_settings_get_renders_forms(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('accounts:settings'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Save profile')
+        self.assertContains(response, 'Change password')
+
+    def test_profile_settings_post_updates_user(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse('accounts:settings'),
+            {
+                'form_type': 'profile',
+                'first_name': 'New',
+                'last_name': 'Display',
+                'email': 'new-email@example.com',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('?updated=profile', response.url)
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, 'New')
+        self.assertEqual(self.user.last_name, 'Display')
+        self.assertEqual(self.user.email, 'new-email@example.com')
+
+    def test_password_settings_post_changes_password_and_keeps_session(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse('accounts:settings'),
+            {
+                'form_type': 'password',
+                'old_password': 'OldStrongPass123!',
+                'new_password1': 'NewStrongPass456!',
+                'new_password2': 'NewStrongPass456!',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('?updated=password', response.url)
+
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('NewStrongPass456!'))
+
+        dashboard_response = self.client.get(reverse('dashboard:home'))
+        self.assertEqual(dashboard_response.status_code, 200)
+
+
 class UserManagerTest(TestCase):
     def test_create_superuser_requires_staff_and_superuser_flags(self):
         with self.assertRaisesMessage(ValueError, 'Superuser must have is_staff=True.'):

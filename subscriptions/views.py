@@ -2,6 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from decimal import Decimal, InvalidOperation
 from datetime import timedelta
+import csv
 import json
 
 from django.db import transaction
@@ -10,7 +11,7 @@ from django.utils import timezone
 from django.urls import reverse
 from .models import Subscription, ReminderOffset, Card, SubscriptionParticipant
 from .forms import SubscriptionForm, CardForm
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from .cards_state import (
     CARD_BRANDS,
     CARD_THEMES,
@@ -506,11 +507,10 @@ def cards_api_delete(request, pk):
 
     return _cards_state_response(request.user)
 
-@login_required
-def subscription_list(request):
+
+def _build_subscription_list_state(request):
     query = request.GET.get('q', '')
     status_filter = request.GET.get('status', '')
-    # ... existing code ...
     cycle_filter = request.GET.get('cycle', '')
     shared_filter = request.GET.get('shared', '')
     due_within = request.GET.get('due_within', '')
@@ -543,19 +543,94 @@ def subscription_list(request):
         subscriptions = subscriptions.filter(
             renewal_date__range=[today, today + timedelta(days=due_within_days)]
         )
-    
+
     if sort_by in ['cost', 'renewal_date', 'service_name']:
         subscriptions = subscriptions.order_by(sort_by)
 
-    return render(request, 'subscriptions/list.html', {
-        'subscriptions': subscriptions,
+    filters = {
         'query': query,
         'status_filter': status_filter,
         'cycle_filter': cycle_filter,
         'shared_filter': shared_filter,
         'due_within': due_within,
-        'sort_by': sort_by
-    })
+        'sort_by': sort_by,
+    }
+    return subscriptions, filters
+
+
+@login_required
+def subscription_list(request):
+    subscriptions, filters = _build_subscription_list_state(request)
+    return render(
+        request,
+        'subscriptions/list.html',
+        {
+            'subscriptions': subscriptions,
+            **filters,
+        },
+    )
+
+
+@login_required
+def subscription_export_csv(request):
+    subscriptions, _ = _build_subscription_list_state(request)
+    subscriptions = subscriptions.prefetch_related('participants')
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = (
+        f'attachment; filename="subscriptions-{timezone.localdate().isoformat()}.csv"'
+    )
+
+    writer = csv.writer(response)
+    writer.writerow(
+        [
+            'Service Name',
+            'Plan Name',
+            'Category',
+            'Billing Cycle',
+            'Status',
+            'Is Shared',
+            'Participants',
+            'Account Email',
+            'Currency',
+            'Total Cost',
+            'Your Cost',
+            'Start Date',
+            'Renewal Date',
+            'Renewal Time',
+            'Notes',
+        ]
+    )
+
+    for subscription in subscriptions:
+        participant_names = ', '.join(
+            subscription.participants.order_by('name').values_list('name', flat=True)
+        )
+        writer.writerow(
+            [
+                subscription.service_name,
+                subscription.plan_name or '',
+                subscription.category,
+                subscription.billing_cycle,
+                subscription.status,
+                'Yes' if subscription.is_shared else 'No',
+                participant_names,
+                subscription.account_email or '',
+                subscription.currency,
+                str(subscription.cost),
+                str(subscription.user_cost),
+                subscription.start_date.isoformat() if subscription.start_date else '',
+                subscription.renewal_date.isoformat()
+                if subscription.renewal_date
+                else '',
+                subscription.renewal_time.strftime('%H:%M')
+                if subscription.renewal_time
+                else '',
+                subscription.notes or '',
+            ]
+        )
+
+    return response
 
 @login_required
 def subscription_create(request):

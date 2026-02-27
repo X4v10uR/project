@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Subly{% endblock %}
+
+{% block content %}
+<div>
+    <h1>Settings</h1>
+    <p>Update your profile details and account password.</p>
+
+    {% if profile_updated %}
+    <p>Profile details updated successfully.</p>
+    {% endif %}
+
+    {% if password_updated %}
+    <p>Password updated successfully.</p>
+    {% endif %}
+
+    <div>
+        <section>
+            <h2>Profile</h2>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="form_type" value="profile">
+
+                {% if profile_form.non_field_errors %}
+                <p>{{ profile_form.non_field_errors.0 }}</p>
+                {% endif %}
+
+                {% for field in profile_form %}
+                <div>
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                    <p>{{ field.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+
+                <button type="submit">Save profile</button>
+            </form>
+        </section>
+
+        <section>
+            <h2>Password</h2>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="form_type" value="password">
+
+                {% if password_form.non_field_errors %}
+                <p>{{ password_form.non_field_errors.0 }}</p>
+                {% endif %}
+
+                {% for field in password_form %}
+                <div>
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                    <p>{{ field.errors.0 }}</p>
+                    {% endif %}
+                    {% if field.help_text %}
+                    <p>{{ field.help_text }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+
+                <button type="submit">Change password</button>
+            </form>
+        </section>
+    </div>
+</div>
+{% endblock %}
