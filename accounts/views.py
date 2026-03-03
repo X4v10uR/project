@@ -21,7 +21,7 @@ from .forms import (
     TeamCreateForm,
     TeamInviteForm,
 )
-from .models import Team, TeamMembership
+from .models import Team, TeamMembership, User
 from .services import (
     accept_invite,
     create_team_invite,
@@ -303,24 +303,60 @@ def team_invite(request, team_id):
         revoked_at__isnull=True,
         expires_at__gt=timezone.now(),
     ).first()
+    replaced_existing = False
     if existing_invite:
-        messages.error(request, 'An active invite for that email already exists.')
-        return redirect('accounts:team_detail', team_id=team.pk)
+        # Rotate active invites so owners can re-send and generate a fresh token.
+        existing_invite.revoked_at = timezone.now()
+        existing_invite.save(update_fields=['revoked_at'])
+        replaced_existing = True
 
     try:
-        with transaction.atomic():
-            invite, raw_token = create_team_invite(
-                team=team,
-                email=email,
-                role=role,
-                invited_by=request.user,
-            )
-            # Keep DB and delivery state aligned: if email fails, rollback invite row.
-            send_team_invite_email(invite, raw_token)
+        invite, raw_token = create_team_invite(
+            team=team,
+            email=email,
+            role=role,
+            invited_by=request.user,
+        )
     except Exception:
         logger.exception("Failed to create/send team invite for team=%s email=%s", team.pk, email)
-        messages.error(request, 'Invitation could not be sent. Please try again.')
+        messages.error(request, 'Invitation could not be created. Please try again.')
         return redirect('accounts:team_detail', team_id=team.pk)
+
+    email_sent = True
+    try:
+        send_team_invite_email(invite, raw_token)
+    except Exception:
+        email_sent = False
+        logger.exception("Failed to send team invite email for team=%s email=%s", team.pk, email)
+
+    invitee_user = User.objects.filter(email__iexact=email).first()
+    if invitee_user and invitee_user.pk != request.user.pk:
+        create_notification(
+            recipient=invitee_user,
+            actor=request.user,
+            team=team,
+            event_type='team.invite.received',
+            title=f"Invitation to join {team.name}",
+            body=f"{request.user.email} invited you as {role}.",
+            link_url=reverse('accounts:invite_accept', args=[raw_token]),
+            metadata={'invite_id': invite.pk, 'team_id': team.pk, 'role': role},
+            send_email_alert=False,
+        )
+
+    if not email_sent and invitee_user:
+        messages.warning(
+            request,
+            f'Invite created for {email}, but email delivery failed. The user can accept from in-app notifications.',
+        )
+    elif not email_sent:
+        messages.warning(
+            request,
+            f'Invite created for {email}, but email delivery failed. Check SMTP settings and retry.',
+        )
+    elif replaced_existing:
+        messages.success(request, f'Invitation re-sent to {email}.')
+    else:
+        messages.success(request, f'Invitation sent to {email}.')
 
     create_team_notifications(
         team=team,
@@ -332,8 +368,6 @@ def team_invite(request, team_id):
         metadata={'invite_id': invite.pk, 'email': email, 'role': role},
         send_email_alert=True,
     )
-
-    messages.success(request, f'Invitation sent to {email}.')
     return redirect('accounts:team_detail', team_id=team.pk)
 
 

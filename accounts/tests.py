@@ -230,7 +230,7 @@ class TeamInviteFlowTest(TestCase):
         self.assertContains(response, 'Invite expired')
         self.assertFalse(TeamMembership.objects.filter(team=self.team, user=self.member).exists())
 
-    def test_team_invite_rolls_back_when_email_send_fails(self):
+    def test_team_invite_persists_when_email_send_fails(self):
         self.client.force_login(self.owner)
         invitee_email = 'new-person@example.com'
 
@@ -248,11 +248,17 @@ class TeamInviteFlowTest(TestCase):
             reverse('accounts:team_detail', args=[self.team.pk]),
             fetch_redirect_response=False,
         )
-        self.assertFalse(
-            TeamInvite.objects.filter(team=self.team, email__iexact=invitee_email).exists()
+        self.assertTrue(
+            TeamInvite.objects.filter(
+                team=self.team,
+                email__iexact=invitee_email,
+                accepted_at__isnull=True,
+                revoked_at__isnull=True,
+                expires_at__gt=timezone.now(),
+            ).exists()
         )
 
-    def test_duplicate_active_invite_is_blocked(self):
+    def test_duplicate_active_invite_is_rotated_to_fresh_invite(self):
         self.client.force_login(self.owner)
         invitee_email = 'pending@example.com'
 
@@ -263,6 +269,7 @@ class TeamInviteFlowTest(TestCase):
                 'role': TeamMembership.ROLE_MEMBER,
             },
         )
+        first_invite = TeamInvite.objects.get(team=self.team, email__iexact=invitee_email)
         second = self.client.post(
             reverse('accounts:team_invite', args=[self.team.pk]),
             {
@@ -273,6 +280,8 @@ class TeamInviteFlowTest(TestCase):
 
         self.assertEqual(first.status_code, 302)
         self.assertEqual(second.status_code, 302)
+        first_invite.refresh_from_db()
+        self.assertIsNotNone(first_invite.revoked_at)
         self.assertEqual(
             TeamInvite.objects.filter(
                 team=self.team,
@@ -282,6 +291,67 @@ class TeamInviteFlowTest(TestCase):
                 expires_at__gt=timezone.now(),
             ).count(),
             1,
+        )
+        self.assertEqual(
+            TeamInvite.objects.filter(team=self.team, email__iexact=invitee_email).count(),
+            2,
+        )
+
+    def test_inviting_existing_user_creates_in_app_invite_notification(self):
+        self.client.force_login(self.owner)
+
+        response = self.client.post(
+            reverse('accounts:team_invite', args=[self.team.pk]),
+            {
+                'email': self.member.email,
+                'role': TeamMembership.ROLE_MEMBER,
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse('accounts:team_detail', args=[self.team.pk]),
+            fetch_redirect_response=False,
+        )
+        notification = InAppNotification.objects.filter(
+            recipient=self.member,
+            team=self.team,
+            event_type='team.invite.received',
+        ).first()
+        self.assertIsNotNone(notification)
+        self.assertIn('/accounts/invites/accept/', notification.link_url)
+
+    def test_invite_notification_still_created_when_email_fails(self):
+        self.client.force_login(self.owner)
+
+        with patch('accounts.views.send_team_invite_email', side_effect=RuntimeError('smtp failed')):
+            response = self.client.post(
+                reverse('accounts:team_invite', args=[self.team.pk]),
+                {
+                    'email': self.member.email,
+                    'role': TeamMembership.ROLE_MEMBER,
+                },
+            )
+
+        self.assertRedirects(
+            response,
+            reverse('accounts:team_detail', args=[self.team.pk]),
+            fetch_redirect_response=False,
+        )
+        self.assertTrue(
+            TeamInvite.objects.filter(
+                team=self.team,
+                email__iexact=self.member.email,
+                accepted_at__isnull=True,
+                revoked_at__isnull=True,
+            ).exists()
+        )
+        self.assertTrue(
+            InAppNotification.objects.filter(
+                recipient=self.member,
+                team=self.team,
+                event_type='team.invite.received',
+            ).exists()
         )
 
     def test_invite_accept_does_not_accept_additional_invite_for_existing_member(self):

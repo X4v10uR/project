@@ -34,6 +34,7 @@
         this.notifications = [];
         this.unreadCount = 0;
         this.socket = null;
+        this.pollTimer = null;
 
         if (!this.shell || !this.toggle || !this.panel || !this.listNode || !this.countNode) {
             return;
@@ -41,6 +42,7 @@
 
         this.bindEvents();
         this.fetchList();
+        this.startPolling();
         this.connectSocket();
     }
 
@@ -63,11 +65,35 @@
             }
         });
 
+        document.addEventListener('visibilitychange', function () {
+            if (!document.hidden) {
+                self.fetchList();
+            }
+        });
+
         if (this.readAllBtn) {
             this.readAllBtn.addEventListener('click', function () {
                 self.markAllRead();
             });
         }
+    };
+
+    NotificationBell.prototype.startPolling = function () {
+        const self = this;
+        if (this.pollTimer) {
+            return;
+        }
+        this.pollTimer = window.setInterval(function () {
+            self.fetchList();
+        }, 15000);
+    };
+
+    NotificationBell.prototype.stopPolling = function () {
+        if (!this.pollTimer) {
+            return;
+        }
+        window.clearInterval(this.pollTimer);
+        this.pollTimer = null;
     };
 
     NotificationBell.prototype.openPanel = function () {
@@ -198,12 +224,18 @@
 
     NotificationBell.prototype.connectSocket = function () {
         if (!window.WebSocket) {
+            this.startPolling();
             return;
         }
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const url = protocol + '//' + window.location.host + '/ws/notifications/';
         const self = this;
         this.socket = new WebSocket(url);
+
+        this.socket.onopen = function () {
+            self.stopPolling();
+            self.fetchList();
+        };
 
         this.socket.onmessage = function (event) {
             try {
@@ -239,6 +271,7 @@
         };
 
         this.socket.onclose = function () {
+            self.startPolling();
             window.setTimeout(function () {
                 self.connectSocket();
                 self.fetchList();
