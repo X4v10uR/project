@@ -24,8 +24,10 @@ function parseBootstrapState() {
     return {
       ...DEFAULT_STATE,
       ...parsed,
-      cards: Array.isArray(parsed.cards) ? parsed.cards : [],
-      subscriptions: Array.isArray(parsed.subscriptions) ? parsed.subscriptions : [],
+      cards: Array.isArray(parsed.cards) ? parsed.cards.map(normalizeCard) : [],
+      subscriptions: Array.isArray(parsed.subscriptions)
+        ? parsed.subscriptions.map(normalizeSubscription)
+        : [],
       selectedCardId: parsed.selectedCardId ? String(parsed.selectedCardId) : null,
       editCardId: parsed.editCardId ? String(parsed.editCardId) : null,
       deleteCardId: parsed.deleteCardId ? String(parsed.deleteCardId) : null,
@@ -34,8 +36,6 @@ function parseBootstrapState() {
     return { ...DEFAULT_STATE };
   }
 }
-
-let state = parseBootstrapState();
 
 // ─────────────────────────────────────────────
 // HELPERS
@@ -71,6 +71,57 @@ const ICON_PATHS = {
 };
 
 const JCB_INLINE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 432.37 324.5" style="width:100%;height:100%;display:block;"><defs><style>.a{fill:url(#a);}.b{fill:url(#b);}.c{fill:url(#c);}.d{fill:url(#d);}.e{fill:url(#e);}</style><linearGradient id="a" x1="148.19" y1="270.12" x2="213.35" y2="270.12" gradientTransform="matrix(2.05, 0, 0, -2.05, -4.47, 736.29)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#007940"/><stop offset="0.23" stop-color="#00873f"/><stop offset="0.74" stop-color="#40a737"/><stop offset="1" stop-color="#5cb531"/></linearGradient><linearGradient id="b" x1="148.18" y1="280.2" x2="213.29" y2="280.2" xlink:href="#a"/><linearGradient id="c" x1="148.18" y1="291.29" x2="213.35" y2="291.29" xlink:href="#a"/><linearGradient id="d" x1="2.3" y1="280.27" x2="68.47" y2="280.27" gradientTransform="matrix(2.05, 0, 0, -2.05, -4.47, 736.29)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1f286f"/><stop offset="0.48" stop-color="#004e94"/><stop offset="0.83" stop-color="#0066b1"/><stop offset="1" stop-color="#006fbc"/></linearGradient><linearGradient id="e" x1="74.89" y1="280.13" x2="139.16" y2="280.13" gradientTransform="matrix(2.05, 0, 0, -2.05, -4.47, 736.29)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6c2c2f"/><stop offset="0.17" stop-color="#882730"/><stop offset="0.57" stop-color="#be1833"/><stop offset="0.86" stop-color="#dc0436"/><stop offset="1" stop-color="#e60039"/></linearGradient></defs><path class="a" d="M325.69,197h31.2c.89,0,3-.3,3.86-.3a13.92,13.92,0,0,0,11-14,14.41,14.41,0,0,0-11-14,15.52,15.52,0,0,0-3.86-.3h-31.2V197Z"/><path class="b" d="M353.32,0a54.09,54.09,0,0,0-54.08,54.08v56.17h76.37a31.36,31.36,0,0,1,5.35.29c17.24.9,30,9.81,30,25.26,0,12.19-8.61,22.59-24.66,24.67v.59c17.53,1.19,30.9,11,30.9,26.15,0,16.35-14.85,27-34.47,27h-83.8v110h79.35a54.09,54.09,0,0,0,54.08-54.08V0Z"/><path class="c" d="M367.89,139.37a12.65,12.65,0,0,0-11-12.78c-.59,0-2.08-.3-3-.3H325.69v26.15h28.23c.89,0,2.67,0,3-.29A12.66,12.66,0,0,0,367.89,139.37Z"/><path class="d" d="M54.38,0A54.08,54.08,0,0,0,.3,54.08V187.51c15.15,7.43,30.9,12.18,46.65,12.18,18.72,0,28.83-11.29,28.83-26.74V110h46.35v62.7c0,24.37-15.15,44.28-66.56,44.28A228,228,0,0,1,0,210.09V323.91H79.34a54.09,54.09,0,0,0,54.09-54.09V0Z"/><path class="e" d="M203.85,0a54.09,54.09,0,0,0-54.08,54.08v70.73c13.67-11.59,37.44-19,75.78-17.24,20.5.89,42.49,6.54,42.49,6.54V137c-11-5.64-24.07-10.7-41-11.89-29.12-2.08-46.65,12.19-46.65,37.15,0,25.26,17.53,39.52,46.65,37.14,16.94-1.18,30-6.53,41-11.88v22.88s-21.69,5.65-42.49,6.54c-38.34,1.78-62.11-5.65-75.78-17.24V324.5h79.34a54.08,54.08,0,0,0,54.08-54.08V0Z"/></svg>`;
+const VALID_THEME_KEYS = new Set(THEMES.map(theme => theme.key));
+const VALID_BRANDS = new Set(BRANDS);
+
+function safeCssColor(rawValue, fallback = '#AFC0DE') {
+  const value = String(rawValue || '').trim();
+  if (/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(value)) {
+    return value;
+  }
+  return fallback;
+}
+
+function safeToken(rawValue) {
+  return String(rawValue ?? '').replace(/[^A-Za-z0-9_-]/g, '');
+}
+
+function normalizeCard(rawCard = {}) {
+  const brand = String(rawCard.brand || '').toLowerCase();
+  const theme = String(rawCard.theme || '').toLowerCase();
+  const last4 = String(rawCard.last4 || '').replace(/\D/g, '').slice(-4);
+
+  return {
+    id: safeToken(rawCard.id),
+    nickname: String(rawCard.nickname || ''),
+    last4: last4 || '0000',
+    brand: VALID_BRANDS.has(brand) ? brand : 'visa',
+    isPrimary: Boolean(rawCard.isPrimary),
+    theme: VALID_THEME_KEYS.has(theme) ? theme : 'dark',
+  };
+}
+
+function normalizeSubscription(rawSub = {}) {
+  const baseColor = safeCssColor(rawSub.color, '#AFC0DE');
+  const monthlyPrice = Number(rawSub.monthlyPrice);
+  const daysLeft = Number(rawSub.daysLeft);
+
+  return {
+    id: safeToken(rawSub.id),
+    name: String(rawSub.name || ''),
+    monthlyPrice: Number.isFinite(monthlyPrice) ? monthlyPrice : 0,
+    billingCycle: String(rawSub.billingCycle || ''),
+    cardId: safeToken(rawSub.cardId),
+    color: baseColor,
+    iconBg: safeCssColor(rawSub.iconBg, baseColor),
+    iconLabel: String(rawSub.iconLabel || 'S').slice(0, 2),
+    nextBillingDate: String(rawSub.nextBillingDate || ''),
+    daysLeft: Number.isFinite(daysLeft) ? Math.max(0, Math.trunc(daysLeft)) : 0,
+    plan: String(rawSub.plan || ''),
+  };
+}
+
+let state = parseBootstrapState();
 
 function renderIcons(root = document) {
   const host = root && root.querySelectorAll ? root : document;
@@ -158,8 +209,10 @@ function hydrateState(serverState, { keepSearch = true, keepSelected = true } = 
   state = {
     ...DEFAULT_STATE,
     ...serverState,
-    cards: Array.isArray(serverState.cards) ? serverState.cards : [],
-    subscriptions: Array.isArray(serverState.subscriptions) ? serverState.subscriptions : [],
+    cards: Array.isArray(serverState.cards) ? serverState.cards.map(normalizeCard) : [],
+    subscriptions: Array.isArray(serverState.subscriptions)
+      ? serverState.subscriptions.map(normalizeSubscription)
+      : [],
     selectedCardId: serverState.selectedCardId ? String(serverState.selectedCardId) : null,
     editCardId: serverState.editCardId ? String(serverState.editCardId) : null,
     deleteCardId: serverState.deleteCardId ? String(serverState.deleteCardId) : null,
@@ -257,6 +310,11 @@ function brandCardLogoHTML(brand, compact=false) {
 // CARD VISUAL HTML (cards stay dark — real credit cards are dark)
 // ─────────────────────────────────────────────
 function cardVisualHTML(card, isSelected=false, compact=false) {
+  const safeTheme = VALID_THEME_KEYS.has(card.theme) ? card.theme : 'dark';
+  const safeCardId = escHtml(card.id || '');
+  const safeLast4 = escHtml(String(card.last4 || '0000').replace(/\D/g, '').slice(-4) || '0000');
+  const safeNickname = escHtml(card.nickname || 'My Card');
+  const safeBrand = VALID_BRANDS.has(card.brand) ? card.brand : 'visa';
   const p = compact ? 'p-3' : 'p-5';
   const selClass = isSelected ? 'selected' : '';
   const chipW = compact ? 'width:28px;height:20px' : 'width:40px;height:28px';
@@ -272,13 +330,13 @@ function cardVisualHTML(card, isSelected=false, compact=false) {
     </div>` : '';
 
   return `
-    <div class="card-visual gradient-${card.theme} ${selClass}" data-card-id="${card.id}" onclick="handleCardClick('${card.id}')">
+    <div class="card-visual gradient-${safeTheme} ${selClass}" data-card-id="${safeCardId}" onclick="handleCardClick('${safeCardId}')">
       <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.05),transparent);pointer-events:none;"></div>
       <div style="position:absolute;right:-32px;top:-32px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,0.04);pointer-events:none;"></div>
       <div style="position:absolute;right:-16px;bottom:-48px;width:208px;height:208px;border-radius:50%;background:rgba(255,255,255,0.03);pointer-events:none;"></div>
       <div class="${p}" style="position:relative;height:100%;display:flex;flex-direction:column;justify-content:space-between;">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;">
-          <div class="chip-${card.theme}" style="${chipW};border-radius:6px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.15);">
+          <div class="chip-${safeTheme}" style="${chipW};border-radius:6px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.15);">
             <div style="width:100%;height:100%;border-radius:6px;overflow:hidden;opacity:0.3;">
               <div style="height:1px;background:rgba(0,0,0,0.4);margin-top:35%;"></div>
               <div style="height:1px;background:rgba(0,0,0,0.4);margin-top:25%;"></div>
@@ -287,14 +345,14 @@ function cardVisualHTML(card, isSelected=false, compact=false) {
           ${primaryBadge}
         </div>
         <div>
-          <p class="mono" data-preview-last4="1" style="color:rgba(255,255,255,0.85);letter-spacing:0.2em;${numSize};">•••• •••• •••• ${card.last4 || '0000'}</p>
+          <p class="mono" data-preview-last4="1" style="color:rgba(255,255,255,0.85);letter-spacing:0.2em;${numSize};">•••• •••• •••• ${safeLast4}</p>
         </div>
         <div style="display:flex;align-items:flex-end;justify-content:space-between;">
           <div>
             <p style="color:rgba(255,255,255,0.5);${labelSize};text-transform:uppercase;letter-spacing:0.1em;margin-bottom:2px;">Card Holder</p>
-            <p data-preview-nickname="1" style="color:white;${nameSize};max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${card.nickname || 'My Card'}</p>
+            <p data-preview-nickname="1" style="color:white;${nameSize};max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safeNickname}</p>
           </div>
-          <div style="display:flex;align-items:flex-end;justify-content:flex-end;">${brandCardLogoHTML(card.brand, compact)}</div>
+          <div style="display:flex;align-items:flex-end;justify-content:flex-end;">${brandCardLogoHTML(safeBrand, compact)}</div>
         </div>
       </div>
     </div>`;
@@ -341,6 +399,8 @@ function renderStats() {
   const primaryCount = state.cards.filter(c => c.isPrimary).length;
   const monthly = totalMonthly();
   const pc = primaryCard();
+  const primaryNickname = pc ? escHtml(pc.nickname) : '—';
+  const primaryLast4 = pc ? escHtml(pc.last4) : '';
   return `
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;">
       <div class="stat-card">
@@ -370,8 +430,8 @@ function renderStats() {
           </div>
           <span style="color:#6B7280;font-size:0.75rem;font-weight:500;">Primary Card</span>
         </div>
-        <p style="color:#111827;font-size:0.875rem;font-weight:600;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${pc ? pc.nickname : '—'}</p>
-        <p style="color:#9CA3AF;font-size:0.75rem;margin:2px 0 0;">${pc ? `•••• ${pc.last4}` : 'None set'}</p>
+        <p style="color:#111827;font-size:0.875rem;font-weight:600;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${primaryNickname}</p>
+        <p style="color:#9CA3AF;font-size:0.75rem;margin:2px 0 0;">${pc ? `•••• ${primaryLast4}` : 'None set'}</p>
       </div>
     </div>`;
 }
@@ -389,11 +449,11 @@ function renderSearch() {
 }
 
 function renderCardsGrid() {
-  const query = state.search.toLowerCase();
+  const query = String(state.search || '').toLowerCase();
   const filtered = state.cards.filter(c =>
-    c.nickname.toLowerCase().includes(query) ||
+    String(c.nickname || '').toLowerCase().includes(query) ||
     (BRAND_LABELS[c.brand] || 'Visa').toLowerCase().includes(query) ||
-    c.last4.includes(query)
+    String(c.last4 || '').includes(query)
   );
 
   if (filtered.length === 0) {
@@ -415,13 +475,18 @@ function renderCardsGrid() {
 
     const subsChips = isSelected && subs.length > 0 ? `
       <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;">
-        ${subs.map(sub => `<span style="font-size:10px;padding:4px 10px;border-radius:9999px;color:#111;font-weight:600;background:${sub.color}CC;">${sub.name}</span>`).join('')}
+        ${subs.map(sub => {
+          const chipColor = safeCssColor(sub.color, '#AFC0DE');
+          const chipBg = chipColor.length === 7 ? `${chipColor}CC` : chipColor;
+          const subName = escHtml(sub.name);
+          return `<span style="font-size:10px;padding:4px 10px;border-radius:9999px;color:#111;font-weight:600;background:${chipBg};">${subName}</span>`;
+        }).join('')}
       </div>` : '';
 
     const miniIcons = subs.length > 0 ? `
       <div style="display:flex;">
         ${subs.slice(0,3).map(sub => `
-          <div title="${sub.name}" style="width:20px;height:20px;border-radius:50%;border:2px solid #F0F2F6;background:${sub.color};display:flex;align-items:center;justify-content:center;font-size:8px;color:#111;margin-left:-4px;font-weight:600;">${sub.iconLabel[0]}</div>
+          <div title="${escHtml(sub.name)}" style="width:20px;height:20px;border-radius:50%;border:2px solid #F0F2F6;background:${safeCssColor(sub.color, '#AFC0DE')};display:flex;align-items:center;justify-content:center;font-size:8px;color:#111;margin-left:-4px;font-weight:600;">${escHtml((sub.iconLabel || 'S').charAt(0) || 'S')}</div>
         `).join('')}
         ${subs.length > 3 ? `<div style="width:20px;height:20px;border-radius:50%;border:2px solid #F0F2F6;background:#E5E7EB;display:flex;align-items:center;justify-content:center;font-size:8px;color:#6B7280;margin-left:-4px;">+${subs.length-3}</div>` : ''}
       </div>` : '';
@@ -470,18 +535,33 @@ function renderDetailPanel() {
 
   const subItems = subs.length === 0
     ? `<div style="background:#F8F9FB;border-radius:16px;padding:24px;border:1px solid #E8EBF0;text-align:center;"><i data-lucide="credit-card" style="width:24px;height:24px;color:#D1D5DB;margin:0 auto 8px;display:block;"></i><p style="color:#9CA3AF;font-size:0.875rem;margin:0;">No subscriptions linked</p></div>`
-    : subs.map(sub => `
-      <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #E8EBF0;background:${sub.color}20;transition:border-color 0.15s;box-shadow:0 1px 3px rgba(0,0,0,0.04);" onmouseover="this.style.borderColor='#C4C9D4'" onmouseout="this.style.borderColor='#E8EBF0'">
-        <div style="width:40px;height:40px;border-radius:12px;background:${sub.iconBg};display:flex;align-items:center;justify-content:center;font-size:0.875rem;flex-shrink:0;border:1px solid rgba(0,0,0,0.08);">${sub.iconLabel}</div>
+    : subs.map(sub => {
+      const rowColor = safeCssColor(sub.color, '#AFC0DE');
+      const rowBg = rowColor.length === 7 ? `${rowColor}20` : rowColor;
+      const iconBg = safeCssColor(sub.iconBg, rowColor);
+      const label = escHtml(sub.iconLabel || 'S');
+      const name = escHtml(sub.name);
+      const plan = escHtml(sub.plan);
+      const monthlyPrice = Number.isFinite(Number(sub.monthlyPrice))
+        ? Number(sub.monthlyPrice).toFixed(2)
+        : '0.00';
+      const daysLeft = Number.isFinite(Number(sub.daysLeft))
+        ? Math.max(0, Math.trunc(Number(sub.daysLeft)))
+        : 0;
+
+      return `
+      <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #E8EBF0;background:${rowBg};transition:border-color 0.15s;box-shadow:0 1px 3px rgba(0,0,0,0.04);" onmouseover="this.style.borderColor='#C4C9D4'" onmouseout="this.style.borderColor='#E8EBF0'">
+        <div style="width:40px;height:40px;border-radius:12px;background:${iconBg};display:flex;align-items:center;justify-content:center;font-size:0.875rem;flex-shrink:0;border:1px solid rgba(0,0,0,0.08);">${label}</div>
         <div style="flex:1;min-width:0;">
-          <p style="color:#111827;font-size:0.875rem;font-weight:500;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sub.name}</p>
-          <p style="color:#9CA3AF;font-size:0.75rem;margin:0;">${sub.plan}</p>
+          <p style="color:#111827;font-size:0.875rem;font-weight:500;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</p>
+          <p style="color:#9CA3AF;font-size:0.75rem;margin:0;">${plan}</p>
         </div>
         <div style="text-align:right;flex-shrink:0;">
-          <p style="color:#111827;font-size:0.875rem;font-weight:600;margin:0;">$${sub.monthlyPrice}/mo</p>
-          <p style="color:#9CA3AF;font-size:0.75rem;margin:0;">${sub.daysLeft}d left</p>
+          <p style="color:#111827;font-size:0.875rem;font-weight:600;margin:0;">$${monthlyPrice}/mo</p>
+          <p style="color:#9CA3AF;font-size:0.75rem;margin:0;">${daysLeft}d left</p>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
 
   return `
     <style>
@@ -500,8 +580,12 @@ function renderDetailPanel() {
 }
 
 function detailPanelContent(card, subs, monthly, yearly, subItems, mobile=false) {
+  const safeCardId = escHtml(card.id || '');
+  const safeNickname = escHtml(card.nickname || '');
+  const safeLast4 = escHtml(card.last4 || '0000');
+  const safeBrand = escHtml(BRAND_LABELS[card.brand] || 'Visa');
   const setPrimaryBtn = !card.isPrimary ? `
-    <button onclick="handleSetPrimary('${card.id}')" style="width:100%;padding:10px;border-radius:12px;border:1px solid #BBCC00;color:#7A8C00;background:#FAFFF0;cursor:pointer;font-size:0.875rem;font-family:inherit;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px;transition:all 0.15s;" onmouseover="this.style.background='#F0FF90'" onmouseout="this.style.background='#FAFFF0'">
+    <button onclick="handleSetPrimary('${safeCardId}')" style="width:100%;padding:10px;border-radius:12px;border:1px solid #BBCC00;color:#7A8C00;background:#FAFFF0;cursor:pointer;font-size:0.875rem;font-family:inherit;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px;transition:all 0.15s;" onmouseover="this.style.background='#F0FF90'" onmouseout="this.style.background='#FAFFF0'">
       <i data-lucide="star" style="width:14px;height:14px;fill:#BBCC00;color:#BBCC00;"></i> Set as Primary
     </button>` : '';
 
@@ -515,9 +599,9 @@ function detailPanelContent(card, subs, monthly, yearly, subItems, mobile=false)
     <div style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:20px;">
       ${cardVisualHTML(card, false, false)}
       <div style="background:#F8F9FB;border-radius:16px;padding:16px;border:1px solid #E8EBF0;display:flex;flex-direction:column;gap:12px;">
-        ${infoRow('Nickname', card.nickname)}
-        ${infoRow('Number', `<span class="mono">•••• •••• •••• ${card.last4}</span>`)}
-        ${infoRow('Brand', BRAND_LABELS[card.brand] || 'Visa')}
+        ${infoRow('Nickname', safeNickname)}
+        ${infoRow('Number', `<span class="mono">•••• •••• •••• ${safeLast4}</span>`)}
+        ${infoRow('Brand', safeBrand)}
         ${infoRow('Status', card.isPrimary
           ? `<span style="display:flex;align-items:center;gap:4px;font-size:10px;color:#7A8C00;font-weight:700;border:1px solid #BBCC00;background:#FAFFF0;border-radius:9999px;padding:2px 8px;"><i data-lucide="star" style="width:8px;height:8px;fill:#BBCC00;color:#BBCC00;"></i>Primary</span>`
           : `<span style="color:#9CA3AF;font-size:0.875rem;">Backup</span>`)}
@@ -553,10 +637,10 @@ function detailPanelContent(card, subs, monthly, yearly, subItems, mobile=false)
     <div style="padding:20px;border-top:1px solid #E8EBF0;flex-shrink:0;">
       ${setPrimaryBtn}
       <div style="display:flex;gap:8px;">
-        <button onclick="openEditModal('${card.id}')" style="flex:1;padding:10px;border-radius:12px;background:#F3F4F6;color:#374151;border:1px solid #E5E7EB;cursor:pointer;font-size:0.875rem;font-weight:600;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.15s;" onmouseover="this.style.background='#E5E7EB'" onmouseout="this.style.background='#F3F4F6'">
+        <button onclick="openEditModal('${safeCardId}')" style="flex:1;padding:10px;border-radius:12px;background:#F3F4F6;color:#374151;border:1px solid #E5E7EB;cursor:pointer;font-size:0.875rem;font-weight:600;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.15s;" onmouseover="this.style.background='#E5E7EB'" onmouseout="this.style.background='#F3F4F6'">
           <i data-lucide="edit-2" style="width:14px;height:14px;"></i> Edit
         </button>
-        <button onclick="openDeleteModal('${card.id}')" style="flex:1;padding:10px;border-radius:12px;border:1px solid #FECACA;color:#DC2626;background:#FFF5F5;cursor:pointer;font-size:0.875rem;font-weight:600;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.15s;" onmouseover="this.style.background='#FEE2E2'" onmouseout="this.style.background='#FFF5F5'">
+        <button onclick="openDeleteModal('${safeCardId}')" style="flex:1;padding:10px;border-radius:12px;border:1px solid #FECACA;color:#DC2626;background:#FFF5F5;cursor:pointer;font-size:0.875rem;font-weight:600;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.15s;" onmouseover="this.style.background='#FEE2E2'" onmouseout="this.style.background='#FFF5F5'">
           <i data-lucide="trash-2" style="width:14px;height:14px;"></i> Delete
         </button>
       </div>
@@ -564,7 +648,7 @@ function detailPanelContent(card, subs, monthly, yearly, subItems, mobile=false)
 }
 
 function infoRow(label, valueHtml) {
-  return `<div style="display:flex;align-items:center;justify-content:space-between;"><span style="color:#6B7280;font-size:0.875rem;">${label}</span><span style="color:#111827;font-size:0.875rem;font-weight:500;">${valueHtml}</span></div>`;
+  return `<div style="display:flex;align-items:center;justify-content:space-between;"><span style="color:#6B7280;font-size:0.875rem;">${escHtml(label)}</span><span style="color:#111827;font-size:0.875rem;font-weight:500;">${valueHtml}</span></div>`;
 }
 
 // ─────────────────────────────────────────────
@@ -616,7 +700,7 @@ function renderAddModal() {
                     style="width:100%;background:#F8F9FB;border:1px solid ${modalErrors.nickname ? '#FCA5A5' : '#E2E5EA'};border-radius:12px;padding:12px 16px;color:#111827;outline:none;font-size:0.875rem;font-family:inherit;transition:all 0.15s;box-sizing:border-box;"
                     onfocus="this.style.borderColor='#BBCC00';this.style.background='#FFFFF8';this.style.boxShadow='0 0 0 3px rgba(222,255,26,0.2)'"
                     onblur="this.style.borderColor='${modalErrors.nickname ? '#FCA5A5' : '#E2E5EA'}';this.style.background='#F8F9FB';this.style.boxShadow='none'" />
-                  ${modalErrors.nickname ? `<p style="display:flex;align-items:center;gap:4px;color:#DC2626;font-size:0.75rem;margin:6px 0 0;"><i data-lucide="alert-circle" style="width:12px;height:12px;"></i>${modalErrors.nickname}</p>` : ''}
+                  ${modalErrors.nickname ? `<p style="display:flex;align-items:center;gap:4px;color:#DC2626;font-size:0.75rem;margin:6px 0 0;"><i data-lucide="alert-circle" style="width:12px;height:12px;"></i>${escHtml(modalErrors.nickname)}</p>` : ''}
                 </div>
                 <div>
                   <label style="display:block;color:#374151;font-size:0.875rem;font-weight:600;margin-bottom:8px;">Last 4 Digits</label>
@@ -624,7 +708,7 @@ function renderAddModal() {
                     class="mono" style="width:100%;background:#F8F9FB;border:1px solid ${modalErrors.last4 ? '#FCA5A5' : '#E2E5EA'};border-radius:12px;padding:12px 16px;color:#111827;outline:none;font-size:1rem;letter-spacing:0.2em;transition:all 0.15s;box-sizing:border-box;"
                     onfocus="this.style.borderColor='#BBCC00';this.style.background='#FFFFF8';this.style.boxShadow='0 0 0 3px rgba(222,255,26,0.2)'"
                     onblur="this.style.borderColor='${modalErrors.last4 ? '#FCA5A5' : '#E2E5EA'}';this.style.background='#F8F9FB';this.style.boxShadow='none'" />
-                  ${modalErrors.last4 ? `<p style="display:flex;align-items:center;gap:4px;color:#DC2626;font-size:0.75rem;margin:6px 0 0;"><i data-lucide="alert-circle" style="width:12px;height:12px;"></i>${modalErrors.last4}</p>` : ''}
+                  ${modalErrors.last4 ? `<p style="display:flex;align-items:center;gap:4px;color:#DC2626;font-size:0.75rem;margin:6px 0 0;"><i data-lucide="alert-circle" style="width:12px;height:12px;"></i>${escHtml(modalErrors.last4)}</p>` : ''}
                   <p id="modal-last4-hint" style="color:#9CA3AF;font-size:0.75rem;margin:6px 0 0;display:${!modalErrors.last4 && f.last4.length > 0 && f.last4.length < 4 ? 'block' : 'none'};">${digitsNeeded > 1 ? `${digitsNeeded} more digits needed` : '1 more digit needed'}</p>
                 </div>
                 <div>
@@ -651,15 +735,15 @@ function renderAddModal() {
                 <div style="margin-top:14px;padding:16px;background:#F8F9FB;border-radius:12px;border:1px solid #E2E5EA;display:flex;flex-direction:column;gap:8px;">
                   <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.875rem;">
                     <span style="color:#6B7280;">Brand</span>
-                    <span id="preview-brand-val" style="color:#111827;font-weight:500;">${BRAND_LABELS[f.brand] || 'Visa'}</span>
+                    <span id="preview-brand-val" style="color:#111827;font-weight:500;">${escHtml(BRAND_LABELS[f.brand] || 'Visa')}</span>
                   </div>
                   <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.875rem;">
                     <span style="color:#6B7280;">Number</span>
-                    <span id="preview-number-val" class="mono" style="color:#111827;font-weight:500;">•••• ${f.last4 || '0000'}</span>
+                    <span id="preview-number-val" class="mono" style="color:#111827;font-weight:500;">•••• ${escHtml(f.last4 || '0000')}</span>
                   </div>
                   <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.875rem;">
                     <span style="color:#6B7280;">Nickname</span>
-                    <span id="preview-nickname-val" style="color:#111827;font-weight:500;">${f.nickname || '—'}</span>
+                    <span id="preview-nickname-val" style="color:#111827;font-weight:500;">${escHtml(f.nickname || '—')}</span>
                   </div>
                   <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.875rem;">
                     <span style="color:#6B7280;">Primary</span>
@@ -692,14 +776,21 @@ function renderDeleteModal() {
   const hasSubs = subs.length > 0;
 
   const warnContent = `
-    <p style="color:#6B7280;font-size:0.875rem;margin:0 0 16px;">You are about to delete <span style="color:#111827;font-weight:600;">"${escHtml(card.nickname)}"</span> (•••• ${card.last4}).</p>
+    <p style="color:#6B7280;font-size:0.875rem;margin:0 0 16px;">You are about to delete <span style="color:#111827;font-weight:600;">"${escHtml(card.nickname)}"</span> (•••• ${escHtml(card.last4)}).</p>
     ${hasSubs ? `
       <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:16px;margin-bottom:16px;">
         <div style="display:flex;align-items:flex-start;gap:12px;">
           <i data-lucide="alert-triangle" style="width:16px;height:16px;color:#D97706;flex-shrink:0;margin-top:2px;"></i>
           <div>
             <p style="color:#92400E;font-size:0.875rem;margin:0 0 8px;font-weight:600;">This card has ${subs.length} active subscription${subs.length!==1?'s':''} linked:</p>
-            ${subs.map(s => `<div style="display:flex;align-items:center;gap:8px;color:#78350F;font-size:0.75rem;margin-bottom:4px;"><div style="width:8px;height:8px;border-radius:50%;background:${s.color};flex-shrink:0;"></div>${s.name} — $${s.monthlyPrice}/mo</div>`).join('')}
+            ${subs.map(s => {
+              const color = safeCssColor(s.color, '#AFC0DE');
+              const name = escHtml(s.name);
+              const monthlyPrice = Number.isFinite(Number(s.monthlyPrice))
+                ? Number(s.monthlyPrice).toFixed(2)
+                : '0.00';
+              return `<div style="display:flex;align-items:center;gap:8px;color:#78350F;font-size:0.75rem;margin-bottom:4px;"><div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;"></div>${name} — $${monthlyPrice}/mo</div>`;
+            }).join('')}
           </div>
         </div>
       </div>` : ''}
@@ -715,11 +806,11 @@ function renderDeleteModal() {
     ${otherCards.length === 0
       ? `<div style="background:#F8F9FB;border-radius:12px;padding:16px;margin-bottom:16px;text-align:center;border:1px solid #E2E5EA;"><p style="color:#6B7280;font-size:0.875rem;margin:0;">No other cards available.</p><p style="color:#9CA3AF;font-size:0.75rem;margin:4px 0 0;">Add another card first or delete without moving.</p></div>`
       : `<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">${otherCards.map(c => `
-          <button type="button" onclick="setMoveTarget('${c.id}')" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid ${moveToCardId===c.id ? '#BBCC00' : '#E2E5EA'};background:${moveToCardId===c.id ? '#FAFFF0' : '#F8F9FB'};cursor:pointer;text-align:left;transition:all 0.15s;width:100%;">
-            <div style="width:32px;height:32px;border-radius:8px;background:#E5E7EB;display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:#4B5563;font-family:'JetBrains Mono',monospace;">${c.last4}</div>
+          <button type="button" onclick="setMoveTarget('${escHtml(c.id)}')" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid ${moveToCardId===c.id ? '#BBCC00' : '#E2E5EA'};background:${moveToCardId===c.id ? '#FAFFF0' : '#F8F9FB'};cursor:pointer;text-align:left;transition:all 0.15s;width:100%;">
+            <div style="width:32px;height:32px;border-radius:8px;background:#E5E7EB;display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:#4B5563;font-family:'JetBrains Mono',monospace;">${escHtml(c.last4)}</div>
             <div style="flex:1;">
-              <p style="color:#111827;font-size:0.875rem;font-weight:600;margin:0;">${c.nickname}</p>
-              <p style="color:#9CA3AF;font-size:0.75rem;margin:0;">•••• ${c.last4}</p>
+              <p style="color:#111827;font-size:0.875rem;font-weight:600;margin:0;">${escHtml(c.nickname)}</p>
+              <p style="color:#9CA3AF;font-size:0.75rem;margin:0;">•••• ${escHtml(c.last4)}</p>
             </div>
             ${c.isPrimary ? `<span style="font-size:10px;color:#7A8C00;font-weight:700;border:1px solid #BBCC00;background:#FAFFF0;border-radius:9999px;padding:2px 8px;">Primary</span>` : ''}
           </button>`).join('')}</div>`}
@@ -753,7 +844,12 @@ function renderDeleteModal() {
 // EVENT HANDLERS
 // ─────────────────────────────────────────────
 function escHtml(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
 }
 
 function showApiError(err) {

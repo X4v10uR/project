@@ -47,6 +47,8 @@ CATEGORY_SUGGESTIONS = [
     "News",
 ]
 
+CSV_FORMULA_PREFIXES = ('=', '+', '-', '@')
+
 
 def _parse_participants_data(request):
     participant_names = request.POST.getlist('participant_name')
@@ -135,6 +137,17 @@ def _string_value(raw_value):
     if raw_value is None:
         return ""
     return str(raw_value)
+
+
+def _sanitize_csv_cell(raw_value):
+    if raw_value is None:
+        return ''
+
+    value = str(raw_value)
+    stripped = value.lstrip()
+    if stripped and stripped[0] in CSV_FORMULA_PREFIXES:
+        return f"'{value}"
+    return value
 
 
 def _build_participant_seed(*, subscription=None, post_data=None):
@@ -701,14 +714,14 @@ def subscription_export_csv(request):
         )
         writer.writerow(
             [
-                subscription.service_name,
-                subscription.plan_name or '',
-                subscription.category,
+                _sanitize_csv_cell(subscription.service_name),
+                _sanitize_csv_cell(subscription.plan_name or ''),
+                _sanitize_csv_cell(subscription.category),
                 subscription.billing_cycle,
                 subscription.status,
                 'Yes' if subscription.is_shared else 'No',
-                participant_names,
-                subscription.account_email or '',
+                _sanitize_csv_cell(participant_names),
+                _sanitize_csv_cell(subscription.account_email or ''),
                 subscription.currency,
                 str(subscription.cost),
                 str(subscription.user_cost),
@@ -719,7 +732,7 @@ def subscription_export_csv(request):
                 subscription.renewal_time.strftime('%H:%M')
                 if subscription.renewal_time
                 else '',
-                subscription.notes or '',
+                _sanitize_csv_cell(subscription.notes or ''),
             ]
         )
 

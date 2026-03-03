@@ -4,6 +4,7 @@ from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
+from unittest.mock import patch
 
 from accounts.models import Team, TeamInvite, TeamMembership
 from accounts.services import create_team_invite
@@ -214,3 +215,25 @@ class TeamInviteFlowTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Invite expired')
         self.assertFalse(TeamMembership.objects.filter(team=self.team, user=self.member).exists())
+
+    def test_team_invite_rolls_back_when_email_send_fails(self):
+        self.client.force_login(self.owner)
+        invitee_email = 'new-person@example.com'
+
+        with patch('accounts.views.send_team_invite_email', side_effect=RuntimeError('smtp failed')):
+            response = self.client.post(
+                reverse('accounts:team_invite', args=[self.team.pk]),
+                {
+                    'email': invitee_email,
+                    'role': TeamMembership.ROLE_MEMBER,
+                },
+            )
+
+        self.assertRedirects(
+            response,
+            reverse('accounts:team_detail', args=[self.team.pk]),
+            fetch_redirect_response=False,
+        )
+        self.assertFalse(
+            TeamInvite.objects.filter(team=self.team, email__iexact=invitee_email).exists()
+        )

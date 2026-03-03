@@ -9,7 +9,7 @@ from django.core.management import call_command
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from subscriptions.models import ReminderOffset, Subscription, Transaction
+from subscriptions.models import ReminderOffset, Subscription, SubscriptionParticipant, Transaction
 from subscriptions.services import BillingService
 
 User = get_user_model()
@@ -102,6 +102,39 @@ class SubscriptionListAndPrefillTest(TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]['Service Name'], 'Active Service')
         self.assertEqual(rows[0]['Status'], 'active')
+
+    def test_export_csv_sanitizes_formula_cells(self):
+        today = date.today()
+        subscription = Subscription.objects.create(
+            user=self.user,
+            service_name='=cmd',
+            plan_name='@team',
+            category='+tools',
+            billing_cycle='monthly',
+            cost=Decimal('10.00'),
+            start_date=today,
+            status='active',
+            account_email='  -email@example.com',
+            notes='=1+1',
+        )
+        SubscriptionParticipant.objects.create(
+            subscription=subscription,
+            name='  =participant',
+        )
+
+        response = self.client.get(reverse('subscriptions:export_csv'))
+        self.assertEqual(response.status_code, 200)
+
+        content = response.content.decode('utf-8')
+        rows = list(csv.DictReader(content.splitlines()))
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual(row['Service Name'], "'=cmd")
+        self.assertEqual(row['Plan Name'], "'@team")
+        self.assertEqual(row['Category'], "'+tools")
+        self.assertEqual(row['Participants'], "'  =participant")
+        self.assertEqual(row['Account Email'], "'  -email@example.com")
+        self.assertEqual(row['Notes'], "'=1+1")
 
 
 class BillingServiceTest(TestCase):

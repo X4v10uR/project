@@ -1,9 +1,11 @@
 from datetime import date, time
+import logging
 
 from django.contrib import messages
 from django.contrib.auth import login, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
+from django.db import transaction
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -29,6 +31,9 @@ from .services import (
     send_team_invite_email,
     user_team_membership,
 )
+
+logger = logging.getLogger(__name__)
+
 
 def signup(request):
     raw_next = request.POST.get('next') or request.GET.get('next') or ''
@@ -186,13 +191,20 @@ def team_invite(request, team_id):
         messages.error(request, 'That email is already a team member.')
         return redirect('accounts:team_detail', team_id=team.pk)
 
-    invite, raw_token = create_team_invite(
-        team=team,
-        email=email,
-        role=role,
-        invited_by=request.user,
-    )
-    send_team_invite_email(invite, raw_token)
+    try:
+        with transaction.atomic():
+            invite, raw_token = create_team_invite(
+                team=team,
+                email=email,
+                role=role,
+                invited_by=request.user,
+            )
+            # Keep DB and delivery state aligned: if email fails, rollback invite row.
+            send_team_invite_email(invite, raw_token)
+    except Exception:
+        logger.exception("Failed to create/send team invite for team=%s email=%s", team.pk, email)
+        messages.error(request, 'Invitation could not be sent. Please try again.')
+        return redirect('accounts:team_detail', team_id=team.pk)
 
     create_team_notifications(
         team=team,
@@ -345,19 +357,20 @@ def team_request_approve(request, request_id):
     if request.method != 'POST':
         return redirect('accounts:teams_overview')
 
-    team_request = get_object_or_404(
-        TeamSubscriptionRequest.objects.select_related('team', 'requested_by'),
-        pk=request_id,
-    )
-    if not is_team_owner(request.user, team_request.team):
-        messages.error(request, 'Only team owners can approve requests.')
-        return redirect('accounts:team_detail', team_id=team_request.team_id)
+    with transaction.atomic():
+        team_request = get_object_or_404(
+            TeamSubscriptionRequest.objects.select_for_update().select_related('team', 'requested_by'),
+            pk=request_id,
+        )
+        if not is_team_owner(request.user, team_request.team):
+            messages.error(request, 'Only team owners can approve requests.')
+            return redirect('accounts:team_detail', team_id=team_request.team_id)
 
-    if team_request.status != TeamSubscriptionRequest.STATUS_PENDING:
-        messages.error(request, 'This request has already been processed.')
-        return redirect('accounts:team_detail', team_id=team_request.team_id)
+        if team_request.status != TeamSubscriptionRequest.STATUS_PENDING:
+            messages.error(request, 'This request has already been processed.')
+            return redirect('accounts:team_detail', team_id=team_request.team_id)
 
-    subscription = _create_subscription_from_request_payload(team_request, request.user)
+        subscription = _create_subscription_from_request_payload(team_request, request.user)
 
     create_team_notifications(
         team=team_request.team,
@@ -379,26 +392,27 @@ def team_request_reject(request, request_id):
     if request.method != 'POST':
         return redirect('accounts:teams_overview')
 
-    team_request = get_object_or_404(
-        TeamSubscriptionRequest.objects.select_related('team', 'requested_by'),
-        pk=request_id,
-    )
-    if not is_team_owner(request.user, team_request.team):
-        messages.error(request, 'Only team owners can reject requests.')
-        return redirect('accounts:team_detail', team_id=team_request.team_id)
+    with transaction.atomic():
+        team_request = get_object_or_404(
+            TeamSubscriptionRequest.objects.select_for_update().select_related('team', 'requested_by'),
+            pk=request_id,
+        )
+        if not is_team_owner(request.user, team_request.team):
+            messages.error(request, 'Only team owners can reject requests.')
+            return redirect('accounts:team_detail', team_id=team_request.team_id)
 
-    if team_request.status != TeamSubscriptionRequest.STATUS_PENDING:
-        messages.error(request, 'This request has already been processed.')
-        return redirect('accounts:team_detail', team_id=team_request.team_id)
+        if team_request.status != TeamSubscriptionRequest.STATUS_PENDING:
+            messages.error(request, 'This request has already been processed.')
+            return redirect('accounts:team_detail', team_id=team_request.team_id)
 
-    note = (request.POST.get('decision_note') or '').strip()
-    team_request.status = TeamSubscriptionRequest.STATUS_REJECTED
-    team_request.reviewed_by = request.user
-    team_request.reviewed_at = timezone.now()
-    team_request.decision_note = note
-    team_request.save(
-        update_fields=['status', 'reviewed_by', 'reviewed_at', 'decision_note', 'updated_at']
-    )
+        note = (request.POST.get('decision_note') or '').strip()
+        team_request.status = TeamSubscriptionRequest.STATUS_REJECTED
+        team_request.reviewed_by = request.user
+        team_request.reviewed_at = timezone.now()
+        team_request.decision_note = note
+        team_request.save(
+            update_fields=['status', 'reviewed_by', 'reviewed_at', 'decision_note', 'updated_at']
+        )
 
     create_team_notifications(
         team=team_request.team,
