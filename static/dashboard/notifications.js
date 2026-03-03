@@ -223,6 +223,12 @@
     };
 
     NotificationBell.prototype.connectSocket = function () {
+        const runtime = window.SUBLY_RUNTIME || {};
+        if (!runtime.notificationsWsEnabled) {
+            this.startPolling();
+            return;
+        }
+
         if (!window.WebSocket) {
             this.startPolling();
             return;

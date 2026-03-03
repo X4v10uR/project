@@ -259,7 +259,11 @@
     </main>
 
     {% if user.is_authenticated %}
-    <script src="{% static 'dashboard/notifications.js' %}?v=20260227-1"></script>
+    <script>
+        window.SUBLY_RUNTIME = window.SUBLY_RUNTIME || {};
+        window.SUBLY_RUNTIME.notificationsWsEnabled = {{ notifications_ws_enabled|yesno:"true,false" }};
+    </script>
+    <script src="{% static 'dashboard/notifications.js' %}?v=20260303-2"></script>
     {% endif %}
     {% block extra_js %}{% endblock %}
 </body>
