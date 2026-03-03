@@ -25,11 +25,21 @@
                         <p class="text-xs text-slate-500">{{ sub.currency }} {{ sub.cost }} / {{ sub.billing_cycle }}</p>
                         <p class="text-xs text-slate-500 mt-1">Login: {{ sub.account_email|default:"Not set" }}</p>
                         {% if sub.account_password %}
-                        <p class="text-xs text-slate-500 mt-1">
-                            Password:
-                            <span class="js-team-password" data-secret="{{ sub.get_account_password }}">••••••••</span>
-                            <button type="button" class="js-reveal-team-password text-xs text-slate-700 hover:text-slate-900 underline ml-1">Reveal</button>
-                        </p>
+                            {% if is_team_owner %}
+                            <p class="text-xs text-slate-500 mt-1">
+                                Password:
+                                <span class="js-team-password">••••••••</span>
+                                <button
+                                    type="button"
+                                    class="js-reveal-team-password text-xs text-slate-700 hover:text-slate-900 underline ml-1"
+                                    data-url="{% url 'accounts:team_subscription_password' team.pk sub.pk %}"
+                                >
+                                    Reveal
+                                </button>
+                            </p>
+                            {% else %}
+                            <p class="text-xs text-slate-500 mt-1">Password: Hidden</p>
+                            {% endif %}
                         {% endif %}
                     </div>
                     <div class="flex items-center gap-2">
@@ -110,15 +120,56 @@
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        function getCookie(name) {
+            if (!document.cookie) {
+                return null;
+            }
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i += 1) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === name + '=') {
+                    return decodeURIComponent(cookie.substring(name.length + 1));
+                }
+            }
+            return null;
+        }
+
         document.querySelectorAll('.js-reveal-team-password').forEach(function (button) {
-            button.addEventListener('click', function () {
+            button.addEventListener('click', async function () {
                 const target = this.closest('p').querySelector('.js-team-password');
                 if (!target) {
                     return;
                 }
                 const hidden = target.textContent.trim() === '••••••••';
-                target.textContent = hidden ? target.dataset.secret : '••••••••';
-                this.textContent = hidden ? 'Hide' : 'Reveal';
+                if (!hidden) {
+                    target.textContent = '••••••••';
+                    this.textContent = 'Reveal';
+                    return;
+                }
+
+                const revealUrl = this.dataset.url || '';
+                if (!revealUrl) {
+                    return;
+                }
+
+                this.disabled = true;
+                try {
+                    const response = await fetch(revealUrl, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken') || '',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                    });
+                    const payload = await response.json();
+                    if (!response.ok || !payload.ok || !payload.password) {
+                        return;
+                    }
+                    target.textContent = payload.password;
+                    this.textContent = 'Hide';
+                } finally {
+                    this.disabled = false;
+                }
             });
         });
     });

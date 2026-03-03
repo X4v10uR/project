@@ -6,7 +6,9 @@ from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
+from accounts.models import Team, TeamMembership
 from subscriptions.models import (
+    InAppNotification,
     NotificationLog,
     ReminderOffset,
     Subscription,
@@ -288,4 +290,42 @@ class NotificationServiceTest(TestCase):
                 renewal_date=subscription.renewal_date,
                 days_before=3,
             ).exists()
+        )
+
+    def test_team_reminder_uses_single_email_send_for_all_members(self):
+        team_owner = User.objects.create_user(email='owner-team-notify@example.com', password='password')
+        team_member = User.objects.create_user(email='member-team-notify@example.com', password='password')
+
+        team = Team.objects.create(name='Notify Team', created_by=team_owner)
+        TeamMembership.objects.create(team=team, user=team_owner, role=TeamMembership.ROLE_OWNER)
+        TeamMembership.objects.create(team=team, user=team_member, role=TeamMembership.ROLE_MEMBER)
+
+        subscription = Subscription.objects.create(
+            user=team_owner,
+            team=team,
+            service_name='Team Reminder Service',
+            category='Software',
+            billing_cycle='weekly',
+            cost=Decimal('6.99'),
+            start_date=date.today() - timedelta(days=4),
+            status='active',
+            reminders_enabled=True,
+        )
+
+        with mock.patch('subscriptions.services.send_mail', return_value=1) as mocked_send_mail:
+            was_sent = NotificationService.send_renewal_reminder(subscription, days_before=3)
+
+        self.assertTrue(was_sent)
+        self.assertEqual(mocked_send_mail.call_count, 1)
+        kwargs = mocked_send_mail.call_args.kwargs
+        self.assertCountEqual(
+            kwargs['recipient_list'],
+            [team_owner.email, team_member.email],
+        )
+        self.assertEqual(
+            InAppNotification.objects.filter(
+                subscription=subscription,
+                event_type='renewal.reminder',
+            ).count(),
+            2,
         )

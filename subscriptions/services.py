@@ -141,6 +141,9 @@ class NotificationService:
                 ]
             else:
                 recipients = [subscription.user]
+            recipient_emails = [user.email for user in recipients if user and user.email]
+            if not recipient_emails:
+                return False
 
             # Check if reminders are enabled for this subscription
             if not subscription.reminders_enabled:
@@ -164,39 +167,39 @@ class NotificationService:
                     "Notification already reserved for %s at %s days offset to %s",
                     subscription.service_name,
                     days_before,
-                    subscription.user.email,
+                    ", ".join(recipient_emails),
                 )
                 return False
 
+            context = {
+                'user': {'first_name': '', 'email': 'there'},
+                'subscription': subscription,
+                'days_before': days_before,
+                'site_url': getattr(settings, 'SITE_URL', 'http://localhost:8000'),
+            }
+            subject = render_to_string('emails/renewal_reminder_subject.txt', context).strip()
+            text_content = render_to_string('emails/renewal_reminder.txt', context)
+            html_content = render_to_string('emails/renewal_reminder.html', context)
+
+            try:
+                send_mail(
+                    subject=subject,
+                    message=text_content,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=recipient_emails,
+                    html_message=html_content,
+                    fail_silently=False,
+                )
+            except Exception:
+                NotificationLog.objects.filter(pk=notification_log.pk).delete()
+                raise
+
+            if subscription.team_id:
+                link_url = reverse('accounts:team_detail', args=[subscription.team_id])
+            else:
+                link_url = reverse('subscriptions:update', args=[subscription.pk])
+
             for recipient in recipients:
-                context = {
-                    'user': recipient,
-                    'subscription': subscription,
-                    'days_before': days_before,
-                    'site_url': getattr(settings, 'SITE_URL', 'http://localhost:8000'),
-                }
-                subject = render_to_string('emails/renewal_reminder_subject.txt', context).strip()
-                text_content = render_to_string('emails/renewal_reminder.txt', context)
-                html_content = render_to_string('emails/renewal_reminder.html', context)
-
-                try:
-                    send_mail(
-                        subject=subject,
-                        message=text_content,
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        recipient_list=[recipient.email],
-                        html_message=html_content,
-                        fail_silently=False,
-                    )
-                except Exception:
-                    NotificationLog.objects.filter(pk=notification_log.pk).delete()
-                    raise
-
-                if subscription.team_id:
-                    link_url = reverse('accounts:team_detail', args=[subscription.team_id])
-                else:
-                    link_url = reverse('subscriptions:update', args=[subscription.pk])
-
                 create_notification(
                     recipient=recipient,
                     team=subscription.team,

@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from accounts.models import Team, TeamInvite, TeamMembership
 from accounts.services import create_team_invite
+from subscriptions.models import Subscription, TeamSubscriptionRequest
 
 User = get_user_model()
 
@@ -166,6 +167,19 @@ class TeamInviteFlowTest(TestCase):
         self.team = Team.objects.create(name='Alpha Team', created_by=self.owner)
         TeamMembership.objects.create(team=self.team, user=self.owner, role=TeamMembership.ROLE_OWNER)
 
+        self.team_subscription = Subscription.objects.create(
+            user=self.owner,
+            team=self.team,
+            service_name='Netflix',
+            category='Streaming',
+            billing_cycle='monthly',
+            cost='10.00',
+            start_date=timezone.localdate(),
+            status='active',
+            account_email='stream@example.com',
+            account_password='secret-password',
+        )
+
     def test_team_create_view_creates_owner_membership(self):
         self.client.force_login(self.member)
         response = self.client.post(reverse('accounts:team_create'), {'name': 'New Team'})
@@ -237,3 +251,161 @@ class TeamInviteFlowTest(TestCase):
         self.assertFalse(
             TeamInvite.objects.filter(team=self.team, email__iexact=invitee_email).exists()
         )
+
+    def test_duplicate_active_invite_is_blocked(self):
+        self.client.force_login(self.owner)
+        invitee_email = 'pending@example.com'
+
+        first = self.client.post(
+            reverse('accounts:team_invite', args=[self.team.pk]),
+            {
+                'email': invitee_email,
+                'role': TeamMembership.ROLE_MEMBER,
+            },
+        )
+        second = self.client.post(
+            reverse('accounts:team_invite', args=[self.team.pk]),
+            {
+                'email': invitee_email,
+                'role': TeamMembership.ROLE_MEMBER,
+            },
+        )
+
+        self.assertEqual(first.status_code, 302)
+        self.assertEqual(second.status_code, 302)
+        self.assertEqual(
+            TeamInvite.objects.filter(
+                team=self.team,
+                email__iexact=invitee_email,
+                accepted_at__isnull=True,
+                revoked_at__isnull=True,
+                expires_at__gt=timezone.now(),
+            ).count(),
+            1,
+        )
+
+    def test_invite_accept_does_not_accept_additional_invite_for_existing_member(self):
+        invite_one, token_one = create_team_invite(
+            team=self.team,
+            email=self.member.email,
+            role=TeamMembership.ROLE_MEMBER,
+            invited_by=self.owner,
+        )
+        invite_two, token_two = create_team_invite(
+            team=self.team,
+            email=self.member.email,
+            role=TeamMembership.ROLE_MEMBER,
+            invited_by=self.owner,
+        )
+
+        self.client.force_login(self.member)
+        first_response = self.client.post(reverse('accounts:invite_accept', args=[token_one]))
+        second_response = self.client.post(reverse('accounts:invite_accept', args=[token_two]))
+
+        self.assertEqual(first_response.status_code, 302)
+        self.assertEqual(second_response.status_code, 302)
+
+        invite_one.refresh_from_db()
+        invite_two.refresh_from_db()
+        self.assertIsNotNone(invite_one.accepted_at)
+        self.assertIsNone(invite_two.accepted_at)
+        self.assertIsNotNone(invite_two.revoked_at)
+
+    def test_team_detail_hides_password_for_non_owner(self):
+        self.client.force_login(self.member)
+        TeamMembership.objects.create(team=self.team, user=self.member, role=TeamMembership.ROLE_MEMBER)
+
+        response = self.client.get(reverse('accounts:team_detail', args=[self.team.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(
+            response,
+            reverse(
+                'accounts:team_subscription_password',
+                args=[self.team.pk, self.team_subscription.pk],
+            ),
+        )
+        self.assertContains(response, 'Password: Hidden')
+        self.assertNotContains(response, 'secret-password')
+
+    def test_team_owner_can_fetch_team_subscription_password(self):
+        self.client.force_login(self.owner)
+
+        response = self.client.post(
+            reverse(
+                'accounts:team_subscription_password',
+                args=[self.team.pk, self.team_subscription.pk],
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload['ok'])
+        self.assertEqual(payload['password'], 'secret-password')
+
+    def test_non_owner_cannot_fetch_team_subscription_password(self):
+        self.client.force_login(self.member)
+        TeamMembership.objects.create(team=self.team, user=self.member, role=TeamMembership.ROLE_MEMBER)
+
+        response = self.client.post(
+            reverse(
+                'accounts:team_subscription_password',
+                args=[self.team.pk, self.team_subscription.pk],
+            )
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(response.json()['ok'])
+
+
+class TeamRequestAuthorizationTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.owner = User.objects.create_user(email='owner-request@example.com', password='password')
+        self.member = User.objects.create_user(email='member-request@example.com', password='password')
+        self.outsider = User.objects.create_user(email='outsider-request@example.com', password='password')
+
+        self.team = Team.objects.create(name='Request Team', created_by=self.owner)
+        TeamMembership.objects.create(team=self.team, user=self.owner, role=TeamMembership.ROLE_OWNER)
+        TeamMembership.objects.create(team=self.team, user=self.member, role=TeamMembership.ROLE_MEMBER)
+
+        self.pending_request = TeamSubscriptionRequest.objects.create(
+            team=self.team,
+            requested_by=self.member,
+            payload={
+                'service_name': 'Figma',
+                'category': 'Software',
+                'billing_cycle': 'monthly',
+                'cost': '12.00',
+                'start_date': timezone.localdate().isoformat(),
+                'status': 'active',
+                'currency': 'USD',
+            },
+        )
+
+    def test_non_owner_approve_redirects_to_overview(self):
+        self.client.force_login(self.outsider)
+        response = self.client.post(
+            reverse('accounts:team_request_approve', args=[self.pending_request.pk])
+        )
+        self.assertRedirects(
+            response,
+            reverse('accounts:teams_overview'),
+            fetch_redirect_response=False,
+        )
+        self.pending_request.refresh_from_db()
+        self.assertEqual(self.pending_request.status, TeamSubscriptionRequest.STATUS_PENDING)
+
+    def test_non_owner_reject_redirects_to_overview(self):
+        self.client.force_login(self.outsider)
+        response = self.client.post(
+            reverse('accounts:team_request_reject', args=[self.pending_request.pk]),
+            {'decision_note': 'Nope'},
+        )
+        self.assertRedirects(
+            response,
+            reverse('accounts:teams_overview'),
+            fetch_redirect_response=False,
+        )
+        self.pending_request.refresh_from_db()
+        self.assertEqual(self.pending_request.status, TeamSubscriptionRequest.STATUS_PENDING)

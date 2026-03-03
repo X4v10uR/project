@@ -6,7 +6,7 @@ from django.contrib.auth import login, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.db import transaction
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -191,6 +191,16 @@ def team_invite(request, team_id):
         messages.error(request, 'That email is already a team member.')
         return redirect('accounts:team_detail', team_id=team.pk)
 
+    existing_invite = team.invites.filter(
+        email__iexact=email,
+        accepted_at__isnull=True,
+        revoked_at__isnull=True,
+        expires_at__gt=timezone.now(),
+    ).first()
+    if existing_invite:
+        messages.error(request, 'An active invite for that email already exists.')
+        return redirect('accounts:team_detail', team_id=team.pk)
+
     try:
         with transaction.atomic():
             invite, raw_token = create_team_invite(
@@ -241,6 +251,13 @@ def invite_accept(request, token):
             {'invite': invite, 'invite_status': 'email_mismatch'},
         )
 
+    if TeamMembership.objects.filter(team=invite.team, user=request.user).exists():
+        if invite.accepted_at is None and invite.revoked_at is None:
+            invite.revoked_at = timezone.now()
+            invite.save(update_fields=['revoked_at'])
+        messages.info(request, f"You are already a member of {invite.team.name}.")
+        return redirect('accounts:team_detail', team_id=invite.team.pk)
+
     if not invite.is_usable():
         if invite.accepted_at:
             status = 'already_used'
@@ -274,6 +291,30 @@ def invite_accept(request, token):
         'accounts/invite_accept.html',
         {'invite': invite, 'invite_status': 'ready'},
     )
+
+
+@login_required
+def team_subscription_password(request, team_id, subscription_id):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'message': 'POST required.'}, status=405)
+
+    team = _get_team_or_404_for_user(request.user, team_id)
+    if not is_team_owner(request.user, team):
+        return JsonResponse({'ok': False, 'message': 'Only team owners can view credentials.'}, status=403)
+
+    subscription = get_object_or_404(
+        Subscription.objects.select_related('team'),
+        pk=subscription_id,
+        team=team,
+    )
+    if not subscription.account_password:
+        return JsonResponse({'ok': False, 'message': 'No password set.'}, status=404)
+
+    raw_password = subscription.get_account_password()
+    if not raw_password:
+        return JsonResponse({'ok': False, 'message': 'Password unavailable.'}, status=404)
+
+    return JsonResponse({'ok': True, 'password': raw_password})
 
 
 def _create_subscription_from_request_payload(team_request, reviewer):
@@ -364,7 +405,7 @@ def team_request_approve(request, request_id):
         )
         if not is_team_owner(request.user, team_request.team):
             messages.error(request, 'Only team owners can approve requests.')
-            return redirect('accounts:team_detail', team_id=team_request.team_id)
+            return redirect('accounts:teams_overview')
 
         if team_request.status != TeamSubscriptionRequest.STATUS_PENDING:
             messages.error(request, 'This request has already been processed.')
@@ -399,7 +440,7 @@ def team_request_reject(request, request_id):
         )
         if not is_team_owner(request.user, team_request.team):
             messages.error(request, 'Only team owners can reject requests.')
-            return redirect('accounts:team_detail', team_id=team_request.team_id)
+            return redirect('accounts:teams_overview')
 
         if team_request.status != TeamSubscriptionRequest.STATUS_PENDING:
             messages.error(request, 'This request has already been processed.')
