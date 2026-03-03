@@ -12,6 +12,13 @@ urlpatterns = [
     path('teams/', views.teams_overview, name='teams_overview'),
     path('teams/create/', views.team_create, name='team_create'),
     path('teams/<int:team_id>/', views.team_detail, name='team_detail'),
+    path('teams/<int:team_id>/leave/', views.team_leave, name='team_leave'),
+    path(
+        'teams/<int:team_id>/members/<int:membership_id>/remove/',
+        views.team_member_remove,
+        name='team_member_remove',
+    ),
+    path('teams/<int:team_id>/delete/', views.team_delete, name='team_delete'),
     path('teams/<int:team_id>/invite/', views.team_invite, name='team_invite'),
     path(
         'teams/<int:team_id>/subscriptions/<int:subscription_id>/password/',

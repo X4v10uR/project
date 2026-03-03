@@ -13,7 +13,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 
 from subscriptions.models import ReminderOffset, Subscription, SubscriptionParticipant, TeamSubscriptionRequest
-from subscriptions.notifications import create_team_notifications
+from subscriptions.notifications import create_notification, create_team_notifications
 
 from .forms import (
     CustomUserCreationForm,
@@ -167,6 +167,112 @@ def team_create(request):
         form = TeamCreateForm()
 
     return render(request, 'accounts/team_create.html', {'form': form})
+
+
+@login_required
+def team_member_remove(request, team_id, membership_id):
+    if request.method != 'POST':
+        return redirect('accounts:team_detail', team_id=team_id)
+
+    team = _get_team_or_404_for_user(request.user, team_id)
+    if not is_team_owner(request.user, team):
+        messages.error(request, 'Only team owners can remove members.')
+        return redirect('accounts:team_detail', team_id=team.pk)
+
+    target_membership = get_object_or_404(
+        team.memberships.select_related('user'),
+        pk=membership_id,
+    )
+
+    if target_membership.user_id == request.user.id:
+        messages.error(request, 'Use leave team to remove yourself.')
+        return redirect('accounts:team_detail', team_id=team.pk)
+
+    if target_membership.role == TeamMembership.ROLE_OWNER:
+        messages.error(request, 'Cannot remove another owner from this action.')
+        return redirect('accounts:team_detail', team_id=team.pk)
+
+    removed_user = target_membership.user
+    removed_email = removed_user.email
+    target_membership.delete()
+
+    create_notification(
+        recipient=removed_user,
+        actor=request.user,
+        team=team,
+        event_type='team.member.removed',
+        title=f"Removed from {team.name}",
+        body=f"{request.user.email} removed you from {team.name}.",
+        link_url=reverse('accounts:teams_overview'),
+        metadata={'team_id': team.pk, 'action': 'removed'},
+        send_email_alert=True,
+    )
+
+    messages.success(request, f'{removed_email} was removed from the team.')
+    return redirect('accounts:team_detail', team_id=team.pk)
+
+
+@login_required
+def team_leave(request, team_id):
+    if request.method != 'POST':
+        return redirect('accounts:team_detail', team_id=team_id)
+
+    team = _get_team_or_404_for_user(request.user, team_id)
+    membership = user_team_membership(request.user, team)
+    if not membership:
+        raise Http404("Team membership not found.")
+
+    if membership.role == TeamMembership.ROLE_OWNER:
+        owner_count = team.memberships.filter(role=TeamMembership.ROLE_OWNER).count()
+        if owner_count <= 1:
+            messages.error(request, 'You are the last owner and cannot leave this team.')
+            return redirect('accounts:team_detail', team_id=team.pk)
+
+    leaver = request.user
+    leaver_email = leaver.email
+    membership.delete()
+
+    owner_memberships = (
+        team.memberships
+        .select_related('user')
+        .filter(role=TeamMembership.ROLE_OWNER)
+    )
+    for owner_membership in owner_memberships:
+        create_notification(
+            recipient=owner_membership.user,
+            actor=leaver,
+            team=team,
+            event_type='team.member.left',
+            title=f"{leaver_email} left {team.name}",
+            body=f"{leaver_email} left the team.",
+            link_url=reverse('accounts:team_detail', args=[team.pk]),
+            metadata={'team_id': team.pk, 'member_email': leaver_email, 'action': 'left'},
+            send_email_alert=True,
+        )
+
+    messages.success(request, f'You left {team.name}.')
+    return redirect('accounts:teams_overview')
+
+
+@login_required
+def team_delete(request, team_id):
+    team = _get_team_or_404_for_user(request.user, team_id)
+    if not is_team_owner(request.user, team):
+        messages.error(request, 'Only team owners can delete teams.')
+        return redirect('accounts:team_detail', team_id=team.pk)
+
+    if request.method != 'POST':
+        return redirect('accounts:team_detail', team_id=team.pk)
+
+    team_name = team.name
+    subscription_count = team.subscriptions.count()
+    team.delete()
+
+    messages.success(
+        request,
+        f'Team "{team_name}" deleted. Removed {subscription_count} team subscription(s).',
+    )
+    return redirect('accounts:teams_overview')
 
 
 @login_required

@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from accounts.models import Team, TeamInvite, TeamMembership
 from accounts.services import create_team_invite
-from subscriptions.models import Subscription, TeamSubscriptionRequest
+from subscriptions.models import InAppNotification, Subscription, TeamSubscriptionRequest
 
 User = get_user_model()
 
@@ -356,6 +356,168 @@ class TeamInviteFlowTest(TestCase):
 
         self.assertEqual(response.status_code, 403)
         self.assertFalse(response.json()['ok'])
+
+    def test_team_owner_can_delete_team(self):
+        self.client.force_login(self.owner)
+
+        response = self.client.post(reverse('accounts:team_delete', args=[self.team.pk]))
+
+        self.assertRedirects(
+            response,
+            reverse('accounts:teams_overview'),
+            fetch_redirect_response=False,
+        )
+        self.assertFalse(Team.objects.filter(pk=self.team.pk).exists())
+        self.assertFalse(Subscription.objects.filter(pk=self.team_subscription.pk).exists())
+
+    def test_non_owner_cannot_delete_team(self):
+        TeamMembership.objects.create(team=self.team, user=self.member, role=TeamMembership.ROLE_MEMBER)
+        self.client.force_login(self.member)
+
+        response = self.client.post(reverse('accounts:team_delete', args=[self.team.pk]))
+
+        self.assertRedirects(
+            response,
+            reverse('accounts:team_detail', args=[self.team.pk]),
+            fetch_redirect_response=False,
+        )
+        self.assertTrue(Team.objects.filter(pk=self.team.pk).exists())
+
+    def test_owner_removes_member_only_removed_member_gets_notification(self):
+        TeamMembership.objects.create(team=self.team, user=self.member, role=TeamMembership.ROLE_MEMBER)
+        owner_two = User.objects.create_user(email='owner-two@example.com', password='password')
+        TeamMembership.objects.create(team=self.team, user=owner_two, role=TeamMembership.ROLE_OWNER)
+
+        target_membership = TeamMembership.objects.get(team=self.team, user=self.member)
+
+        self.client.force_login(self.owner)
+        response = self.client.post(
+            reverse('accounts:team_member_remove', args=[self.team.pk, target_membership.pk])
+        )
+
+        self.assertRedirects(
+            response,
+            reverse('accounts:team_detail', args=[self.team.pk]),
+            fetch_redirect_response=False,
+        )
+        self.assertFalse(TeamMembership.objects.filter(team=self.team, user=self.member).exists())
+
+        removed_notifications = InAppNotification.objects.filter(
+            recipient=self.member,
+            team=self.team,
+            event_type='team.member.removed',
+        )
+        self.assertEqual(removed_notifications.count(), 1)
+        self.assertEqual(
+            InAppNotification.objects.filter(
+                team=self.team,
+                event_type='team.member.removed',
+            ).exclude(recipient=self.member).count(),
+            0,
+        )
+
+    def test_member_leaves_only_owners_get_notified(self):
+        TeamMembership.objects.create(team=self.team, user=self.member, role=TeamMembership.ROLE_MEMBER)
+        owner_two = User.objects.create_user(email='owner-two-leave@example.com', password='password')
+        TeamMembership.objects.create(team=self.team, user=owner_two, role=TeamMembership.ROLE_OWNER)
+        plain_member = User.objects.create_user(email='plain-member@example.com', password='password')
+        TeamMembership.objects.create(team=self.team, user=plain_member, role=TeamMembership.ROLE_MEMBER)
+
+        self.client.force_login(self.member)
+        response = self.client.post(reverse('accounts:team_leave', args=[self.team.pk]))
+
+        self.assertRedirects(
+            response,
+            reverse('accounts:teams_overview'),
+            fetch_redirect_response=False,
+        )
+        self.assertFalse(TeamMembership.objects.filter(team=self.team, user=self.member).exists())
+
+        notified_owner_ids = set(
+            InAppNotification.objects.filter(
+                team=self.team,
+                event_type='team.member.left',
+            ).values_list('recipient_id', flat=True)
+        )
+        self.assertEqual(notified_owner_ids, {self.owner.id, owner_two.id})
+        self.assertFalse(
+            InAppNotification.objects.filter(
+                recipient=plain_member,
+                team=self.team,
+                event_type='team.member.left',
+            ).exists()
+        )
+
+    def test_owner_can_leave_when_another_owner_exists(self):
+        TeamMembership.objects.create(
+            team=self.team,
+            user=self.other_user,
+            role=TeamMembership.ROLE_OWNER,
+        )
+
+        self.client.force_login(self.owner)
+        response = self.client.post(reverse('accounts:team_leave', args=[self.team.pk]))
+
+        self.assertRedirects(
+            response,
+            reverse('accounts:teams_overview'),
+            fetch_redirect_response=False,
+        )
+        self.assertFalse(
+            TeamMembership.objects.filter(team=self.team, user=self.owner).exists()
+        )
+        self.assertTrue(
+            InAppNotification.objects.filter(
+                recipient=self.other_user,
+                team=self.team,
+                event_type='team.member.left',
+            ).exists()
+        )
+
+    def test_last_owner_cannot_leave_team(self):
+        self.client.force_login(self.owner)
+        response = self.client.post(reverse('accounts:team_leave', args=[self.team.pk]))
+
+        self.assertRedirects(
+            response,
+            reverse('accounts:team_detail', args=[self.team.pk]),
+            fetch_redirect_response=False,
+        )
+        self.assertTrue(
+            TeamMembership.objects.filter(team=self.team, user=self.owner).exists()
+        )
+
+    def test_non_owner_cannot_create_team_subscription(self):
+        TeamMembership.objects.create(team=self.team, user=self.member, role=TeamMembership.ROLE_MEMBER)
+        self.client.force_login(self.member)
+
+        response = self.client.post(
+            reverse('subscriptions:create'),
+            {
+                'team_id': str(self.team.pk),
+                'service_name': 'Canva',
+                'category': 'Software',
+                'billing_cycle': 'monthly',
+                'cost': '14.99',
+                'currency': 'USD',
+                'start_date': timezone.localdate().isoformat(),
+                'status': 'active',
+                'is_shared': 'False',
+                'split_type': 'equal',
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse('accounts:team_detail', args=[self.team.pk]),
+            fetch_redirect_response=False,
+        )
+        self.assertFalse(
+            Subscription.objects.filter(
+                team=self.team,
+                service_name='Canva',
+            ).exists()
+        )
 
 
 class TeamRequestAuthorizationTest(TestCase):

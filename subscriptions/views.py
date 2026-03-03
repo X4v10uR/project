@@ -17,7 +17,6 @@ from .models import (
     Card,
     Subscription,
     SubscriptionParticipant,
-    TeamSubscriptionRequest,
 )
 from .notifications import create_notification, create_team_notifications
 from .forms import SubscriptionForm, CardForm
@@ -402,39 +401,6 @@ def _get_subscription_for_access(user, pk, *, require_owner=False):
     return subscription
 
 
-def _request_payload_from_form(subscription, reminder_offsets, participants_data):
-    renewal_time = subscription.renewal_time.strftime("%H:%M") if subscription.renewal_time else None
-    start_date = subscription.start_date.isoformat() if subscription.start_date else None
-
-    encrypted_password = None
-    if subscription.account_password:
-        encrypted_password = subscription.account_password
-
-    payload = {
-        "service_name": subscription.service_name,
-        "plan_name": subscription.plan_name,
-        "category": subscription.category,
-        "billing_cycle": subscription.billing_cycle,
-        "cost": str(subscription.cost),
-        "user_cost": str(subscription.user_cost),
-        "is_shared": bool(subscription.is_shared),
-        "split_type": subscription.split_type,
-        "currency": subscription.currency,
-        "start_date": start_date,
-        "renewal_time": renewal_time,
-        "status": subscription.status,
-        "reminders_enabled": bool(subscription.reminders_enabled),
-        "notes": subscription.notes or "",
-        "account_email": subscription.account_email or None,
-        "account_password": encrypted_password,
-        "participants": [
-            {"name": participant["name"], "share_amount": str(participant["share"])}
-            for participant in participants_data
-        ],
-        "reminder_offsets": reminder_offsets,
-    }
-    return payload
-
 @login_required
 def card_list(request):
     normalize_primary_cards_for_user(request.user)
@@ -746,6 +712,9 @@ def subscription_create(request):
         return redirect('accounts:teams_overview')
 
     is_team_owner_context = bool(team_context and is_team_owner(request.user, team_context))
+    if team_context and not is_team_owner_context:
+        messages.error(request, 'Only team owners can create team subscriptions.')
+        return redirect('accounts:team_detail', team_id=team_context.pk)
 
     if request.method == 'POST':
         form = SubscriptionForm(request.POST, user=request.user)
@@ -795,38 +764,6 @@ def subscription_create(request):
 
             else:
                 subscription.user_cost = subscription.cost
-
-            if (
-                team_context
-                and not is_team_owner_context
-            ):
-                # Member flow: create request for owner approval instead of direct team write.
-                if subscription.account_password and not subscription.account_password.startswith("enc::"):
-                    subscription.set_account_password(subscription.account_password)
-
-                request_payload = _request_payload_from_form(
-                    subscription,
-                    reminder_offsets,
-                    participants_data,
-                )
-                team_request = TeamSubscriptionRequest.objects.create(
-                    team=team_context,
-                    requested_by=request.user,
-                    payload=request_payload,
-                )
-
-                create_team_notifications(
-                    team=team_context,
-                    actor=request.user,
-                    event_type='team.request.submitted',
-                    title=f"New subscription request: {subscription.service_name}",
-                    body=f"{request.user.email} submitted a subscription request for approval.",
-                    link_url=reverse('accounts:team_detail', args=[team_context.pk]),
-                    metadata={'request_id': team_request.pk},
-                    send_email_alert=True,
-                )
-                messages.success(request, 'Request submitted for owner approval.')
-                return redirect('accounts:team_detail', team_id=team_context.pk)
 
             participants_to_create = [
                 SubscriptionParticipant(
