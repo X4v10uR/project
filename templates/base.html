@@ -7,6 +7,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     {% tailwind_css %}
+    <meta name="app-layout-version" content="20260304-1">
     <style>
         html.app-auth-layout {
             font-size: 14.4px;
@@ -45,24 +46,24 @@
 
         .app-sidebar {
             overflow-x: hidden;
-            background: #f2f2f5;
-            border-right: 1px solid #dbdbe2;
+            background: #ffffff;
+            border-right: 1px solid #ebebf0;
         }
 
         .app-sidebar-brand {
             display: inline-flex;
             align-items: center;
-            gap: 0.95rem;
+            gap: 12px;
             padding: 0;
-            color: #0a1320;
+            color: #111111;
         }
 
         .app-sidebar-brand-icon {
-            width: 2.9rem;
-            height: 2.9rem;
-            border-radius: 9999px;
-            background: #d7e53a;
-            color: #0d1119;
+            width: 36px;
+            height: 36px;
+            border-radius: 12px;
+            background: #e8f542;
+            color: #111111;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -70,62 +71,71 @@
         }
 
         .app-sidebar-brand-icon svg {
-            width: 1.45rem;
-            height: 1.45rem;
+            width: 18px;
+            height: 18px;
         }
 
         .app-sidebar-brand-text {
-            font-size: 2rem;
-            font-weight: 600;
+            font-size: 20px;
+            font-weight: 700;
             letter-spacing: -0.02em;
             line-height: 1;
         }
 
         .app-sidebar-nav {
-            margin: 0 0.75rem;
-            padding: 0;
+            margin: 0 12px;
+            padding: 8px 0;
             display: flex;
             flex-direction: column;
-            gap: 0.52rem;
+            gap: 4px;
         }
 
         .app-sidebar-link {
             display: flex;
             align-items: center;
-            gap: 0.95rem;
-            border-radius: 1.15rem;
-            padding: 0.88rem 1rem;
-            font-size: 1.82rem;
+            gap: 12px;
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-size: 14px;
             font-weight: 500;
             color: #8b8ea1;
-            line-height: 1;
+            line-height: 1.2;
             transition: background-color 180ms ease, color 180ms ease;
         }
 
+        .app-sidebar-link > span:not(.app-sidebar-link-arrow) {
+            white-space: nowrap;
+        }
+
         .app-sidebar-link svg {
-            width: 1.35rem;
-            height: 1.35rem;
+            width: 18px;
+            height: 18px;
             flex-shrink: 0;
             stroke-width: 1.8;
         }
 
         .app-sidebar-link-arrow {
             margin-left: auto;
-            color: #d7e53a;
-            font-size: 1.65rem;
+            color: #e8f542;
+            font-size: 14px;
             line-height: 1;
             display: none;
         }
 
         .app-sidebar-link:hover {
             color: #6e7287;
+            background: #f4f4f8;
         }
 
         .app-sidebar-link.is-active {
-            background: #0b0d12;
+            background: #111111;
             color: #fff;
             box-shadow: none;
             font-weight: 600;
+        }
+
+        .app-sidebar-link.is-active svg {
+            color: #e8f542;
         }
 
         .app-sidebar-link.is-active .app-sidebar-link-arrow {
@@ -138,30 +148,30 @@
         }
 
         .app-sidebar-footer {
-            margin: auto 0.75rem 0.95rem;
+            margin: auto 12px 16px;
         }
 
         .app-sidebar-user-card {
             display: flex;
             align-items: center;
-            gap: 0.85rem;
-            border-radius: 1rem;
-            border: 1px solid #e1e2e8;
-            background: #ececf2;
-            padding: 0.85rem 0.95rem;
+            gap: 12px;
+            border-radius: 12px;
+            border: 1px solid #ebebf0;
+            background: #f4f4f8;
+            padding: 12px;
         }
 
         .app-sidebar-user-avatar {
-            width: 2.9rem;
-            height: 2.9rem;
+            width: 36px;
+            height: 36px;
             border-radius: 9999px;
-            background: #d7e53a;
-            color: #090f1d;
+            background: #e8f542;
+            color: #111111;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             font-weight: 700;
-            font-size: 1.25rem;
+            font-size: 0.875rem;
             flex-shrink: 0;
         }
 
@@ -172,15 +182,15 @@
 
         .app-sidebar-user-name {
             margin: 0;
-            font-size: 1.1rem;
+            font-size: 14px;
             font-weight: 600;
-            color: #121829;
+            color: #111111;
             line-height: 1.2;
         }
 
         .app-sidebar-user-email {
-            margin: 0.15rem 0 0;
-            font-size: 0.95rem;
+            margin: 2px 0 0;
+            font-size: 12px;
             color: #8b8ea1;
             white-space: nowrap;
             overflow: hidden;
@@ -192,9 +202,9 @@
         }
 
         .app-sidebar-logout {
-            width: 2rem;
-            height: 2rem;
-            border-radius: 0.65rem;
+            width: 26px;
+            height: 26px;
+            border-radius: 8px;
             color: #8b8ea1;
             display: inline-flex;
             align-items: center;
@@ -208,8 +218,8 @@
         }
 
         .app-sidebar-logout svg {
-            width: 1.08rem;
-            height: 1.08rem;
+            width: 15px;
+            height: 15px;
             stroke-width: 2;
         }
 
@@ -279,24 +289,24 @@
                 top: 0;
                 bottom: 0;
                 left: 0;
-                width: 19rem;
+                width: 256px;
                 border-radius: 0;
                 overflow-x: hidden;
             }
 
             .app-main-with-sidebar {
-                padding: 16px 18px 16px calc(19rem + 22px);
+                padding: 16px 18px 16px calc(256px + 22px);
             }
         }
 
         @media (min-width: 1280px) {
             .app-sidebar {
-                width: 19.5rem;
+                width: 256px;
                 overflow-x: hidden;
             }
 
             .app-main-with-sidebar {
-                padding: 18px 24px 18px calc(19.5rem + 26px);
+                padding: 18px 24px 18px calc(256px + 26px);
             }
         }
     </style>
