@@ -311,7 +311,7 @@
     {% include 'components/navbar.html' %}
     {% endif %}
 
-    {% if user.is_authenticated %}
+    {% if user.is_authenticated and not hide_global_notifications %}
     <div class="global-notification-shell" id="global-notification-shell">
         <button
             type="button"
@@ -342,7 +342,7 @@
     {% endif %}
 
     <main{% if user.is_authenticated and not hide_sidebar %} class="app-main-with-sidebar"{% else %} class="min-h-screen"{% endif %}>
-        {% if messages %}
+        {% if messages and not suppress_base_messages %}
         <div class="max-w-5xl mx-auto mb-3 space-y-2">
             {% for message in messages %}
             <div class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">{{ message }}</div>

@@ -1,250 +1,279 @@
-{% extends "base.html" %}
+{% extends "accounts/teams_base.html" %}
 
 {% block title %}{{ team.name }} - Team - Subly{% endblock %}
 
-{% block content %}
-<div class="max-w-6xl mx-auto space-y-5">
-    <div class="bg-white border border-slate-200 rounded-2xl p-5 flex items-center justify-between gap-3">
+{% block teams_content %}
+<a href="{% url 'accounts:teams_overview' %}" class="teams-back-link">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+        <line x1="19" y1="12" x2="5" y2="12"></line>
+        <polyline points="12 19 5 12 12 5"></polyline>
+    </svg>
+    <span>Back to Teams</span>
+</a>
+
+<div class="teams-page-head" style="margin-bottom:24px;">
+    <div style="display:flex; align-items:center; gap:16px;">
+        <span class="teams-team-icon" style="width:48px; height:48px; border-radius:16px; background: {{ team_accent_color }};">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+        </span>
         <div>
-            <h1 class="text-xl font-semibold text-slate-900">{{ team.name }}</h1>
-            <p class="text-sm text-slate-600 mt-1">Manage team subscriptions and members.</p>
-        </div>
-        <div class="flex items-center gap-2">
-            {% if is_team_owner %}
-            <a href="{% url 'subscriptions:create' %}?team={{ team.pk }}" class="inline-flex items-center px-3 py-2 rounded-lg bg-slate-900 text-white text-sm">
-                Add Subscription
-            </a>
-            <form method="post" action="{% url 'accounts:team_delete' team.pk %}" onsubmit="return confirm('Delete this team? This will remove all team subscriptions and memberships.');">
-                {% csrf_token %}
-                <button type="submit" class="inline-flex items-center px-3 py-2 rounded-lg bg-slate-900 text-white text-sm hover:bg-slate-800">
-                    Delete Team
-                </button>
-            </form>
-            {% endif %}
+            <h1 class="teams-page-title" style="font-size:1.625rem;">{{ team.name }}</h1>
+            <p class="teams-page-subtitle" style="margin-top:2px;">Manage team subscriptions and members.</p>
         </div>
     </div>
+    {% if is_team_owner %}
+    <div style="display:flex; gap:12px; align-items:center;">
+        <a href="{% url 'subscriptions:create' %}?team={{ team.pk }}" class="teams-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span>Add Subscription</span>
+        </a>
+        <button type="button" id="delete-team-trigger" class="teams-btn-danger">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+            <span>Delete Team</span>
+        </button>
+    </div>
+    {% endif %}
+</div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <section class="bg-white border border-slate-200 rounded-2xl p-4 lg:col-span-2">
-            <h2 class="font-semibold text-slate-800 mb-3">Subscriptions</h2>
-            <div class="space-y-2">
-                {% for sub in team_subscriptions %}
-                <div class="border border-slate-100 rounded-xl p-3 flex items-center justify-between gap-2">
-                    <div>
-                        <p class="text-sm font-medium text-slate-800">{{ sub.service_name }}</p>
-                        <p class="text-xs text-slate-500">{{ sub.currency }} {{ sub.cost }} / {{ sub.billing_cycle }}</p>
-                        <p class="text-xs text-slate-500 mt-1">Login: {{ sub.account_email|default:"Not set" }}</p>
-                        {% if sub.account_password %}
-                            {% if is_team_owner %}
-                            <p class="text-xs text-slate-500 mt-1">
-                                Password:
-                                <span class="js-team-password">••••••••</span>
+{% if is_team_owner %}
+<div id="delete-team-confirm" class="teams-confirm-box">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20" style="flex-shrink:0; margin-top:2px;">
+        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line>
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+    </svg>
+    <div style="flex:1;">
+        <p class="teams-confirm-title">Delete Team?</p>
+        <p class="teams-confirm-note">This will permanently delete "{{ team.name }}" and all its subscriptions. This action cannot be undone.</p>
+        <div class="teams-confirm-actions">
+            <form method="post" action="{% url 'accounts:team_delete' team.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="teams-btn-danger" style="background:#ef4444; color:#fff; border-color:#ef4444;">Yes, Delete</button>
+            </form>
+            <button type="button" id="delete-team-cancel" class="teams-btn-secondary" style="color:var(--teams-muted);">Cancel</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="teams-detail-grid">
+    <div>
+        <h2 class="teams-side-title" style="font-size:1rem; margin-bottom:16px;">
+            Subscriptions
+            <span class="teams-badge">{{ team_subscriptions|length }}</span>
+        </h2>
+
+        {% if team_subscriptions %}
+        <div class="teams-sub-grid">
+            {% for sub in team_subscriptions %}
+            <article class="teams-sub-card">
+                <div class="teams-sub-head">
+                    <div class="teams-sub-title">
+                        <span class="teams-service-icon" style="width:40px; height:40px; border-radius:12px; background: {{ team_accent_color }};">{{ sub.get_fallback_icon }}</span>
+                        <div>
+                            <p class="teams-sub-meta-title">{{ sub.service_name }}</p>
+                            <p class="teams-sub-meta-billing">{{ sub.currency }} {{ sub.cost }} / <span style="color:#bbbbbb;">{{ sub.billing_cycle }}</span></p>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="teams-table-status {% if sub.status == 'active' %}teams-status-active{% elif sub.status == 'cancelled' or sub.status == 'paused' %}teams-status-cancelled{% else %}teams-status-default{% endif %}">
+                            {{ sub.status|title }}
+                        </span>
+                        {% if is_team_owner %}
+                        <a href="{% url 'subscriptions:update' sub.pk %}" class="teams-icon-btn" aria-label="Edit subscription">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                            </svg>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="teams-sub-secure">
+                    <div class="teams-sub-secure-row">
+                        <span class="teams-sub-secure-label">Login email</span>
+                        <span>{% if sub.account_email %}{{ sub.account_email }}{% else %}<span style="color:#bbbbbb; font-style:italic;">Not set</span>{% endif %}</span>
+                    </div>
+
+                    {% if sub.account_password %}
+                        {% if is_team_owner %}
+                        <div class="teams-sub-secure-row">
+                            <span class="teams-sub-secure-label">Password</span>
+                            <span class="teams-password-wrap">
+                                <span id="team-password-{{ sub.pk }}" class="teams-password-value">••••••••</span>
                                 <button
                                     type="button"
-                                    class="js-reveal-team-password text-xs text-slate-700 hover:text-slate-900 underline ml-1"
+                                    class="teams-icon-btn js-reveal-team-password"
+                                    data-revealed="false"
+                                    data-target="team-password-{{ sub.pk }}"
                                     data-url="{% url 'accounts:team_subscription_password' team.pk sub.pk %}"
                                 >
                                     Reveal
                                 </button>
-                            </p>
-                            {% else %}
-                            <p class="text-xs text-slate-500 mt-1">Password: Hidden</p>
-                            {% endif %}
-                        {% endif %}
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-700">{{ sub.status|title }}</span>
-                        {% if is_team_owner %}
-                        <a href="{% url 'subscriptions:update' sub.pk %}" class="text-xs text-slate-700 hover:text-slate-900">Edit</a>
-                        {% endif %}
-                    </div>
-                </div>
-                {% empty %}
-                <p class="text-sm text-slate-500">No subscriptions yet.</p>
-                {% endfor %}
-            </div>
-        </section>
-
-        <section class="bg-white border border-slate-200 rounded-2xl p-4">
-            <h2 class="font-semibold text-slate-800 mb-3">Members</h2>
-            <div class="space-y-2">
-                {% for member in team_members %}
-                <div class="border border-slate-100 rounded-xl px-3 py-2">
-                    <div class="flex items-center justify-between gap-2">
-                        <div>
-                            <p class="text-sm text-slate-800">{{ member.user.email }}</p>
-                            <p class="text-xs text-slate-500">{{ member.role|title }}</p>
+                            </span>
                         </div>
-                        {% if is_team_owner and member.user_id != request.user.id and member.role != 'owner' %}
-                        <form method="post" action="{% url 'accounts:team_member_remove' team.pk member.pk %}" onsubmit="return confirm('Remove this member from the team?');">
-                            {% csrf_token %}
-                            <button type="submit" class="px-2 py-1 rounded-md bg-red-200 text-red-700 text-xs hover:bg-gray-200">
-                                Remove
-                            </button>
-                        </form>
+                        {% else %}
+                        <div class="teams-sub-secure-row">
+                            <span class="teams-sub-secure-label">Password</span>
+                            <span>Password: Hidden</span>
+                        </div>
                         {% endif %}
+                    {% else %}
+                    <div class="teams-sub-secure-row">
+                        <span class="teams-sub-secure-label">Password</span>
+                        <span style="color:#bbbbbb; font-style:italic;">Not set</span>
                     </div>
+                    {% endif %}
                 </div>
-                {% empty %}
-                <p class="text-sm text-slate-500">No members yet.</p>
-                {% endfor %}
-            </div>
-
-            {% if membership %}
-            <div class="mt-4 pt-4 border-t border-slate-100">
-                <button
-                    type="button"
-                    id="leave-team-trigger"
-                    class="w-full px-3 py-2 rounded-lg bg-slate-900 text-white text-sm hover:bg-slate-800"
-                    aria-expanded="false"
-                    aria-controls="leave-team-confirm"
-                >
-                    Leave Team
-                </button>
-                <div id="leave-team-confirm" class="mt-2 hidden border border-slate-200 rounded-lg bg-white p-3">
-                    <p class="text-xs text-slate-600">Are you sure you want to leave this team?</p>
-                    <div class="mt-2 flex items-center gap-2">
-                        <form method="post" action="{% url 'accounts:team_leave' team.pk %}">
-                            {% csrf_token %}
-                            <button type="submit" class="px-2.5 py-1.5 rounded-md bg-red-200 text-red-700 text-xs">
-                                Yes, Leave
-                            </button>
-                        </form>
-                        <button
-                            type="button"
-                            id="leave-team-cancel"
-                            class="px-2.5 py-1.5 rounded-md bg-gray-100 text-gray-700 text-xs hover:bg-gray-200"
-                        >
-                            Cancel
-                        </button>
-                    </div>
-                </div>
+            </article>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="teams-empty-box">
+            No subscriptions yet.
+            {% if is_team_owner %}
+            <div style="margin-top:12px;">
+                <a href="{% url 'subscriptions:create' %}?team={{ team.pk }}" class="teams-btn">Add Subscription</a>
             </div>
             {% endif %}
+        </div>
+        {% endif %}
 
-            {% if is_team_owner %}
-            <div class="mt-4 pt-4 border-t border-slate-100">
-                <h3 class="text-sm font-semibold text-slate-800 mb-2">Invite Member</h3>
-                <form method="post" action="{% url 'accounts:team_invite' team.pk %}" class="space-y-2">
-                    {% csrf_token %}
-                    <input type="email" name="email" placeholder="member@example.com" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
-                    <select name="role" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
-                        {% for value, label in invite_form.fields.role.choices %}
-                        <option value="{{ value }}">{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                    <button type="submit" class="w-full px-3 py-2 rounded-lg bg-slate-900 text-white text-sm">Send Invite</button>
-                </form>
+        <section style="margin-top:32px;">
+            <h2 class="teams-side-title" style="font-size:1rem; margin-bottom:16px;">
+                Pending Create Requests
+                {% if pending_requests %}
+                <span class="teams-badge teams-badge-highlight">{{ pending_requests|length }}</span>
+                {% endif %}
+            </h2>
+
+            {% if pending_requests %}
+            <div class="teams-request-grid">
+                {% for req in pending_requests %}
+                <article class="teams-request-card">
+                    <p class="teams-request-title">{{ req.payload.service_name|default:"Subscription request" }}</p>
+                    <p class="teams-request-sub">Requested by <span style="color:#555;">{{ req.requested_by.email }}</span> on {{ req.created_at|date:"M d, Y H:i" }}</p>
+
+                    {% if is_team_owner %}
+                    <div class="teams-request-actions">
+                        <form method="post" action="{% url 'accounts:team_request_approve' req.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="teams-btn-approve">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <span>Approve</span>
+                            </button>
+                        </form>
+                        <form method="post" action="{% url 'accounts:team_request_reject' req.pk %}" class="teams-request-form">
+                            {% csrf_token %}
+                            <input type="text" name="decision_note" class="teams-note-input" placeholder="Reason (optional)" />
+                            <button type="submit" class="teams-btn-reject">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                                <span>Reject</span>
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </article>
+                {% endfor %}
             </div>
+            {% else %}
+            <div class="teams-empty-box" style="padding:24px; border-radius:12px;">No pending requests.</div>
             {% endif %}
         </section>
     </div>
 
-    <section class="bg-white border border-slate-200 rounded-2xl p-4">
-        <div class="flex items-center justify-between mb-3">
-            <h2 class="font-semibold text-slate-800">Pending Create Requests</h2>
-        </div>
-        <div class="space-y-2">
-            {% for req in pending_requests %}
-            <div class="border border-slate-100 rounded-xl p-3">
-                <p class="text-sm font-medium text-slate-800">{{ req.payload.service_name|default:"Subscription request" }}</p>
-                <p class="text-xs text-slate-500 mt-1">Requested by {{ req.requested_by.email }} on {{ req.created_at|date:"M d, Y H:i" }}</p>
-                {% if is_team_owner %}
-                <div class="mt-2 flex items-center gap-2">
-                    <form method="post" action="{% url 'accounts:team_request_approve' req.pk %}">
-                        {% csrf_token %}
-                        <button type="submit" class="px-2.5 py-1.5 rounded-md bg-emerald-600 text-white text-xs">Approve</button>
-                    </form>
-                    <form method="post" action="{% url 'accounts:team_request_reject' req.pk %}" class="flex items-center gap-2">
-                        {% csrf_token %}
-                        <input type="text" name="decision_note" placeholder="Reason (optional)" class="border border-slate-300 rounded-md px-2 py-1 text-xs">
-                        <button type="submit" class="px-2.5 py-1.5 rounded-md bg-red-200 text-red-700 text-xs">Reject</button>
-                    </form>
+    <aside class="teams-side-stack">
+        <section class="teams-side-card">
+            <h3 class="teams-side-title">Members <span class="teams-badge">{{ team_members|length }}</span></h3>
+            {% if team_members %}
+            <div class="teams-members-list">
+                {% for member in team_members %}
+                <div class="teams-member-row">
+                    <span class="teams-member-avatar">{{ member.user.email|first|upper }}</span>
+                    <p class="teams-member-email">{{ member.user.email }}{% if member.user_id == request.user.id %}<span style="color:var(--teams-muted); font-size:0.75rem; margin-left:6px;">(you)</span>{% endif %}</p>
+                    <div class="teams-member-actions">
+                        <span class="teams-member-role {% if member.role == 'owner' %}owner{% else %}member{% endif %}">{{ member.role|title }}</span>
+                        {% if is_team_owner and member.user_id != request.user.id and member.role != 'owner' %}
+                        <form method="post" action="{% url 'accounts:team_member_remove' team.pk member.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="teams-icon-btn" style="color:#ef4444;" aria-label="Remove member">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="8.5" cy="7" r="4"></circle>
+                                    <line x1="23" y1="11" x2="17" y2="11"></line>
+                                </svg>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
                 </div>
-                {% endif %}
+                {% endfor %}
             </div>
-            {% empty %}
-            <p class="text-sm text-slate-500">No pending requests.</p>
-            {% endfor %}
-        </div>
-    </section>
+            {% else %}
+            <p class="teams-page-subtitle">No members yet.</p>
+            {% endif %}
+        </section>
+
+        {% if is_team_owner %}
+        <section class="teams-side-card">
+            <h3 class="teams-side-title">Invite Member</h3>
+            <form method="post" action="{% url 'accounts:team_invite' team.pk %}" style="display:grid; gap:12px;">
+                {% csrf_token %}
+                <input type="email" name="email" placeholder="member@example.com" required class="teams-input" />
+                <select name="role" class="teams-select">
+                    {% for value, label in invite_form.fields.role.choices %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="teams-btn" style="width:100%; justify-content:center;">Send Invite</button>
+            </form>
+        </section>
+        {% endif %}
+
+        {% if membership %}
+        <section class="teams-side-card">
+            <button type="button" id="leave-team-trigger" class="teams-btn-ghost" style="width:100%; justify-content:center;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+                <span>Leave Team</span>
+            </button>
+            <div id="leave-team-confirm" class="teams-confirm-box" style="margin:12px 0 0; padding:14px; border-radius:12px;">
+                <div style="flex:1;">
+                    <p class="teams-confirm-title" style="color:#111; font-size:0.875rem;">Are you sure you want to leave this team?</p>
+                    <p class="teams-confirm-note" style="margin-top:6px; margin-bottom:12px;">You will lose access to all shared subscriptions.</p>
+                    <div style="display:flex; gap:8px;">
+                        <form method="post" action="{% url 'accounts:team_leave' team.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="teams-btn-danger" style="padding:8px 12px;">Yes, Leave</button>
+                        </form>
+                        <button type="button" id="leave-team-cancel" class="teams-btn-secondary" style="padding:8px 12px; color:var(--teams-muted);">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        {% endif %}
+    </aside>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        function getCookie(name) {
-            if (!document.cookie) {
-                return null;
-            }
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i += 1) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === name + '=') {
-                    return decodeURIComponent(cookie.substring(name.length + 1));
-                }
-            }
-            return null;
-        }
-
-        document.querySelectorAll('.js-reveal-team-password').forEach(function (button) {
-            button.addEventListener('click', async function () {
-                const target = this.closest('p').querySelector('.js-team-password');
-                if (!target) {
-                    return;
-                }
-                const hidden = target.textContent.trim() === '••••••••';
-                if (!hidden) {
-                    target.textContent = '••••••••';
-                    this.textContent = 'Reveal';
-                    return;
-                }
-
-                const revealUrl = this.dataset.url || '';
-                if (!revealUrl) {
-                    return;
-                }
-
-                this.disabled = true;
-                try {
-                    const response = await fetch(revealUrl, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRFToken': getCookie('csrftoken') || '',
-                            'X-Requested-With': 'XMLHttpRequest',
-                        },
-                    });
-                    const payload = await response.json();
-                    if (!response.ok || !payload.ok || !payload.password) {
-                        return;
-                    }
-                    target.textContent = payload.password;
-                    this.textContent = 'Hide';
-                } finally {
-                    this.disabled = false;
-                }
-            });
-        });
-
-        const leaveTrigger = document.getElementById('leave-team-trigger');
-        const leaveConfirm = document.getElementById('leave-team-confirm');
-        const leaveCancel = document.getElementById('leave-team-cancel');
-
-        if (leaveTrigger && leaveConfirm) {
-            leaveTrigger.addEventListener('click', function () {
-                const willOpen = leaveConfirm.classList.contains('hidden');
-                leaveConfirm.classList.toggle('hidden');
-                leaveTrigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-            });
-        }
-
-        if (leaveCancel && leaveConfirm && leaveTrigger) {
-            leaveCancel.addEventListener('click', function () {
-                leaveConfirm.classList.add('hidden');
-                leaveTrigger.setAttribute('aria-expanded', 'false');
-            });
-        }
-    });
-</script>
 {% endblock %}

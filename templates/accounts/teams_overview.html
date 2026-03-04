@@ -1,66 +1,209 @@
-{% extends "base.html" %}
+{% extends "accounts/teams_base.html" %}
 
 {% block title %}Teams - Subly{% endblock %}
 
-{% block content %}
-<div class="max-w-6xl mx-auto space-y-5">
-    <div class="bg-white border border-slate-200 rounded-2xl p-5 flex items-center justify-between gap-3">
-        <div>
-            <h1 class="text-xl font-semibold text-slate-900">Teams</h1>
-            <p class="text-sm text-slate-600 mt-1">Subscriptions across all teams you belong to.</p>
+{% block teams_content %}
+<div
+    id="teams-overview-root"
+    data-overview-url="{% url 'accounts:teams_overview' %}"
+    data-create-url="{% url 'accounts:team_create' %}"
+    data-teams-mode="{{ teams_ui_mode|default:'overview' }}"
+>
+    <section data-teams-overview-pane class="teams-overview-pane {% if teams_ui_mode == 'create' %}is-hidden{% endif %}">
+        <div class="teams-page-head">
+            <div>
+                <h1 class="teams-page-title">Teams</h1>
+                <p class="teams-page-subtitle">Subscriptions across all teams you belong to.</p>
+            </div>
+            <button type="button" class="teams-btn" data-teams-open-create>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Create Team</span>
+            </button>
         </div>
-        <a href="{% url 'accounts:team_create' %}" class="inline-flex items-center px-3 py-2 rounded-lg bg-slate-900 text-white text-sm">Create Team</a>
-    </div>
 
-    <div class="bg-white border border-slate-200 rounded-2xl p-5">
-        <h2 class="text-sm font-semibold text-slate-800 mb-3">Your Teams</h2>
-        <div class="flex flex-wrap gap-2">
-            {% for team in teams %}
-            <a href="{% url 'accounts:team_detail' team.pk %}" class="inline-flex items-center px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs hover:bg-slate-200">
-                {{ team.name }}
-            </a>
-            {% empty %}
-            <p class="text-sm text-slate-500">You are not in any teams yet.</p>
-            {% endfor %}
+        <div class="teams-stats-grid">
+            <article class="teams-stat-card">
+                <p class="teams-stat-label">Total Teams</p>
+                <p class="teams-stat-value">{{ team_cards|length }}</p>
+            </article>
+            <article class="teams-stat-card">
+                <p class="teams-stat-label">Team Subscriptions</p>
+                <p class="teams-stat-value">{{ team_subscriptions|length }}</p>
+            </article>
+            <article class="teams-stat-card is-dark">
+                <p class="teams-stat-label">Monthly Spend</p>
+                <p class="teams-stat-value">${{ teams_monthly_spend|floatformat:2 }}</p>
+            </article>
         </div>
-    </div>
 
-    <div class="bg-white border border-slate-200 rounded-2xl p-5">
-        <h2 class="text-sm font-semibold text-slate-800 mb-3">Team Subscriptions</h2>
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="text-left text-slate-500 border-b border-slate-100">
-                        <th class="py-2">Service</th>
-                        <th class="py-2">Team</th>
-                        <th class="py-2">Billing</th>
-                        <th class="py-2">Status</th>
-                        <th class="py-2"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for sub in team_subscriptions %}
-                    <tr class="border-b border-slate-100">
-                        <td class="py-2">{{ sub.service_name }}</td>
-                        <td class="py-2">
-                            <a href="{% url 'accounts:team_detail' sub.team.pk %}" class="inline-flex px-2 py-1 rounded-full bg-blue-50 text-blue-700 text-xs">
-                                {{ sub.team.name }}
-                            </a>
-                        </td>
-                        <td class="py-2">{{ sub.currency }} {{ sub.cost }} / {{ sub.billing_cycle }}</td>
-                        <td class="py-2">{{ sub.status|title }}</td>
-                        <td class="py-2 text-right">
-                            <a href="{% url 'accounts:team_detail' sub.team.pk %}" class="text-slate-700 hover:text-slate-900">View team</a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="5" class="py-4 text-slate-500">No team subscriptions yet.</td>
-                    </tr>
+        <section>
+            <h2 class="teams-section-title">Your Teams</h2>
+            {% if team_cards %}
+            <div class="teams-cards-row">
+                {% for card in team_cards %}
+                <a href="{% url 'accounts:team_detail' card.team.pk %}" class="teams-team-card">
+                    <span class="teams-team-icon" style="background: {{ card.accent_color }};">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                    </span>
+                    <span class="teams-team-meta">
+                        <span class="teams-team-name">{{ card.team.name }}</span>
+                        <span class="teams-team-sub">{{ card.member_count }} members . {{ card.role|title }}</span>
+                    </span>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="teams-empty-box">
+                You are not in any teams yet.
+            </div>
+            {% endif %}
+        </section>
+
+        <section>
+            <div class="teams-subscription-head">
+                <h2 class="teams-section-title" style="margin-bottom:0;">Team Subscriptions</h2>
+                <div class="teams-chip-row">
+                    <button type="button" class="teams-chip is-active" data-team-filter="all">All</button>
+                    {% for card in team_cards %}
+                    <button
+                        type="button"
+                        class="teams-chip"
+                        data-team-filter="{{ card.team.id }}"
+                        data-team-color
+                        style="--chip-color: {{ card.accent_color }};"
+                    >
+                        {{ card.team.name }}
+                    </button>
                     {% endfor %}
-                </tbody>
-            </table>
+                </div>
+            </div>
+
+            <div class="teams-table-wrap">
+                <table class="teams-table">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Team</th>
+                            <th>Billing</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if team_subscription_rows %}
+                            {% for row in team_subscription_rows %}
+                            {% with sub=row.subscription %}
+                            <tr class="teams-table-row" data-team-row="{{ sub.team_id }}">
+                                <td>
+                                    <span class="teams-table-service">
+                                        <span class="teams-service-icon" style="background: {{ row.accent_color }};">{{ sub.get_fallback_icon }}</span>
+                                        <span>{{ sub.service_name }}</span>
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="{% url 'accounts:team_detail' sub.team.pk %}" class="teams-chip" style="text-decoration:none; --chip-color: {{ row.accent_color }}; color:#333; border-color: {{ row.accent_color }}77; background: {{ row.accent_color }}33;">
+                                        {{ sub.team.name }}
+                                    </a>
+                                </td>
+                                <td>{{ sub.currency }} {{ sub.cost }} / {{ sub.billing_cycle }}</td>
+                                <td>
+                                    <span class="teams-table-status {% if sub.status == 'active' %}teams-status-active{% elif sub.status == 'cancelled' or sub.status == 'paused' %}teams-status-cancelled{% else %}teams-status-default{% endif %}">
+                                        {{ sub.status|title }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="{% url 'accounts:team_detail' sub.team.pk %}" class="teams-btn-secondary" style="padding:8px 12px; font-size:0.8125rem; border:0; background:transparent;">
+                                        View team
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endwith %}
+                            {% endfor %}
+                            <tr data-team-empty class="teams-hidden">
+                                <td colspan="5" style="text-align:center; color:var(--teams-muted);">No team subscriptions yet.</td>
+                            </tr>
+                        {% else %}
+                            <tr data-team-empty>
+                                <td colspan="5" style="text-align:center; color:var(--teams-muted);">No team subscriptions yet.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </section>
+
+    <section data-teams-create-pane class="teams-create-pane {% if teams_ui_mode != 'create' %}is-hidden{% endif %}">
+        <button type="button" class="teams-back-link" data-teams-close-create>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            <span>Back to Teams</span>
+        </button>
+
+        <div style="margin-bottom:32px;">
+            <h1 class="teams-page-title">Create Team</h1>
+            <p class="teams-page-subtitle" style="margin-top:6px;">Create a team to share subscription access securely.</p>
         </div>
-    </div>
+
+        <div class="teams-create-highlight">
+            <span class="teams-create-highlight-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+            </span>
+            <div>
+                <p style="font-weight:700; color:#111; font-size:0.9375rem; margin:0;">Better together</p>
+                <p style="margin:2px 0 0; color:#333; font-size:0.8125rem; line-height:1.5;">Invite members, share subscriptions, and split costs - all in one place.</p>
+            </div>
+        </div>
+
+        <form method="post" action="{% url 'accounts:team_create' %}" class="teams-panel">
+            {% csrf_token %}
+            <div class="teams-field-group">
+                <label class="teams-label" for="teams-create-name">Team Name <span style="color:#ef4444;">*</span></label>
+                <input
+                    id="teams-create-name"
+                    name="name"
+                    type="text"
+                    maxlength="120"
+                    required
+                    class="teams-input {% if team_create_form.name.errors %}is-error{% endif %}"
+                    value="{{ team_create_form.name.value|default:'' }}"
+                    placeholder="e.g. Design Team, Family Plan..."
+                />
+                <div class="teams-field-meta">
+                    <p id="teams-create-error" class="teams-error-text">{% if team_create_form.name.errors %}{{ team_create_form.name.errors.0 }}{% endif %}</p>
+                    <p id="teams-create-count" class="teams-char-count">{{ team_create_form.name.value|default:''|length }}/120</p>
+                </div>
+            </div>
+            <button type="submit" class="teams-btn" style="width:100%; justify-content:center; font-weight:700; font-size:0.9375rem; padding:12px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+                <span>Create Team</span>
+            </button>
+        </form>
+
+        <div class="teams-inline-note">
+            <span style="color:#333; font-weight:600;">What happens next:</span>
+            You'll be set as the team owner automatically. You can then invite members and add shared subscriptions.
+        </div>
+    </section>
 </div>
 {% endblock %}

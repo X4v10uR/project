@@ -193,6 +193,22 @@ class TeamInviteFlowTest(TestCase):
             ).exists()
         )
 
+    def test_team_create_get_renders_create_mode_in_overview_template(self):
+        self.client.force_login(self.member)
+        response = self.client.get(reverse('accounts:team_create'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-teams-mode="create"')
+        self.assertContains(response, 'Back to Teams')
+
+    def test_team_create_invalid_post_renders_create_mode_with_field_error(self):
+        self.client.force_login(self.member)
+        response = self.client.post(reverse('accounts:team_create'), {'name': ''})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-teams-mode="create"')
+        self.assertContains(response, 'This field is required')
+
     def test_accept_invite_requires_matching_email(self):
         invite, raw_token = create_team_invite(
             team=self.team,
@@ -397,6 +413,31 @@ class TeamInviteFlowTest(TestCase):
         )
         self.assertContains(response, 'Password: Hidden')
         self.assertNotContains(response, 'secret-password')
+
+    def test_non_owner_sees_pending_requests_without_owner_controls(self):
+        TeamMembership.objects.create(team=self.team, user=self.member, role=TeamMembership.ROLE_MEMBER)
+        TeamSubscriptionRequest.objects.create(
+            team=self.team,
+            requested_by=self.owner,
+            payload={
+                'service_name': 'Notion Team',
+                'category': 'Software',
+                'billing_cycle': 'monthly',
+                'cost': '12.00',
+                'start_date': timezone.localdate().isoformat(),
+                'status': 'active',
+                'currency': 'USD',
+            },
+        )
+
+        self.client.force_login(self.member)
+        response = self.client.get(reverse('accounts:team_detail', args=[self.team.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Pending Create Requests')
+        self.assertContains(response, 'Notion Team')
+        self.assertNotContains(response, 'Approve')
+        self.assertNotContains(response, 'Reject')
 
     def test_team_owner_can_fetch_team_subscription_password(self):
         self.client.force_login(self.owner)

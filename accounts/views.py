@@ -1,4 +1,5 @@
 from datetime import date, time
+from decimal import Decimal, ROUND_HALF_UP
 import logging
 
 from django.contrib import messages
@@ -6,6 +7,7 @@ from django.contrib.auth import login, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.db import transaction
+from django.db.models import Count
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -33,6 +35,15 @@ from .services import (
 )
 
 logger = logging.getLogger(__name__)
+
+TEAM_ACCENT_PALETTE = (
+    "#E8F542",
+    "#7ECDC4",
+    "#C5B8F5",
+    "#F7D9A0",
+    "#A9D8F7",
+    "#F5B8D8",
+)
 
 
 def signup(request):
@@ -95,23 +106,86 @@ def _get_team_or_404_for_user(user, team_id):
     return team
 
 
-@login_required
-def teams_overview(request):
-    memberships = TeamMembership.objects.filter(user=request.user).select_related('team')
-    team_ids = memberships.values_list('team_id', flat=True)
-    team_subscriptions = (
+def _team_accent_color(team_id):
+    if not team_id:
+        return TEAM_ACCENT_PALETTE[0]
+    return TEAM_ACCENT_PALETTE[(int(team_id) - 1) % len(TEAM_ACCENT_PALETTE)]
+
+
+def _monthly_equivalent(cost, billing_cycle):
+    amount = Decimal(cost or 0)
+    if billing_cycle == 'weekly':
+        return amount * Decimal('52') / Decimal('12')
+    if billing_cycle == 'yearly':
+        return amount / Decimal('12')
+    return amount
+
+
+def _build_teams_overview_context(request, *, form=None, teams_ui_mode='overview'):
+    memberships = (
+        TeamMembership.objects.filter(user=request.user)
+        .select_related('team')
+        .order_by('team__name', 'team__id')
+    )
+    team_ids = list(memberships.values_list('team_id', flat=True))
+    team_subscriptions = list(
         Subscription.objects.filter(team_id__in=team_ids)
         .select_related('team', 'user', 'card')
         .order_by('team__name', 'service_name')
     )
-    teams = [membership.team for membership in memberships]
+    team_member_counts = {
+        row['team_id']: row['member_count']
+        for row in (
+            TeamMembership.objects.filter(team_id__in=team_ids)
+            .values('team_id')
+            .annotate(member_count=Count('id'))
+        )
+    }
+    team_cards = [
+        {
+            'team': membership.team,
+            'role': membership.role,
+            'member_count': team_member_counts.get(membership.team_id, 0),
+            'accent_color': _team_accent_color(membership.team_id),
+        }
+        for membership in memberships
+    ]
+    team_color_map = {
+        membership.team_id: _team_accent_color(membership.team_id) for membership in memberships
+    }
+    monthly_total = sum(
+        (_monthly_equivalent(sub.cost, sub.billing_cycle) for sub in team_subscriptions),
+        Decimal('0'),
+    ).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    team_subscription_rows = [
+        {
+            'subscription': sub,
+            'accent_color': _team_accent_color(sub.team_id),
+        }
+        for sub in team_subscriptions
+    ]
+
+    return {
+        'teams': [membership.team for membership in memberships],
+        'team_cards': team_cards,
+        'team_subscriptions': team_subscriptions,
+        'team_subscription_rows': team_subscription_rows,
+        'team_color_map': team_color_map,
+        'teams_monthly_spend': monthly_total,
+        'teams_ui_mode': teams_ui_mode,
+        'team_create_form': form or TeamCreateForm(),
+        'hide_sidebar': True,
+        'hide_global_notifications': True,
+        'suppress_base_messages': True,
+    }
+
+
+@login_required
+def teams_overview(request):
     return render(
         request,
         'accounts/teams_overview.html',
-        {
-            'teams': teams,
-            'team_subscriptions': team_subscriptions,
-        },
+        _build_teams_overview_context(request, teams_ui_mode='overview'),
     )
 
 
@@ -143,6 +217,10 @@ def team_detail(request, team_id):
             'team_members': members,
             'pending_requests': pending_requests,
             'invite_form': invite_form,
+            'team_accent_color': _team_accent_color(team.id),
+            'hide_sidebar': True,
+            'hide_global_notifications': True,
+            'suppress_base_messages': True,
         },
     )
 
@@ -163,10 +241,27 @@ def team_create(request):
             )
             messages.success(request, 'Team created successfully.')
             return redirect('accounts:team_detail', team_id=team.pk)
+        return render(
+            request,
+            'accounts/teams_overview.html',
+            _build_teams_overview_context(
+                request,
+                form=form,
+                teams_ui_mode='create',
+            ),
+        )
     else:
         form = TeamCreateForm()
 
-    return render(request, 'accounts/team_create.html', {'form': form})
+    return render(
+        request,
+        'accounts/teams_overview.html',
+        _build_teams_overview_context(
+            request,
+            form=form,
+            teams_ui_mode='create',
+        ),
+    )
 
 
 @login_required
