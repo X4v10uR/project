@@ -26,15 +26,15 @@
             <p class="teams-page-subtitle" style="margin-top:2px;">Manage team subscriptions and members.</p>
         </div>
     </div>
-    {% if is_team_owner %}
     <div style="display:flex; gap:12px; align-items:center;">
         <a href="{% url 'subscriptions:create' %}?team={{ team.pk }}" class="teams-btn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
-            <span>Add Subscription</span>
+            <span>{% if is_team_owner %}Add Subscription{% else %}Create Request{% endif %}</span>
         </a>
+        {% if is_team_owner %}
         <button type="button" id="delete-team-trigger" class="teams-btn-danger">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="3 6 5 6 21 6"></polyline>
@@ -45,8 +45,8 @@
             </svg>
             <span>Delete Team</span>
         </button>
+        {% endif %}
     </div>
-    {% endif %}
 </div>
 
 {% if is_team_owner %}
@@ -110,7 +110,6 @@
                     </div>
 
                     {% if sub.account_password %}
-                        {% if is_team_owner %}
                         <div class="teams-sub-secure-row">
                             <span class="teams-sub-secure-label">Password</span>
                             <span class="teams-password-wrap">
@@ -126,12 +125,6 @@
                                 </button>
                             </span>
                         </div>
-                        {% else %}
-                        <div class="teams-sub-secure-row">
-                            <span class="teams-sub-secure-label">Password</span>
-                            <span>Password: Hidden</span>
-                        </div>
-                        {% endif %}
                     {% else %}
                     <div class="teams-sub-secure-row">
                         <span class="teams-sub-secure-label">Password</span>
@@ -145,11 +138,11 @@
         {% else %}
         <div class="teams-empty-box">
             No subscriptions yet.
-            {% if is_team_owner %}
             <div style="margin-top:12px;">
-                <a href="{% url 'subscriptions:create' %}?team={{ team.pk }}" class="teams-btn">Add Subscription</a>
+                <a href="{% url 'subscriptions:create' %}?team={{ team.pk }}" class="teams-btn">
+                    {% if is_team_owner %}Add Subscription{% else %}Create Request{% endif %}
+                </a>
             </div>
-            {% endif %}
         </div>
         {% endif %}
 

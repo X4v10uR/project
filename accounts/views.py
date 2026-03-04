@@ -556,8 +556,6 @@ def team_subscription_password(request, team_id, subscription_id):
         return JsonResponse({'ok': False, 'message': 'POST required.'}, status=405)
 
     team = _get_team_or_404_for_user(request.user, team_id)
-    if not is_team_owner(request.user, team):
-        return JsonResponse({'ok': False, 'message': 'Only team owners can view credentials.'}, status=403)
 
     subscription = get_object_or_404(
         Subscription.objects.select_related('team'),

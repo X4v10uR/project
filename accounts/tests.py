@@ -414,21 +414,22 @@ class TeamInviteFlowTest(TestCase):
         self.assertIsNone(invite_two.accepted_at)
         self.assertIsNotNone(invite_two.revoked_at)
 
-    def test_team_detail_hides_password_for_non_owner(self):
+    def test_team_detail_shows_reveal_control_for_non_owner(self):
         self.client.force_login(self.member)
         TeamMembership.objects.create(team=self.team, user=self.member, role=TeamMembership.ROLE_MEMBER)
 
         response = self.client.get(reverse('accounts:team_detail', args=[self.team.pk]))
 
         self.assertEqual(response.status_code, 200)
-        self.assertNotContains(
+        self.assertContains(
             response,
             reverse(
                 'accounts:team_subscription_password',
                 args=[self.team.pk, self.team_subscription.pk],
             ),
         )
-        self.assertContains(response, 'Password: Hidden')
+        self.assertContains(response, 'Create Request')
+        self.assertNotContains(response, 'Password: Hidden')
         self.assertNotContains(response, 'secret-password')
 
     def test_non_owner_sees_pending_requests_without_owner_controls(self):
@@ -471,7 +472,7 @@ class TeamInviteFlowTest(TestCase):
         self.assertTrue(payload['ok'])
         self.assertEqual(payload['password'], 'secret-password')
 
-    def test_non_owner_cannot_fetch_team_subscription_password(self):
+    def test_non_owner_can_fetch_team_subscription_password(self):
         self.client.force_login(self.member)
         TeamMembership.objects.create(team=self.team, user=self.member, role=TeamMembership.ROLE_MEMBER)
 
@@ -482,8 +483,10 @@ class TeamInviteFlowTest(TestCase):
             )
         )
 
-        self.assertEqual(response.status_code, 403)
-        self.assertFalse(response.json()['ok'])
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload['ok'])
+        self.assertEqual(payload['password'], 'secret-password')
 
     def test_team_owner_can_delete_team(self):
         self.client.force_login(self.owner)
@@ -615,7 +618,7 @@ class TeamInviteFlowTest(TestCase):
             TeamMembership.objects.filter(team=self.team, user=self.owner).exists()
         )
 
-    def test_non_owner_cannot_create_team_subscription(self):
+    def test_non_owner_creates_pending_team_subscription_request(self):
         TeamMembership.objects.create(team=self.team, user=self.member, role=TeamMembership.ROLE_MEMBER)
         self.client.force_login(self.member)
 
@@ -644,6 +647,20 @@ class TeamInviteFlowTest(TestCase):
             Subscription.objects.filter(
                 team=self.team,
                 service_name='Canva',
+            ).exists()
+        )
+        request_record = TeamSubscriptionRequest.objects.filter(
+            team=self.team,
+            requested_by=self.member,
+            status=TeamSubscriptionRequest.STATUS_PENDING,
+        ).first()
+        self.assertIsNotNone(request_record)
+        self.assertEqual(request_record.payload.get('service_name'), 'Canva')
+        self.assertTrue(
+            InAppNotification.objects.filter(
+                recipient=self.owner,
+                team=self.team,
+                event_type='team.request.submitted',
             ).exists()
         )
 

@@ -10,13 +10,14 @@ from django.db import transaction
 from django.db.models import Count
 from django.utils import timezone
 from django.urls import reverse
-from accounts.models import Team
+from accounts.models import Team, TeamMembership
 from accounts.services import is_team_member, is_team_owner
 from .models import (
     ReminderOffset,
     Card,
     Subscription,
     SubscriptionParticipant,
+    TeamSubscriptionRequest,
 )
 from .notifications import create_notification, create_team_notifications
 from .forms import SubscriptionForm, CardForm
@@ -269,6 +270,9 @@ def _build_subscription_form_context(request, form, title, *, subscription=None,
         "category_suggestions": CATEGORY_SUGGESTIONS,
         "team_context": team_context,
         "owner_context_label": team_context.name if team_context else "Personal",
+        "can_create_direct_subscription": (
+            not team_context or is_team_owner(request.user, team_context)
+        ),
     }
     return context
 
@@ -712,9 +716,6 @@ def subscription_create(request):
         return redirect('accounts:teams_overview')
 
     is_team_owner_context = bool(team_context and is_team_owner(request.user, team_context))
-    if team_context and not is_team_owner_context:
-        messages.error(request, 'Only team owners can create team subscriptions.')
-        return redirect('accounts:team_detail', team_id=team_context.pk)
 
     if request.method == 'POST':
         form = SubscriptionForm(request.POST, user=request.user)
@@ -778,13 +779,80 @@ def subscription_create(request):
                 for p_data in participants_data
             ]
 
-            with transaction.atomic():
-                subscription.save()
-                if participants_to_create:
-                    SubscriptionParticipant.objects.bulk_create(participants_to_create)
-                _sync_reminder_offsets(subscription, reminder_offsets)
-
             if team_context:
+                if not is_team_owner_context:
+                    payload = {
+                        'service_name': subscription.service_name,
+                        'plan_name': subscription.plan_name,
+                        'category': subscription.category,
+                        'billing_cycle': subscription.billing_cycle,
+                        'cost': str(subscription.cost),
+                        'user_cost': str(subscription.user_cost),
+                        'is_shared': bool(subscription.is_shared),
+                        'split_type': subscription.split_type,
+                        'currency': subscription.currency,
+                        'start_date': subscription.start_date.isoformat() if subscription.start_date else '',
+                        'renewal_time': (
+                            subscription.renewal_time.isoformat()
+                            if subscription.renewal_time
+                            else ''
+                        ),
+                        'status': subscription.status,
+                        'reminders_enabled': bool(subscription.reminders_enabled),
+                        'notes': subscription.notes or '',
+                        'account_email': subscription.account_email or '',
+                        'account_password': subscription.account_password or '',
+                        'participants': [
+                            {
+                                'name': participant.name,
+                                'share_amount': (
+                                    str(participant.share_amount)
+                                    if participant.share_amount is not None
+                                    else None
+                                ),
+                            }
+                            for participant in participants_to_create
+                        ],
+                        'reminder_offsets': reminder_offsets,
+                    }
+
+                    team_request = TeamSubscriptionRequest.objects.create(
+                        team=team_context,
+                        requested_by=request.user,
+                        payload=payload,
+                    )
+
+                    owner_memberships = (
+                        team_context.memberships
+                        .select_related('user')
+                        .filter(role=TeamMembership.ROLE_OWNER)
+                        .exclude(user=request.user)
+                    )
+                    for owner_membership in owner_memberships:
+                        create_notification(
+                            recipient=owner_membership.user,
+                            actor=request.user,
+                            team=team_context,
+                            event_type='team.request.submitted',
+                            title=f"New subscription request: {subscription.service_name}",
+                            body=f"{request.user.email} submitted a request for {subscription.service_name}.",
+                            link_url=reverse('accounts:team_detail', args=[team_context.pk]),
+                            metadata={'request_id': team_request.pk},
+                            send_email_alert=True,
+                        )
+
+                    messages.success(
+                        request,
+                        'Request submitted. Team owners can approve it from Pending Create Requests.',
+                    )
+                    return redirect('accounts:team_detail', team_id=team_context.pk)
+
+                with transaction.atomic():
+                    subscription.save()
+                    if participants_to_create:
+                        SubscriptionParticipant.objects.bulk_create(participants_to_create)
+                    _sync_reminder_offsets(subscription, reminder_offsets)
+
                 create_team_notifications(
                     team=team_context,
                     actor=request.user,
@@ -796,9 +864,13 @@ def subscription_create(request):
                     metadata={'subscription_id': subscription.pk},
                     send_email_alert=True,
                 )
-            
-            if team_context:
                 return redirect('accounts:team_detail', team_id=team_context.pk)
+
+            with transaction.atomic():
+                subscription.save()
+                if participants_to_create:
+                    SubscriptionParticipant.objects.bulk_create(participants_to_create)
+                _sync_reminder_offsets(subscription, reminder_offsets)
             return redirect('subscriptions:list')
     else:
         initial = _build_subscription_prefill(request.GET)
