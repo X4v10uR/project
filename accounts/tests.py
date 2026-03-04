@@ -193,6 +193,23 @@ class TeamInviteFlowTest(TestCase):
             ).exists()
         )
 
+    def test_teams_overview_backfills_missing_creator_membership(self):
+        legacy_owner = User.objects.create_user(email='legacy-owner@example.com', password='password')
+        legacy_team = Team.objects.create(name='Legacy Team', created_by=legacy_owner)
+
+        self.client.force_login(legacy_owner)
+        response = self.client.get(reverse('accounts:teams_overview'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Legacy Team')
+        self.assertTrue(
+            TeamMembership.objects.filter(
+                team=legacy_team,
+                user=legacy_owner,
+                role=TeamMembership.ROLE_OWNER,
+            ).exists()
+        )
+
     def test_team_create_get_renders_create_mode_in_overview_template(self):
         self.client.force_login(self.member)
         response = self.client.get(reverse('accounts:team_create'))

@@ -204,6 +204,30 @@
             <span style="color:#333; font-weight:600;">What happens next:</span>
             You'll be set as the team owner automatically. You can then invite members and add shared subscriptions.
         </div>
+
+        {% if team_cards %}
+        <section style="margin-top:28px;">
+            <h2 class="teams-section-title" style="font-size:1rem;">Your Teams</h2>
+            <div class="teams-cards-row" style="margin-bottom:0;">
+                {% for card in team_cards %}
+                <a href="{% url 'accounts:team_detail' card.team.pk %}" class="teams-team-card">
+                    <span class="teams-team-icon" style="background: {{ card.accent_color }};">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                    </span>
+                    <span class="teams-team-meta">
+                        <span class="teams-team-name">{{ card.team.name }}</span>
+                        <span class="teams-team-sub">{{ card.member_count }} members . {{ card.role|title }}</span>
+                    </span>
+                </a>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
     </section>
 </div>
 {% endblock %}

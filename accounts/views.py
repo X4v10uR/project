@@ -100,10 +100,31 @@ def settings(request):
 
 
 def _get_team_or_404_for_user(user, team_id):
+    _ensure_creator_memberships(user)
     team = get_object_or_404(Team, pk=team_id)
     if not is_team_member(user, team):
         raise Http404("Team not found.")
     return team
+
+
+def _ensure_creator_memberships(user):
+    if not getattr(user, 'is_authenticated', False):
+        return
+
+    missing_creator_teams = Team.objects.filter(created_by=user).exclude(
+        memberships__user=user
+    )
+    to_create = [
+        TeamMembership(
+            team=team,
+            user=user,
+            role=TeamMembership.ROLE_OWNER,
+            invited_by=user,
+        )
+        for team in missing_creator_teams
+    ]
+    if to_create:
+        TeamMembership.objects.bulk_create(to_create, ignore_conflicts=True)
 
 
 def _team_accent_color(team_id):
@@ -122,6 +143,7 @@ def _monthly_equivalent(cost, billing_cycle):
 
 
 def _build_teams_overview_context(request, *, form=None, teams_ui_mode='overview'):
+    _ensure_creator_memberships(request.user)
     memberships = (
         TeamMembership.objects.filter(user=request.user)
         .select_related('team')

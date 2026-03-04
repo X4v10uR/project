@@ -210,12 +210,16 @@
     padding: 16px 32px;
     border-bottom: 1px solid var(--teams-border);
     background: var(--teams-white);
+    position: relative;
+    z-index: 25;
 }
 
 .teams-page-scroll {
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
+    position: relative;
+    z-index: 1;
 }
 
 .teams-page-scroll::-webkit-scrollbar {
@@ -255,7 +259,10 @@
 }
 
 .teams-global-notification {
-    position: static;
+    position: relative;
+    top: auto;
+    right: auto;
+    z-index: 80;
 }
 
 .teams-global-notification .global-notification-button {
@@ -266,6 +273,8 @@
     background: transparent;
     color: var(--teams-muted);
     box-shadow: none;
+    pointer-events: auto;
+    cursor: pointer;
 }
 
 .teams-global-notification .global-notification-button:hover {
@@ -287,6 +296,9 @@
 .teams-global-notification .global-notification-panel {
     top: calc(100% + 0.45rem);
     border-radius: 14px;
+    right: 0;
+    left: auto;
+    z-index: 90;
 }
 
 .teams-page-head {
