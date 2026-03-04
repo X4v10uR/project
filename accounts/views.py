@@ -3,9 +3,9 @@ from decimal import Decimal, ROUND_HALF_UP
 import logging
 
 from django.contrib import messages
-from django.contrib.auth import login, update_session_auth_hash
+from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth.forms import PasswordChangeForm, SetPasswordForm
 from django.db import transaction
 from django.db.models import Count
 from django.http import Http404, JsonResponse
@@ -23,7 +23,7 @@ from .forms import (
     TeamCreateForm,
     TeamInviteForm,
 )
-from .models import Team, TeamMembership, User
+from .models import Team, TeamInvite, TeamMembership, User
 from .services import (
     accept_invite,
     create_team_invite,
@@ -68,7 +68,8 @@ def signup(request):
 @login_required
 def settings(request):
     profile_form = ProfileSettingsForm(instance=request.user)
-    password_form = PasswordChangeForm(user=request.user)
+    password_form_class = PasswordChangeForm if request.user.has_usable_password() else SetPasswordForm
+    password_form = password_form_class(user=request.user)
 
     if request.method == 'POST':
         form_type = request.POST.get('form_type')
@@ -80,7 +81,7 @@ def settings(request):
                 return redirect(f"{reverse('accounts:settings')}?updated=profile")
 
         if form_type == 'password':
-            password_form = PasswordChangeForm(user=request.user, data=request.POST)
+            password_form = password_form_class(user=request.user, data=request.POST)
             if password_form.is_valid():
                 user = password_form.save()
                 update_session_auth_hash(request, user)
@@ -95,8 +96,49 @@ def settings(request):
             'password_form': password_form,
             'profile_updated': updated == 'profile',
             'password_updated': updated == 'password',
+            'password_mode': 'change' if request.user.has_usable_password() else 'set',
         },
     )
+
+
+def _invite_status(invite):
+    if invite.accepted_at:
+        return 'already_used'
+    if invite.revoked_at:
+        return 'revoked'
+    if invite.is_expired():
+        return 'expired'
+    return 'ready'
+
+
+def _accept_invite_with_lock(*, invite_id, user):
+    with transaction.atomic():
+        locked_invite = (
+            TeamInvite.objects
+            .select_for_update()
+            .select_related('team', 'invited_by')
+            .filter(pk=invite_id)
+            .first()
+        )
+        if not locked_invite:
+            return {'result': 'invalid', 'invite': None}
+
+        if TeamMembership.objects.filter(team=locked_invite.team, user=user).exists():
+            if (
+                locked_invite.accepted_at is None
+                and locked_invite.revoked_at is None
+                and not locked_invite.is_expired()
+            ):
+                locked_invite.revoked_at = timezone.now()
+                locked_invite.save(update_fields=['revoked_at'])
+            return {'result': 'already_member', 'invite': locked_invite}
+
+        invite_status = _invite_status(locked_invite)
+        if invite_status != 'ready':
+            return {'result': invite_status, 'invite': locked_invite}
+
+        membership = accept_invite(invite=locked_invite, user=user)
+        return {'result': 'accepted', 'invite': locked_invite, 'membership': membership}
 
 
 def _get_team_or_404_for_user(user, team_id):
@@ -494,59 +536,80 @@ def invite_accept(request, token):
         messages.error(request, 'This invitation link is invalid.')
         return render(request, 'accounts/invite_accept.html', {'invite': None, 'invite_status': 'invalid'})
 
-    if not request.user.is_authenticated:
-        return redirect(f"{reverse('accounts:login')}?next={request.path}")
+    auto_provisioned = False
+    current_user = request.user if request.user.is_authenticated else None
 
-    if request.user.email.lower() != invite.email.lower():
-        messages.error(
-            request,
-            f"This invite is for {invite.email}. You are logged in as {request.user.email}.",
-        )
-        return render(
-            request,
-            'accounts/invite_accept.html',
-            {'invite': invite, 'invite_status': 'email_mismatch'},
-        )
+    if current_user and current_user.email.lower() != invite.email.lower():
+        if request.method != 'POST' or request.POST.get('action') != 'switch_account':
+            return render(
+                request,
+                'accounts/invite_accept.html',
+                {
+                    'invite': invite,
+                    'invite_status': 'email_mismatch',
+                    'current_email': current_user.email,
+                },
+            )
+        logout(request)
+        current_user = None
 
-    if TeamMembership.objects.filter(team=invite.team, user=request.user).exists():
-        if invite.accepted_at is None and invite.revoked_at is None:
-            invite.revoked_at = timezone.now()
-            invite.save(update_fields=['revoked_at'])
-        messages.info(request, f"You are already a member of {invite.team.name}.")
-        return redirect('accounts:team_detail', team_id=invite.team.pk)
+    if current_user is None:
+        initial_status = _invite_status(invite)
+        if initial_status != 'ready':
+            return render(
+                request,
+                'accounts/invite_accept.html',
+                {'invite': invite, 'invite_status': initial_status},
+            )
 
-    if not invite.is_usable():
-        if invite.accepted_at:
-            status = 'already_used'
-        elif invite.revoked_at:
-            status = 'revoked'
-        else:
-            status = 'expired'
-        return render(
-            request,
-            'accounts/invite_accept.html',
-            {'invite': invite, 'invite_status': status},
-        )
+        invited_user = User.objects.filter(email__iexact=invite.email).first()
+        if not invited_user:
+            invited_user = User.objects.create_user(email=invite.email)
+            auto_provisioned = True
 
-    if request.method == 'POST':
-        membership = accept_invite(invite=invite, user=request.user)
+        login(request, invited_user, backend='django.contrib.auth.backends.ModelBackend')
+        current_user = invited_user
+
+    accept_result = _accept_invite_with_lock(invite_id=invite.pk, user=current_user)
+    result_type = accept_result['result']
+    locked_invite = accept_result.get('invite') or invite
+
+    if result_type == 'accepted':
+        membership = accept_result['membership']
         create_team_notifications(
-            team=invite.team,
-            actor=request.user,
+            team=locked_invite.team,
+            actor=current_user,
             event_type='team.invite.accepted',
-            title=f"{request.user.email} joined {invite.team.name}",
-            body=f"{request.user.email} accepted an invitation as {membership.role}.",
-            link_url=reverse('accounts:team_detail', args=[invite.team.pk]),
+            title=f"{current_user.email} joined {locked_invite.team.name}",
+            body=f"{current_user.email} accepted an invitation as {membership.role}.",
+            link_url=reverse('accounts:team_detail', args=[locked_invite.team.pk]),
             metadata={'membership_role': membership.role},
             send_email_alert=True,
         )
-        messages.success(request, f"You joined {invite.team.name}.")
-        return redirect('accounts:team_detail', team_id=invite.team.pk)
+        messages.success(request, f"You joined {locked_invite.team.name}.")
+        if auto_provisioned or not current_user.has_usable_password():
+            messages.info(
+                request,
+                'You signed in with a secure invite link. You can set a password later in Settings.',
+            )
+        return redirect('accounts:team_detail', team_id=locked_invite.team.pk)
 
+    if result_type == 'already_member':
+        messages.info(request, f"You are already a member of {locked_invite.team.name}.")
+        return redirect('accounts:team_detail', team_id=locked_invite.team.pk)
+
+    if result_type in {'already_used', 'revoked', 'expired'}:
+        return render(
+            request,
+            'accounts/invite_accept.html',
+            {'invite': locked_invite, 'invite_status': result_type},
+        )
+
+    messages.error(request, 'This invitation link is invalid.')
     return render(
         request,
         'accounts/invite_accept.html',
-        {'invite': invite, 'invite_status': 'ready'},
+        {'invite': None, 'invite_status': 'invalid'},
     )
 
 

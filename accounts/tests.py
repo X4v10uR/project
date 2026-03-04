@@ -97,6 +97,17 @@ class SettingsViewTest(TestCase):
         self.assertContains(response, 'Save profile')
         self.assertContains(response, 'Change password')
 
+    def test_settings_get_for_unusable_password_user_shows_set_password(self):
+        self.user.set_unusable_password()
+        self.user.save(update_fields=['password'])
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse('accounts:settings'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Set Password')
+        self.assertContains(response, 'Set password')
+
     def test_profile_settings_post_updates_user(self):
         self.client.force_login(self.user)
         response = self.client.post(
@@ -134,6 +145,29 @@ class SettingsViewTest(TestCase):
 
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password('NewStrongPass456!'))
+
+        dashboard_response = self.client.get(reverse('dashboard:home'))
+        self.assertEqual(dashboard_response.status_code, 200)
+
+    def test_settings_post_sets_password_for_unusable_password_user(self):
+        self.user.set_unusable_password()
+        self.user.save(update_fields=['password'])
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse('accounts:settings'),
+            {
+                'form_type': 'password',
+                'new_password1': 'MagicPass123!@#',
+                'new_password2': 'MagicPass123!@#',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('?updated=password', response.url)
+
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('MagicPass123!@#'))
 
         dashboard_response = self.client.get(reverse('dashboard:home'))
         self.assertEqual(dashboard_response.status_code, 200)
@@ -226,7 +260,27 @@ class TeamInviteFlowTest(TestCase):
         self.assertContains(response, 'data-teams-mode="create"')
         self.assertContains(response, 'This field is required')
 
-    def test_accept_invite_requires_matching_email(self):
+    def test_accept_invite_auto_accepts_for_logged_out_existing_user(self):
+        invite, raw_token = create_team_invite(
+            team=self.team,
+            email=self.member.email,
+            role=TeamMembership.ROLE_MEMBER,
+            invited_by=self.owner,
+        )
+
+        response = self.client.get(reverse('accounts:invite_accept', args=[raw_token]))
+        self.assertRedirects(
+            response,
+            reverse('accounts:team_detail', args=[self.team.pk]),
+            fetch_redirect_response=False,
+        )
+        self.assertTrue(TeamMembership.objects.filter(team=self.team, user=self.member).exists())
+
+        invite.refresh_from_db()
+        self.assertIsNotNone(invite.accepted_at)
+        self.assertEqual(invite.accepted_by_id, self.member.pk)
+
+    def test_accept_invite_logged_in_wrong_email_shows_switch_interstitial(self):
         invite, raw_token = create_team_invite(
             team=self.team,
             email=self.member.email,
@@ -237,16 +291,62 @@ class TeamInviteFlowTest(TestCase):
         self.client.force_login(self.other_user)
         response = self.client.get(reverse('accounts:invite_accept', args=[raw_token]))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Email mismatch')
+        self.assertContains(response, 'Switch account to continue')
+        self.assertContains(response, self.member.email)
+        self.assertContains(response, self.other_user.email)
         self.assertFalse(TeamMembership.objects.filter(team=self.team, user=self.other_user).exists())
 
-        self.client.force_login(self.member)
-        post_response = self.client.post(reverse('accounts:invite_accept', args=[raw_token]))
-        self.assertEqual(post_response.status_code, 302)
+        invite.refresh_from_db()
+        self.assertIsNone(invite.accepted_at)
+
+    def test_accept_invite_switch_account_post_accepts_invite(self):
+        invite, raw_token = create_team_invite(
+            team=self.team,
+            email=self.member.email,
+            role=TeamMembership.ROLE_MEMBER,
+            invited_by=self.owner,
+        )
+
+        self.client.force_login(self.other_user)
+        response = self.client.post(
+            reverse('accounts:invite_accept', args=[raw_token]),
+            {'action': 'switch_account'},
+        )
+        self.assertRedirects(
+            response,
+            reverse('accounts:team_detail', args=[self.team.pk]),
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(int(self.client.session['_auth_user_id']), self.member.pk)
         self.assertTrue(TeamMembership.objects.filter(team=self.team, user=self.member).exists())
 
         invite.refresh_from_db()
         self.assertIsNotNone(invite.accepted_at)
+        self.assertEqual(invite.accepted_by_id, self.member.pk)
+
+    def test_accept_invite_auto_creates_user_without_password(self):
+        invitee_email = 'new-magic-user@example.com'
+        invite, raw_token = create_team_invite(
+            team=self.team,
+            email=invitee_email,
+            role=TeamMembership.ROLE_MEMBER,
+            invited_by=self.owner,
+        )
+
+        response = self.client.get(reverse('accounts:invite_accept', args=[raw_token]))
+        self.assertRedirects(
+            response,
+            reverse('accounts:team_detail', args=[self.team.pk]),
+            fetch_redirect_response=False,
+        )
+
+        invited_user = User.objects.filter(email__iexact=invitee_email).first()
+        self.assertIsNotNone(invited_user)
+        self.assertFalse(invited_user.has_usable_password())
+        self.assertTrue(TeamMembership.objects.filter(team=self.team, user=invited_user).exists())
+
+        invite.refresh_from_db()
+        self.assertEqual(invite.accepted_by_id, invited_user.pk)
 
     def test_expired_invite_cannot_be_accepted(self):
         invite, raw_token = create_team_invite(
@@ -257,11 +357,34 @@ class TeamInviteFlowTest(TestCase):
         )
         TeamInvite.objects.filter(pk=invite.pk).update(expires_at=timezone.now() - timedelta(hours=1))
 
-        self.client.force_login(self.member)
         response = self.client.get(reverse('accounts:invite_accept', args=[raw_token]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Invite expired')
         self.assertFalse(TeamMembership.objects.filter(team=self.team, user=self.member).exists())
+
+    def test_already_used_invite_renders_status_without_duplicate_membership(self):
+        invite, raw_token = create_team_invite(
+            team=self.team,
+            email=self.member.email,
+            role=TeamMembership.ROLE_MEMBER,
+            invited_by=self.owner,
+        )
+
+        first = self.client.get(reverse('accounts:invite_accept', args=[raw_token]))
+        self.assertRedirects(
+            first,
+            reverse('accounts:team_detail', args=[self.team.pk]),
+            fetch_redirect_response=False,
+        )
+        self.client.logout()
+
+        second = self.client.get(reverse('accounts:invite_accept', args=[raw_token]))
+        self.assertEqual(second.status_code, 200)
+        self.assertContains(second, 'Invite already used')
+        self.assertEqual(
+            TeamMembership.objects.filter(team=self.team, user=self.member).count(),
+            1,
+        )
 
     def test_team_invite_persists_when_email_send_fails(self):
         self.client.force_login(self.owner)
@@ -401,9 +524,8 @@ class TeamInviteFlowTest(TestCase):
             invited_by=self.owner,
         )
 
-        self.client.force_login(self.member)
-        first_response = self.client.post(reverse('accounts:invite_accept', args=[token_one]))
-        second_response = self.client.post(reverse('accounts:invite_accept', args=[token_two]))
+        first_response = self.client.get(reverse('accounts:invite_accept', args=[token_one]))
+        second_response = self.client.get(reverse('accounts:invite_accept', args=[token_two]))
 
         self.assertEqual(first_response.status_code, 302)
         self.assertEqual(second_response.status_code, 302)

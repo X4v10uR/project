@@ -4,18 +4,21 @@
 
 {% block content %}
 <div class="max-w-xl mx-auto bg-white border border-slate-200 rounded-2xl p-6">
-    {% if invite_status == "ready" and invite %}
-    <h1 class="text-xl font-semibold text-slate-900">Accept Team Invitation</h1>
-    <p class="text-sm text-slate-600 mt-1">You were invited to join <span class="font-medium">{{ invite.team.name }}</span> as {{ invite.get_role_display }}.</p>
-    <p class="text-xs text-slate-500 mt-1">This invite expires on {{ invite.expires_at|date:"M d, Y H:i" }}.</p>
-    <p class="text-xs text-slate-500 mt-1">For security, invitation acceptance is confirmed on this page before access is granted.</p>
-    <form method="post" class="mt-4">
+    {% if invite_status == "email_mismatch" and invite %}
+    <h1 class="text-xl font-semibold text-slate-900">Switch account to continue</h1>
+    <p class="text-sm text-slate-600 mt-2">
+        This invite is for <span class="font-medium">{{ invite.email }}</span>, but you are signed in as
+        <span class="font-medium">{{ current_email }}</span>.
+    </p>
+    <p class="text-sm text-slate-600 mt-2">
+        Continue to sign out and complete one-click access with the invited email.
+    </p>
+    <form method="post" class="mt-4 flex items-center gap-3">
         {% csrf_token %}
-        <button type="submit" class="px-3 py-2 rounded-lg bg-slate-900 text-white text-sm">Accept Invite</button>
+        <input type="hidden" name="action" value="switch_account">
+        <button type="submit" class="px-3 py-2 rounded-lg bg-slate-900 text-white text-sm">Continue with invited email</button>
+        <a href="{% url 'dashboard:home' %}" class="text-sm text-slate-600 underline">Cancel</a>
     </form>
-    {% elif invite_status == "email_mismatch" and invite %}
-    <h1 class="text-xl font-semibold text-slate-900">Email mismatch</h1>
-    <p class="text-sm text-slate-600 mt-2">This invite is bound to <span class="font-medium">{{ invite.email }}</span>. Please log in with that email.</p>
     {% elif invite_status == "expired" %}
     <h1 class="text-xl font-semibold text-slate-900">Invite expired</h1>
     <p class="text-sm text-slate-600 mt-2">This invitation has expired. Ask the team owner to send a new one.</p>
