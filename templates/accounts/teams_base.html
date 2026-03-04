@@ -6,7 +6,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="{% static 'accounts/teams_module.css' %}?v=20260304-2" />
+<link rel="stylesheet" href="{% static 'accounts/teams_module.css' %}?v=20260304-3" />
 {% endblock %}
 
 {% block content %}
@@ -42,6 +42,16 @@
                     <line x1="1" y1="10" x2="23" y2="10"></line>
                 </svg>
                 <span>My Subscriptions</span>
+                <span class="teams-nav-arrow">&#8250;</span>
+            </a>
+
+            <a href="{% url 'subscriptions:card_list' %}" class="teams-nav-link {% if ns == 'subscriptions' and name|slice:':5' == 'card_' %}is-active{% endif %}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                    <line x1="2" y1="10" x2="22" y2="10"></line>
+                    <line x1="7" y1="15" x2="11" y2="15"></line>
+                </svg>
+                <span>Cards Dashboard</span>
                 <span class="teams-nav-arrow">&#8250;</span>
             </a>
 
@@ -163,6 +173,6 @@
 
 {% block extra_js %}
 {{ block.super }}
-<script src="{% static 'accounts/teams_module.js' %}?v=20260304-2"></script>
+<script src="{% static 'accounts/teams_module.js' %}?v=20260304-3"></script>
 {% block teams_extra_js %}{% endblock %}
 {% endblock %}

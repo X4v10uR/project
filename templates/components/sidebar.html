@@ -31,6 +31,17 @@
             <span class="app-sidebar-link-arrow">›</span>
         </a>
 
+        <a href="{% url 'subscriptions:card_list' %}"
+           class="app-sidebar-link {% if ns == 'subscriptions' and name|slice:':5' == 'card_' %}is-active{% endif %}">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <rect x="2" y="5" width="20" height="14" rx="2" stroke-width="2"></rect>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2 10h20"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 15h4"></path>
+            </svg>
+            <span>Cards Dashboard</span>
+            <span class="app-sidebar-link-arrow">›</span>
+        </a>
+
         <a href="{% url 'accounts:teams_overview' %}"
            class="app-sidebar-link {% if ns == 'accounts' and name == 'teams_overview' or ns == 'accounts' and name|slice:':5' == 'team_' %}is-active{% endif %}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
