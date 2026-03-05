@@ -124,20 +124,37 @@
             return;
         }
 
-        const rows = this.notifications
-            .map(function (item) {
-                const baseClass = item.is_read ? 'bg-white' : 'bg-slate-50';
-                return (
-                    '<button type="button" class="block w-full text-left border-b border-slate-100 px-3 py-2 hover:bg-slate-100 ' + baseClass + '" data-notification-id="' + item.id + '" data-link-url="' + (item.link_url || '') + '">' +
-                    '<p class="text-sm font-medium text-slate-800">' + item.title + '</p>' +
-                    '<p class="text-xs text-slate-600 mt-0.5">' + (item.body || '') + '</p>' +
-                    '<p class="text-[11px] text-slate-400 mt-1">' + formatTime(item.created_at) + '</p>' +
-                    '</button>'
-                );
-            })
-            .join('');
+        this.listNode.innerHTML = '';
+        const fragment = document.createDocumentFragment();
 
-        this.listNode.innerHTML = rows;
+        this.notifications.forEach(function (item) {
+            const baseClass = item.is_read ? 'bg-white' : 'bg-slate-50';
+            const row = document.createElement('button');
+            row.type = 'button';
+            row.className =
+                'block w-full text-left border-b border-slate-100 px-3 py-2 hover:bg-slate-100 ' + baseClass;
+            row.setAttribute('data-notification-id', String(item.id || ''));
+            row.setAttribute('data-link-url', String(item.link_url || ''));
+
+            const titleNode = document.createElement('p');
+            titleNode.className = 'text-sm font-medium text-slate-800';
+            titleNode.textContent = String(item.title || '');
+
+            const bodyNode = document.createElement('p');
+            bodyNode.className = 'text-xs text-slate-600 mt-0.5';
+            bodyNode.textContent = String(item.body || '');
+
+            const timeNode = document.createElement('p');
+            timeNode.className = 'text-[11px] text-slate-400 mt-1';
+            timeNode.textContent = formatTime(item.created_at);
+
+            row.appendChild(titleNode);
+            row.appendChild(bodyNode);
+            row.appendChild(timeNode);
+            fragment.appendChild(row);
+        });
+
+        this.listNode.appendChild(fragment);
         this.bindRows();
     };
 

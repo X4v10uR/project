@@ -5,6 +5,7 @@ from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
@@ -65,10 +66,12 @@ class BillingService:
         charge_date = target_date or timezone.localdate()
         active_subs = Subscription.objects.filter(status='active').select_related('user')
 
-        due_subscriptions = []
-        for subscription in active_subs:
-            renewal_date = refresh_subscription_renewal_date(subscription)
-            if renewal_date == charge_date:
+        due_subscriptions = list(active_subs.filter(renewal_date=charge_date))
+        stale_subscriptions = active_subs.filter(
+            Q(renewal_date__isnull=True) | Q(renewal_date__lt=charge_date)
+        )
+        for subscription in stale_subscriptions:
+            if refresh_subscription_renewal_date(subscription) == charge_date:
                 due_subscriptions.append(subscription)
 
         return due_subscriptions
@@ -228,16 +231,23 @@ class NotificationService:
     def get_subscriptions_due_for_notification(target_time=None, days_before=None):
         """Get subscriptions and offsets that need renewal notifications today."""
         today = timezone.localdate()
+        if days_before is not None and days_before > 0:
+            horizon_days = days_before
+        else:
+            horizon_days = 30
+        horizon_date = today + timedelta(days=horizon_days)
 
         # Subscriptions with reminders enabled
-        active_subs = Subscription.objects.filter(
+        candidate_subs = Subscription.objects.filter(
             status='active',
             reminders_enabled=True,
+        ).filter(
+            Q(renewal_date__isnull=True) | Q(renewal_date__lte=horizon_date)
         ).select_related('user').prefetch_related('offsets')
 
         due_notifications = []
 
-        for subscription in active_subs:
+        for subscription in candidate_subs:
             renewal_date = refresh_subscription_renewal_date(subscription)
             if not renewal_date:
                 continue

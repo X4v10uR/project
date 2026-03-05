@@ -262,6 +262,9 @@ class TeamInviteFlowTest(TestCase):
         self.assertContains(response, 'This field is required')
 
     def test_teams_overview_weekly_spend_uses_52_over_12(self):
+        self.team_subscription.status = 'paused'
+        self.team_subscription.save(update_fields=['status'])
+
         Subscription.objects.create(
             user=self.owner,
             team=self.team,

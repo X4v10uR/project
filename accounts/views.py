@@ -214,7 +214,14 @@ def _build_teams_overview_context(request, *, form=None, teams_ui_mode='overview
         membership.team_id: _team_accent_color(membership.team_id) for membership in memberships
     }
     monthly_total = sum(
-        (_monthly_equivalent(sub.cost, sub.billing_cycle) for sub in team_subscriptions),
+        (
+            _monthly_equivalent(
+                sub.user_cost if sub.is_shared else sub.cost,
+                sub.billing_cycle,
+            )
+            for sub in team_subscriptions
+            if sub.status == 'active'
+        ),
         Decimal('0'),
     ).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
     team_subscription_rows = [
