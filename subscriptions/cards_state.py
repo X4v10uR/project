@@ -1,10 +1,10 @@
-from decimal import Decimal
 import hashlib
 
 from django.utils import timezone
 
 from dashboard.constants import CARD_COLOR_PALETTE, SERVICE_COLOR_PREFERENCES
 
+from .money import monthly_equivalent
 from .models import Card, Subscription
 
 
@@ -128,11 +128,7 @@ def _service_icon_label(service_name):
 
 def _monthly_price(subscription):
     amount = subscription.user_cost if subscription.is_shared else subscription.cost
-    if subscription.billing_cycle == "weekly":
-        return amount * Decimal("4")
-    if subscription.billing_cycle == "yearly":
-        return amount / Decimal("12")
-    return amount
+    return monthly_equivalent(amount, subscription.billing_cycle)
 
 
 def _format_display_date(raw_date):

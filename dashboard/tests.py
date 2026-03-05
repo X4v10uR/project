@@ -93,6 +93,28 @@ class DashboardViewTest(TestCase):
 
         self.assertIn('$5.00', display)
         self.assertIn('EUR 7.00', display)
+        self.assertEqual(response.context['monthly_spend'], Decimal('5.00'))
+        self.assertEqual(response.context['yearly_spend'], Decimal('60.00'))
+        self.assertEqual(response.context['avg_monthly_spend'], Decimal('5.00'))
+
+    def test_weekly_subscription_uses_52_over_12_monthly_equivalent(self):
+        Subscription.objects.create(
+            user=self.user,
+            service_name='Weekly Service',
+            category='Software',
+            billing_cycle='weekly',
+            cost=Decimal('12.00'),
+            currency='USD',
+            start_date=date.today(),
+            status='active',
+        )
+
+        response = self.client.get(reverse('dashboard:home'))
+        self.assertEqual(response.context['monthly_spend'], Decimal('52.00'))
+        self.assertEqual(
+            response.context['monthly_spend_by_currency']['USD'],
+            Decimal('52.00'),
+        )
 
     def test_balance_trend_points_cover_30_days(self):
         response = self.client.get(reverse('dashboard:home'))
@@ -334,3 +356,7 @@ class NotificationApiTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['unread_count'], 0)
         self.assertEqual(InAppNotification.objects.filter(recipient=self.user, is_read=False).count(), 0)
+        self.assertEqual(
+            InAppNotification.objects.filter(recipient=self.user, read_at__isnull=False).count(),
+            2,
+        )

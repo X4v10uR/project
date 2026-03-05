@@ -680,7 +680,7 @@ def subscription_export_csv(request):
 
     for subscription in subscriptions:
         participant_names = ', '.join(
-            subscription.participants.order_by('name').values_list('name', flat=True)
+            sorted(participant.name for participant in subscription.participants.all())
         )
         writer.writerow(
             [
@@ -801,7 +801,7 @@ def subscription_create(request):
                         'reminders_enabled': bool(subscription.reminders_enabled),
                         'notes': subscription.notes or '',
                         'account_email': subscription.account_email or '',
-                        'account_password': subscription.account_password or '',
+                        # Do not persist account passwords in request payloads.
                         'participants': [
                             {
                                 'name': participant.name,

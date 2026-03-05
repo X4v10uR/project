@@ -233,6 +233,32 @@ class CardsApiTest(TestCase):
         self.assertEqual(delete_response.status_code, 404)
         self.assertEqual(primary_response.status_code, 404)
 
+    def test_weekly_subscription_uses_52_over_12_monthly_equivalent(self):
+        card = Card.objects.create(
+            user=self.user,
+            nickname="Weekly Card",
+            last4="1010",
+            brand="visa",
+            theme="dark",
+            is_primary=True,
+        )
+        Subscription.objects.create(
+            user=self.user,
+            service_name="Weekly Plan",
+            category="Software",
+            billing_cycle="weekly",
+            cost=Decimal("12.00"),
+            start_date=date.today(),
+            status="active",
+            card=card,
+        )
+
+        response = self.client.get(reverse("subscriptions:cards_api_state"))
+        self.assertEqual(response.status_code, 200)
+        state = response.json()["state"]
+        self.assertEqual(len(state["subscriptions"]), 1)
+        self.assertEqual(state["subscriptions"][0]["monthlyPrice"], 52.0)
+
 
 class CardsLegacyRouteTest(TestCase):
     def setUp(self):
@@ -337,4 +363,4 @@ class CardsPageSmokeTest(TestCase):
 
     def test_sidebar_contains_cards_link(self):
         response = self.client.get(reverse("subscriptions:card_list"))
-        self.assertContains(response, ">Cards<", html=False)
+        self.assertContains(response, ">Cards Dashboard<", html=False)

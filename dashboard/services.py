@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 from django.urls import reverse
 from django.utils import timezone
 
+from subscriptions.money import monthly_equivalent
 from subscriptions.models import Subscription, Transaction
 
 from .models import BalanceAdjustment
@@ -136,11 +137,7 @@ def set_user_balance_target(user, target_balance):
 
 def _monthly_cost(subscription):
     cost = subscription.user_cost if subscription.is_shared else subscription.cost
-    if subscription.billing_cycle == 'weekly':
-        return cost * Decimal('4')
-    if subscription.billing_cycle == 'yearly':
-        return cost / Decimal('12')
-    return cost
+    return monthly_equivalent(cost, subscription.billing_cycle)
 
 
 def _effective_renewal_date(subscription, today):
@@ -434,24 +431,26 @@ def build_dashboard_view_model(user, today=None, scope='personal'):
         if renewal_date and today <= renewal_date <= next_30_days:
             upcoming_renewals.append(sub)
 
-    monthly_spend = Decimal('0.00')
     monthly_spend_by_currency = {}
     for sub in active_subs:
         monthly_cost = _monthly_cost(sub)
         currency = (sub.currency or 'USD').upper()
-        monthly_spend += monthly_cost
         monthly_spend_by_currency[currency] = (
             monthly_spend_by_currency.get(currency, Decimal('0.00')) + monthly_cost
         )
 
+    monthly_spend = monthly_spend_by_currency.get('USD', Decimal('0.00'))
     yearly_spend = monthly_spend * Decimal('12')
     active_count = len(active_subs)
+    usd_active_count = sum(
+        1 for sub in active_subs if (sub.currency or 'USD').upper() == 'USD'
+    )
     paused_count = paused_subs.count()
     cancelled_count = cancelled_subs.count()
     shared_count = shared_subs.count()
     avg_monthly_spend = (
-        monthly_spend / Decimal(active_count)
-        if active_count
+        monthly_spend / Decimal(usd_active_count)
+        if usd_active_count
         else Decimal('0.00')
     )
 

@@ -5,6 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
+from django.utils import timezone
 
 from subscriptions.models import InAppNotification
 from subscriptions.notifications import (
@@ -113,7 +114,6 @@ def notification_mark_read_api(request, pk):
 @require_POST
 def notifications_mark_all_read_api(request):
     notifications = InAppNotification.objects.filter(recipient=request.user, is_read=False)
-    for notification in notifications:
-        notification.mark_read()
+    notifications.update(is_read=True, read_at=timezone.now())
     push_bulk_read(request.user)
     return JsonResponse({'ok': True, 'unread_count': notification_unread_count(request.user)})

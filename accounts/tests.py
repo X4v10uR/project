@@ -4,6 +4,7 @@ from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
+from decimal import Decimal
 from unittest.mock import patch
 
 from accounts.models import Team, TeamInvite, TeamMembership
@@ -259,6 +260,23 @@ class TeamInviteFlowTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'data-teams-mode="create"')
         self.assertContains(response, 'This field is required')
+
+    def test_teams_overview_weekly_spend_uses_52_over_12(self):
+        Subscription.objects.create(
+            user=self.owner,
+            team=self.team,
+            service_name='Weekly Team Service',
+            category='Software',
+            billing_cycle='weekly',
+            cost='12.00',
+            start_date=timezone.localdate(),
+            status='active',
+        )
+
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse('accounts:teams_overview'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['teams_monthly_spend'], Decimal('52.00'))
 
     def test_accept_invite_auto_accepts_for_logged_out_existing_user(self):
         invite, raw_token = create_team_invite(
@@ -757,6 +775,8 @@ class TeamInviteFlowTest(TestCase):
                 'status': 'active',
                 'is_shared': 'False',
                 'split_type': 'equal',
+                'account_email': 'member-request@example.com',
+                'account_password': 'plaintext-should-not-store',
             },
         )
 
@@ -778,6 +798,7 @@ class TeamInviteFlowTest(TestCase):
         ).first()
         self.assertIsNotNone(request_record)
         self.assertEqual(request_record.payload.get('service_name'), 'Canva')
+        self.assertNotIn('account_password', request_record.payload)
         self.assertTrue(
             InAppNotification.objects.filter(
                 recipient=self.owner,
@@ -838,3 +859,29 @@ class TeamRequestAuthorizationTest(TestCase):
         )
         self.pending_request.refresh_from_db()
         self.assertEqual(self.pending_request.status, TeamSubscriptionRequest.STATUS_PENDING)
+
+    def test_owner_approval_ignores_payload_account_password(self):
+        legacy_payload = dict(self.pending_request.payload)
+        legacy_payload['account_email'] = 'legacy-team@example.com'
+        legacy_payload['account_password'] = 'legacy-plaintext-password'
+        self.pending_request.payload = legacy_payload
+        self.pending_request.save(update_fields=['payload', 'updated_at'])
+
+        self.client.force_login(self.owner)
+        response = self.client.post(
+            reverse('accounts:team_request_approve', args=[self.pending_request.pk])
+        )
+
+        self.assertRedirects(
+            response,
+            reverse('accounts:team_detail', args=[self.team.pk]),
+            fetch_redirect_response=False,
+        )
+        self.pending_request.refresh_from_db()
+        self.assertEqual(self.pending_request.status, TeamSubscriptionRequest.STATUS_APPROVED)
+        self.assertIsNotNone(self.pending_request.created_subscription)
+
+        created_subscription = self.pending_request.created_subscription
+        created_subscription.refresh_from_db()
+        self.assertEqual(created_subscription.account_email, 'legacy-team@example.com')
+        self.assertIsNone(created_subscription.account_password)

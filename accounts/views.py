@@ -16,6 +16,7 @@ from django.utils import timezone
 
 from subscriptions.models import ReminderOffset, Subscription, SubscriptionParticipant, TeamSubscriptionRequest
 from subscriptions.notifications import create_notification, create_team_notifications
+from subscriptions.money import monthly_equivalent
 
 from .forms import (
     CustomUserCreationForm,
@@ -176,12 +177,7 @@ def _team_accent_color(team_id):
 
 
 def _monthly_equivalent(cost, billing_cycle):
-    amount = Decimal(cost or 0)
-    if billing_cycle == 'weekly':
-        return amount * Decimal('52') / Decimal('12')
-    if billing_cycle == 'yearly':
-        return amount / Decimal('12')
-    return amount
+    return monthly_equivalent(cost, billing_cycle)
 
 
 def _build_teams_overview_context(request, *, form=None, teams_ui_mode='overview'):
@@ -671,7 +667,8 @@ def _create_subscription_from_request_payload(team_request, reviewer):
         reminders_enabled=bool(payload.get('reminders_enabled', True)),
         notes=payload.get('notes') or '',
         account_email=payload.get('account_email') or None,
-        account_password=payload.get('account_password') or None,
+        # Never materialize passwords from request payloads.
+        account_password=None,
         card=None,
     )
 
