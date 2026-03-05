@@ -23,8 +23,50 @@ class UserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 class User(AbstractUser):
+    PLAN_FREE = 'free'
+    PLAN_STARTER = 'starter'
+    PLAN_PRO = 'pro'
+    PLAN_BUSINESS = 'business'
+    PLAN_CHOICES = [
+        (PLAN_FREE, 'Free'),
+        (PLAN_STARTER, 'Starter'),
+        (PLAN_PRO, 'Pro'),
+        (PLAN_BUSINESS, 'Business'),
+    ]
+
+    PLAN_STATUS_NONE = 'none'
+    PLAN_STATUS_TRIALING = 'trialing'
+    PLAN_STATUS_ACTIVE = 'active'
+    PLAN_STATUS_PAST_DUE = 'past_due'
+    PLAN_STATUS_CANCELLED = 'cancelled'
+    PLAN_STATUS_CHOICES = [
+        (PLAN_STATUS_NONE, 'None'),
+        (PLAN_STATUS_TRIALING, 'Trialing'),
+        (PLAN_STATUS_ACTIVE, 'Active'),
+        (PLAN_STATUS_PAST_DUE, 'Past Due'),
+        (PLAN_STATUS_CANCELLED, 'Cancelled'),
+    ]
+
     username = None
     email = models.EmailField(unique=True)
+    display_name = models.CharField(max_length=120, blank=True)
+    bio = models.CharField(max_length=280, blank=True)
+    profile_photo = models.ImageField(upload_to='profile_photos/', null=True, blank=True)
+    timezone = models.CharField(max_length=64, default='UTC')
+    preferred_currency = models.CharField(max_length=3, default='USD')
+    subscription_plan = models.CharField(
+        max_length=20,
+        choices=PLAN_CHOICES,
+        default=PLAN_FREE,
+    )
+    plan_status = models.CharField(
+        max_length=20,
+        choices=PLAN_STATUS_CHOICES,
+        default=PLAN_STATUS_NONE,
+    )
+    plan_renews_on = models.DateField(null=True, blank=True)
+    product_updates_enabled = models.BooleanField(default=True)
+    marketing_emails_enabled = models.BooleanField(default=False)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []

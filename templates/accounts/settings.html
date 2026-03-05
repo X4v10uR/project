@@ -5,7 +5,7 @@
 {% block content %}
 <div>
     <h1>Settings</h1>
-    <p>Update your profile details and account password.</p>
+    <p>Update your profile details, account preferences, plan metadata, and security settings.</p>
 
     {% if profile_updated %}
     <p>Profile details updated successfully.</p>
@@ -15,10 +15,18 @@
     <p>Password updated successfully.</p>
     {% endif %}
 
+    {% if billing_updated %}
+    <p>Billing metadata updated successfully.</p>
+    {% endif %}
+
+    {% if preferences_updated %}
+    <p>Account preferences updated successfully.</p>
+    {% endif %}
+
     <div>
         <section>
             <h2>Profile</h2>
-            <form method="post">
+            <form method="post" enctype="multipart/form-data">
                 {% csrf_token %}
                 <input type="hidden" name="form_type" value="profile">
 
@@ -37,6 +45,61 @@
                 {% endfor %}
 
                 <button type="submit">Save profile</button>
+            </form>
+        </section>
+
+        <section>
+            <h2>Plan Metadata</h2>
+            <p>Temporary plan fields until payment integration is connected.</p>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="form_type" value="billing">
+
+                {% if billing_form.non_field_errors %}
+                <p>{{ billing_form.non_field_errors.0 }}</p>
+                {% endif %}
+
+                {% for field in billing_form %}
+                <div>
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                    <p>{{ field.errors.0 }}</p>
+                    {% endif %}
+                    {% if field.help_text %}
+                    <p>{{ field.help_text }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+
+                <button type="submit">Save plan metadata</button>
+            </form>
+        </section>
+
+        <section>
+            <h2>Preferences</h2>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="form_type" value="preferences">
+
+                {% if preferences_form.non_field_errors %}
+                <p>{{ preferences_form.non_field_errors.0 }}</p>
+                {% endif %}
+
+                {% for field in preferences_form %}
+                <div>
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                    <p>{{ field.errors.0 }}</p>
+                    {% endif %}
+                    {% if field.help_text %}
+                    <p>{{ field.help_text }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+
+                <button type="submit">Save preferences</button>
             </form>
         </section>
 
@@ -67,6 +130,34 @@
                 {% endfor %}
 
                 <button type="submit">{% if password_mode == 'set' %}Set password{% else %}Change password{% endif %}</button>
+            </form>
+        </section>
+
+        <section>
+            <h2>Danger Zone</h2>
+            <p>Deleting your account is permanent and will remove your related data.</p>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="form_type" value="delete_account">
+
+                {% if delete_form.non_field_errors %}
+                <p>{{ delete_form.non_field_errors.0 }}</p>
+                {% endif %}
+
+                {% for field in delete_form %}
+                <div>
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                    <p>{{ field.errors.0 }}</p>
+                    {% endif %}
+                    {% if field.help_text %}
+                    <p>{{ field.help_text }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+
+                <button type="submit">Delete account</button>
             </form>
         </section>
     </div>

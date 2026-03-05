@@ -19,7 +19,10 @@ from subscriptions.notifications import create_notification, create_team_notific
 from subscriptions.money import monthly_equivalent
 
 from .forms import (
+    AccountDeletionForm,
+    BillingSettingsForm,
     CustomUserCreationForm,
+    PreferencesSettingsForm,
     ProfileSettingsForm,
     TeamCreateForm,
     TeamInviteForm,
@@ -69,6 +72,9 @@ def signup(request):
 @login_required
 def settings(request):
     profile_form = ProfileSettingsForm(instance=request.user)
+    billing_form = BillingSettingsForm(instance=request.user)
+    preferences_form = PreferencesSettingsForm(instance=request.user)
+    delete_form = AccountDeletionForm(user=request.user)
     password_form_class = PasswordChangeForm if request.user.has_usable_password() else SetPasswordForm
     password_form = password_form_class(user=request.user)
 
@@ -76,10 +82,22 @@ def settings(request):
         form_type = request.POST.get('form_type')
 
         if form_type == 'profile':
-            profile_form = ProfileSettingsForm(request.POST, instance=request.user)
+            profile_form = ProfileSettingsForm(request.POST, request.FILES, instance=request.user)
             if profile_form.is_valid():
                 profile_form.save()
                 return redirect(f"{reverse('accounts:settings')}?updated=profile")
+
+        if form_type == 'billing':
+            billing_form = BillingSettingsForm(request.POST, instance=request.user)
+            if billing_form.is_valid():
+                billing_form.save()
+                return redirect(f"{reverse('accounts:settings')}?updated=billing")
+
+        if form_type == 'preferences':
+            preferences_form = PreferencesSettingsForm(request.POST, instance=request.user)
+            if preferences_form.is_valid():
+                preferences_form.save()
+                return redirect(f"{reverse('accounts:settings')}?updated=preferences")
 
         if form_type == 'password':
             password_form = password_form_class(user=request.user, data=request.POST)
@@ -88,14 +106,28 @@ def settings(request):
                 update_session_auth_hash(request, user)
                 return redirect(f"{reverse('accounts:settings')}?updated=password")
 
+        if form_type == 'delete_account':
+            delete_form = AccountDeletionForm(request.POST, user=request.user)
+            if delete_form.is_valid():
+                user = request.user
+                logout(request)
+                user.delete()
+                messages.success(request, 'Your account has been deleted.')
+                return redirect('landing')
+
     updated = request.GET.get('updated', '')
     return render(
         request,
         'accounts/settings.html',
         {
             'profile_form': profile_form,
+            'billing_form': billing_form,
+            'preferences_form': preferences_form,
+            'delete_form': delete_form,
             'password_form': password_form,
             'profile_updated': updated == 'profile',
+            'billing_updated': updated == 'billing',
+            'preferences_updated': updated == 'preferences',
             'password_updated': updated == 'password',
             'password_mode': 'change' if request.user.has_usable_password() else 'set',
         },

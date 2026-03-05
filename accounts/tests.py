@@ -2,10 +2,12 @@ from django.test import TestCase, Client
 from django.test import override_settings
 from django.urls import reverse
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
+import tempfile
 
 from accounts.models import Team, TeamInvite, TeamMembership
 from accounts.services import create_team_invite
@@ -96,7 +98,10 @@ class SettingsViewTest(TestCase):
         response = self.client.get(reverse('accounts:settings'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Save profile')
+        self.assertContains(response, 'Save plan metadata')
+        self.assertContains(response, 'Save preferences')
         self.assertContains(response, 'Change password')
+        self.assertContains(response, 'Delete account')
 
     def test_settings_get_for_unusable_password_user_shows_set_password(self):
         self.user.set_unusable_password()
@@ -117,7 +122,11 @@ class SettingsViewTest(TestCase):
                 'form_type': 'profile',
                 'first_name': 'New',
                 'last_name': 'Display',
+                'display_name': 'New Display Name',
                 'email': 'new-email@example.com',
+                'bio': 'I track all recurring costs here.',
+                'timezone': 'UTC',
+                'preferred_currency': 'eur',
             },
         )
 
@@ -127,7 +136,123 @@ class SettingsViewTest(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.first_name, 'New')
         self.assertEqual(self.user.last_name, 'Display')
+        self.assertEqual(self.user.display_name, 'New Display Name')
         self.assertEqual(self.user.email, 'new-email@example.com')
+        self.assertEqual(self.user.bio, 'I track all recurring costs here.')
+        self.assertEqual(self.user.timezone, 'UTC')
+        self.assertEqual(self.user.preferred_currency, 'EUR')
+
+    def test_profile_settings_post_updates_profile_photo(self):
+        self.client.force_login(self.user)
+        tiny_gif = (
+            b'GIF87a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff'
+            b'!\xf9\x04\x00\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00'
+            b'\x00\x02\x02D\x01\x00;'
+        )
+        upload = SimpleUploadedFile(
+            'avatar.gif',
+            tiny_gif,
+            content_type='image/gif',
+        )
+
+        with tempfile.TemporaryDirectory() as temp_media_root:
+            with override_settings(MEDIA_ROOT=temp_media_root):
+                response = self.client.post(
+                    reverse('accounts:settings'),
+                    {
+                        'form_type': 'profile',
+                        'first_name': self.user.first_name,
+                        'last_name': self.user.last_name,
+                        'display_name': '',
+                        'email': self.user.email,
+                        'bio': '',
+                        'timezone': 'UTC',
+                        'preferred_currency': 'USD',
+                        'profile_photo': upload,
+                    },
+                )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('?updated=profile', response.url)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.profile_photo.name.startswith('profile_photos/'))
+
+    def test_billing_settings_post_updates_plan_fields(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse('accounts:settings'),
+            {
+                'form_type': 'billing',
+                'subscription_plan': User.PLAN_PRO,
+                'plan_status': User.PLAN_STATUS_ACTIVE,
+                'plan_renews_on': '2030-01-15',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('?updated=billing', response.url)
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.subscription_plan, User.PLAN_PRO)
+        self.assertEqual(self.user.plan_status, User.PLAN_STATUS_ACTIVE)
+        self.assertEqual(self.user.plan_renews_on.isoformat(), '2030-01-15')
+
+    def test_preferences_settings_post_updates_flags(self):
+        self.user.product_updates_enabled = False
+        self.user.marketing_emails_enabled = True
+        self.user.save(update_fields=['product_updates_enabled', 'marketing_emails_enabled'])
+
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse('accounts:settings'),
+            {
+                'form_type': 'preferences',
+                'product_updates_enabled': 'on',
+                # marketing_emails_enabled intentionally omitted => False
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('?updated=preferences', response.url)
+
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.product_updates_enabled)
+        self.assertFalse(self.user.marketing_emails_enabled)
+
+    def test_delete_account_rejects_invalid_confirmation(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse('accounts:settings'),
+            {
+                'form_type': 'delete_account',
+                'confirm_email': 'wrong@example.com',
+                'confirm_phrase': 'DELETE',
+                'current_password': 'OldStrongPass123!',
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(User.objects.filter(pk=self.user.pk).exists())
+
+    def test_delete_account_with_password_deletes_user(self):
+        user_id = self.user.pk
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse('accounts:settings'),
+            {
+                'form_type': 'delete_account',
+                'confirm_email': self.user.email,
+                'confirm_phrase': 'DELETE',
+                'current_password': 'OldStrongPass123!',
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse('landing'),
+            fetch_redirect_response=False,
+        )
+        self.assertFalse(User.objects.filter(pk=user_id).exists())
 
     def test_password_settings_post_changes_password_and_keeps_session(self):
         self.client.force_login(self.user)
