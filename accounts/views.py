@@ -1,6 +1,7 @@
 from datetime import date, time
 from decimal import Decimal, ROUND_HALF_UP
 import logging
+from zoneinfo import available_timezones
 
 from django.contrib import messages
 from django.contrib.auth import login, logout, update_session_auth_hash
@@ -49,6 +50,16 @@ TEAM_ACCENT_PALETTE = (
     "#F5B8D8",
 )
 
+SETTINGS_SECTION_MAP = {
+    'profile': 'profile',
+    'billing': 'plan',
+    'preferences': 'preferences',
+    'password': 'password',
+    'delete_account': 'danger',
+}
+
+TIMEZONE_CHOICES = tuple(sorted(available_timezones()))
+
 
 def signup(request):
     raw_next = request.POST.get('next') or request.GET.get('next') or ''
@@ -77,9 +88,11 @@ def settings(request):
     delete_form = AccountDeletionForm(user=request.user)
     password_form_class = PasswordChangeForm if request.user.has_usable_password() else SetPasswordForm
     password_form = password_form_class(user=request.user)
+    active_settings_section = 'profile'
 
     if request.method == 'POST':
         form_type = request.POST.get('form_type')
+        active_settings_section = SETTINGS_SECTION_MAP.get(form_type, 'profile')
 
         if form_type == 'profile':
             profile_form = ProfileSettingsForm(request.POST, request.FILES, instance=request.user)
@@ -116,6 +129,12 @@ def settings(request):
                 return redirect('landing')
 
     updated = request.GET.get('updated', '')
+    active_settings_section = SETTINGS_SECTION_MAP.get(updated, active_settings_section)
+    selected_timezone = (profile_form['timezone'].value() or request.user.timezone or 'UTC').strip()
+    if selected_timezone and selected_timezone not in TIMEZONE_CHOICES:
+        timezone_choices = (selected_timezone,) + TIMEZONE_CHOICES
+    else:
+        timezone_choices = TIMEZONE_CHOICES
     return render(
         request,
         'accounts/settings.html',
@@ -130,6 +149,11 @@ def settings(request):
             'preferences_updated': updated == 'preferences',
             'password_updated': updated == 'password',
             'password_mode': 'change' if request.user.has_usable_password() else 'set',
+            'active_settings_section': active_settings_section,
+            'updated_form': updated,
+            'timezone_choices': timezone_choices,
+            'hide_global_notifications': True,
+            'suppress_base_messages': True,
         },
     )
 
