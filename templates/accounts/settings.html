@@ -83,11 +83,19 @@
 
     .settings-page {
       display: flex;
+      height: calc(100vh - 32px);
       min-height: calc(100vh - 32px);
       overflow: hidden;
       border-radius: 28px;
       background: var(--light);
       box-shadow: 0 24px 54px -42px rgba(15, 23, 42, 0.42);
+    }
+
+    @supports (height: 100dvh) {
+      .settings-page {
+        height: calc(100dvh - 32px);
+        min-height: calc(100dvh - 32px);
+      }
     }
 
     .settings-notification-shell { position: relative; }
@@ -104,14 +112,14 @@
     .settings-notification-count:not(.hidden) { min-width: 16px !important; height: 16px !important; padding: 0 4px !important; color: var(--dark) !important; font-size: 9px !important; font-weight: 800 !important; line-height: 12px !important; text-align: center !important; }
 
     @media (max-width: 767px) {
-      .settings-page { min-height: 0; border-radius: 22px; }
+      .settings-page { height: auto; min-height: 0; border-radius: 22px; }
     }
   </style>
 {% endblock %}
 
 {% block content %}
   <div class="settings-page" data-active-section="{{ active_settings_section }}" data-updated-form="{{ updated_form }}" data-password-mode="{{ password_mode }}" data-delete-password-required="{% if password_mode == 'change' %}true{% else %}false{% endif %}">
-  <div class="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+  <div class="flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-hidden">
     <!-- Top bar -->
     <header class="flex items-center justify-between flex-shrink-0 px-6 py-4" style="background: var(--light); border-bottom: 1px solid rgba(0,0,0,.06);">
       <div class="flex items-center gap-3">
@@ -139,7 +147,7 @@
     </header>
 
     <!-- Content row: Jump-to nav (outside scroll) + scrollable main -->
-    <div class="flex-1 flex overflow-hidden" style="max-width: 1080px; width: 100%; margin: 0 auto;">
+    <div class="flex-1 flex min-h-0 overflow-hidden" style="max-width: 1080px; width: 100%; margin: 0 auto;">
 
       <!-- Jump-to nav — completely outside the scroll container -->
       <div class="jnav-col" style="width: 180px; flex-shrink: 0; padding: 32px 0 32px 24px;">
@@ -164,7 +172,7 @@
       </div>
 
       <!-- Scrollable sections -->
-      <main id="mainScroll" class="flex-1 overflow-y-auto" style="padding: 32px 24px 64px;">
+      <main id="mainScroll" class="flex-1 min-h-0 overflow-y-auto" style="padding: 32px 24px 64px;">
 
         <div style="display: flex; flex-direction: column; gap: 20px;">
 
