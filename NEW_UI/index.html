@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Subscription Manager Dashboard</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', "sans-serif"],
+          },
+          boxShadow: {
+            shell: "0 30px 80px rgba(0,0,0,.28)",
+            panel: "0 20px 45px rgba(0,0,0,.22)",
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    :root {
+      --border: rgba(255, 255, 255, 0.1);
+      --muted: rgba(255, 255, 255, 0.58);
+      --muted-soft: rgba(255, 255, 255, 0.4);
+      --panel: rgba(255, 255, 255, 0.04);
+      --panel-soft: rgba(255, 255, 255, 0.025);
+      --text: #f8fafc;
+      --dark: #0b0d12;
+      --dark-2: #11141b;
+      --lemon: #eef36d;
+      --mint: #cff4e6;
+      --lavender: #ddd4ff;
+      --sky: #cfd9ff;
+      --peach: #ffd8c5;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 14% 14%, rgba(238, 243, 109, 0.95), transparent 18%),
+        radial-gradient(circle at 86% 10%, rgba(207, 217, 255, 0.92), transparent 20%),
+        linear-gradient(135deg, #dbe671 0%, #cfd8ff 100%);
+    }
+
+    .app-shell {
+      background:
+        radial-gradient(circle at top left, rgba(207, 244, 230, 0.08), transparent 22%),
+        radial-gradient(circle at top right, rgba(238, 243, 109, 0.08), transparent 20%),
+        linear-gradient(180deg, #12141b 0%, #0b0d12 100%);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .panel-card {
+      background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.022));
+      border: 1px solid var(--border);
+      box-shadow: 0 18px 44px rgba(0,0,0,.2);
+    }
+
+    .metric-box {
+      background: rgba(255,255,255,.035);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 18px;
+      padding: 14px 16px;
+    }
+
+    .pastel-card,
+    .service-row,
+    .active-card {
+      position: relative;
+      overflow: hidden;
+      color: #0f172a;
+      box-shadow: 0 16px 28px rgba(0,0,0,.12);
+    }
+
+    .pastel-card {
+      border-radius: 24px;
+      padding: 18px;
+    }
+
+    .service-row {
+      border-radius: 24px;
+      padding: 16px 18px;
+    }
+
+    .active-card {
+      border-radius: 26px;
+      padding: 20px;
+    }
+
+    .placeholder-card {
+      min-height: 176px;
+      border-radius: 24px;
+      border: 1px dashed rgba(255,255,255,.12);
+      background: rgba(255,255,255,.02);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: rgba(255,255,255,.4);
+      padding: 18px;
+    }
+
+    .placeholder-row,
+    .placeholder-active,
+    .placeholder-tx {
+      border: 1px dashed rgba(255,255,255,.12);
+      background: rgba(255,255,255,.02);
+      color: rgba(255,255,255,.42);
+    }
+
+    .placeholder-row {
+      border-radius: 24px;
+      padding: 18px;
+    }
+
+    .placeholder-active {
+      border-radius: 26px;
+      padding: 20px;
+      min-height: 210px;
+      display: flex;
+      align-items: end;
+    }
+
+    .placeholder-tx {
+      border-radius: 22px;
+      padding: 16px;
+    }
+
+    .service-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      background: rgba(15,23,42,.09);
+      flex-shrink: 0;
+    }
+
+    .tx-icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      color: #0f172a;
+      flex-shrink: 0;
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 999px;
+      background: rgba(255,255,255,.22);
+      filter: blur(0.2px);
+      pointer-events: none;
+    }
+
+    .link-pill {
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+    }
+
+    .soft-field {
+      border: 1px solid rgba(255,255,255,.1);
+      background: rgba(255,255,255,.045);
+      outline: none;
+    }
+
+    .soft-field:focus {
+      border-color: rgba(238,243,109,.5);
+      box-shadow: 0 0 0 3px rgba(238,243,109,.08);
+    }
+
+    .graph-panel {
+      overflow: hidden;
+      transition: max-height .35s ease, opacity .35s ease, margin-top .35s ease;
+    }
+
+    .graph-panel.expanded {
+      max-height: 360px;
+      opacity: 1;
+      margin-top: 16px;
+    }
+
+    .graph-panel.collapsed {
+      max-height: 0;
+      opacity: 0;
+      margin-top: 0;
+    }
+
+    .section-note {
+      color: rgba(255,255,255,.52);
+    }
+
+    .thin-scrollbar::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    .thin-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,.12);
+      border-radius: 999px;
+    }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div class="relative min-h-screen overflow-hidden">
+    <div class="absolute left-10 top-16 h-48 w-48 rounded-full bg-[#EEF36D]/20 blur-3xl"></div>
+    <div class="absolute right-6 top-8 h-56 w-56 rounded-full bg-[#CFD9FF]/25 blur-3xl"></div>
+    <div class="absolute bottom-10 left-1/3 h-56 w-56 rounded-full bg-[#CFF4E6]/10 blur-3xl"></div>
+
+    <main class="mx-auto max-w-7xl p-4 sm:p-6 lg:p-10">
+      <div class="app-shell relative min-h-[calc(100vh-2rem)] overflow-hidden rounded-[34px] shadow-shell">
+        <div class="absolute -left-20 top-10 h-72 w-72 rounded-full bg-[#CFF4E6]/10 blur-[120px]"></div>
+        <div class="absolute -right-16 top-0 h-80 w-80 rounded-full bg-[#EEF36D]/10 blur-[140px]"></div>
+
+        <div class="relative p-5 sm:p-7 lg:p-8">
+          <header class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div class="flex items-center gap-4">
+              <div
+                id="avatar"
+                class="grid h-14 w-14 place-items-center rounded-full border border-white/10 bg-white/10 text-lg font-bold"
+              >
+                P
+              </div>
+
+              <div>
+                <p class="text-sm text-white/45">Subscription overview</p>
+                <h1 id="greeting" class="text-3xl font-extrabold tracking-tight sm:text-4xl">
+                  Hello, Patricia!
+                </h1>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <label class="relative">
+                <span class="sr-only">Dashboard scope</span>
+                <select
+                  id="scopeSelect"
+                  class="link-pill appearance-none rounded-2xl px-4 py-3 pr-10 text-sm font-medium text-white focus:outline-none"
+                >
+                  <option value="Personal">Personal</option>
+                  <option value="Teams">Teams</option>
+                </select>
+
+                <svg
+                  class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                >
+                  <path d="M5 7.5 10 12.5 15 7.5" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </label>
+
+              <a
+                href="#"
+                aria-label="Notifications"
+                class="grid h-12 w-12 place-items-center rounded-2xl border border-white/10 bg-white/5 transition hover:bg-white/10"
+              >
+                <svg class="h-5 w-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M14.857 17H9.143a4.143 4.143 0 0 1-4.143-4.143V11a7 7 0 1 1 14 0v1.857A4.143 4.143 0 0 1 14.857 17Z" stroke-linecap="round" />
+                  <path d="M9.5 20a2.5 2.5 0 0 0 5 0" stroke-linecap="round" />
+                  <circle cx="18.5" cy="5.5" r="2.5" fill="currentColor" stroke="none" />
+                </svg>
+              </a>
+            </div>
+          </header>
+
+          <section class="grid gap-6 xl:grid-cols-[1.45fr,0.95fr]">
+            <div class="space-y-6">
+              <section class="panel-card relative overflow-hidden rounded-[28px] p-5 sm:p-6">
+                <div class="absolute right-0 top-0 h-40 w-40 rounded-full bg-[#EEF36D]/10 blur-3xl"></div>
+
+                <div class="relative">
+                  <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p class="text-sm text-white/60">Your balance</p>
+
+                      <div class="mt-3 flex items-end gap-3">
+                        <h2 id="balanceTotal" class="text-4xl font-extrabold tracking-tight sm:text-6xl">
+                          $150.00
+                        </h2>
+
+                        <svg class="mb-2 h-5 w-5 text-white/55" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                          <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z" stroke-linecap="round" stroke-linejoin="round"/>
+                          <circle cx="12" cy="12" r="3" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                      </div>
+                    </div>
+
+                    <button
+                      id="toggleGraphBtn"
+                      aria-expanded="true"
+                      class="link-pill inline-flex items-center gap-3 self-start rounded-full px-4 py-2.5 text-sm text-white/80 transition hover:bg-white/10"
+                    >
+                      <span id="nextDueText">Next due 08/15</span>
+
+                      <span id="toggleTrack" class="relative inline-flex h-6 w-11 rounded-full bg-white/10 transition">
+                        <span
+                          id="toggleKnob"
+                          class="absolute left-1 top-1 h-4 w-4 rounded-full bg-[#EEF36D] transition"
+                        ></span>
+                      </span>
+                    </button>
+                  </div>
+
+                  <div class="mt-5 flex flex-wrap items-center gap-3">
+                    <div id="basePill" class="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70">
+                      Base $150.00
+                    </div>
+
+                    <div id="adjPill" class="rounded-full px-3 py-2 text-sm text-white/80">
+                      Adj +$0.00
+                    </div>
+
+                    <button
+                      id="adjustBtn"
+                      class="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/10"
+                    >
+                      Adjust
+                    </button>
+                  </div>
+
+                  <div id="adjustEditor" class="mt-4 hidden rounded-3xl border border-white/10 bg-black/20 p-4">
+                    <label for="balanceInput" class="block text-sm text-white/60">Set target monthly balance</label>
+
+                    <div class="mt-3 flex flex-col gap-3 sm:flex-row">
+                      <input
+                        id="balanceInput"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="175.00"
+                        class="soft-field w-full rounded-2xl px-4 py-3 text-white placeholder:text-white/30"
+                      />
+
+                      <div class="flex gap-3">
+                        <button
+                          id="saveBalanceBtn"
+                          class="rounded-2xl bg-[#EEF36D] px-4 py-3 font-semibold text-slate-900 transition hover:brightness-95"
+                        >
+                          Save
+                        </button>
+
+                        <button
+                          id="cancelBalanceBtn"
+                          class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white transition hover:bg-white/10"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+
+                    <p id="editorError" class="mt-2 hidden text-xs text-rose-300"></p>
+                    <p class="mt-2 text-xs text-white/40">Leave the field empty and save to reset to the calculated balance.</p>
+                  </div>
+
+                  <div id="graphPanel" class="graph-panel expanded">
+                    <div class="rounded-[24px] border border-white/10 bg-black/20 p-4">
+                      <div id="sparklineWrap"></div>
+
+                      <div class="mt-3 flex items-center justify-between text-[11px] uppercase tracking-[0.18em] text-white/35">
+                        <span>Jul 15</span>
+                        <span>1M</span>
+                        <span>Aug 15</span>
+                      </div>
+
+                      <div class="mt-4 grid gap-3 sm:grid-cols-3">
+                        <div class="metric-box">
+                          <p class="text-[11px] uppercase tracking-[0.18em] text-white/35">30D Total</p>
+                          <p id="metricTotal30" class="mt-2 text-lg font-semibold text-white">$199.97</p>
+                        </div>
+
+                        <div class="metric-box">
+                          <p class="text-[11px] uppercase tracking-[0.18em] text-white/35">Peak Day</p>
+                          <p id="metricPeakDay" class="mt-2 text-lg font-semibold text-white">Aug 07</p>
+                        </div>
+
+                        <div class="metric-box">
+                          <p class="text-[11px] uppercase tracking-[0.18em] text-white/35">Active Days</p>
+                          <p id="metricActiveDays" class="mt-2 text-lg font-semibold text-white">11</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="panel-card rounded-[28px] p-5 sm:p-6">
+                <div class="flex items-center justify-between gap-4">
+                  <h3 class="text-2xl font-semibold">Upcoming Bill</h3>
+
+                  <a
+                    href="#"
+                    class="link-pill rounded-full px-4 py-2 text-sm text-white/80 transition hover:bg-white/10"
+                  >
+                    View All
+                  </a>
+                </div>
+
+                <div id="upcomingGrid" class="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3"></div>
+              </section>
+
+              <section class="panel-card rounded-[28px] p-5 sm:p-6">
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <h3 class="text-2xl font-semibold">Subscriptions</h3>
+                    <p class="section-note mt-1 max-w-md text-sm">
+                      Subscribe multiple platforms only in one place.
+                    </p>
+                  </div>
+
+                  <a
+                    href="#"
+                    class="link-pill rounded-full px-4 py-2 text-sm text-white/80 transition hover:bg-white/10"
+                  >
+                    View All
+                  </a>
+                </div>
+
+                <div id="subscriptionsList" class="mt-5 space-y-4"></div>
+              </section>
+            </div>
+
+            <div class="space-y-6">
+              <section class="panel-card rounded-[28px] p-5 sm:p-6">
+                <h3 class="text-2xl font-semibold">Active Subscriptions</h3>
+                <div id="activeList" class="mt-4 space-y-4"></div>
+              </section>
+
+              <section class="panel-card rounded-[28px] p-5 sm:p-6">
+                <h3 class="text-2xl font-semibold">Recent Transactions</h3>
+                <div id="transactionsList" class="mt-4 space-y-4"></div>
+              </section>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const dashboardData = {
+      Personal: {
+        user: { name: "Patricia", initial: "P" },
+        baseBalance: 150.0,
+        nextDue: "08/15",
+        trend: [92,110,98,126,118,132,128,140,124,136,146,150,138,152,148,158,144,162,156,168,154,160,171,166,174,169,176,172,181,178],
+        metrics: {
+          total30: 199.97,
+          peakDay: "Aug 07",
+          activeDays: 11,
+        },
+        upcomingBills: [
+          { name: "Spotify", amount: 18, dueInDays: 12, renews: "Aug 27", theme: "mint" },
+          { name: "Netflix", amount: 21, dueInDays: 14, renews: "Aug 29", theme: "lavender" },
+          { name: "Apple TV", amount: 12, dueInDays: 18, renews: "Sep 02", theme: "lemon" },
+        ],
+        subscriptionsQuick: [
+          { name: "Apple TV", amount: 12, cycle: "monthly", theme: "lemon" },
+          { name: "Netflix", amount: 21, cycle: "monthly", theme: "lavender" },
+          { name: "Spotify", amount: 18, cycle: "monthly", theme: "mint" },
+        ],
+        activeSubscriptions: [
+          { name: "Spotify", cycle: "1 month", amount: 18, payment: "**** 4242", plan: "Premium Family", theme: "mint" },
+          { name: "Creative Cloud", cycle: "1 year", amount: 54.2, payment: "**** 1188", plan: "All Apps", theme: "sky" },
+        ],
+        recentTransactions: [
+          { name: "Apple TV", time: "Aug 12, 02:30 PM", amount: 12, theme: "lemon" },
+          { name: "Netflix", time: "Aug 10, 09:10 AM", amount: 21, theme: "lavender" },
+        ],
+      },
+
+      Teams: {
+        user: { name: "Patricia", initial: "P" },
+        baseBalance: 428.5,
+        nextDue: "08/09",
+        trend: [180,190,186,204,199,212,208,223,215,236,228,240,234,252,248,266,258,272,265,286,278,291,288,302,296,308,314,309,320,326],
+        metrics: {
+          total30: 820.0,
+          peakDay: "Aug 03",
+          activeDays: 19,
+        },
+        upcomingBills: [
+          { name: "Figma", amount: 45, dueInDays: 5, renews: "Aug 20", theme: "peach" },
+          { name: "Slack", amount: 96, dueInDays: 11, renews: "Aug 26", theme: "mint" },
+        ],
+        subscriptionsQuick: [
+          { name: "Figma", amount: 45, cycle: "monthly", theme: "peach" },
+          { name: "Slack", amount: 96, cycle: "monthly", theme: "mint" },
+          { name: "GitHub", amount: 24, cycle: "monthly", theme: "sky" },
+        ],
+        activeSubscriptions: [
+          { name: "Slack", cycle: "1 month", amount: 96, payment: "**** 9012", plan: "Business+", theme: "mint" },
+          { name: "Figma", cycle: "1 month", amount: 45, payment: "**** 9012", plan: "Organization", theme: "peach" },
+        ],
+        recentTransactions: [
+          { name: "GitHub", time: "Aug 09, 11:45 AM", amount: 24, theme: "sky" },
+        ],
+      },
+    };
+
+    const palette = {
+      mint: { card: "#CFF4E6", bubble: "rgba(15,23,42,.08)" },
+      lavender: { card: "#DDD4FF", bubble: "rgba(15,23,42,.08)" },
+      lemon: { card: "#EEF36D", bubble: "rgba(15,23,42,.09)" },
+      sky: { card: "#CFD9FF", bubble: "rgba(15,23,42,.08)" },
+      peach: { card: "#FFD8C5", bubble: "rgba(15,23,42,.08)" },
+    };
+
+    const state = {
+      scope: "Personal",
+      graphOpen: true,
+      manualTargets: {
+        Personal: null,
+        Teams: null,
+      },
+    };
+
+    const els = {
+      greeting: document.getElementById("greeting"),
+      avatar: document.getElementById("avatar"),
+      scopeSelect: document.getElementById("scopeSelect"),
+      balanceTotal: document.getElementById("balanceTotal"),
+      basePill: document.getElementById("basePill"),
+      adjPill: document.getElementById("adjPill"),
+      nextDueText: document.getElementById("nextDueText"),
+      metricTotal30: document.getElementById("metricTotal30"),
+      metricPeakDay: document.getElementById("metricPeakDay"),
+      metricActiveDays: document.getElementById("metricActiveDays"),
+      sparklineWrap: document.getElementById("sparklineWrap"),
+      upcomingGrid: document.getElementById("upcomingGrid"),
+      subscriptionsList: document.getElementById("subscriptionsList"),
+      activeList: document.getElementById("activeList"),
+      transactionsList: document.getElementById("transactionsList"),
+      toggleGraphBtn: document.getElementById("toggleGraphBtn"),
+      toggleTrack: document.getElementById("toggleTrack"),
+      toggleKnob: document.getElementById("toggleKnob"),
+      graphPanel: document.getElementById("graphPanel"),
+      adjustBtn: document.getElementById("adjustBtn"),
+      adjustEditor: document.getElementById("adjustEditor"),
+      balanceInput: document.getElementById("balanceInput"),
+      saveBalanceBtn: document.getElementById("saveBalanceBtn"),
+      cancelBalanceBtn: document.getElementById("cancelBalanceBtn"),
+      editorError: document.getElementById("editorError"),
+    };
+
+    function formatCurrency(value) {
+      return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 2,
+      }).format(value);
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function monogram(name) {
+      const words = String(name).trim().split(/\s+/).filter(Boolean);
+      if (!words.length) return "?";
+      if (words.length === 1) return words[0].slice(0, 1).toUpperCase();
+      return (words[0][0] + words[1][0]).toUpperCase();
+    }
+
+    function firstLetter(name) {
+      return String(name).trim().charAt(0).toUpperCase() || "?";
+    }
+
+    function slugify(value) {
+      return String(value)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+    }
+
+    function fillSlots(items, total) {
+      const safe = Array.isArray(items) ? [...items] : [];
+      while (safe.length < total) safe.push(null);
+      return safe.slice(0, total);
+    }
+
+    function getScopeData() {
+      return dashboardData[state.scope];
+    }
+
+    function getTheme(themeName) {
+      return palette[themeName] || palette.mint;
+    }
+
+    function getCurrentTotal(data) {
+      const manual = state.manualTargets[state.scope];
+      return manual == null ? data.baseBalance : manual;
+    }
+
+    function plusIcon() {
+      return `
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
+        </svg>
+      `;
+    }
+
+    function pencilIcon() {
+      return `
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-4-1.5L4 18.5V20Z" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="m13.5 6.5 4 4" stroke-linecap="round"/>
+        </svg>
+      `;
+    }
+
+    function renderSparkline(values) {
+      if (!Array.isArray(values) || values.length === 0) return "";
+
+      const width = 680;
+      const height = 160;
+      const padding = 12;
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const range = Math.max(max - min, 1);
+      const stepX = (width - padding * 2) / Math.max(values.length - 1, 1);
+
+      const points = values.map((value, index) => {
+        const x = padding + index * stepX;
+        const y = height - padding - ((value - min) / range) * (height - padding * 2);
+        return { x, y, value };
+      });
+
+      const linePoints = points.map((p) => `${p.x},${p.y}`).join(" ");
+      const areaPath = `M ${points[0].x} ${height - padding} L ${points
+        .map((p) => `${p.x} ${p.y}`)
+        .join(" L ")} L ${points[points.length - 1].x} ${height - padding} Z`;
+
+      const last = points[points.length - 1];
+
+      const gridLines = [0.2, 0.5, 0.8]
+        .map((ratio) => {
+          const y = padding + (height - padding * 2) * ratio;
+          return `<line x1="${padding}" y1="${y}" x2="${width - padding}" y2="${y}" stroke="rgba(255,255,255,.08)" stroke-dasharray="5 6" />`;
+        })
+        .join("");
+
+      return `
+        <svg viewBox="0 0 ${width} ${height}" class="h-36 w-full" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="sparkFill" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="rgba(238,243,109,.45)" />
+              <stop offset="100%" stop-color="rgba(238,243,109,0)" />
+            </linearGradient>
+            <linearGradient id="sparkStroke" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0%" stop-color="#CFF4E6" />
+              <stop offset="100%" stop-color="#EEF36D" />
+            </linearGradient>
+          </defs>
+          ${gridLines}
+          <path d="${areaPath}" fill="url(#sparkFill)"></path>
+          <polyline
+            points="${linePoints}"
+            fill="none"
+            stroke="url(#sparkStroke)"
+            stroke-width="4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          ></polyline>
+          <circle cx="${last.x}" cy="${last.y}" r="6" fill="#EEF36D"></circle>
+          <circle cx="${last.x}" cy="${last.y}" r="12" fill="rgba(238,243,109,.18)"></circle>
+        </svg>
+      `;
+    }
+
+    function renderUpcomingCard(item) {
+      const theme = getTheme(item.theme);
+      return `
+        <article class="pastel-card" style="background:${theme.card}; min-height:176px; display:flex; flex-direction:column; justify-content:space-between;">
+          <div style="display:flex; justify-content:space-between; gap:12px;">
+            <div class="service-icon">${escapeHtml(monogram(item.name))}</div>
+            <div style="text-align:right;">
+              <p style="font-size:1.45rem; font-weight:800; line-height:1;">${formatCurrency(item.amount)}</p>
+              <p style="margin-top:6px; font-size:.8rem; color:#475569; font-weight:600;">${escapeHtml(item.dueInDays)} days left</p>
+            </div>
+          </div>
+
+          <div>
+            <p style="font-size:1.55rem; font-weight:700; line-height:1.05;">${escapeHtml(item.name)}</p>
+            <p style="margin-top:6px; font-size:.9rem; color:#475569;">Renews ${escapeHtml(item.renews)}</p>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderUpcomingPlaceholder() {
+      return `
+        <article class="placeholder-card">
+          <div>
+            <p class="text-lg font-semibold text-white/55">Empty slot</p>
+            <p class="mt-1 text-sm text-white/35">Upcoming renewals will appear here.</p>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderSubscriptionRow(item) {
+      const theme = getTheme(item.theme);
+
+      return `
+        <article class="service-row" style="background:${theme.card};">
+          <div class="orb" style="right:-22px; top:50%; transform:translateY(-50%); width:94px; height:94px; background:${theme.bubble}; opacity:.38;"></div>
+
+          <div style="position:relative; display:flex; align-items:center; justify-content:space-between; gap:16px;">
+            <div style="display:flex; align-items:center; gap:16px;">
+              <div class="service-icon">${escapeHtml(monogram(item.name))}</div>
+              <div>
+                <p style="font-size:1.45rem; font-weight:700; line-height:1.05;">${escapeHtml(item.name)}</p>
+                <p style="margin-top:6px; font-size:.95rem; color:#475569;">${formatCurrency(item.amount)}/${escapeHtml(item.cycle)}</p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              aria-label="Add ${escapeHtml(item.name)}"
+              style="width:48px; height:48px; border-radius:999px; display:grid; place-items:center; border:1px solid rgba(15,23,42,.14); background:rgba(255,255,255,.34); color:#334155; flex-shrink:0;"
+            >
+              ${plusIcon()}
+            </button>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderSubscriptionPlaceholder() {
+      return `
+        <article class="placeholder-row">
+          <p class="text-lg font-semibold text-white/55">Connect another platform</p>
+          <p class="mt-1 text-sm text-white/35">A quick-add subscription row will appear here.</p>
+        </article>
+      `;
+    }
+
+    function renderActiveCard(item) {
+      const theme = getTheme(item.theme);
+      const editHref = `#edit-${slugify(item.name)}`;
+
+      return `
+        <article class="active-card" style="background:${theme.card};">
+          <div class="orb" style="right:-28px; top:-24px; width:120px; height:120px; background:${theme.bubble}; opacity:.28;"></div>
+
+          <div style="position:relative;">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+              <div style="display:flex; align-items:flex-start; gap:14px;">
+                <div class="service-icon" style="width:54px; height:54px;">${escapeHtml(monogram(item.name))}</div>
+
+                <div>
+                  <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px;">
+                    <p style="font-size:1.65rem; font-weight:700; line-height:1;">${escapeHtml(item.name)}</p>
+                    <span style="border:1px solid rgba(15,23,42,.14); background:rgba(255,255,255,.34); border-radius:999px; padding:6px 10px; font-size:.76rem; font-weight:700; color:#475569;">
+                      ${escapeHtml(item.cycle)}
+                    </span>
+                  </div>
+
+                  <p style="margin-top:12px; font-size:2rem; font-weight:800; line-height:1;">${formatCurrency(item.amount)}</p>
+                </div>
+              </div>
+
+              <a
+                href="${editHref}"
+                aria-label="Edit ${escapeHtml(item.name)}"
+                style="width:42px; height:42px; border-radius:999px; display:grid; place-items:center; border:1px solid rgba(15,23,42,.14); background:rgba(255,255,255,.34); color:#334155; flex-shrink:0;"
+              >
+                ${pencilIcon()}
+              </a>
+            </div>
+
+            <div style="margin-top:20px; display:grid; gap:10px; font-size:.94rem; color:#475569;">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                <span>Payment info</span>
+                <strong style="font-weight:700; color:#0f172a;">${escapeHtml(item.payment)}</strong>
+              </div>
+
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                <span>Plan details</span>
+                <strong style="font-weight:700; color:#0f172a;">${escapeHtml(item.plan)}</strong>
+              </div>
+            </div>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderActivePlaceholder() {
+      return `
+        <article class="placeholder-active">
+          <div>
+            <p class="text-lg font-semibold text-white/55">No active plan</p>
+            <p class="mt-1 text-sm text-white/35">Plan details and payment info will appear here.</p>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderTransactionRow(item) {
+      const theme = getTheme(item.theme);
+
+      return `
+        <article style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; border-radius:22px; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.03);">
+          <div style="display:flex; align-items:center; gap:14px;">
+            <div class="tx-icon" style="background:${theme.card};">${escapeHtml(firstLetter(item.name))}</div>
+
+            <div>
+              <p style="font-size:1.1rem; font-weight:700; line-height:1.1;">${escapeHtml(item.name)}</p>
+              <p style="margin-top:5px; color:rgba(255,255,255,.45); font-size:.92rem;">${escapeHtml(item.time)}</p>
+            </div>
+          </div>
+
+          <p style="font-size:1.08rem; font-weight:700; white-space:nowrap;">-${formatCurrency(item.amount)}</p>
+        </article>
+      `;
+    }
+
+    function renderTransactionPlaceholder() {
+      return `
+        <article class="placeholder-tx">
+          No recent charges yet.
+        </article>
+      `;
+    }
+
+    function updateGraphUI() {
+      els.toggleGraphBtn.setAttribute("aria-expanded", String(state.graphOpen));
+
+      if (state.graphOpen) {
+        els.graphPanel.classList.add("expanded");
+        els.graphPanel.classList.remove("collapsed");
+        els.toggleTrack.style.background = "rgba(238,243,109,.18)";
+        els.toggleKnob.style.transform = "translateX(18px)";
+      } else {
+        els.graphPanel.classList.remove("expanded");
+        els.graphPanel.classList.add("collapsed");
+        els.toggleTrack.style.background = "rgba(255,255,255,.10)";
+        els.toggleKnob.style.transform = "translateX(0)";
+      }
+    }
+
+    function openEditor() {
+      const data = getScopeData();
+      const current = getCurrentTotal(data);
+      els.adjustEditor.classList.remove("hidden");
+      els.balanceInput.value = current.toFixed(2);
+      els.balanceInput.focus();
+      els.balanceInput.select();
+      clearEditorError();
+    }
+
+    function closeEditor() {
+      els.adjustEditor.classList.add("hidden");
+      clearEditorError();
+    }
+
+    function showEditorError(message) {
+      els.editorError.textContent = message;
+      els.editorError.classList.remove("hidden");
+    }
+
+    function clearEditorError() {
+      els.editorError.textContent = "";
+      els.editorError.classList.add("hidden");
+    }
+
+    function saveBalance() {
+      const raw = els.balanceInput.value.trim();
+
+      if (raw === "") {
+        state.manualTargets[state.scope] = null;
+        closeEditor();
+        render();
+        return;
+      }
+
+      const parsed = Number(raw);
+
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        showEditorError("Enter a valid amount greater than or equal to 0.");
+        return;
+      }
+
+      state.manualTargets[state.scope] = parsed;
+      closeEditor();
+      render();
+    }
+
+    function render() {
+      const data = getScopeData();
+      const total = getCurrentTotal(data);
+      const adjustment = total - data.baseBalance;
+
+      els.scopeSelect.value = state.scope;
+      els.greeting.textContent = `Hello, ${data.user.name}!`;
+      els.avatar.textContent = data.user.initial;
+      els.balanceTotal.textContent = formatCurrency(total);
+      els.basePill.textContent = `Base ${formatCurrency(data.baseBalance)}`;
+      els.nextDueText.textContent = `Next due ${data.nextDue}`;
+      els.metricTotal30.textContent = formatCurrency(data.metrics.total30);
+      els.metricPeakDay.textContent = data.metrics.peakDay;
+      els.metricActiveDays.textContent = String(data.metrics.activeDays);
+      els.sparklineWrap.innerHTML = renderSparkline(data.trend);
+
+      const adjLabel = `${adjustment >= 0 ? "+" : "-"}${formatCurrency(Math.abs(adjustment))}`;
+      els.adjPill.textContent = `Adj ${adjLabel}`;
+
+      if (adjustment === 0) {
+        els.adjPill.style.background = "rgba(255,255,255,.06)";
+        els.adjPill.style.color = "rgba(255,255,255,.78)";
+      } else if (adjustment > 0) {
+        els.adjPill.style.background = "rgba(238,243,109,.16)";
+        els.adjPill.style.color = "#EEF36D";
+      } else {
+        els.adjPill.style.background = "rgba(221,212,255,.18)";
+        els.adjPill.style.color = "#DDD4FF";
+      }
+
+      els.upcomingGrid.innerHTML = fillSlots(data.upcomingBills, 3)
+        .map((item) => (item ? renderUpcomingCard(item) : renderUpcomingPlaceholder()))
+        .join("");
+
+      els.subscriptionsList.innerHTML = fillSlots(data.subscriptionsQuick, 3)
+        .map((item) => (item ? renderSubscriptionRow(item) : renderSubscriptionPlaceholder()))
+        .join("");
+
+      els.activeList.innerHTML = fillSlots(data.activeSubscriptions, 2)
+        .map((item) => (item ? renderActiveCard(item) : renderActivePlaceholder()))
+        .join("");
+
+      els.transactionsList.innerHTML = fillSlots(data.recentTransactions, 2)
+        .map((item) => (item ? renderTransactionRow(item) : renderTransactionPlaceholder()))
+        .join("");
+
+      updateGraphUI();
+    }
+
+    els.scopeSelect.addEventListener("change", (event) => {
+      state.scope = event.target.value in dashboardData ? event.target.value : "Personal";
+      closeEditor();
+      render();
+    });
+
+    els.toggleGraphBtn.addEventListener("click", () => {
+      state.graphOpen = !state.graphOpen;
+      updateGraphUI();
+    });
+
+    els.adjustBtn.addEventListener("click", openEditor);
+    els.cancelBalanceBtn.addEventListener("click", closeEditor);
+    els.saveBalanceBtn.addEventListener("click", saveBalance);
+
+    els.balanceInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        saveBalance();
+      }
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeEditor();
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>
