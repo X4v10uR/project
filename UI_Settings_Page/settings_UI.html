@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Subly – Settings</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    :root {
+      --yellow: #EDEE45; --mint: #A8F0D4; --lavender: #D4C6F5;
+      --blue: #C0CFF5; --red: #FF4757; --dark: #0D0D10;
+      --mid: #6B6B7B; --light: #F4F4EE; --white: #FFFFFF;
+      --inputBg: #EEEEE8; --border: rgba(0,0,0,0.08);
+    }
+    input, select, textarea, button { font-family: 'Plus Jakarta Sans', sans-serif; }
+    select { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
+    textarea { resize: none; }
+    input:focus, select:focus, textarea:focus { outline: none; }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 99px; }
+
+    /* ── Inputs ── */
+    .fi { background: var(--inputBg); border: 1.5px solid transparent; border-radius: 14px; padding: 11px 16px; font-size: 14px; color: var(--dark); transition: all .15s ease; width: 100%; }
+    .fi:focus { background: #fff; }
+    .fi.fy:focus { border-color: #EDEE45; } .fi.fm:focus { border-color: #A8F0D4; }
+    .fi.fl:focus { border-color: #D4C6F5; } .fi.fb:focus { border-color: #C0CFF5; }
+    .fi.fr:focus { border-color: #FF4757; } .fi.mono { font-family: monospace; font-weight: 700; }
+    .fi.fw5 { font-weight: 500; }
+
+    .fpw { background: var(--inputBg); border: 1.5px solid transparent; border-radius: 14px; padding: 11px 46px 11px 16px; font-size: 14px; color: var(--dark); transition: all .15s ease; width: 100%; }
+    .fpw:focus { background: #fff; }
+    .fpw.fb:focus { border-color: #C0CFF5; } .fpw.fr:focus { border-color: #FF4757; }
+
+    /* ── Toggle ── */
+    .trow { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; border-radius: 16px; border: 1.5px solid transparent; transition: all .2s ease; cursor: pointer; user-select: none; background: var(--inputBg); }
+    .trow.on { background: #D4C6F522; border-color: #D4C6F5; }
+    .ttrack { width: 48px; height: 26px; border-radius: 99px; position: relative; flex-shrink: 0; transition: background .2s ease; background: #D1D1D8; }
+    .ttrack.on { background: #D4C6F5; }
+    .tthumb { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.18); transition: left .2s ease; }
+    .tthumb.on { left: calc(100% - 23px); }
+
+    /* ── Save btn ── */
+    .sbtn { border: none; border-radius: 14px; padding: 11px 22px; font-weight: 700; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all .18s ease; font-family: 'Plus Jakarta Sans', sans-serif; }
+    .sbtn:disabled { cursor: not-allowed; opacity: .6; }
+
+    /* ── Strength bars ── */
+    .sbar { flex: 1; height: 4px; border-radius: 99px; transition: background .2s ease; background: var(--inputBg); }
+
+    /* ── Jump-to nav buttons ── */
+    .jbtn { background: transparent; border: none; border-radius: 12px; padding: 9px 12px; cursor: pointer; text-align: left; transition: all .15s ease; font-size: 13px; font-weight: 500; color: #6B6B7B; display: flex; align-items: center; gap: 8px; width: 100%; font-family: 'Plus Jakarta Sans', sans-serif; }
+    .jbtn.active { font-weight: 700; color: #0D0D10; }
+    .jdot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── Sidebar nav ── */
+    .snav { width: 100%; display: flex; align-items: center; gap: 12px; padding: 0 16px; height: 46px; border-radius: 16px; border: none; cursor: pointer; font-size: 14px; transition: all .15s ease; background: transparent; color: var(--mid); font-weight: 500; font-family: 'Plus Jakarta Sans', sans-serif; }
+    .snav.active { background: var(--yellow); color: var(--dark); font-weight: 700; }
+
+    /* ── Sidebar mobile ── */
+    .sov { position: fixed; inset: 0; z-index: 20; background: rgba(13,13,16,.25); display: none; }
+    .sov.open { display: block; }
+    @media (max-width: 1023px) {
+      .swrap { position: fixed; inset: 0 auto 0 0; z-index: 30; transform: translateX(-100%); transition: transform .3s ease; }
+      .swrap.open { transform: translateX(0); }
+      .jnav-col { display: none !important; }
+    }
+    @media (min-width: 1024px) {
+      .swrap { position: static; height: 100%; }
+      .mob-btn { display: none !important; }
+      .scl-btn { display: none !important; }
+    }
+
+    /* ── Chevron icon (pure CSS) ── */
+    .chev { width: 15px; height: 15px; position: absolute; right: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--mid); }
+    .chev::after { content: ''; display: block; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); margin: 2px auto 0; }
+
+    /* ── Eye icon buttons ── */
+    .eye-btn { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--mid); background: none; border: none; cursor: pointer; display: flex; align-items: center; padding: 2px; }
+    .eye-btn svg { width: 16px; height: 16px; }
+  </style>
+</head>
+<body class="h-screen flex overflow-hidden" style="background: var(--light);">
+  <!-- Mobile overlay -->
+  <div id="sov" class="sov"></div>
+
+  <!-- Sidebar -->
+  <aside id="swrap" class="swrap flex flex-col" style="width: 240px; background: #fff; border-right: 1px solid rgba(0,0,0,.06); overflow-y: auto; flex-shrink: 0;">
+    <div class="flex items-center justify-between px-6 py-6">
+      <div class="flex items-center gap-2.5">
+        <div class="flex items-center justify-center rounded-2xl" style="width: 36px; height: 36px; background: var(--yellow);">
+          <span style="color: var(--dark); font-weight: 800; font-size: 15px;">S</span>
+        </div>
+        <span style="color: var(--dark); font-weight: 800; font-size: 20px; letter-spacing: -0.5px;">Subly</span>
+      </div>
+      <button class="scl-btn" style="color: var(--mid); background: none; border: none; cursor: pointer;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+    <nav class="flex-1 px-3 space-y-1 pt-2">
+      <button class="snav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg><span>Dashboard</span></button>
+      <button class="snav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg><span>Subscriptions</span></button>
+      <button class="snav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg><span>History</span></button>
+      <button class="snav active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span>Settings</span></button>
+    </nav>
+    <div class="p-4" style="border-top: 1px solid rgba(0,0,0,.06);">
+      <div class="flex items-center gap-3 p-3 rounded-2xl cursor-pointer hover-user">
+        <div class="flex items-center justify-center rounded-full flex-shrink-0" style="width: 38px; height: 38px; background: var(--lavender); font-size: 14px; font-weight: 700; color: var(--dark);">P</div>
+        <div class="flex-1 min-w-0">
+          <p style="font-size: 13px; font-weight: 700; color: var(--dark);">Patricia</p>
+          <p style="font-size: 11px; color: var(--mid);" class="truncate">patricia@email.com</p>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main wrapper -->
+  <div class="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+    <!-- Top bar -->
+    <header class="flex items-center justify-between flex-shrink-0 px-6 py-4" style="background: var(--light); border-bottom: 1px solid rgba(0,0,0,.06);">
+      <div class="flex items-center gap-3">
+        <button class="mob-btn" style="color: var(--mid); background: none; border: none; cursor: pointer;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+        </button>
+        <div>
+          <h1 style="font-weight: 800; font-size: 22px; color: var(--dark); line-height: 1.2;">Settings</h1>
+          <p style="font-size: 12px; color: var(--mid); font-weight: 400; margin-top: 1px;">Manage your account &amp; preferences</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button class="relative flex items-center justify-center rounded-2xl" style="width: 40px; height: 40px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--dark)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          <span class="absolute rounded-full" style="width: 8px; height: 8px; background: var(--yellow); top: 8px; right: 8px; border: 2px solid var(--light);"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Content row: Jump-to nav (outside scroll) + scrollable main -->
+    <div class="flex-1 flex overflow-hidden" style="max-width: 1080px; width: 100%; margin: 0 auto;">
+
+      <!-- Jump-to nav — completely outside the scroll container -->
+      <div class="jnav-col" style="width: 180px; flex-shrink: 0; padding: 32px 0 32px 24px;">
+        <div style="background: #fff; border-radius: 20px; padding: 10px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 3px;">
+          <p style="font-size: 10px; font-weight: 700; color: var(--mid); letter-spacing: .08em; text-transform: uppercase; padding: 4px 10px 8px;">Jump to</p>
+          <button class="jbtn active" data-target="profile" style="background: #EDEE45;">
+            <span class="jdot" style="background: #0D0D10;"></span> Profile
+          </button>
+          <button class="jbtn" data-target="plan">
+            <span class="jdot" style="border: 2px solid #A8F0D4;"></span> Plan &amp; Billing
+          </button>
+          <button class="jbtn" data-target="preferences">
+            <span class="jdot" style="border: 2px solid #D4C6F5;"></span> Preferences
+          </button>
+          <button class="jbtn" data-target="password">
+            <span class="jdot" style="border: 2px solid #C0CFF5;"></span> Password
+          </button>
+          <button class="jbtn" data-target="danger">
+            <span class="jdot" style="border: 2px solid #FFB3BA;"></span> Danger Zone
+          </button>
+        </div>
+      </div>
+
+      <!-- Scrollable sections -->
+      <main id="mainScroll" class="flex-1 overflow-y-auto" style="padding: 32px 24px 64px;">
+
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+
+          <!-- ═══ PROFILE ═══ -->
+          <div id="section-profile" style="background: #fff; border-radius: 24px; overflow: hidden; border: 1px solid var(--border);">
+            <div style="background: #EDEE45; padding: 20px 28px 18px;">
+              <p style="font-size: 12px; font-weight: 600; color: var(--dark); opacity: .55; margin-bottom: 2px; text-transform: uppercase; letter-spacing: .06em;">Personal Information</p>
+              <h2 style="font-size: 20px; font-weight: 800; color: var(--dark); line-height: 1.2;">Profile</h2>
+            </div>
+            <div style="padding: 24px 28px;">
+              <div style="display: flex; flex-direction: column; gap: 18px;">
+                <!-- Avatar -->
+                <div style="display: flex; align-items: center; gap: 16px; padding: 4px 0 8px;">
+                  <div style="position: relative; flex-shrink: 0;">
+                    <div style="width: 68px; height: 68px; border-radius: 20px; background: #D4C6F5; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; color: var(--dark);">P</div>
+                    <button style="position: absolute; bottom: -4px; right: -4px; width: 24px; height: 24px; border-radius: 50%; background: var(--dark); border: 2px solid #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+                    </button>
+                  </div>
+                  <div>
+                    <p style="font-size: 15px; font-weight: 700; color: var(--dark);">Patricia Williams</p>
+                    <p style="font-size: 12px; color: var(--mid);">JPG, PNG or GIF · max 2 MB</p>
+                    <button style="margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--dark); background: #EDEE45; border: none; border-radius: 8px; padding: 4px 12px; cursor: pointer;">Upload photo</button>
+                  </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 13px; font-weight: 700; color: var(--dark);">First Name</label>
+                    <input class="fi fy" placeholder="First name" value="Patricia" />
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 13px; font-weight: 700; color: var(--dark);">Last Name</label>
+                    <input class="fi fy" placeholder="Last name" value="Williams" />
+                  </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 13px; font-weight: 700; color: var(--dark);">Display Name</label>
+                  <input class="fi fy" placeholder="e.g. patricia.w" value="patricia.w" />
+                  <p style="font-size: 11px; color: var(--mid); margin-top: -2px;">Shown to team members across the app</p>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 13px; font-weight: 700; color: var(--dark);">Email Address</label>
+                  <input class="fi fy" type="email" placeholder="email@example.com" value="patricia@email.com" />
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 13px; font-weight: 700; color: var(--dark);">Bio</label>
+                  <textarea class="fi fy" rows="3" placeholder="Tell us a bit about yourself..."></textarea>
+                  <p style="font-size: 11px; color: var(--mid); margin-top: -2px;">A short description about yourself</p>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 13px; font-weight: 700; color: var(--dark);">Timezone</label>
+                    <div style="position: relative;">
+                      <select class="fi fy fw5" style="padding-right: 40px; cursor: pointer;">
+                        <option value="UTC">UTC</option>
+                        <option value="America/New_York">New York (EST)</option>
+                        <option value="America/Los_Angeles">Los Angeles (PST)</option>
+                        <option value="Europe/London">London (GMT)</option>
+                        <option value="Europe/Berlin">Berlin (CET)</option>
+                        <option value="Asia/Tokyo">Tokyo (JST)</option>
+                        <option value="Asia/Dubai">Dubai (GST)</option>
+                        <option value="Australia/Sydney">Sydney (AEDT)</option>
+                      </select>
+                      <span class="chev"></span>
+                    </div>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 13px; font-weight: 700; color: var(--dark);">Preferred Currency</label>
+                    <input class="fi fy" placeholder="USD" value="USD" maxlength="3" />
+                    <p style="font-size: 11px; color: var(--mid); margin-top: -2px;">3-letter code (e.g. USD, EUR, GBP)</p>
+                  </div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; padding-top: 4px;">
+                  <button class="sbtn save-trigger" data-label="Save profile" style="background: #EDEE45; color: var(--dark);">Save profile</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ PLAN & BILLING ═══ -->
+          <div id="section-plan" style="background: #fff; border-radius: 24px; overflow: hidden; border: 1px solid var(--border);">
+            <div style="background: #A8F0D4; padding: 20px 28px 18px;">
+              <p style="font-size: 12px; font-weight: 600; color: var(--dark); opacity: .55; margin-bottom: 2px; text-transform: uppercase; letter-spacing: .06em;">Subscription Tier</p>
+              <h2 style="font-size: 20px; font-weight: 800; color: var(--dark); line-height: 1.2;">Plan &amp; Billing</h2>
+            </div>
+            <div style="padding: 24px 28px;">
+              <div style="display: flex; flex-direction: column; gap: 18px;">
+                <div id="planBanner" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #EDEE4533; border-radius: 16px; border: 1.5px solid #EDEE45; flex-wrap: wrap;">
+                  <div id="planDot" style="width: 10px; height: 10px; border-radius: 50%; background: #EDEE45; flex-shrink: 0;"></div>
+                  <p style="font-size: 13px; color: var(--dark);">You're on the <span id="planName" style="font-weight: 800;">Premium</span> plan</p>
+                  <span id="statusPill" style="background: #2DC76D; color: #fff; font-weight: 700; font-size: 11px; padding: 3px 10px; border-radius: 99px; letter-spacing: .01em;">Active</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 13px; font-weight: 700; color: var(--dark);">Subscription Plan</label>
+                  <div style="position: relative;">
+                    <select id="planSelect" class="fi fm fw5" style="padding-right: 40px; cursor: pointer;">
+                      <option value="free">Free</option>
+                      <option value="premium" selected>Premium</option>
+                      <option value="team">Team</option>
+                    </select>
+                    <span class="chev"></span>
+                  </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 13px; font-weight: 700; color: var(--dark);">Plan Status</label>
+                  <div style="position: relative;">
+                    <select id="statusSelect" class="fi fm fw5" style="padding-right: 40px; cursor: pointer;">
+                      <option value="active" selected>Active</option>
+                      <option value="cancelled">Cancelled</option>
+                      <option value="none">None</option>
+                    </select>
+                    <span class="chev"></span>
+                  </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 13px; font-weight: 700; color: var(--dark);">Plan Renews On</label>
+                  <input class="fi fm fw5" type="date" value="2026-06-30" />
+                  <p style="font-size: 11px; color: var(--mid); margin-top: -2px;">The date your billing cycle resets</p>
+                </div>
+                <div style="display: flex; justify-content: flex-end; padding-top: 4px;">
+                  <button class="sbtn save-trigger" data-label="Save plan metadata" style="background: #A8F0D4; color: var(--dark);">Save plan metadata</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ PREFERENCES ═══ -->
+          <div id="section-preferences" style="background: #fff; border-radius: 24px; overflow: hidden; border: 1px solid var(--border);">
+            <div style="background: #D4C6F5; padding: 20px 28px 18px;">
+              <p style="font-size: 12px; font-weight: 600; color: var(--dark); opacity: .55; margin-bottom: 2px; text-transform: uppercase; letter-spacing: .06em;">Notifications &amp; Opt-ins</p>
+              <h2 style="font-size: 20px; font-weight: 800; color: var(--dark); line-height: 1.2;">Preferences</h2>
+            </div>
+            <div style="padding: 24px 28px;">
+              <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div class="trow on" data-toggle="true">
+                  <div>
+                    <p style="font-size: 14px; font-weight: 700; color: var(--dark);">Product Updates</p>
+                    <p style="font-size: 12px; color: var(--mid); margin-top: 2px;">Emails about new features, improvements &amp; changes</p>
+                  </div>
+                  <div class="ttrack on"><span class="tthumb on"></span></div>
+                </div>
+                <div class="trow" data-toggle="false">
+                  <div>
+                    <p style="font-size: 14px; font-weight: 700; color: var(--dark);">Marketing Emails</p>
+                    <p style="font-size: 12px; color: var(--mid); margin-top: 2px;">Promotional offers, newsletters &amp; announcements</p>
+                  </div>
+                  <div class="ttrack"><span class="tthumb"></span></div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; padding-top: 8px;">
+                  <button class="sbtn save-trigger" data-label="Save preferences" style="background: #D4C6F5; color: var(--dark);">Save preferences</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ PASSWORD ═══ -->
+          <div id="section-password" style="background: #fff; border-radius: 24px; overflow: hidden; border: 1px solid var(--border);">
+            <div style="background: #C0CFF5; padding: 20px 28px 18px;">
+              <p style="font-size: 12px; font-weight: 600; color: var(--dark); opacity: .55; margin-bottom: 2px; text-transform: uppercase; letter-spacing: .06em;">Security</p>
+              <h2 style="font-size: 20px; font-weight: 800; color: var(--dark); line-height: 1.2;">Change Password</h2>
+            </div>
+            <div style="padding: 24px 28px;">
+              <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 13px; font-weight: 700; color: var(--dark);">Current Password</label>
+                  <div style="position: relative;">
+                    <input class="fpw fb" type="password" placeholder="Enter current password" />
+                    <button type="button" class="eye-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                  </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 13px; font-weight: 700; color: var(--dark);">New Password</label>
+                  <div style="position: relative;">
+                    <input id="newPw" class="fpw fb" type="password" placeholder="At least 8 characters" />
+                    <button type="button" class="eye-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                  </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 13px; font-weight: 700; color: var(--dark);">Confirm New Password</label>
+                  <div style="position: relative;">
+                    <input id="confirmPw" class="fpw fb" type="password" placeholder="Repeat new password" />
+                    <button type="button" class="eye-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                  </div>
+                </div>
+                <div id="strMeter" style="margin-top: -4px; display: none;">
+                  <div style="display: flex; gap: 5px; margin-bottom: 5px;">
+                    <div class="sbar" id="b1"></div><div class="sbar" id="b2"></div><div class="sbar" id="b3"></div><div class="sbar" id="b4"></div>
+                  </div>
+                  <p id="strLabel" style="font-size: 11px; font-weight: 600;"></p>
+                </div>
+                <div id="pwErr" style="display: none; align-items: center; gap: 8px; padding: 10px 14px; background: #FF475712; border: 1.5px solid #FF475730; border-radius: 12px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF4757" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                  <p id="pwErrMsg" style="font-size: 13px; color: #FF4757; font-weight: 500;"></p>
+                </div>
+                <div style="display: flex; justify-content: flex-end; padding-top: 4px;">
+                  <button id="pwSaveBtn" class="sbtn" style="background: #C0CFF5; color: var(--dark);">Change password</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ DANGER ZONE ═══ -->
+          <div id="section-danger" style="background: #fff; border-radius: 24px; overflow: hidden; border: 1.5px solid #FF475730;">
+            <div style="background: #FF47570F; padding: 20px 28px 18px; border-bottom: 1.5px solid #FF475720;">
+              <p style="font-size: 12px; font-weight: 600; color: #FF4757; opacity: .7; margin-bottom: 2px; text-transform: uppercase; letter-spacing: .06em;">Danger Zone</p>
+              <h2 style="font-size: 20px; font-weight: 800; color: #FF4757; line-height: 1.2;">Delete Account</h2>
+            </div>
+            <div style="padding: 24px 28px; display: flex; flex-direction: column; gap: 18px;">
+              <div style="display: flex; gap: 12px; padding: 14px 16px; background: #FF47570A; border: 1.5px solid #FF475720; border-radius: 16px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF4757" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                <div>
+                  <p style="font-size: 13px; font-weight: 700; color: #FF4757;">This action is irreversible</p>
+                  <p style="font-size: 12px; color: #6B6B7B; margin-top: 3px; line-height: 1.5;">All your subscriptions, billing history, and account data will be permanently deleted.</p>
+                </div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <label style="font-size: 13px; font-weight: 700; color: var(--dark);">Confirm Email Address</label>
+                <input id="dEmail" class="fi fr" type="email" placeholder="patricia@email.com" />
+                <p style="font-size: 11px; color: var(--mid); margin-top: -2px;">Type your account email: patricia@email.com</p>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <label style="font-size: 13px; font-weight: 700; color: var(--dark);">Confirm Phrase</label>
+                <input id="dPhrase" class="fi fr mono" placeholder="DELETE" />
+                <p style="font-size: 11px; color: var(--mid); margin-top: -2px;">Type exactly: DELETE (case-sensitive)</p>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <label style="font-size: 13px; font-weight: 700; color: var(--dark);">Current Password</label>
+                <div style="position: relative;">
+                  <input id="dPw" class="fpw fr" type="password" placeholder="Enter your password" />
+                  <button type="button" class="eye-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                </div>
+                <p style="font-size: 11px; color: var(--mid); margin-top: -2px;">Required to authenticate this action</p>
+              </div>
+              <div id="dErr" style="display: none; align-items: center; gap: 8px; padding: 10px 14px; background: #FF475712; border: 1.5px solid #FF475730; border-radius: 12px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF4757" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                <p id="dErrMsg" style="font-size: 13px; color: #FF4757; font-weight: 500;"></p>
+              </div>
+              <div style="display: flex; justify-content: flex-end; padding-top: 4px;">
+                <button id="delBtn" class="sbtn" disabled style="background: var(--inputBg); color: var(--mid); opacity: .7; gap: 8px; cursor: not-allowed;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                  Delete account
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // ══════════════════════════════════════════
+    // ALL functions defined FIRST — nothing can break these
+    // ══════════════════════════════════════════
+
+    var COLORS = { profile:'#EDEE45', plan:'#A8F0D4', preferences:'#D4C6F5', password:'#C0CFF5', danger:'#FFB3BA' };
+    var mainScroll = document.getElementById('mainScroll');
+
+    // ── Sidebar ──
+    function openSB() { document.getElementById('swrap').classList.add('open'); document.getElementById('sov').classList.add('open'); }
+    function closeSB() { document.getElementById('swrap').classList.remove('open'); document.getElementById('sov').classList.remove('open'); }
+
+    // ── Jump-to navigation ──
+    function activateNav(id) {
+      document.querySelectorAll('.jbtn').forEach(function(btn) {
+        var t = btn.getAttribute('data-target');
+        var on = t === id;
+        btn.className = on ? 'jbtn active' : 'jbtn';
+        btn.style.background = on ? COLORS[t] : 'transparent';
+        btn.style.color = on ? '#0D0D10' : '#6B6B7B';
+        btn.style.fontWeight = on ? '700' : '500';
+        var dot = btn.querySelector('.jdot');
+        if (dot) {
+          dot.style.background = on ? '#0D0D10' : 'transparent';
+          dot.style.border = on ? 'none' : '2px solid ' + COLORS[t];
+        }
+      });
+    }
+
+    function jumpTo(id) {
+      var el = document.getElementById('section-' + id);
+      if (el && mainScroll) {
+        mainScroll.scrollTo({ top: el.offsetTop - 20, behavior: 'smooth' });
+      }
+      activateNav(id);
+    }
+
+    // ── Save button animation ──
+    function flashSave(btn) {
+      var orig = btn.textContent;
+      var origBg = btn.style.background;
+      btn.style.background = '#A8F0D4';
+      btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg> Saved!';
+      setTimeout(function() { btn.style.background = origBg; btn.textContent = orig; }, 2500);
+    }
+
+    // ── Toggle ──
+    function doToggle(row) {
+      var on = row.getAttribute('data-toggle') === 'true';
+      var next = !on;
+      row.setAttribute('data-toggle', String(next));
+      var track = row.querySelector('.ttrack');
+      var thumb = row.querySelector('.tthumb');
+      if (next) {
+        row.className = 'trow on';
+        track.className = 'ttrack on';
+        thumb.className = 'tthumb on';
+      } else {
+        row.className = 'trow';
+        track.className = 'ttrack';
+        thumb.className = 'tthumb';
+      }
+    }
+
+    // ── Eye toggle ──
+    function doEye(btn) {
+      var inp = btn.parentElement.querySelector('input');
+      var eyeOpen = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+      var eyeOff = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>';
+      if (inp.type === 'password') { inp.type = 'text'; btn.innerHTML = eyeOff; }
+      else { inp.type = 'password'; btn.innerHTML = eyeOpen; }
+    }
+
+    // ── Strength meter ──
+    function updStr() {
+      var pw = document.getElementById('newPw').value;
+      var m = document.getElementById('strMeter');
+      var l = document.getElementById('strLabel');
+      var bars = [document.getElementById('b1'),document.getElementById('b2'),document.getElementById('b3'),document.getElementById('b4')];
+      var cols = ['#FF4757','#FF9A3C','#6EE7C0','#EDEE45'];
+      var labs = ['Weak','Fair','Good','Strong'];
+      if (!pw) { m.style.display = 'none'; return; }
+      m.style.display = 'block';
+      var s = 0;
+      if (pw.length >= 8) s++;
+      if (pw.length >= 10 && /[A-Z]/.test(pw)) s++;
+      if (/[0-9]/.test(pw) && /[A-Z]/.test(pw)) s++;
+      if (/[^A-Za-z0-9]/.test(pw)) s++;
+      for (var i = 0; i < 4; i++) bars[i].style.background = i < s ? cols[s-1] : '#EEEEE8';
+      l.textContent = s > 0 ? labs[s-1] : '';
+      l.style.color = s > 0 ? cols[s-1] : '';
+    }
+
+    // ── Plan banner ──
+    function updPlan() {
+      var p = document.getElementById('planSelect').value;
+      var st = document.getElementById('statusSelect').value;
+      var raw = { free:'#C0CFF5', premium:'#EDEE45', team:'#A8F0D4' };
+      var c = raw[p] || '#EDEE45';
+      document.getElementById('planBanner').style.background = c + '33';
+      document.getElementById('planBanner').style.borderColor = c;
+      document.getElementById('planDot').style.background = c;
+      document.getElementById('planName').textContent = p.charAt(0).toUpperCase() + p.slice(1);
+      var pill = document.getElementById('statusPill');
+      pill.textContent = st.charAt(0).toUpperCase() + st.slice(1);
+      pill.style.background = st === 'active' ? '#2DC76D' : '#6B6B7B';
+    }
+
+    // ── Danger zone ──
+    function updDanger() {
+      var ok = document.getElementById('dEmail').value === 'patricia@email.com'
+            && document.getElementById('dPhrase').value === 'DELETE'
+            && document.getElementById('dPw').value.length > 0;
+      var b = document.getElementById('delBtn');
+      b.disabled = !ok;
+      b.style.background = ok ? '#FF4757' : '#EEEEE8';
+      b.style.color = ok ? '#fff' : '#6B6B7B';
+      b.style.opacity = ok ? '1' : '.7';
+      b.style.cursor = ok ? 'pointer' : 'not-allowed';
+      document.getElementById('dErr').style.display = 'none';
+    }
+
+    // ══════════════════════════════════════════
+    // Event listeners — attached via JS, not inline onclick
+    // ══════════════════════════════════════════
+
+    document.addEventListener('DOMContentLoaded', function() {
+
+      // Sidebar
+      document.getElementById('sov').addEventListener('click', closeSB);
+      document.querySelector('.scl-btn').addEventListener('click', closeSB);
+      document.querySelector('.mob-btn').addEventListener('click', openSB);
+
+      // Jump-to buttons
+      document.querySelectorAll('.jbtn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var target = this.getAttribute('data-target');
+          jumpTo(target);
+        });
+      });
+
+      // Save buttons
+      document.querySelectorAll('.save-trigger').forEach(function(btn) {
+        btn.addEventListener('click', function() { flashSave(this); });
+      });
+
+      // Toggles
+      document.querySelectorAll('.trow').forEach(function(row) {
+        row.addEventListener('click', function() { doToggle(this); });
+      });
+
+      // Eye toggles
+      document.querySelectorAll('.eye-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) { e.preventDefault(); doEye(this); });
+      });
+
+      // Strength meter
+      document.getElementById('newPw').addEventListener('input', updStr);
+
+      // Plan selects
+      document.getElementById('planSelect').addEventListener('change', updPlan);
+      document.getElementById('statusSelect').addEventListener('change', updPlan);
+
+      // Danger inputs
+      ['dEmail','dPhrase','dPw'].forEach(function(id) {
+        document.getElementById(id).addEventListener('input', updDanger);
+      });
+
+      // Password save
+      document.getElementById('pwSaveBtn').addEventListener('click', function() {
+        var np = document.getElementById('newPw').value;
+        var cp = document.getElementById('confirmPw').value;
+        var err = document.getElementById('pwErr');
+        var msg = document.getElementById('pwErrMsg');
+        if (np !== cp) { err.style.display = 'flex'; msg.textContent = "Passwords don't match."; return; }
+        if (np.length < 8) { err.style.display = 'flex'; msg.textContent = "Password must be at least 8 characters."; return; }
+        err.style.display = 'none';
+        document.querySelectorAll('#section-password .fpw').forEach(function(i) { i.value = ''; });
+        document.getElementById('strMeter').style.display = 'none';
+        flashSave(this);
+      });
+
+      // Delete button
+      document.getElementById('delBtn').addEventListener('click', function() {
+        var ok = document.getElementById('dEmail').value === 'patricia@email.com'
+              && document.getElementById('dPhrase').value === 'DELETE'
+              && document.getElementById('dPw').value.length > 0;
+        if (!ok) {
+          document.getElementById('dErr').style.display = 'flex';
+          document.getElementById('dErrMsg').textContent = 'Please fill all fields correctly.';
+          return;
+        }
+        document.getElementById('dErr').style.display = 'none';
+        alert('Account deletion requested. This is permanent and cannot be undone.');
+      });
+
+      // Scroll spy — observe sections inside mainScroll
+      var obs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(e) {
+          if (e.isIntersecting) activateNav(e.target.id.replace('section-', ''));
+        });
+      }, { root: mainScroll, threshold: 0.3 });
+      ['profile','plan','preferences','password','danger'].forEach(function(id) {
+        var el = document.getElementById('section-' + id);
+        if (el) obs.observe(el);
+      });
+    });
+  </script>
+</body>
+</html>
