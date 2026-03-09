@@ -172,3 +172,6 @@ python scheduler.py --time-based
 - **Gmail issues**: Ensure app password (not regular password) is used
 
 For detailed email setup instructions, see `NOTIFICATION_SETUP.md`.
+
+
+line 811 of base.html for controlling the hide of bottom navigation
