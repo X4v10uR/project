@@ -831,16 +831,7 @@
 
                 var tabbarWrap = document.querySelector('.app-tabbar-wrap');
                 var revealButton = document.getElementById('tabbar-reveal-toggle');
-                // var autoHideDelayMs = 10000;
-                var autoHideDelayMs = 5000;
-                var hideTimer = null;
-
-                function clearHideTimer() {
-                    if (hideTimer !== null) {
-                        window.clearTimeout(hideTimer);
-                        hideTimer = null;
-                    }
-                }
+                var pointerInsideTabbar = false;
 
                 function hideTabbar() {
                     if (!tabbarWrap || !revealButton) {
@@ -848,43 +839,59 @@
                     }
                     tabbarWrap.classList.add('is-collapsed');
                     revealButton.classList.add('is-visible');
-                    clearHideTimer();
                 }
 
-                function scheduleTabbarHide() {
-                    if (!tabbarWrap || !revealButton) {
-                        return;
-                    }
-                    clearHideTimer();
-                    hideTimer = window.setTimeout(hideTabbar, autoHideDelayMs);
-                }
-
-                function showTabbar(resetTimer) {
+                function showTabbar() {
                     if (!tabbarWrap || !revealButton) {
                         return;
                     }
                     tabbarWrap.classList.remove('is-collapsed');
                     revealButton.classList.remove('is-visible');
-                    if (resetTimer !== false) {
-                        scheduleTabbarHide();
+                }
+
+                function collapseIfIdle() {
+                    if (!tabbarWrap || !revealButton) {
+                        return;
                     }
+                    if (pointerInsideTabbar) {
+                        return;
+                    }
+                    if (tabbar.contains(document.activeElement) || revealButton.contains(document.activeElement)) {
+                        return;
+                    }
+                    hideTabbar();
                 }
 
                 showTabbarControl = function () {
-                    showTabbar(true);
+                    showTabbar();
                 };
 
                 if (revealButton) {
                     revealButton.addEventListener('click', function () {
-                        showTabbar(true);
+                        showTabbar();
+                    });
+                    revealButton.addEventListener('mouseenter', function () {
+                        showTabbar();
+                    });
+                    revealButton.addEventListener('focusin', function () {
+                        showTabbar();
                     });
                 }
 
-                ['click', 'mouseenter', 'focusin', 'touchstart'].forEach(function (eventName) {
-                    tabbar.addEventListener(eventName, function () {
-                        showTabbar(true);
-                    });
+                tabbar.addEventListener('mouseenter', function () {
+                    pointerInsideTabbar = true;
+                    showTabbar();
                 });
+                tabbar.addEventListener('mouseleave', function () {
+                    pointerInsideTabbar = false;
+                    collapseIfIdle();
+                });
+                tabbar.addEventListener('focusin', showTabbar);
+                tabbar.addEventListener('focusout', function () {
+                    window.setTimeout(collapseIfIdle, 0);
+                });
+                tabbar.addEventListener('touchstart', showTabbar);
+                tabbar.addEventListener('click', showTabbar);
 
                 tabbar.addEventListener('click', function (event) {
                     var tab = event.target.closest('a.app-tab[data-tab-key]');
@@ -897,7 +904,7 @@
                     });
                     tab.classList.add('is-active', 'active');
                     tab.setAttribute('aria-current', 'page');
-                    showTabbar(true);
+                    showTabbar();
                 });
 
                 if (!window.htmx) {
@@ -910,7 +917,7 @@
                         return;
                     }
                     window.scrollTo({ top: 0, behavior: 'smooth' });
-                    showTabbar(true);
+                    showTabbar();
                 });
 
                 document.body.addEventListener('htmx:afterSwap', function (event) {
@@ -924,6 +931,7 @@
                     prepareCurrentView();
                 });
 
+                hideTabbar();
                 prepareCurrentView();
             }
 
