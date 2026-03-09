@@ -179,6 +179,7 @@
             animation: tabbarAppear 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
             transform-origin: center bottom;
             transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 260ms ease;
+            perspective: 900px;
         }
 
         .app-tabbar-wrap.is-hover-pop .app-tabbar {
@@ -191,6 +192,8 @@
         }
 
         .app-tab {
+            --dock-scale: 1;
+            --dock-lift: 0px;
             border: 0;
             background: transparent;
             padding: 0;
@@ -198,8 +201,14 @@
             color: var(--tabbar-muted);
             border-radius: 32px;
             text-decoration: none;
-            transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            transform-origin: center bottom;
+            transform: translateY(var(--dock-lift)) scale(var(--dock-scale));
+            transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), color 240ms ease;
             position: relative;
+        }
+
+        .app-tabbar.is-dock-active .app-tab {
+            will-change: transform;
         }
 
         .app-tab:focus-visible {
@@ -455,6 +464,11 @@
         }
 
         @media (prefers-reduced-motion: reduce) {
+            .app-tab {
+                transform: none;
+                transition: color 240ms ease;
+            }
+
             .app-tabbar-wrap.is-hover-pop .app-tabbar,
             .app-tabbar-wrap:not(.is-collapsed) .app-tabbar:hover {
                 animation: none;
@@ -886,10 +900,50 @@
                     }, 320);
                 }
 
+                var dockItems = Array.from(tabbar.querySelectorAll('.app-tab'));
+                var dockInfluencePx = 140;
+                var dockMaxScale = 1.28;
+                var prefersReducedMotion = window.matchMedia
+                    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+                function resetDockMagnification() {
+                    tabbar.classList.remove('is-dock-active');
+                    dockItems.forEach(function (item) {
+                        item.style.setProperty('--dock-scale', '1');
+                        item.style.setProperty('--dock-lift', '0px');
+                    });
+                }
+
+                function applyDockMagnification(clientX) {
+                    if (prefersReducedMotion || !dockItems.length) {
+                        return;
+                    }
+
+                    var barRect = tabbar.getBoundingClientRect();
+                    if (clientX < barRect.left || clientX > barRect.right) {
+                        resetDockMagnification();
+                        return;
+                    }
+
+                    tabbar.classList.add('is-dock-active');
+                    dockItems.forEach(function (item) {
+                        var itemRect = item.getBoundingClientRect();
+                        var centerX = itemRect.left + (itemRect.width / 2);
+                        var distance = Math.abs(clientX - centerX);
+                        var proximity = Math.max(0, 1 - (distance / dockInfluencePx));
+                        var easedProximity = proximity * proximity;
+                        var scale = 1 + ((dockMaxScale - 1) * easedProximity);
+                        var lift = -1 * (scale - 1) * 18;
+                        item.style.setProperty('--dock-scale', scale.toFixed(3));
+                        item.style.setProperty('--dock-lift', lift.toFixed(2) + 'px');
+                    });
+                }
+
                 function hideTabbar() {
                     if (!tabbarWrap || !revealButton) {
                         return;
                     }
+                    resetDockMagnification();
                     tabbarWrap.classList.add('is-collapsed');
                     revealButton.classList.add('is-visible');
                 }
@@ -923,26 +977,33 @@
                     revealButton.addEventListener('click', function () {
                         showTabbar();
                     });
-                    revealButton.addEventListener('mouseenter', function () {
+                    revealButton.addEventListener('mouseenter', function (event) {
                         triggerHoverPop();
                         showTabbar();
+                        applyDockMagnification(event.clientX);
                     });
                     revealButton.addEventListener('focusin', function () {
                         showTabbar();
                     });
                 }
 
-                tabbar.addEventListener('mouseenter', function () {
+                tabbar.addEventListener('mouseenter', function (event) {
                     pointerInsideTabbar = true;
                     triggerHoverPop();
                     showTabbar();
+                    applyDockMagnification(event.clientX);
+                });
+                tabbar.addEventListener('mousemove', function (event) {
+                    applyDockMagnification(event.clientX);
                 });
                 tabbar.addEventListener('mouseleave', function () {
                     pointerInsideTabbar = false;
+                    resetDockMagnification();
                     collapseIfIdle();
                 });
                 tabbar.addEventListener('focusin', showTabbar);
                 tabbar.addEventListener('focusout', function () {
+                    resetDockMagnification();
                     window.setTimeout(collapseIfIdle, 0);
                 });
                 tabbar.addEventListener('touchstart', showTabbar);
