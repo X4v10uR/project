@@ -481,7 +481,7 @@
                 <div class="dashboard-avatar">
                     <span class="text-sm text-gray-600 font-medium">{{ avatar_initial }}</span>
                 </div>
-                <h1 class="dashboard-title font-semibold">Hello, {{ greeting_name }}!</h1>
+                <h1 class="dashboard-title font-semibold">Hello, {{ greeting_name }} {{request.user.email}} {{request.user.first_name}}!</h1>
             </div>
             <form method="get" class="flex items-center gap-2">
                 <label for="dashboard-scope" class="text-xs text-slate-600">Scope</label>
