@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Subly | Subscription Management</title>
+  <style>
+    /* 
+      FONT USED: SF Pro Display (System Apple Font)
+      Fallbacks: Inter, Segoe UI (Windows), Roboto (Android)
+    */
+    :root {
+      --bg-color: #f0f2f5;
+      --accent: #e8f542; /* Subly Lime */
+      --text-main: #1a1c23;
+      --text-muted: #6b7280;
+      
+      /* Glassmorphism Variables */
+      --dock-bg: rgba(255, 255, 255, 0.35);
+      --dock-border: rgba(255, 255, 255, 0.5);
+      --dock-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+      
+      /* Active Tab Variables */
+      --tab-active-bg: rgba(23, 25, 30, 0.95);
+      --tab-active-text: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Main Content Area */
+    .app-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      text-align: center;
+      animation: fadeInContent 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .page-content h1 {
+      font-size: clamp(2.5rem, 8vw, 5rem);
+      margin: 0;
+      letter-spacing: -0.05em;
+      font-weight: 800;
+    }
+
+    .page-content p {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      margin-top: 10px;
+    }
+
+    /* Floating Bottom Dock Container */
+    .dock-wrapper {
+      position: fixed;
+      bottom: 30px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      z-index: 1000;
+      pointer-events: none;
+    }
+
+    /* The Main Capsule */
+    .subly-dock {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      background: var(--dock-bg);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid var(--dock-border);
+      border-radius: 40px;
+      box-shadow: var(--dock-shadow);
+      
+      /* Load Animation */
+      animation: dockAppear 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    /* Individual Tab Styling */
+    .nav-tab {
+      border: none;
+      background: transparent;
+      padding: 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      border-radius: 32px;
+      transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+      position: relative;
+      
+      /* Staggered Load Animation */
+      animation: itemAppear 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+      animation-delay: calc(var(--order) * 0.07s + 0.3s);
+    }
+
+    /* The Pill Container inside the button */
+    .pill-content {
+      display: flex;
+      align-items: center;
+      height: 48px;
+      padding: 0 12px;
+      border-radius: 32px;
+      gap: 0px;
+      transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+      max-width: 48px; /* Contracted state */
+      overflow: hidden;
+    }
+
+    /* Active Tab State */
+    .nav-tab.active .pill-content {
+      background: var(--tab-active-bg);
+      color: var(--tab-active-text);
+      max-width: 220px; /* Expanded state */
+      padding: 0 20px 0 14px;
+      gap: 10px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+    }
+
+    .nav-tab.active .icon-container {
+      color: var(--accent);
+    }
+
+    /* Hover effect for inactive tabs */
+    .nav-tab:not(.active):hover .pill-content {
+      background: rgba(0, 0, 0, 0.05);
+    }
+
+    /* Icon Container */
+    .icon-container {
+      flex-shrink: 0;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icon-container svg {
+      width: 22px;
+      height: 22px;
+      stroke-width: 2;
+      stroke: currentColor;
+      fill: none;
+    }
+
+    /* Avatar specific styles */
+    .avatar-img {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1.5px solid transparent;
+      transition: border-color 0.3s ease;
+    }
+
+    .nav-tab.active .avatar-img {
+      border-color: var(--accent);
+    }
+
+    /* Text Label - hidden when contracted */
+    .tab-label {
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+      opacity: 0;
+      transform: translateX(-10px);
+      transition: all 0.3s ease;
+    }
+
+    .nav-tab.active .tab-label {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    /* Animations */
+    @keyframes dockAppear {
+      from { transform: translateY(100px) scale(0.9); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    @keyframes itemAppear {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    @keyframes fadeInContent {
+      from { opacity: 0; transform: scale(0.98); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 600px) {
+      .subly-dock {
+        gap: 4px;
+        padding: 6px;
+      }
+      .nav-tab.active .pill-content {
+        padding: 0 14px 0 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <main class="app-container">
+    <div class="page-content">
+      <h1 id="view-title">Dashboard</h1>
+      <p id="view-description">Manage your subscriptions and tracking at a glance.</p>
+    </div>
+  </main>
+
+  <div class="dock-wrapper">
+    <nav class="subly-dock">
+      
+      <!-- User Profile (Avatar) -->
+      <button class="nav-tab" style="--order: 1" onclick="switchTab(this, 'Profile', 'Update your personal details and app settings.')">
+        <div class="pill-content">
+          <div class="icon-container">
+            <img src="https://i.pravatar.cc/100?img=32" alt="Avatar" class="avatar-img">
+          </div>
+          <span class="tab-label">Patricia</span>
+        </div>
+      </button>
+
+      <!-- Dashboard -->
+      <button class="nav-tab active" style="--order: 2" onclick="switchTab(this, 'Dashboard', 'Manage your subscriptions and tracking at a glance.')">
+        <div class="pill-content">
+          <div class="icon-container">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>
+          </div>
+          <span class="tab-label">Dashboard</span>
+        </div>
+      </button>
+
+      <!-- My Subscriptions -->
+      <button class="nav-tab" style="--order: 3" onclick="switchTab(this, 'Subscriptions', 'View your recurring payments and billing cycles.')">
+        <div class="pill-content">
+          <div class="icon-container">
+            <svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <span class="tab-label">Subscriptions</span>
+        </div>
+      </button>
+
+      <!-- Cards Dashboard -->
+      <button class="nav-tab" style="--order: 4" onclick="switchTab(this, 'Cards', 'Monitor your linked credit cards and expenses.')">
+        <div class="pill-content">
+          <div class="icon-container">
+            <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+          </div>
+          <span class="tab-label">Cards</span>
+        </div>
+      </button>
+
+      <!-- Teams -->
+      <button class="nav-tab" style="--order: 5" onclick="switchTab(this, 'Teams', 'Collaborate and manage shared subscriptions.')">
+        <div class="pill-content">
+          <div class="icon-container">
+            <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <span class="tab-label">Teams</span>
+        </div>
+      </button>
+
+      <!-- History -->
+      <button class="nav-tab" style="--order: 6" onclick="switchTab(this, 'History', 'Check your past transactions and billing history.')">
+        <div class="pill-content">
+          <div class="icon-container">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <span class="tab-label">History</span>
+        </div>
+      </button>
+
+      <button class="nav-tab" style="--order: 6" onclick="switchTab(this, 'Logout', 'Signout of your account securely.')">
+        <div class="pill-content">
+          <div class="icon-container">
+           <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <!-- door -->
+        <path d="M9 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9"></path>
+        <!-- arrow -->
+        <path d="M15 12H3"></path>
+        <path d="M7 8l-4 4 4 4"></path>
+      </svg>
+          </div>
+          <span class="tab-label">Logout</span>
+        </div>
+      </button>      
+      
+
+
+</nav>
+  </div>
+
+  <script>
+    function switchTab(el, title, desc) {
+      // Remove active class from all tabs
+      document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      
+      // Add active class to clicked tab
+      el.classList.add('active');
+      
+      // Update page text
+      document.getElementById('view-title').innerText = title;
+      document.getElementById('view-description').innerText = desc;
+      
+      // Simple Haptic-like feedback (optional)
+      if (window.navigator.vibrate) {
+        window.navigator.vibrate(5);
+      }
+    }
+  </script>
+</body>
+</html>

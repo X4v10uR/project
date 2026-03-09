@@ -6,14 +6,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="{% static 'accounts/teams_module.css' %}?v=20260304-5" />
+<link rel="stylesheet" href="{% static 'accounts/teams_module.css' %}?v=20260309-1" />
 {% endblock %}
 
 {% block content %}
-{% with ns=request.resolver_match.namespace name=request.resolver_match.url_name %}
 <div class="teams-shell">
-    <aside class="teams-sidebar">
-        <div class="teams-brand-row">
+    <div class="teams-main-pane">
+        <header class="teams-topbar">
             <a href="{% url 'dashboard:home' %}" class="teams-brand-link">
                 <span class="teams-brand-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
@@ -22,108 +21,6 @@
                 </span>
                 <span class="teams-brand-text">Subly</span>
             </a>
-        </div>
-
-        <nav class="teams-nav">
-            <a href="{% url 'dashboard:home' %}" class="teams-nav-link {% if ns == 'dashboard' %}is-active{% endif %}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="3" width="7" height="9" rx="1"></rect>
-                    <rect x="14" y="3" width="7" height="5" rx="1"></rect>
-                    <rect x="14" y="12" width="7" height="9" rx="1"></rect>
-                    <rect x="3" y="16" width="7" height="5" rx="1"></rect>
-                </svg>
-                <span>Dashboard</span>
-                <span class="teams-nav-arrow">&#8250;</span>
-            </a>
-
-            <a href="{% url 'subscriptions:list' %}" class="teams-nav-link {% if ns == 'subscriptions' and name != 'create' and name|slice:':5' != 'card_' %}is-active{% endif %}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="1" y="4" width="22" height="16" rx="2"></rect>
-                    <line x1="1" y1="10" x2="23" y2="10"></line>
-                </svg>
-                <span>My Subscriptions</span>
-                <span class="teams-nav-arrow">&#8250;</span>
-            </a>
-
-            <a href="{% url 'subscriptions:card_list' %}" class="teams-nav-link {% if ns == 'subscriptions' and name|slice:':5' == 'card_' %}is-active{% endif %}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="2" y="5" width="20" height="14" rx="2"></rect>
-                    <line x1="2" y1="10" x2="22" y2="10"></line>
-                    <line x1="7" y1="15" x2="11" y2="15"></line>
-                </svg>
-                <span>Cards Dashboard</span>
-                <span class="teams-nav-arrow">&#8250;</span>
-            </a>
-
-            <a href="{% url 'accounts:teams_overview' %}" class="teams-nav-link {% if ns == 'accounts' and name == 'teams_overview' or ns == 'accounts' and name|slice:':5' == 'team_' %}is-active{% endif %}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="9" cy="7" r="4"></circle>
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                </svg>
-                <span>Teams</span>
-                <span class="teams-nav-arrow">&#8250;</span>
-            </a>
-
-            <a href="{% url 'subscriptions:list' %}?sort=renewal_date" class="teams-nav-link {% if ns == 'subscriptions' and request.GET.sort == 'renewal_date' %}is-active{% endif %}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 3v5h5"></path>
-                    <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"></path>
-                    <path d="M12 7v5l4 2"></path>
-                </svg>
-                <span>History</span>
-                <span class="teams-nav-arrow">&#8250;</span>
-            </a>
-
-            <a href="{% url 'accounts:settings' %}" class="teams-nav-link {% if ns == 'accounts' and name == 'settings' %}is-active{% endif %}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="3"></circle>
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                </svg>
-                <span>Settings</span>
-                <span class="teams-nav-arrow">&#8250;</span>
-            </a>
-        </nav>
-
-        <div class="teams-sidebar-footer">
-            <div class="teams-user-card">
-                <span class="teams-user-avatar">
-                    {% if request.user.first_name %}
-                        {{ request.user.first_name|first|upper }}
-                    {% else %}
-                        {{ request.user.email|first|upper }}
-                    {% endif %}
-                </span>
-                <div class="teams-user-meta">
-                    <p class="teams-user-name">
-                        {% if request.user.get_full_name %}
-                            {{ request.user.get_full_name }}
-                        {% elif request.user.first_name %}
-                            {{ request.user.first_name }}
-                        {% else %}
-                            {{ request.user.email }}
-                        {% endif %}
-                    </p>
-                    <p class="teams-user-email">{{ request.user.email }}</p>
-                </div>
-                <form action="{% url 'accounts:logout' %}" method="post" class="teams-logout-form">
-                    {% csrf_token %}
-                    <button type="submit" class="teams-logout" aria-label="Log out">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                            <polyline points="16 17 21 12 16 7"></polyline>
-                            <line x1="21" y1="12" x2="9" y2="12"></line>
-                        </svg>
-                    </button>
-                </form>
-            </div>
-        </div>
-    </aside>
-
-    <div class="teams-main-pane">
-        <header class="teams-topbar">
-            <div></div>
             <div class="global-notification-shell teams-global-notification" id="global-notification-shell">
                 <button
                     type="button"
@@ -168,11 +65,10 @@
         </main>
     </div>
 </div>
-{% endwith %}
 {% endblock %}
 
 {% block extra_js %}
 {{ block.super }}
-<script src="{% static 'accounts/teams_module.js' %}?v=20260304-5"></script>
+<script src="{% static 'accounts/teams_module.js' %}?v=20260309-1"></script>
 {% block teams_extra_js %}{% endblock %}
 {% endblock %}

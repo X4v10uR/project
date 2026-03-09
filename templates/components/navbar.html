@@ -1,34 +1,128 @@
-<nav>
-    <div>
-        <div>
-            <div>
-                <a href="/">
-                    <div>
-                        <span>S</span>
-                    </div>
-                    <span>Subly</span>
-                </a>
-                {% if user.is_authenticated %}
-                <div>
-                    <a href="{% url 'dashboard:home' %}">Dashboard</a>
-                    <a href="{% url 'subscriptions:list' %}">Subscriptions</a>
-                    <a href="{% url 'subscriptions:card_list' %}">Cards</a>
-                </div>
-                {% endif %}
-            </div>
-            <div>
-                {% if user.is_authenticated %}
-                <span>{{ user.email }}</span>
-                <form action="{% url 'accounts:logout' %}" method="post">
-                    {% csrf_token %}
-                    <button type="submit">Logout</button>
-                </form>
-                {% else %}
-                <a href="{% url 'accounts:login' %}">Login</a>
-                <a href="{% url 'accounts:signup' %}">Sign
-                    Up</a>
-                {% endif %}
-            </div>
+{% if user.is_authenticated %}
+{% with ns=request.resolver_match.namespace name=request.resolver_match.url_name %}
+<div class="app-tabbar-wrap">
+    <nav class="app-tabbar" aria-label="Primary navigation">
+        <a href="{% url 'accounts:settings' %}" class="app-tab {% if ns == 'accounts' and name == 'settings' %}is-active{% endif %}">
+            <span class="app-tab-pill">
+                <span class="app-tab-icon">
+                    {% if request.user.profile_photo %}
+                    <img
+                        class="app-tab-avatar"
+                        src="{{ request.user.profile_photo.url }}"
+                        alt="{{ request.user.email }}"
+                    />
+                    {% else %}
+                    <span class="app-tab-avatar-fallback">
+                        {% if request.user.first_name %}
+                            {{ request.user.first_name|first|upper }}
+                        {% else %}
+                            {{ request.user.email|first|upper }}
+                        {% endif %}
+                    </span>
+                    {% endif %}
+                </span>
+                <span class="app-tab-label-wrap">
+                    <span class="app-tab-label">
+                        {% if request.user.first_name %}
+                            {{ request.user.first_name|truncatechars:12 }}
+                        {% else %}
+                            Profile
+                        {% endif %}
+                    </span>
+                </span>
+            </span>
+        </a>
+
+        <a href="{% url 'dashboard:home' %}" class="app-tab {% if ns == 'dashboard' %}is-active{% endif %}">
+            <span class="app-tab-pill">
+                <span class="app-tab-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="3.5" y="3.5" width="7" height="7" rx="2.1"></rect>
+                        <rect x="13.5" y="3.5" width="7" height="7" rx="2.1"></rect>
+                        <rect x="3.5" y="13.5" width="7" height="7" rx="2.1"></rect>
+                        <rect x="13.5" y="13.5" width="7" height="7" rx="2.1"></rect>
+                    </svg>
+                </span>
+                <span class="app-tab-label-wrap">
+                    <span class="app-tab-label"><span class="app-tab-dot"></span>Dashboard</span>
+                </span>
+            </span>
+        </a>
+
+        <a href="{% url 'subscriptions:list' %}" class="app-tab {% if ns == 'subscriptions' and name|slice:':5' != 'card_' and request.GET.sort != 'renewal_date' %}is-active{% endif %}">
+            <span class="app-tab-pill">
+                <span class="app-tab-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="4" y="5" width="16" height="4" rx="2"></rect>
+                        <rect x="4" y="10" width="16" height="4" rx="2"></rect>
+                        <rect x="4" y="15" width="11" height="4" rx="2"></rect>
+                    </svg>
+                </span>
+                <span class="app-tab-label-wrap">
+                    <span class="app-tab-label"><span class="app-tab-dot"></span>Subscriptions</span>
+                </span>
+            </span>
+        </a>
+
+        <a href="{% url 'subscriptions:card_list' %}" class="app-tab {% if ns == 'subscriptions' and name|slice:':5' == 'card_' %}is-active{% endif %}">
+            <span class="app-tab-pill">
+                <span class="app-tab-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="3.5" y="5.5" width="17" height="13" rx="3"></rect>
+                        <path d="M3.5 10h17"></path>
+                        <path d="M7 15.5h4"></path>
+                    </svg>
+                </span>
+                <span class="app-tab-label-wrap">
+                    <span class="app-tab-label"><span class="app-tab-dot"></span>Cards</span>
+                </span>
+            </span>
+        </a>
+
+        <a href="{% url 'accounts:teams_overview' %}" class="app-tab {% if ns == 'accounts' and name == 'teams_overview' or ns == 'accounts' and name|slice:':5' == 'team_' %}is-active{% endif %}">
+            <span class="app-tab-pill">
+                <span class="app-tab-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M16.5 18.5a4.5 4.5 0 0 0-9 0"></path>
+                        <circle cx="12" cy="9" r="3"></circle>
+                        <path d="M20 18a3.8 3.8 0 0 0-3.2-3.7"></path>
+                        <path d="M7.2 14.3A3.8 3.8 0 0 0 4 18"></path>
+                    </svg>
+                </span>
+                <span class="app-tab-label-wrap">
+                    <span class="app-tab-label"><span class="app-tab-dot"></span>Teams</span>
+                </span>
+            </span>
+        </a>
+
+        <a href="{% url 'subscriptions:list' %}?sort=renewal_date" class="app-tab {% if ns == 'subscriptions' and request.GET.sort == 'renewal_date' %}is-active{% endif %}">
+            <span class="app-tab-pill">
+                <span class="app-tab-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3.5 12a8.5 8.5 0 1 0 2.4-5.9"></path>
+                        <path d="M3.5 5.5v4.3h4.3"></path>
+                        <path d="M12 7.8v4.6l2.9 1.7"></path>
+                    </svg>
+                </span>
+                <span class="app-tab-label-wrap">
+                    <span class="app-tab-label"><span class="app-tab-dot"></span>History</span>
+                </span>
+            </span>
+        </a>
+    </nav>
+</div>
+{% endwith %}
+{% else %}
+<nav class="public-nav">
+    <div class="public-nav-inner">
+        <a href="{% url 'landing' %}" class="public-brand">
+            <span class="public-brand-icon">S</span>
+            <span>Subly</span>
+        </a>
+        <div class="public-nav-actions">
+            <a href="{% url 'accounts:login' %}" class="public-nav-link">Login</a>
+            <a href="{% url 'accounts:signup' %}" class="public-nav-cta">Sign Up</a>
         </div>
     </div>
 </nav>
+{% endif %}
