@@ -153,6 +153,14 @@
             justify-content: center;
             pointer-events: none;
             z-index: 75;
+            transition: transform 260ms ease, opacity 220ms ease;
+            will-change: transform, opacity;
+        }
+
+        .app-tabbar-wrap.is-collapsed {
+            transform: translateY(104px);
+            opacity: 0;
+            pointer-events: none;
         }
 
         .app-tabbar {
@@ -334,6 +342,41 @@
             animation: tabbarPulse 1s ease-in-out infinite;
         }
 
+        .app-tabbar-reveal {
+            position: fixed;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%) translateY(12px);
+            width: 46px;
+            height: 46px;
+            border: 1px solid rgba(255, 255, 255, 0.78);
+            border-radius: 999px;
+            background: rgba(17, 25, 40, 0.88);
+            color: var(--tabbar-accent);
+            box-shadow: 0 20px 34px -30px rgba(15, 23, 42, 0.8);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 180ms ease, transform 180ms ease;
+            z-index: 77;
+            cursor: pointer;
+        }
+
+        .app-tabbar-reveal.is-visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .app-tabbar-reveal svg {
+            width: 20px;
+            height: 20px;
+            display: block;
+            stroke: currentColor;
+        }
+
         .app-tab-logout-form {
             margin: 0;
         }
@@ -449,6 +492,10 @@
                 padding: 6px;
             }
 
+            .app-tabbar-wrap {
+                bottom: 16px;
+            }
+
             .app-tab-pill {
                 height: 46px;
             }
@@ -464,6 +511,10 @@
 
             .app-tabbar-loader {
                 bottom: 80px;
+            }
+
+            .app-tabbar-reveal {
+                bottom: 16px;
             }
         }
     </style>
@@ -522,6 +573,17 @@
         <span class="app-tabbar-loader-dot" aria-hidden="true"></span>
         <span>Loading</span>
     </div>
+    <button
+        id="tabbar-reveal-toggle"
+        class="app-tabbar-reveal"
+        type="button"
+        aria-label="Show navigation bar"
+        title="Show navigation"
+    >
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M6 14l6-6 6 6"></path>
+        </svg>
+    </button>
     {% endif %}
 
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
@@ -594,6 +656,8 @@
             function dispatchContentLoaded() {
                 document.dispatchEvent(new CustomEvent('subly:content-loaded'));
             }
+
+            var showTabbarControl = function () {};
 
             function scriptForPath(path) {
                 var normalized = normalizePath(path);
@@ -728,6 +792,7 @@
                     })
                     .catch(function () {})
                     .finally(function () {
+                        showTabbarControl();
                         syncTabbarActiveState();
                         dispatchContentLoaded();
                     });
@@ -735,10 +800,66 @@
 
             function init() {
                 var tabbar = document.querySelector('.app-tabbar');
-                if (!tabbar || !window.htmx) {
+                if (!tabbar) {
                     dispatchContentLoaded();
                     return;
                 }
+
+                var tabbarWrap = document.querySelector('.app-tabbar-wrap');
+                var revealButton = document.getElementById('tabbar-reveal-toggle');
+                var autoHideDelayMs = 10000;
+                var hideTimer = null;
+
+                function clearHideTimer() {
+                    if (hideTimer !== null) {
+                        window.clearTimeout(hideTimer);
+                        hideTimer = null;
+                    }
+                }
+
+                function hideTabbar() {
+                    if (!tabbarWrap || !revealButton) {
+                        return;
+                    }
+                    tabbarWrap.classList.add('is-collapsed');
+                    revealButton.classList.add('is-visible');
+                    clearHideTimer();
+                }
+
+                function scheduleTabbarHide() {
+                    if (!tabbarWrap || !revealButton) {
+                        return;
+                    }
+                    clearHideTimer();
+                    hideTimer = window.setTimeout(hideTabbar, autoHideDelayMs);
+                }
+
+                function showTabbar(resetTimer) {
+                    if (!tabbarWrap || !revealButton) {
+                        return;
+                    }
+                    tabbarWrap.classList.remove('is-collapsed');
+                    revealButton.classList.remove('is-visible');
+                    if (resetTimer !== false) {
+                        scheduleTabbarHide();
+                    }
+                }
+
+                showTabbarControl = function () {
+                    showTabbar(true);
+                };
+
+                if (revealButton) {
+                    revealButton.addEventListener('click', function () {
+                        showTabbar(true);
+                    });
+                }
+
+                ['click', 'mouseenter', 'focusin', 'touchstart'].forEach(function (eventName) {
+                    tabbar.addEventListener(eventName, function () {
+                        showTabbar(true);
+                    });
+                });
 
                 tabbar.addEventListener('click', function (event) {
                     var tab = event.target.closest('a.app-tab[data-tab-key]');
@@ -751,13 +872,20 @@
                     });
                     tab.classList.add('is-active', 'active');
                     tab.setAttribute('aria-current', 'page');
+                    showTabbar(true);
                 });
+
+                if (!window.htmx) {
+                    prepareCurrentView();
+                    return;
+                }
 
                 document.body.addEventListener('htmx:beforeRequest', function (event) {
                     if (!event.target.closest('.app-tabbar')) {
                         return;
                     }
                     window.scrollTo({ top: 0, behavior: 'smooth' });
+                    showTabbar(true);
                 });
 
                 document.body.addEventListener('htmx:afterSwap', function (event) {
