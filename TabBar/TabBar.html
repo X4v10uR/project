@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Subly Bottom Apple-Style Tab Bar</title>
+
+  <style>
+    :root {
+      --bg-1: #eff2f5;
+      --bg-2: #e8edf2;
+      --text: #182235;
+      --muted: #6f7787;
+      --dock-bg: rgba(255, 255, 255, 0.58);
+      --dock-border: rgba(255, 255, 255, 0.72);
+      --dock-shadow: 0 24px 60px rgba(15, 23, 42, 0.14);
+      --active-1: #2a2d35;
+      --active-2: #15171c;
+      --accent: #e8f542;
+      --card-1: #1f2127;
+      --card-2: #101115;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,0.7) 0%, transparent 35%),
+        linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 100%);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      padding: 36px;
+      padding-bottom: 150px;
+      display: grid;
+      place-items: center;
+    }
+
+    .page-stage {
+      width: min(1120px, 100%);
+      min-height: 520px;
+      border-radius: 34px;
+      padding: 42px;
+      color: white;
+      background:
+        radial-gradient(circle at top right, rgba(232,245,66,0.08), transparent 30%),
+        linear-gradient(135deg, var(--card-1) 0%, var(--card-2) 100%);
+      box-shadow:
+        0 20px 60px rgba(16, 24, 40, 0.16),
+        inset 0 1px 0 rgba(255,255,255,0.05);
+      position: relative;
+      overflow: hidden;
+      animation: contentIn 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .page-stage::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.06), transparent 22%),
+        radial-gradient(circle at bottom center, rgba(255,255,255,0.08), transparent 28%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      font-size: 14px;
+      letter-spacing: 0.02em;
+      color: rgba(255,255,255,0.68);
+    }
+
+    .page-title {
+      margin: 0;
+      font-size: clamp(44px, 7vw, 88px);
+      line-height: 0.95;
+      letter-spacing: -0.06em;
+    }
+
+    .page-copy {
+      margin: 18px 0 0;
+      max-width: 580px;
+      font-size: 18px;
+      line-height: 1.5;
+      color: rgba(255,255,255,0.72);
+    }
+
+    .status-pill {
+      margin-top: 28px;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: rgba(255,255,255,0.82);
+      font-size: 14px;
+    }
+
+    .status-pill span {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 14px rgba(232,245,66,0.8);
+    }
+
+    .dock-wrap {
+      position: fixed;
+      left: 50%;
+      bottom: 22px;
+      transform: translateX(-50%);
+      width: calc(100% - 28px);
+      display: flex;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    .subly-dock {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px;
+      border-radius: 999px;
+      background: var(--dock-bg);
+      border: 1px solid var(--dock-border);
+      box-shadow: var(--dock-shadow);
+      backdrop-filter: blur(22px) saturate(1.25);
+      -webkit-backdrop-filter: blur(22px) saturate(1.25);
+      position: relative;
+      overflow: hidden;
+      max-width: 100%;
+      animation: dockIn 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .subly-dock::before {
+      content: "";
+      position: absolute;
+      inset: 1px 1px auto 1px;
+      height: 52%;
+      border-radius: inherit;
+      background: linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0.08));
+      pointer-events: none;
+    }
+
+    .dock-tab {
+      --tab-color: var(--muted);
+      border: 0;
+      background: transparent;
+      padding: 0;
+      cursor: pointer;
+      color: var(--tab-color);
+      border-radius: 999px;
+      animation: itemIn 0.72s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      animation-delay: calc(140ms + var(--i) * 70ms);
+    }
+
+    .dock-tab:focus-visible {
+      outline: none;
+    }
+
+    .dock-pill {
+      min-height: 56px;
+      display: grid;
+      grid-template-columns: 40px 0fr;
+      align-items: center;
+      gap: 0;
+      padding: 8px;
+      border-radius: 999px;
+      transition:
+        grid-template-columns 0.36s cubic-bezier(0.2, 0.8, 0.2, 1),
+        padding 0.36s cubic-bezier(0.2, 0.8, 0.2, 1),
+        background 0.36s cubic-bezier(0.2, 0.8, 0.2, 1),
+        box-shadow 0.36s cubic-bezier(0.2, 0.8, 0.2, 1),
+        transform 0.36s cubic-bezier(0.2, 0.8, 0.2, 1),
+        color 0.36s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .dock-tab:hover .dock-pill {
+      background: rgba(17, 24, 39, 0.06);
+      transform: translateY(-1px);
+    }
+
+    .dock-tab.is-active .dock-pill {
+      grid-template-columns: 40px 1fr;
+      padding-right: 18px;
+      background: linear-gradient(180deg, var(--active-1) 0%, var(--active-2) 100%);
+      box-shadow:
+        0 12px 24px rgba(0,0,0,0.16),
+        inset 0 1px 0 rgba(255,255,255,0.08);
+      color: white;
+      transform: translateY(-1px);
+    }
+
+    .dock-tab:focus-visible .dock-pill {
+      box-shadow:
+        0 0 0 4px rgba(232,245,66,0.25),
+        0 12px 24px rgba(0,0,0,0.12);
+    }
+
+    .dock-icon {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+    }
+
+    .dock-icon svg {
+      width: 22px;
+      height: 22px;
+      display: block;
+      stroke: currentColor;
+    }
+
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+      display: block;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+    }
+
+    .dock-label-wrap {
+      overflow: hidden;
+    }
+
+    .dock-label {
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      opacity: 0;
+      transform: translateX(-8px);
+      color: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      transition:
+        opacity 0.24s ease,
+        transform 0.36s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .dock-tab.is-active .dock-label {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .dock-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 12px rgba(232,245,66,0.85);
+      flex: 0 0 auto;
+    }
+
+    @keyframes dockIn {
+      from {
+        opacity: 0;
+        transform: translateY(24px) scale(0.96);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes itemIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.94);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes contentIn {
+      from {
+        opacity: 0;
+        transform: translateY(18px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 900px) {
+      .app-shell {
+        padding: 18px;
+        padding-bottom: 132px;
+      }
+
+      .page-stage {
+        min-height: 420px;
+        padding: 28px;
+      }
+
+      .page-copy {
+        font-size: 16px;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .dock-wrap {
+        bottom: 14px;
+        width: calc(100% - 16px);
+      }
+
+      .subly-dock {
+        width: 100%;
+        justify-content: space-between;
+        gap: 4px;
+        padding: 7px;
+      }
+
+      .dock-pill {
+        min-height: 54px;
+      }
+
+      .dock-tab.is-active .dock-pill {
+        padding-right: 14px;
+      }
+
+      .dock-label {
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <section class="page-stage">
+      <p class="eyebrow">Current page</p>
+      <h1 class="page-title" id="pageTitle">Dashboard</h1>
+      <p class="page-copy" id="pageCopy">Overview of your subscriptions, upcoming bills, balances, and recent activity.</p>
+      <div class="status-pill">
+        <span></span>
+        Apple-style floating bottom navigation
+      </div>
+    </section>
+  </main>
+
+  <div class="dock-wrap">
+    <nav class="subly-dock" aria-label="Primary navigation">
+      <button
+        class="dock-tab"
+        style="--i: 0"
+        data-page="Profile"
+        data-copy="Your account, personal details, billing identity, and app preferences."
+      >
+        <span class="dock-pill">
+          <span class="dock-icon">
+            <!-- Replace this with your real avatar image -->
+            <img
+              class="avatar"
+              src="https://i.pravatar.cc/80?img=47"
+              alt="Patricia"
+            />
+          </span>
+          <span class="dock-label-wrap">
+            <span class="dock-label">Patricia</span>
+          </span>
+        </span>
+      </button>
+
+      <button
+        class="dock-tab is-active"
+        style="--i: 1"
+        data-page="Dashboard"
+        data-copy="Overview of your subscriptions, upcoming bills, balances, and recent activity."
+        aria-current="page"
+      >
+        <span class="dock-pill">
+          <span class="dock-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3.5" y="3.5" width="7" height="7" rx="2.1"></rect>
+              <rect x="13.5" y="3.5" width="7" height="7" rx="2.1"></rect>
+              <rect x="3.5" y="13.5" width="7" height="7" rx="2.1"></rect>
+              <rect x="13.5" y="13.5" width="7" height="7" rx="2.1"></rect>
+            </svg>
+          </span>
+          <span class="dock-label-wrap">
+            <span class="dock-label"><span class="dock-dot"></span>Dashboard</span>
+          </span>
+        </span>
+      </button>
+
+      <button
+        class="dock-tab"
+        style="--i: 2"
+        data-page="My Subscriptions"
+        data-copy="See all active subscriptions, plan details, renewal dates, and monthly costs."
+      >
+        <span class="dock-pill">
+          <span class="dock-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="4" y="5" width="16" height="4" rx="2"></rect>
+              <rect x="4" y="10" width="16" height="4" rx="2"></rect>
+              <rect x="4" y="15" width="11" height="4" rx="2"></rect>
+            </svg>
+          </span>
+          <span class="dock-label-wrap">
+            <span class="dock-label"><span class="dock-dot"></span>Subscriptions</span>
+          </span>
+        </span>
+      </button>
+
+      <button
+        class="dock-tab"
+        style="--i: 3"
+        data-page="Cards Dashboard"
+        data-copy="Manage saved cards, payment methods, linked banks, and card-level subscription activity."
+      >
+        <span class="dock-pill">
+          <span class="dock-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3.5" y="5.5" width="17" height="13" rx="3"></rect>
+              <path d="M3.5 10h17"></path>
+              <path d="M7 15.5h4"></path>
+            </svg>
+          </span>
+          <span class="dock-label-wrap">
+            <span class="dock-label"><span class="dock-dot"></span>Cards</span>
+          </span>
+        </span>
+      </button>
+
+      <button
+        class="dock-tab"
+        style="--i: 4"
+        data-page="Teams"
+        data-copy="Collaborate with teammates, share ownership, and monitor group subscription spending."
+      >
+        <span class="dock-pill">
+          <span class="dock-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M16.5 18.5a4.5 4.5 0 0 0-9 0"></path>
+              <circle cx="12" cy="9" r="3"></circle>
+              <path d="M20 18a3.8 3.8 0 0 0-3.2-3.7"></path>
+              <path d="M7.2 14.3A3.8 3.8 0 0 0 4 18"></path>
+            </svg>
+          </span>
+          <span class="dock-label-wrap">
+            <span class="dock-label"><span class="dock-dot"></span>Teams</span>
+          </span>
+        </span>
+      </button>
+
+      <button
+        class="dock-tab"
+        style="--i: 5"
+        data-page="History"
+        data-copy="Review previous payments, subscription changes, cancellations, and billing timeline."
+      >
+        <span class="dock-pill">
+          <span class="dock-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3.5 12a8.5 8.5 0 1 0 2.4-5.9"></path>
+              <path d="M3.5 5.5v4.3h4.3"></path>
+              <path d="M12 7.8v4.6l2.9 1.7"></path>
+            </svg>
+          </span>
+          <span class="dock-label-wrap">
+            <span class="dock-label"><span class="dock-dot"></span>History</span>
+          </span>
+        </span>
+      </button>
+    </nav>
+  </div>
+
+  <script>
+    const tabs = document.querySelectorAll(".dock-tab");
+    const pageTitle = document.getElementById("pageTitle");
+    const pageCopy = document.getElementById("pageCopy");
+
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        tabs.forEach((item) => {
+          item.classList.remove("is-active");
+          item.removeAttribute("aria-current");
+        });
+
+        tab.classList.add("is-active");
+        tab.setAttribute("aria-current", "page");
+        pageTitle.textContent = tab.dataset.page;
+        pageCopy.textContent = tab.dataset.copy;
+      });
+    });
+  </script>
+</body>
+</html>
