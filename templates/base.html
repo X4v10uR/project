@@ -893,7 +893,7 @@
                 var hoverPopTimer = null;
                 var collapseTimer = null;
                 var hoverStateSyncTimer = null;
-                var collapseDelayMs = 180;
+                var collapseDelayMs = 260;
 
                 function clearHoverPopTimer() {
                     if (hoverPopTimer !== null) {
@@ -963,7 +963,7 @@
                         var proximity = Math.max(0, 1 - (distance / dockInfluencePx));
                         var easedProximity = proximity * proximity;
                         var scale = 1 + ((dockMaxScale - 1) * easedProximity);
-                        var lift = -1 * (scale - 1) * 18;
+                        var lift = -1 * (scale - 1) * 10;
                         item.style.setProperty('--dock-scale', scale.toFixed(3));
                         item.style.setProperty('--dock-lift', lift.toFixed(2) + 'px');
                     });
@@ -990,11 +990,7 @@
                     revealButton.classList.remove('is-visible');
                     hoverStateSyncTimer = window.setTimeout(function () {
                         hoverStateSyncTimer = null;
-                        if (tabbar.matches(':hover')) {
-                            pointerInsideDock = true;
-                            return;
-                        }
-                        if (revealButton.matches(':hover')) {
+                        if (isPointerHoveringDockZone()) {
                             pointerInsideDock = true;
                             return;
                         }
@@ -1010,11 +1006,20 @@
                     return tabbar.contains(document.activeElement) || revealButton.contains(document.activeElement);
                 }
 
+                function isPointerHoveringDockZone() {
+                    if (tabbar.matches(':hover') || revealButton.matches(':hover')) {
+                        return true;
+                    }
+                    return dockItems.some(function (item) {
+                        return item.matches(':hover');
+                    });
+                }
+
                 function collapseIfIdle() {
                     if (!tabbarWrap || !revealButton) {
                         return;
                     }
-                    if (tabbar.matches(':hover') || revealButton.matches(':hover')) {
+                    if (isPointerHoveringDockZone()) {
                         pointerInsideDock = true;
                         return;
                     }
