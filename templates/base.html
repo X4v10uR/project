@@ -889,13 +889,30 @@
 
                 var tabbarWrap = document.querySelector('.app-tabbar-wrap');
                 var revealButton = document.getElementById('tabbar-reveal-toggle');
-                var pointerInsideTabbar = false;
+                var pointerInsideDock = false;
                 var hoverPopTimer = null;
+                var collapseTimer = null;
+                var hoverStateSyncTimer = null;
+                var collapseDelayMs = 180;
 
                 function clearHoverPopTimer() {
                     if (hoverPopTimer !== null) {
                         window.clearTimeout(hoverPopTimer);
                         hoverPopTimer = null;
+                    }
+                }
+
+                function clearCollapseTimer() {
+                    if (collapseTimer !== null) {
+                        window.clearTimeout(collapseTimer);
+                        collapseTimer = null;
+                    }
+                }
+
+                function clearHoverStateSyncTimer() {
+                    if (hoverStateSyncTimer !== null) {
+                        window.clearTimeout(hoverStateSyncTimer);
+                        hoverStateSyncTimer = null;
                     }
                 }
 
@@ -956,6 +973,8 @@
                     if (!tabbarWrap || !revealButton) {
                         return;
                     }
+                    clearHoverStateSyncTimer();
+                    clearCollapseTimer();
                     resetDockMagnification();
                     tabbarWrap.classList.add('is-collapsed');
                     revealButton.classList.add('is-visible');
@@ -965,21 +984,54 @@
                     if (!tabbarWrap || !revealButton) {
                         return;
                     }
+                    clearHoverStateSyncTimer();
+                    clearCollapseTimer();
                     tabbarWrap.classList.remove('is-collapsed');
                     revealButton.classList.remove('is-visible');
+                    hoverStateSyncTimer = window.setTimeout(function () {
+                        hoverStateSyncTimer = null;
+                        if (tabbar.matches(':hover')) {
+                            pointerInsideDock = true;
+                            return;
+                        }
+                        if (revealButton.matches(':hover')) {
+                            pointerInsideDock = true;
+                            return;
+                        }
+                        if (isFocusWithinDock()) {
+                            return;
+                        }
+                        pointerInsideDock = false;
+                        scheduleCollapse();
+                    }, 0);
+                }
+
+                function isFocusWithinDock() {
+                    return tabbar.contains(document.activeElement) || revealButton.contains(document.activeElement);
                 }
 
                 function collapseIfIdle() {
                     if (!tabbarWrap || !revealButton) {
                         return;
                     }
-                    if (pointerInsideTabbar) {
+                    if (tabbar.matches(':hover') || revealButton.matches(':hover')) {
+                        pointerInsideDock = true;
                         return;
                     }
-                    if (tabbar.contains(document.activeElement) || revealButton.contains(document.activeElement)) {
+                    if (pointerInsideDock) {
+                        return;
+                    }
+                    if (isFocusWithinDock()) {
                         return;
                     }
                     hideTabbar();
+                }
+
+                function scheduleCollapse() {
+                    clearCollapseTimer();
+                    collapseTimer = window.setTimeout(function () {
+                        collapseIfIdle();
+                    }, collapseDelayMs);
                 }
 
                 showTabbarControl = function () {
@@ -991,17 +1043,25 @@
                         showTabbar();
                     });
                     revealButton.addEventListener('mouseenter', function (event) {
+                        pointerInsideDock = true;
                         triggerHoverPop();
                         showTabbar();
                         applyDockMagnification(event.clientX);
                     });
+                    revealButton.addEventListener('mouseleave', function () {
+                        pointerInsideDock = false;
+                        scheduleCollapse();
+                    });
                     revealButton.addEventListener('focusin', function () {
                         showTabbar();
+                    });
+                    revealButton.addEventListener('focusout', function () {
+                        window.setTimeout(collapseIfIdle, 0);
                     });
                 }
 
                 tabbar.addEventListener('mouseenter', function (event) {
-                    pointerInsideTabbar = true;
+                    pointerInsideDock = true;
                     triggerHoverPop();
                     showTabbar();
                     applyDockMagnification(event.clientX);
@@ -1010,14 +1070,16 @@
                     applyDockMagnification(event.clientX);
                 });
                 tabbar.addEventListener('mouseleave', function () {
-                    pointerInsideTabbar = false;
+                    pointerInsideDock = false;
                     resetDockMagnification();
-                    collapseIfIdle();
+                    scheduleCollapse();
                 });
                 tabbar.addEventListener('focusin', showTabbar);
                 tabbar.addEventListener('focusout', function () {
                     resetDockMagnification();
-                    window.setTimeout(collapseIfIdle, 0);
+                    window.setTimeout(function () {
+                        collapseIfIdle();
+                    }, 0);
                 });
                 tabbar.addEventListener('touchstart', showTabbar);
                 tabbar.addEventListener('click', showTabbar);
