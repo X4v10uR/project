@@ -232,6 +232,8 @@
             align-items: center;
             justify-content: center;
             flex: 0 0 auto;
+            position: relative;
+            overflow: visible;
         }
 
         .app-tab-icon svg {
@@ -239,6 +241,25 @@
             height: 22px;
             display: block;
             stroke: currentColor;
+        }
+
+        .app-tab-notification-count {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            min-width: 16px;
+            height: 16px;
+            border-radius: 9999px;
+            padding: 0 4px;
+            background: #dc2626;
+            color: #ffffff;
+            font-size: 10px;
+            line-height: 16px;
+            text-align: center;
+            font-weight: 700;
+            border: 1px solid rgba(255, 255, 255, 0.92);
+            box-shadow: 0 8px 14px -10px rgba(15, 23, 42, 0.8);
+            pointer-events: none;
         }
 
         .app-tab.is-active .app-tab-icon,
@@ -615,6 +636,9 @@
                 if (path.startsWith('/accounts/settings/')) {
                     return 'profile';
                 }
+                if (path.startsWith('/dashboard/notifications/')) {
+                    return 'notifications';
+                }
                 if (path.startsWith('/dashboard/')) {
                     return 'dashboard';
                 }
@@ -910,7 +934,7 @@
             }
         })();
     </script>
-    <script src="{% static 'dashboard/notifications.js' %}?v=20260303-2"></script>
+    <script src="{% static 'dashboard/notifications.js' %}?v=20260309-1"></script>
     {% endif %}
     {% block extra_js %}{% endblock %}
 </body>

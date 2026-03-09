@@ -29,6 +29,7 @@
         this.toggle = document.getElementById('global-notification-toggle');
         this.panel = document.getElementById('global-notification-panel');
         this.countNode = document.getElementById('global-notification-count');
+        this.tabbarCountNode = document.getElementById('tabbar-notification-count');
         this.listNode = document.getElementById('global-notification-list');
         this.readAllBtn = document.getElementById('global-notification-read-all');
         this.notifications = [];
@@ -112,9 +113,17 @@
         if (count > 0) {
             this.countNode.classList.remove('hidden');
             this.countNode.textContent = count > 99 ? '99+' : String(count);
+            if (this.tabbarCountNode) {
+                this.tabbarCountNode.classList.remove('hidden');
+                this.tabbarCountNode.textContent = count > 99 ? '99+' : String(count);
+            }
         } else {
             this.countNode.classList.add('hidden');
             this.countNode.textContent = '0';
+            if (this.tabbarCountNode) {
+                this.tabbarCountNode.classList.add('hidden');
+                this.tabbarCountNode.textContent = '0';
+            }
         }
     };
 
