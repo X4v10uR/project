@@ -593,6 +593,12 @@
 
             function stylesForPath(path) {
                 var normalized = normalizePath(path);
+                if (normalized.startsWith('/subscriptions/cards/')) {
+                    return [
+                        'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap',
+                        '{% static "subscriptions/cards.css" %}?v=20260309-1'
+                    ];
+                }
                 if (normalized.startsWith('/accounts/teams/')) {
                     return [
                         'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
