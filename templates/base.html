@@ -140,6 +140,10 @@
             overflow-x: hidden;
         }
 
+        body.route-teams .app-main-shell {
+            padding-bottom: 22px;
+        }
+
         .app-tabbar-wrap {
             position: fixed;
             left: 0;
@@ -421,11 +425,19 @@
             .app-main-shell {
                 padding: 16px 18px 132px;
             }
+
+            body.route-teams .app-main-shell {
+                padding-bottom: 24px;
+            }
         }
 
         @media (min-width: 1280px) {
             .app-main-shell {
                 padding: 18px 24px 138px;
+            }
+
+            body.route-teams .app-main-shell {
+                padding-bottom: 26px;
             }
         }
 
@@ -573,6 +585,12 @@
                 });
             }
 
+            function applyRouteLayout(path) {
+                var normalized = normalizePath(path);
+                var isTeamsRoute = normalized.startsWith('/accounts/teams/');
+                document.body.classList.toggle('route-teams', isTeamsRoute);
+            }
+
             function dispatchContentLoaded() {
                 document.dispatchEvent(new CustomEvent('subly:content-loaded'));
             }
@@ -701,6 +719,7 @@
             }
 
             function prepareCurrentView() {
+                applyRouteLayout(window.location.pathname);
                 var stylePromises = stylesForPath(window.location.pathname).map(loadStyleOnce);
                 return Promise.all(stylePromises)
                     .catch(function () {})
