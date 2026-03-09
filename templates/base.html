@@ -231,6 +231,13 @@
             background: rgba(0, 0, 0, 0.05);
         }
 
+        .app-tab:hover .app-tab-pill,
+        .app-tab:focus-visible .app-tab-pill {
+            max-width: 200px;
+            padding: 0 16px 0 12px;
+            gap: 8px;
+        }
+
         .app-tab.is-active .app-tab-pill,
         .app-tab.active .app-tab-pill {
             background: rgba(23, 25, 30, 0.95);
@@ -339,6 +346,12 @@
 
         .app-tab.is-active .app-tab-label,
         .app-tab.active .app-tab-label {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .app-tab:hover .app-tab-label,
+        .app-tab:focus-visible .app-tab-label {
             opacity: 1;
             transform: translateX(0);
         }
