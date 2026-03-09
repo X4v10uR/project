@@ -142,10 +142,9 @@
 
         .app-tabbar-wrap {
             position: fixed;
-            left: 50%;
-            bottom: 18px;
-            transform: translateX(-50%);
-            width: calc(100% - 22px);
+            left: 0;
+            right: 0;
+            bottom: 30px;
             display: flex;
             justify-content: center;
             pointer-events: none;
@@ -156,38 +155,28 @@
             pointer-events: auto;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
             padding: 8px;
-            border-radius: 999px;
             background: var(--tabbar-dock-bg);
             border: 1px solid var(--tabbar-dock-border);
+            border-radius: 40px;
             box-shadow: var(--tabbar-dock-shadow);
-            backdrop-filter: blur(22px) saturate(1.25);
-            -webkit-backdrop-filter: blur(22px) saturate(1.25);
-            position: relative;
-            overflow: hidden;
-            max-width: 100%;
-        }
-
-        .app-tabbar::before {
-            content: "";
-            position: absolute;
-            inset: 1px 1px auto 1px;
-            height: 52%;
-            border-radius: inherit;
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.08));
-            pointer-events: none;
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            max-width: calc(100% - 28px);
+            animation: tabbarAppear 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
 
         .app-tab {
-            --tab-color: var(--tabbar-muted);
             border: 0;
             background: transparent;
             padding: 0;
             cursor: pointer;
-            color: var(--tab-color);
-            border-radius: 999px;
+            color: var(--tabbar-muted);
+            border-radius: 32px;
             text-decoration: none;
+            transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            position: relative;
         }
 
         .app-tab:focus-visible {
@@ -195,49 +184,41 @@
         }
 
         .app-tab-pill {
-            min-height: 56px;
-            display: grid;
-            grid-template-columns: 40px 0fr;
+            display: flex;
             align-items: center;
+            height: 48px;
+            padding: 0 12px;
+            border-radius: 32px;
             gap: 0;
-            padding: 8px;
-            border-radius: 999px;
-            transition:
-                grid-template-columns 0.36s cubic-bezier(0.2, 0.8, 0.2, 1),
-                padding 0.36s cubic-bezier(0.2, 0.8, 0.2, 1),
-                background 0.36s cubic-bezier(0.2, 0.8, 0.2, 1),
-                box-shadow 0.36s cubic-bezier(0.2, 0.8, 0.2, 1),
-                transform 0.36s cubic-bezier(0.2, 0.8, 0.2, 1),
-                color 0.36s cubic-bezier(0.2, 0.8, 0.2, 1);
+            max-width: 48px;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
 
-        .app-tab:hover .app-tab-pill {
-            background: rgba(17, 24, 39, 0.06);
-            transform: translateY(-1px);
+        .app-tab:not(.is-active):not(.active):hover .app-tab-pill {
+            background: rgba(0, 0, 0, 0.05);
         }
 
-        .app-tab.is-active .app-tab-pill {
-            grid-template-columns: 40px 1fr;
-            padding-right: 18px;
-            background: linear-gradient(180deg, var(--tabbar-active-1) 0%, var(--tabbar-active-2) 100%);
-            box-shadow:
-                0 12px 24px rgba(0, 0, 0, 0.16),
-                inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        .app-tab.is-active .app-tab-pill,
+        .app-tab.active .app-tab-pill {
+            background: rgba(23, 25, 30, 0.95);
             color: #ffffff;
-            transform: translateY(-1px);
+            max-width: 220px;
+            padding: 0 20px 0 14px;
+            gap: 10px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
         }
 
         .app-tab:focus-visible .app-tab-pill {
-            box-shadow:
-                0 0 0 4px rgba(232, 245, 66, 0.25),
-                0 12px 24px rgba(0, 0, 0, 0.12);
+            box-shadow: 0 0 0 4px rgba(232, 245, 66, 0.25);
         }
 
         .app-tab-icon {
-            width: 40px;
-            height: 40px;
-            display: grid;
-            place-items: center;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             flex: 0 0 auto;
         }
 
@@ -248,31 +229,46 @@
             stroke: currentColor;
         }
 
+        .app-tab.is-active .app-tab-icon,
+        .app-tab.active .app-tab-icon {
+            color: var(--tabbar-accent);
+        }
+
         .app-tab-avatar {
-            width: 36px;
-            height: 36px;
+            width: 28px;
+            height: 28px;
             border-radius: 50%;
             object-fit: cover;
             display: block;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+            border: 1.5px solid transparent;
+            transition: border-color 0.3s ease;
         }
 
         .app-tab-avatar-fallback {
-            width: 36px;
-            height: 36px;
+            width: 28px;
+            height: 28px;
             border-radius: 50%;
             background: #e8f542;
             color: #15171c;
-            font-size: 14px;
+            font-size: 12px;
             font-weight: 700;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+            border: 1.5px solid transparent;
+            transition: border-color 0.3s ease;
+        }
+
+        .app-tab.is-active .app-tab-avatar,
+        .app-tab.active .app-tab-avatar,
+        .app-tab.is-active .app-tab-avatar-fallback,
+        .app-tab.active .app-tab-avatar-fallback {
+            border-color: var(--tabbar-accent);
         }
 
         .app-tab-label-wrap {
             overflow: hidden;
+            min-width: 0;
         }
 
         .app-tab-label {
@@ -281,28 +277,90 @@
             align-items: center;
             gap: 10px;
             opacity: 0;
-            transform: translateX(-8px);
+            transform: translateX(-10px);
             color: inherit;
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 600;
-            letter-spacing: -0.01em;
-            transition:
-                opacity 0.24s ease,
-                transform 0.36s cubic-bezier(0.2, 0.8, 0.2, 1);
+            transition: all 0.3s ease;
         }
 
-        .app-tab.is-active .app-tab-label {
+        .app-tab.is-active .app-tab-label,
+        .app-tab.active .app-tab-label {
             opacity: 1;
             transform: translateX(0);
         }
 
         .app-tab-dot {
-            width: 7px;
-            height: 7px;
+            display: none;
+        }
+
+        .app-tabbar-loader {
+            position: fixed;
+            left: 50%;
+            bottom: 94px;
+            transform: translateX(-50%) translateY(8px);
+            opacity: 0;
+            pointer-events: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.75);
+            background: rgba(17, 25, 40, 0.84);
+            color: #eef2ff;
+            font-size: 12px;
+            line-height: 1;
+            letter-spacing: 0.02em;
+            transition: opacity 160ms ease, transform 160ms ease;
+            z-index: 76;
+        }
+
+        .app-tabbar-loader.htmx-request {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .app-tabbar-loader-dot {
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
             background: var(--tabbar-accent);
-            box-shadow: 0 0 12px rgba(232, 245, 66, 0.85);
-            flex: 0 0 auto;
+            box-shadow: 0 0 0 rgba(232, 245, 66, 0.65);
+            animation: tabbarPulse 1s ease-in-out infinite;
+        }
+
+        .app-tab-logout-form {
+            margin: 0;
+        }
+
+        .app-tab-button {
+            border: 0;
+            background: transparent;
+            padding: 0;
+            font: inherit;
+            color: inherit;
+        }
+
+        @keyframes tabbarAppear {
+            from {
+                transform: translateY(100px) scale(0.9);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes tabbarPulse {
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(232, 245, 66, 0.65);
+            }
+            50% {
+                box-shadow: 0 0 0 8px rgba(232, 245, 66, 0);
+            }
         }
 
         .global-notification-shell {
@@ -372,28 +430,28 @@
         }
 
         @media (max-width: 760px) {
-            .app-tabbar-wrap {
-                bottom: 14px;
-                width: calc(100% - 16px);
-            }
-
             .app-tabbar {
-                width: 100%;
+                width: calc(100% - 16px);
                 justify-content: space-between;
                 gap: 4px;
-                padding: 7px;
+                padding: 6px;
             }
 
             .app-tab-pill {
-                min-height: 54px;
+                height: 46px;
             }
 
-            .app-tab.is-active .app-tab-pill {
+            .app-tab.is-active .app-tab-pill,
+            .app-tab.active .app-tab-pill {
                 padding-right: 14px;
             }
 
             .app-tab-label {
                 font-size: 14px;
+            }
+
+            .app-tabbar-loader {
+                bottom: 80px;
             }
         }
     </style>
@@ -435,20 +493,268 @@
     {% endif %}
 
     <main{% if user.is_authenticated %} class="app-main-shell"{% else %} class="min-h-screen"{% endif %}>
-        {% if messages and not suppress_base_messages %}
-        <div class="max-w-5xl mx-auto mb-3 space-y-2">
-            {% for message in messages %}
-            <div class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">{{ message }}</div>
-            {% endfor %}
+        <div id="app-content">
+            {% if messages and not suppress_base_messages %}
+            <div class="max-w-5xl mx-auto mb-3 space-y-2">
+                {% for message in messages %}
+                <div class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% block content %}{% endblock %}
         </div>
-        {% endif %}
-        {% block content %}{% endblock %}
     </main>
 
+    {% if user.is_authenticated %}
+    <div id="tabbar-loading" class="app-tabbar-loader" aria-live="polite" aria-atomic="true">
+        <span class="app-tabbar-loader-dot" aria-hidden="true"></span>
+        <span>Loading</span>
+    </div>
+    {% endif %}
+
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     {% if user.is_authenticated %}
     <script>
         window.SUBLY_RUNTIME = window.SUBLY_RUNTIME || {};
         window.SUBLY_RUNTIME.notificationsWsEnabled = {{ notifications_ws_enabled|yesno:"true,false" }};
+    </script>
+    <script>
+        (function () {
+            function normalizePath(path) {
+                if (!path) {
+                    return '/';
+                }
+                return path.endsWith('/') ? path : path + '/';
+            }
+
+            function getActiveTabKey(urlString) {
+                var parsed;
+                try {
+                    parsed = new URL(urlString, window.location.origin);
+                } catch (error) {
+                    parsed = window.location;
+                }
+
+                var path = normalizePath(parsed.pathname || '/');
+                var sortValue = new URLSearchParams(parsed.search || '').get('sort');
+
+                if (path.startsWith('/accounts/settings/')) {
+                    return 'profile';
+                }
+                if (path.startsWith('/dashboard/')) {
+                    return 'dashboard';
+                }
+                if (path.startsWith('/subscriptions/cards/')) {
+                    return 'cards';
+                }
+                if (path.startsWith('/accounts/teams/')) {
+                    return 'teams';
+                }
+                if (path.startsWith('/subscriptions/') && sortValue === 'renewal_date') {
+                    return 'history';
+                }
+                if (path.startsWith('/subscriptions/')) {
+                    return 'subscriptions';
+                }
+                return '';
+            }
+
+            function syncTabbarActiveState() {
+                var activeKey = getActiveTabKey(window.location.href);
+                document.querySelectorAll('.app-tabbar .app-tab[data-tab-key]').forEach(function (tab) {
+                    var isActive = tab.dataset.tabKey === activeKey;
+                    tab.classList.toggle('is-active', isActive);
+                    tab.classList.toggle('active', isActive);
+                    if (isActive) {
+                        tab.setAttribute('aria-current', 'page');
+                    } else {
+                        tab.removeAttribute('aria-current');
+                    }
+                });
+            }
+
+            function dispatchContentLoaded() {
+                document.dispatchEvent(new CustomEvent('subly:content-loaded'));
+            }
+
+            function scriptForPath(path) {
+                var normalized = normalizePath(path);
+                if (normalized.startsWith('/dashboard/')) {
+                    return '{% static "dashboard/dashboard.js" %}?v=20260224-4';
+                }
+                if (normalized.startsWith('/subscriptions/cards/')) {
+                    return '{% static "subscriptions/cards.js" %}';
+                }
+                if (normalized.startsWith('/accounts/teams/')) {
+                    return '{% static "accounts/teams_module.js" %}?v=20260309-1';
+                }
+                return null;
+            }
+
+            function stylesForPath(path) {
+                var normalized = normalizePath(path);
+                if (normalized.startsWith('/accounts/teams/')) {
+                    return [
+                        'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
+                        '{% static "accounts/teams_module.css" %}?v=20260309-1'
+                    ];
+                }
+                return [];
+            }
+
+            function loadScriptOnce(src) {
+                return new Promise(function (resolve, reject) {
+                    if (!src) {
+                        resolve();
+                        return;
+                    }
+
+                    window.SUBLY_RUNTIME = window.SUBLY_RUNTIME || {};
+                    window.SUBLY_RUNTIME.loadedScripts = window.SUBLY_RUNTIME.loadedScripts || {};
+                    var loadedScripts = window.SUBLY_RUNTIME.loadedScripts;
+
+                    if (loadedScripts[src] === 'loaded') {
+                        resolve();
+                        return;
+                    }
+
+                    var existing = document.querySelector('script[src="' + src + '"]');
+                    if (existing) {
+                        loadedScripts[src] = 'loaded';
+                        resolve();
+                        return;
+                    }
+
+                    if (loadedScripts[src] && loadedScripts[src].node) {
+                        loadedScripts[src].node.addEventListener('load', resolve, { once: true });
+                        loadedScripts[src].node.addEventListener('error', reject, { once: true });
+                        return;
+                    }
+
+                    var script = document.createElement('script');
+                    script.src = src;
+                    script.async = false;
+                    script.onload = function () {
+                        loadedScripts[src] = 'loaded';
+                        resolve();
+                    };
+                    script.onerror = function () {
+                        loadedScripts[src] = 'error';
+                        reject(new Error('Failed to load script: ' + src));
+                    };
+
+                    loadedScripts[src] = { node: script };
+                    document.body.appendChild(script);
+                });
+            }
+
+            function loadStyleOnce(href) {
+                return new Promise(function (resolve, reject) {
+                    if (!href) {
+                        resolve();
+                        return;
+                    }
+
+                    window.SUBLY_RUNTIME = window.SUBLY_RUNTIME || {};
+                    window.SUBLY_RUNTIME.loadedStyles = window.SUBLY_RUNTIME.loadedStyles || {};
+                    var loadedStyles = window.SUBLY_RUNTIME.loadedStyles;
+
+                    if (loadedStyles[href] === 'loaded') {
+                        resolve();
+                        return;
+                    }
+
+                    var existing = document.querySelector('link[rel="stylesheet"][href="' + href + '"]');
+                    if (existing) {
+                        loadedStyles[href] = 'loaded';
+                        resolve();
+                        return;
+                    }
+
+                    if (loadedStyles[href] && loadedStyles[href].node) {
+                        loadedStyles[href].node.addEventListener('load', resolve, { once: true });
+                        loadedStyles[href].node.addEventListener('error', reject, { once: true });
+                        return;
+                    }
+
+                    var link = document.createElement('link');
+                    link.rel = 'stylesheet';
+                    link.href = href;
+                    link.onload = function () {
+                        loadedStyles[href] = 'loaded';
+                        resolve();
+                    };
+                    link.onerror = function () {
+                        loadedStyles[href] = 'error';
+                        reject(new Error('Failed to load stylesheet: ' + href));
+                    };
+
+                    loadedStyles[href] = { node: link };
+                    document.head.appendChild(link);
+                });
+            }
+
+            function prepareCurrentView() {
+                var stylePromises = stylesForPath(window.location.pathname).map(loadStyleOnce);
+                return Promise.all(stylePromises)
+                    .catch(function () {})
+                    .then(function () {
+                        return loadScriptOnce(scriptForPath(window.location.pathname));
+                    })
+                    .catch(function () {})
+                    .finally(function () {
+                        syncTabbarActiveState();
+                        dispatchContentLoaded();
+                    });
+            }
+
+            function init() {
+                var tabbar = document.querySelector('.app-tabbar');
+                if (!tabbar || !window.htmx) {
+                    dispatchContentLoaded();
+                    return;
+                }
+
+                tabbar.addEventListener('click', function (event) {
+                    var tab = event.target.closest('a.app-tab[data-tab-key]');
+                    if (!tab || tab.dataset.fullReload === 'true') {
+                        return;
+                    }
+                    tabbar.querySelectorAll('.app-tab[data-tab-key]').forEach(function (node) {
+                        node.classList.remove('is-active', 'active');
+                        node.removeAttribute('aria-current');
+                    });
+                    tab.classList.add('is-active', 'active');
+                    tab.setAttribute('aria-current', 'page');
+                });
+
+                document.body.addEventListener('htmx:beforeRequest', function (event) {
+                    if (!event.target.closest('.app-tabbar')) {
+                        return;
+                    }
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+
+                document.body.addEventListener('htmx:afterSwap', function (event) {
+                    if (!event.detail.target || event.detail.target.id !== 'app-content') {
+                        return;
+                    }
+                    prepareCurrentView();
+                });
+
+                document.body.addEventListener('htmx:historyRestore', function () {
+                    prepareCurrentView();
+                });
+
+                prepareCurrentView();
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', init);
+            } else {
+                init();
+            }
+        })();
     </script>
     <script src="{% static 'dashboard/notifications.js' %}?v=20260303-2"></script>
     {% endif %}

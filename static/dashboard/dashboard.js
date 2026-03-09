@@ -1,4 +1,10 @@
-document.addEventListener('DOMContentLoaded', function () {
+function initDashboardPage() {
+    const dashboardRoot = document.querySelector('.dashboard-shell');
+    if (!dashboardRoot || dashboardRoot.dataset.dashboardInit === '1') {
+        return;
+    }
+    dashboardRoot.dataset.dashboardInit = '1';
+
     document.querySelectorAll('.js-clickable-card').forEach(function (card) {
         card.addEventListener('click', function () {
             const url = this.getAttribute('data-url');
@@ -23,7 +29,19 @@ document.addEventListener('DOMContentLoaded', function () {
     initBalanceAdjuster();
     initActiveSubscriptionsScroller();
     initMinorOverflowGuard();
-});
+}
+
+function bootstrapDashboardPage() {
+    initDashboardPage();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootstrapDashboardPage);
+} else {
+    bootstrapDashboardPage();
+}
+
+document.addEventListener('subly:content-loaded', bootstrapDashboardPage);
 
 function getCookie(name) {
     if (!document.cookie) {

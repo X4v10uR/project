@@ -1,8 +1,24 @@
 {% if user.is_authenticated %}
 {% with ns=request.resolver_match.namespace name=request.resolver_match.url_name %}
 <div class="app-tabbar-wrap">
-    <nav class="app-tabbar" aria-label="Primary navigation">
-        <a href="{% url 'accounts:settings' %}" class="app-tab {% if ns == 'accounts' and name == 'settings' %}is-active{% endif %}">
+    <nav
+        class="app-tabbar"
+        aria-label="Primary navigation"
+        hx-boost="true"
+        hx-target="#app-content"
+        hx-select="#app-content"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+        hx-indicator="#tabbar-loading"
+    >
+        <a
+            href="{% url 'accounts:settings' %}"
+            class="app-tab {% if ns == 'accounts' and name == 'settings' %}is-active active{% endif %}"
+            data-tab-key="profile"
+            data-full-reload="true"
+            hx-boost="false"
+            {% if ns == 'accounts' and name == 'settings' %}aria-current="page"{% endif %}
+        >
             <span class="app-tab-pill">
                 <span class="app-tab-icon">
                     {% if request.user.profile_photo %}
@@ -26,14 +42,19 @@
                         {% if request.user.first_name %}
                             {{ request.user.first_name|truncatechars:12 }}
                         {% else %}
-                            Profile
+                            User
                         {% endif %}
                     </span>
                 </span>
             </span>
         </a>
 
-        <a href="{% url 'dashboard:home' %}" class="app-tab {% if ns == 'dashboard' %}is-active{% endif %}">
+        <a
+            href="{% url 'dashboard:home' %}"
+            class="app-tab {% if ns == 'dashboard' %}is-active active{% endif %}"
+            data-tab-key="dashboard"
+            {% if ns == 'dashboard' %}aria-current="page"{% endif %}
+        >
             <span class="app-tab-pill">
                 <span class="app-tab-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -44,12 +65,17 @@
                     </svg>
                 </span>
                 <span class="app-tab-label-wrap">
-                    <span class="app-tab-label"><span class="app-tab-dot"></span>Dashboard</span>
+                    <span class="app-tab-label">Dashboard</span>
                 </span>
             </span>
         </a>
 
-        <a href="{% url 'subscriptions:list' %}" class="app-tab {% if ns == 'subscriptions' and name|slice:':5' != 'card_' and request.GET.sort != 'renewal_date' %}is-active{% endif %}">
+        <a
+            href="{% url 'subscriptions:list' %}"
+            class="app-tab {% if ns == 'subscriptions' and name|slice:':5' != 'card_' and request.GET.sort != 'renewal_date' %}is-active active{% endif %}"
+            data-tab-key="subscriptions"
+            {% if ns == 'subscriptions' and name|slice:':5' != 'card_' and request.GET.sort != 'renewal_date' %}aria-current="page"{% endif %}
+        >
             <span class="app-tab-pill">
                 <span class="app-tab-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -59,12 +85,17 @@
                     </svg>
                 </span>
                 <span class="app-tab-label-wrap">
-                    <span class="app-tab-label"><span class="app-tab-dot"></span>Subscriptions</span>
+                    <span class="app-tab-label">Subscriptions</span>
                 </span>
             </span>
         </a>
 
-        <a href="{% url 'subscriptions:card_list' %}" class="app-tab {% if ns == 'subscriptions' and name|slice:':5' == 'card_' %}is-active{% endif %}">
+        <a
+            href="{% url 'subscriptions:card_list' %}"
+            class="app-tab {% if ns == 'subscriptions' and name|slice:':5' == 'card_' %}is-active active{% endif %}"
+            data-tab-key="cards"
+            {% if ns == 'subscriptions' and name|slice:':5' == 'card_' %}aria-current="page"{% endif %}
+        >
             <span class="app-tab-pill">
                 <span class="app-tab-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -74,12 +105,17 @@
                     </svg>
                 </span>
                 <span class="app-tab-label-wrap">
-                    <span class="app-tab-label"><span class="app-tab-dot"></span>Cards</span>
+                    <span class="app-tab-label">Cards</span>
                 </span>
             </span>
         </a>
 
-        <a href="{% url 'accounts:teams_overview' %}" class="app-tab {% if ns == 'accounts' and name == 'teams_overview' or ns == 'accounts' and name|slice:':5' == 'team_' %}is-active{% endif %}">
+        <a
+            href="{% url 'accounts:teams_overview' %}"
+            class="app-tab {% if ns == 'accounts' and name == 'teams_overview' or ns == 'accounts' and name|slice:':5' == 'team_' %}is-active active{% endif %}"
+            data-tab-key="teams"
+            {% if ns == 'accounts' and name == 'teams_overview' or ns == 'accounts' and name|slice:':5' == 'team_' %}aria-current="page"{% endif %}
+        >
             <span class="app-tab-pill">
                 <span class="app-tab-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -90,12 +126,17 @@
                     </svg>
                 </span>
                 <span class="app-tab-label-wrap">
-                    <span class="app-tab-label"><span class="app-tab-dot"></span>Teams</span>
+                    <span class="app-tab-label">Teams</span>
                 </span>
             </span>
         </a>
 
-        <a href="{% url 'subscriptions:list' %}?sort=renewal_date" class="app-tab {% if ns == 'subscriptions' and request.GET.sort == 'renewal_date' %}is-active{% endif %}">
+        <a
+            href="{% url 'subscriptions:list' %}?sort=renewal_date"
+            class="app-tab {% if ns == 'subscriptions' and request.GET.sort == 'renewal_date' %}is-active active{% endif %}"
+            data-tab-key="history"
+            {% if ns == 'subscriptions' and request.GET.sort == 'renewal_date' %}aria-current="page"{% endif %}
+        >
             <span class="app-tab-pill">
                 <span class="app-tab-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -105,10 +146,28 @@
                     </svg>
                 </span>
                 <span class="app-tab-label-wrap">
-                    <span class="app-tab-label"><span class="app-tab-dot"></span>History</span>
+                    <span class="app-tab-label">History</span>
                 </span>
             </span>
         </a>
+
+        <form action="{% url 'accounts:logout' %}" method="post" class="app-tab-logout-form">
+            {% csrf_token %}
+            <button type="submit" class="app-tab app-tab-button" aria-label="Log out">
+                <span class="app-tab-pill">
+                    <span class="app-tab-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M9 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9"></path>
+                            <path d="M15 12H3"></path>
+                            <path d="M7 8l-4 4 4 4"></path>
+                        </svg>
+                    </span>
+                    <span class="app-tab-label-wrap">
+                        <span class="app-tab-label">Logout</span>
+                    </span>
+                </span>
+            </button>
+        </form>
     </nav>
 </div>
 {% endwith %}

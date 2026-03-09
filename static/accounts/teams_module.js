@@ -209,12 +209,26 @@
         }
     }
 
-    document.addEventListener('DOMContentLoaded', function () {
+    function bootTeamsModule() {
+        var teamsShell = document.querySelector('.teams-shell');
+        if (!teamsShell || teamsShell.dataset.teamsModuleInit === '1') {
+            return;
+        }
+        teamsShell.dataset.teamsModuleInit = '1';
+
         initOverviewMode();
         initCreateCounter();
         initTeamFilters();
         initRevealPasswords();
         initToggleBox('delete-team-trigger', 'delete-team-confirm', 'delete-team-cancel');
         initToggleBox('leave-team-trigger', 'leave-team-confirm', 'leave-team-cancel');
-    });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootTeamsModule);
+    } else {
+        bootTeamsModule();
+    }
+
+    document.addEventListener('subly:content-loaded', bootTeamsModule);
 })();

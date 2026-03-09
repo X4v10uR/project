@@ -1124,5 +1124,23 @@ function applyInitialModalState() {
   }
 }
 
-applyInitialModalState();
-renderApp();
+function bootCardsPage() {
+  if (!document.getElementById('cards-app')) {
+    return;
+  }
+
+  state = parseBootstrapState();
+  deleteStep = 'warn';
+  moveToCardId = '';
+  modalErrors = {};
+  applyInitialModalState();
+  renderApp();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootCardsPage);
+} else {
+  bootCardsPage();
+}
+
+document.addEventListener('subly:content-loaded', bootCardsPage);

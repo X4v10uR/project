@@ -174,78 +174,7 @@
 </style>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const wrappers = document.querySelectorAll('.status-dropdown-wrapper');
-
-        // Close all dropdowns when clicking outside
-        document.addEventListener('click', function (e) {
-            if (!e.target.closest('.status-dropdown-wrapper')) {
-                document.querySelectorAll('.status-menu').forEach(menu => menu.classList.add('hidden'));
-            }
-        });
-
-        wrappers.forEach(wrapper => {
-            const btn = wrapper.querySelector('.status-btn');
-            const menu = wrapper.querySelector('.status-menu');
-            const options = wrapper.querySelectorAll('.status-option');
-            const subId = wrapper.dataset.subscriptionId;
-
-            // Toggle dropdown
-            btn.addEventListener('click', function (e) {
-                e.stopPropagation();
-                // Close other dropdowns
-                document.querySelectorAll('.status-menu').forEach(m => {
-                    if (m !== menu) m.classList.add('hidden');
-                });
-                menu.classList.toggle('hidden');
-            });
-
-            // Handle option selection
-            options.forEach(option => {
-                option.addEventListener('click', function (e) {
-                    e.stopPropagation();
-                    const newStatus = this.dataset.value;
-                    const currentStatus = btn.dataset.currentStatus;
-
-                    if (newStatus === currentStatus) {
-                        menu.classList.add('hidden');
-                        return;
-                    }
-
-                    // Update UI immediately (Text only)
-                    btn.querySelector('.status-text').textContent = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
-                    menu.classList.add('hidden');
-
-                    // Send AJAX
-                    fetch(`/subscriptions/${subId}/status/`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'X-CSRFToken': getCookie('csrftoken')
-                        },
-                        body: `status=${newStatus}`
-                    })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.status === 'success') {
-                                btn.dataset.currentStatus = newStatus;
-                                showToast('Status updated', 'success');
-                            } else {
-                                // Revert
-                                btn.querySelector('.status-text').textContent = currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1);
-                                showToast('Failed to update', 'error');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            btn.querySelector('.status-text').textContent = currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1);
-                            showToast('Failed to update', 'error');
-                        });
-                });
-            });
-        });
-
+    (function () {
         function getCookie(name) {
             let cookieValue = null;
             if (document.cookie && document.cookie !== '') {
@@ -261,22 +190,105 @@
             return cookieValue;
         }
 
-        function showToast(message, type) {
+        function showToast(message) {
             const toast = document.createElement('div');
-            // Minimal visible styles for functionality
             toast.style.position = 'fixed';
             toast.style.bottom = '10px';
             toast.style.right = '10px';
             toast.style.padding = '5px';
             toast.style.border = '1px solid black';
             toast.style.background = 'white';
-
             toast.textContent = message;
             document.body.appendChild(toast);
             setTimeout(() => {
                 toast.remove();
             }, 2000);
         }
-    });
+
+        function initStatusDropdowns() {
+            const wrappers = document.querySelectorAll('.status-dropdown-wrapper');
+            wrappers.forEach(wrapper => {
+                if (wrapper.dataset.dropdownInit === '1') {
+                    return;
+                }
+                wrapper.dataset.dropdownInit = '1';
+
+                const btn = wrapper.querySelector('.status-btn');
+                const menu = wrapper.querySelector('.status-menu');
+                const options = wrapper.querySelectorAll('.status-option');
+                const subId = wrapper.dataset.subscriptionId;
+
+                if (!btn || !menu || !subId) {
+                    return;
+                }
+
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    document.querySelectorAll('.status-menu').forEach(m => {
+                        if (m !== menu) {
+                            m.classList.add('hidden');
+                        }
+                    });
+                    menu.classList.toggle('hidden');
+                });
+
+                options.forEach(option => {
+                    option.addEventListener('click', function (e) {
+                        e.stopPropagation();
+                        const newStatus = this.dataset.value;
+                        const currentStatus = btn.dataset.currentStatus;
+
+                        if (newStatus === currentStatus) {
+                            menu.classList.add('hidden');
+                            return;
+                        }
+
+                        btn.querySelector('.status-text').textContent = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
+                        menu.classList.add('hidden');
+
+                        fetch(`/subscriptions/${subId}/status/`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'X-CSRFToken': getCookie('csrftoken')
+                            },
+                            body: `status=${newStatus}`
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.status === 'success') {
+                                    btn.dataset.currentStatus = newStatus;
+                                    showToast('Status updated');
+                                } else {
+                                    btn.querySelector('.status-text').textContent = currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1);
+                                    showToast('Failed to update');
+                                }
+                            })
+                            .catch(() => {
+                                btn.querySelector('.status-text').textContent = currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1);
+                                showToast('Failed to update');
+                            });
+                    });
+                });
+            });
+        }
+
+        if (!window.__sublyStatusDropdownDocClickBound) {
+            document.addEventListener('click', function (e) {
+                if (!e.target.closest('.status-dropdown-wrapper')) {
+                    document.querySelectorAll('.status-menu').forEach(menu => menu.classList.add('hidden'));
+                }
+            });
+            window.__sublyStatusDropdownDocClickBound = true;
+        }
+
+        if (!window.__sublyStatusDropdownEventBound) {
+            document.addEventListener('subly:content-loaded', initStatusDropdowns);
+            window.__sublyStatusDropdownEventBound = true;
+        }
+
+        initStatusDropdowns();
+    })();
 </script>
 {% endblock %}
