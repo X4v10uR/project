@@ -5,6 +5,34 @@
 
 {% block extra_css %}
 <style>
+    .dashboard-shell,
+    .dashboard-shell button,
+    .dashboard-shell input,
+    .dashboard-shell select,
+    .dashboard-shell textarea {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", sans-serif;
+        font-weight: 400;
+        font-style: normal;
+    }
+
+    .dashboard-font-regular {
+        font-weight: 400;
+        font-style: normal;
+    }
+
+    .dashboard-font-bold {
+        font-weight: 700;
+    }
+
+    .dashboard-font-black {
+        font-weight: 900;
+    }
+
+    .dashboard-font-italic {
+        font-weight: 400;
+        font-style: italic;
+    }
+
     .balance-card {
         background: linear-gradient(135deg, #2d2d2d, #1a1a1a);
     }
@@ -481,10 +509,10 @@
                 <div class="dashboard-avatar">
                     <span class="text-sm text-gray-600 font-medium">{{ avatar_initial }}</span>
                 </div>
-                <h1 class="dashboard-title font-semibold">Hello, {{ greeting_name }} {{request.user.email}} {{request.user.first_name}}!</h1>
+                <h1 class="dashboard-title dashboard-font-black">Hello, {{ greeting_name }} {{request.user.email}} {{request.user.first_name}}!</h1>
             </div>
             <form method="get" class="flex items-center gap-2">
-                <label for="dashboard-scope" class="text-xs text-slate-600">Scope</label>
+                <label for="dashboard-scope" class="text-xs text-slate-600 dashboard-font-regular">Scope</label>
                 <select id="dashboard-scope" name="scope" class="text-sm border border-slate-300 rounded-lg px-2 py-1" onchange="this.form.submit()">
                     <option value="personal" {% if dashboard_scope != 'teams' %}selected{% endif %}>Personal</option>
                     <option value="teams" {% if dashboard_scope == 'teams' %}selected{% endif %}>Teams</option>
@@ -503,7 +531,7 @@
                     <div class="flex flex-wrap justify-between items-start gap-2 mb-3">
                         <div>
                             <p class="text-gray-400 text-xs mb-1.5">Your balance</p>
-                            <h2 class="text-3xl font-semibold js-balance-display">{{ balance_display }}</h2>
+                            <h2 class="text-3xl js-balance-display dashboard-font-black">{{ balance_display }}</h2>
                             <div class="balance-adjust-meta">
                                 <span class="balance-adjust-pill js-balance-base-pill">Base {{ balance_base_display }}</span>
                                 <span class="balance-adjust-pill js-balance-adjustment-pill">Adj {{ balance_adjustment_display }}</span>
@@ -565,8 +593,8 @@
                 <!-- Upcoming Bills -->
                 <div>
                     <div class="dashboard-section-header mb-3">
-                        <h3 class="dashboard-section-title font-semibold">Upcoming Bill</h3>
-                        <a href="{{ upcoming_view_all_url }}" class="dashboard-view-all-link">View All</a>
+                        <h3 class="dashboard-section-title dashboard-font-bold">Upcoming Bill</h3>
+                        <a href="{{ upcoming_view_all_url }}" class="dashboard-view-all-link dashboard-font-bold">View All</a>
                     </div>
 
                     <div class="dashboard-upcoming-grid">
@@ -586,7 +614,7 @@
                                 </div>
                             </div>
                             <div>
-                                <p class="text-lg font-semibold text-gray-800">{{ bill.amount }}</p>
+                                <p class="text-lg text-gray-800 dashboard-font-black">{{ bill.amount }}</p>
                                 <p class="text-sm text-gray-600 mb-1">{{ bill.days_left_text }}</p>
                                 <p class="text-sm font-medium text-gray-800">{{ bill.service_name }}</p>
                             </div>
@@ -599,10 +627,10 @@
                 <div>
                     <div class="dashboard-section-header mb-3">
                         <div>
-                            <h3 class="dashboard-section-title font-semibold">Subscriptions</h3>
-                            <p class="dashboard-section-copy text-sm">Subscribe multiple platforms only in one place.</p>
+                            <h3 class="dashboard-section-title dashboard-font-bold">Subscriptions</h3>
+                            <p class="dashboard-section-copy text-sm dashboard-font-italic">Subscribe multiple platforms only in one place.</p>
                         </div>
-                        <a href="{{ subscriptions_view_all_url }}" class="dashboard-view-all-link">View All</a>
+                        <a href="{{ subscriptions_view_all_url }}" class="dashboard-view-all-link dashboard-font-bold">View All</a>
                     </div>
 
                     <div class="space-y-2.5">
@@ -642,7 +670,7 @@
 
                 <!-- Active Subscriptions -->
                 <div class="dashboard-panel-card">
-                    <h3 class="dashboard-panel-title font-semibold mb-3">Active Subscriptions</h3>
+                    <h3 class="dashboard-panel-title dashboard-font-black mb-3">Active Subscriptions</h3>
 
                     <div class="active-subscriptions-viewport js-active-subscriptions-viewport" data-visible-cards="2" data-scroll-interval="1">
                         <div class="active-subscriptions-track js-active-subscriptions-track">
@@ -672,7 +700,7 @@
                                     </a>
                                     {% endif %}
                                 </div>
-                                <p class="text-lg font-semibold text-gray-800 mb-1">{{ active.amount }}</p>
+                                <p class="text-lg text-gray-800 mb-1 dashboard-font-black">{{ active.amount }}</p>
                                 <div class="text-xs text-gray-600 space-y-1">
                                     <p>{{ active.payment_info }}</p>
                                     <p>{{ active.plan_details }}</p>
@@ -685,7 +713,7 @@
 
                 <!-- Recent Transactions -->
                 <div class="dashboard-panel-card">
-                    <h3 class="dashboard-panel-title font-semibold mb-3">Recent Transactions</h3>
+                    <h3 class="dashboard-panel-title dashboard-font-black mb-3">Recent Transactions</h3>
 
                     <div class="space-y-2.5">
                         {% for txn in recent_transactions %}
@@ -699,7 +727,7 @@
                                     <p class="text-xs text-gray-500">{{ txn.timestamp }}</p>
                                 </div>
                             </div>
-                            <p class="font-medium text-gray-800">{{ txn.amount }}</p>
+                            <p class="text-gray-800 dashboard-font-bold">{{ txn.amount }}</p>
                         </div>
                         {% endfor %}
                     </div>
