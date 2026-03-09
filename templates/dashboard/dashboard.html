@@ -761,7 +761,11 @@
                             </span>
                         </button>
                     </div>
-                    <div class="balance-adjust-editor hidden js-balance-adjust-editor" data-url="{% url 'dashboard:adjust_balance' %}">
+                    <div
+                        class="balance-adjust-editor hidden js-balance-adjust-editor"
+                        data-url="{% url 'dashboard:adjust_balance' %}"
+                        data-scope="{{ dashboard_scope }}"
+                    >
                         <label for="balance-adjust-input" class="text-[11px] text-gray-300 block mb-1.5">Set displayed balance (USD)</label>
                         <div class="flex flex-wrap items-center gap-2">
                             <input id="balance-adjust-input" type="number" step="0.01" class="balance-adjust-input js-balance-adjust-input" value="{{ balance_adjusted_amount }}">
@@ -772,7 +776,13 @@
                     </div>
                     <div id="balance-trend-panel" class="balance-trend-panel js-balance-trend-panel">
                         <div class="balance-trend-graph-wrap">
-                            <svg class="balance-trend-graph js-balance-trend-graph" viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true"></svg>
+                            <svg
+                                class="balance-trend-graph js-balance-trend-graph"
+                                data-currency="{{ balance_trend_currency }}"
+                                viewBox="0 0 100 32"
+                                preserveAspectRatio="none"
+                                aria-hidden="true"
+                            ></svg>
                         </div>
                         <div class="flex items-center justify-between mt-1.5 text-[10px] text-gray-400">
                             <span>{{ balance_trend_start_label }}</span>
@@ -781,11 +791,11 @@
                         </div>
                         <div class="balance-trend-metrics">
                             <div class="balance-trend-metric">
-                                <span class="balance-trend-metric-label">30D Total</span>
+                                <span class="balance-trend-metric-label">30D Total ({{ balance_trend_currency }})</span>
                                 <span class="balance-trend-metric-value js-balance-trend-total">--</span>
                             </div>
                             <div class="balance-trend-metric">
-                                <span class="balance-trend-metric-label">Peak Day</span>
+                                <span class="balance-trend-metric-label">Peak Day ({{ balance_trend_currency }})</span>
                                 <span class="balance-trend-metric-value js-balance-trend-peak">--</span>
                             </div>
                             <div class="balance-trend-metric">
@@ -793,6 +803,9 @@
                                 <span class="balance-trend-metric-value js-balance-trend-active">--</span>
                             </div>
                         </div>
+                        {% if balance_trend_has_multiple_currencies and balance_trend_note %}
+                        <p class="text-[10px] text-gray-400 mt-1">{{ balance_trend_note }}</p>
+                        {% endif %}
                         {% if not balance_trend_has_activity %}
                         <p class="text-[10px] text-gray-400 mt-1">No charges recorded in the last 30 days.</p>
                         {% endif %}

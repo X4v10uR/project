@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, Client
 from django.urls import reverse
 
+from accounts.models import Team, TeamMembership
 from dashboard.services import _days_left_text
 from subscriptions.models import InAppNotification, Subscription
 from dashboard.models import BalanceAdjustment
@@ -300,6 +301,153 @@ class DashboardViewTest(TestCase):
         colors = [item['bg_style'] for item in visible_items]
 
         self.assertEqual(len(colors), len(set(colors)))
+
+    def test_dashboard_teams_scope_uses_team_membership_subscriptions(self):
+        teammate = User.objects.create_user(email='teammate@example.com', password='password')
+        team = Team.objects.create(name='Ops Team', created_by=teammate)
+        TeamMembership.objects.create(team=team, user=teammate, role=TeamMembership.ROLE_OWNER)
+        TeamMembership.objects.create(team=team, user=self.user, role=TeamMembership.ROLE_MEMBER)
+
+        Subscription.objects.create(
+            user=self.user,
+            service_name='Personal Service',
+            category='Software',
+            billing_cycle='monthly',
+            cost=Decimal('12.00'),
+            currency='USD',
+            start_date=date.today(),
+            status='active',
+        )
+        Subscription.objects.create(
+            user=teammate,
+            team=team,
+            service_name='Team Service',
+            category='Software',
+            billing_cycle='monthly',
+            cost=Decimal('40.00'),
+            currency='USD',
+            start_date=date.today(),
+            status='active',
+        )
+
+        response = self.client.get(reverse('dashboard:home'), {'scope': 'teams'})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['dashboard_scope'], 'teams')
+        self.assertEqual(response.context['total_active'], 1)
+        self.assertEqual(response.context['monthly_spend'], Decimal('40.00'))
+        self.assertEqual(response.context['upcoming_view_all_url'], reverse('accounts:teams_overview'))
+
+    def test_balance_trend_uses_single_currency_when_multiple_present(self):
+        usd_subscription = Subscription.objects.create(
+            user=self.user,
+            service_name='USD Currency Test',
+            category='Software',
+            billing_cycle='monthly',
+            cost=Decimal('10.00'),
+            start_date=date.today(),
+            status='active',
+        )
+        eur_subscription = Subscription.objects.create(
+            user=self.user,
+            service_name='EUR Currency Test',
+            category='Software',
+            billing_cycle='monthly',
+            cost=Decimal('30.00'),
+            start_date=date.today(),
+            status='active',
+        )
+        transaction_date = date.today() - timedelta(days=2)
+
+        usd_subscription.transactions.create(
+            user=self.user,
+            service_name_snapshot='USD Currency Test',
+            amount=Decimal('10.00'),
+            currency='USD',
+            charged_for_date=transaction_date,
+        )
+        eur_subscription.transactions.create(
+            user=self.user,
+            service_name_snapshot='EUR Currency Test',
+            amount=Decimal('30.00'),
+            currency='EUR',
+            charged_for_date=transaction_date,
+        )
+
+        response = self.client.get(reverse('dashboard:home'))
+        points = response.context['balance_trend_points']
+
+        self.assertEqual(response.context['balance_trend_currency'], 'USD')
+        self.assertTrue(response.context['balance_trend_has_multiple_currencies'])
+        self.assertAlmostEqual(points[-3], 10.00, places=2)
+
+    def test_balance_trend_picks_non_usd_currency_when_only_one_exists(self):
+        subscription = Subscription.objects.create(
+            user=self.user,
+            service_name='Euro Service',
+            category='Software',
+            billing_cycle='monthly',
+            cost=Decimal('7.00'),
+            start_date=date.today(),
+            status='active',
+        )
+        transaction_date = date.today() - timedelta(days=1)
+        subscription.transactions.create(
+            user=self.user,
+            service_name_snapshot='Euro Service',
+            amount=Decimal('7.00'),
+            currency='EUR',
+            charged_for_date=transaction_date,
+        )
+
+        response = self.client.get(reverse('dashboard:home'))
+        points = response.context['balance_trend_points']
+
+        self.assertEqual(response.context['balance_trend_currency'], 'EUR')
+        self.assertFalse(response.context['balance_trend_has_multiple_currencies'])
+        self.assertAlmostEqual(points[-2], 7.00, places=2)
+
+    def test_adjust_balance_respects_scope_for_base_calculation(self):
+        teammate = User.objects.create_user(email='owner@example.com', password='password')
+        team = Team.objects.create(name='Finance Team', created_by=teammate)
+        TeamMembership.objects.create(team=team, user=teammate, role=TeamMembership.ROLE_OWNER)
+        TeamMembership.objects.create(team=team, user=self.user, role=TeamMembership.ROLE_MEMBER)
+
+        Subscription.objects.create(
+            user=self.user,
+            service_name='Personal Budget',
+            category='Finance',
+            billing_cycle='monthly',
+            cost=Decimal('20.00'),
+            currency='USD',
+            start_date=date.today(),
+            status='active',
+        )
+        Subscription.objects.create(
+            user=teammate,
+            team=team,
+            service_name='Team Budget',
+            category='Finance',
+            billing_cycle='monthly',
+            cost=Decimal('80.00'),
+            currency='USD',
+            start_date=date.today(),
+            status='active',
+        )
+
+        response = self.client.post(
+            reverse('dashboard:adjust_balance'),
+            data=json.dumps({'target_balance': '100.00', 'scope': 'teams'}),
+            content_type='application/json',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload['ok'])
+        self.assertEqual(payload['dashboard_scope'], 'teams')
+        self.assertEqual(payload['balance_base_display'], '$80.00')
+        self.assertEqual(payload['balance_adjustment_display'], '+$20.00')
 
 
 class LandingPageTest(TestCase):

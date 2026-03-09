@@ -363,4 +363,4 @@ class CardsPageSmokeTest(TestCase):
 
     def test_sidebar_contains_cards_link(self):
         response = self.client.get(reverse("subscriptions:card_list"))
-        self.assertContains(response, ">Cards Dashboard<", html=False)
+        self.assertContains(response, ">Cards<", html=False)

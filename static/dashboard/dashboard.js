@@ -1,47 +1,107 @@
+const dashboardRuntimeState = {
+    root: null,
+    cleanup: null,
+};
+
+function teardownDashboardPage() {
+    if (typeof dashboardRuntimeState.cleanup === 'function') {
+        dashboardRuntimeState.cleanup();
+    }
+    if (dashboardRuntimeState.root && dashboardRuntimeState.root.dataset) {
+        delete dashboardRuntimeState.root.dataset.dashboardInit;
+    }
+    dashboardRuntimeState.root = null;
+    dashboardRuntimeState.cleanup = null;
+}
+
 function initDashboardPage() {
-    const dashboardRoot = document.querySelector('.dashboard-shell');
-    if (!dashboardRoot || dashboardRoot.dataset.dashboardInit === '1') {
+    if (typeof document === 'undefined') {
         return;
     }
-    dashboardRoot.dataset.dashboardInit = '1';
 
-    document.querySelectorAll('.js-clickable-card').forEach(function (card) {
-        card.addEventListener('click', function () {
+    const dashboardRoot = document.querySelector('.dashboard-shell');
+    if (!dashboardRoot) {
+        teardownDashboardPage();
+        return;
+    }
+
+    if (dashboardRuntimeState.root === dashboardRoot && dashboardRoot.dataset.dashboardInit === '1') {
+        return;
+    }
+
+    teardownDashboardPage();
+
+    dashboardRoot.dataset.dashboardInit = '1';
+    dashboardRuntimeState.root = dashboardRoot;
+
+    const cleanupCallbacks = [];
+    const registerCleanup = function (cleanupFn) {
+        if (typeof cleanupFn === 'function') {
+            cleanupCallbacks.push(cleanupFn);
+        }
+    };
+
+    const listen = function (target, eventName, handler, options) {
+        if (!target || typeof target.addEventListener !== 'function') {
+            return;
+        }
+        target.addEventListener(eventName, handler, options);
+        registerCleanup(function () {
+            target.removeEventListener(eventName, handler, options);
+        });
+    };
+
+    dashboardRoot.querySelectorAll('.js-clickable-card').forEach(function (card) {
+        const onClick = function () {
             const url = this.getAttribute('data-url');
             if (url) {
                 window.location.href = url;
             }
-        });
+        };
+        listen(card, 'click', onClick);
     });
 
-    document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
-        anchor.addEventListener('click', function (event) {
+    dashboardRoot.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
+        const onClick = function (event) {
             event.preventDefault();
             const target = document.querySelector(this.getAttribute('href'));
             if (target) {
                 target.scrollIntoView({ behavior: 'smooth' });
             }
-        });
+        };
+        listen(anchor, 'click', onClick);
     });
 
     initBalanceTrendChart();
-    initBalanceTrendToggle();
-    initBalanceAdjuster();
-    initActiveSubscriptionsScroller();
-    initMinorOverflowGuard();
+    registerCleanup(initBalanceTrendToggle());
+    registerCleanup(initBalanceAdjuster());
+    registerCleanup(initActiveSubscriptionsScroller());
+    registerCleanup(initDashboardOverflowGuard(dashboardRoot));
+
+    dashboardRuntimeState.cleanup = function () {
+        for (let index = cleanupCallbacks.length - 1; index >= 0; index -= 1) {
+            try {
+                cleanupCallbacks[index]();
+            } catch (error) {
+                // Ignore cleanup errors so other disposers still run.
+            }
+        }
+    };
 }
 
 function bootstrapDashboardPage() {
     initDashboardPage();
 }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bootstrapDashboardPage);
-} else {
-    bootstrapDashboardPage();
-}
+if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootstrapDashboardPage);
+    } else {
+        bootstrapDashboardPage();
+    }
 
-document.addEventListener('subly:content-loaded', bootstrapDashboardPage);
+    document.addEventListener('subly:content-loaded', bootstrapDashboardPage);
+}
 
 function getCookie(name) {
     if (!document.cookie) {
@@ -58,6 +118,14 @@ function getCookie(name) {
     return null;
 }
 
+function normalizeCurrencyCode(currencyCode) {
+    if (typeof currencyCode !== 'string') {
+        return 'USD';
+    }
+    const normalized = currencyCode.trim().toUpperCase();
+    return normalized || 'USD';
+}
+
 function initBalanceTrendChart() {
     const chart = document.querySelector('.js-balance-trend-graph');
     const dataNode = document.getElementById('balance-trend-points');
@@ -65,6 +133,7 @@ function initBalanceTrendChart() {
         return;
     }
 
+    const currencyCode = normalizeCurrencyCode(chart.dataset.currency);
     let points = [];
     try {
         const parsed = JSON.parse(dataNode.textContent || '[]');
@@ -80,7 +149,7 @@ function initBalanceTrendChart() {
     }
 
     if (!points.length) {
-        updateBalanceTrendMetrics([]);
+        updateBalanceTrendMetrics([], currencyCode);
         return;
     }
 
@@ -88,7 +157,7 @@ function initBalanceTrendChart() {
         points = [points[0], points[0]];
     }
 
-    updateBalanceTrendMetrics(points);
+    updateBalanceTrendMetrics(points, currencyCode);
 
     // Light smoothing to avoid harsh spikes and keep a trading-chart feel.
     const smoothedPoints = points.map(function (point, index) {
@@ -149,7 +218,7 @@ function initBalanceTrendChart() {
     chart.appendChild(line);
 }
 
-function updateBalanceTrendMetrics(points) {
+function updateBalanceTrendMetrics(points, currencyCode) {
     const totalNode = document.querySelector('.js-balance-trend-total');
     const peakNode = document.querySelector('.js-balance-trend-peak');
     const activeNode = document.querySelector('.js-balance-trend-active');
@@ -157,9 +226,11 @@ function updateBalanceTrendMetrics(points) {
         return;
     }
 
+    const normalizedCurrency = normalizeCurrencyCode(currencyCode);
+
     if (!points.length) {
-        totalNode.textContent = '$0.00';
-        peakNode.textContent = '$0.00';
+        totalNode.textContent = formatTrendAmount(0, normalizedCurrency);
+        peakNode.textContent = formatTrendAmount(0, normalizedCurrency);
         activeNode.textContent = '0/0';
         return;
     }
@@ -168,27 +239,39 @@ function updateBalanceTrendMetrics(points) {
     const peak = Math.max.apply(null, points);
     const activeDays = points.filter(function (value) { return value > 0; }).length;
 
-    totalNode.textContent = formatTrendAmount(total);
-    peakNode.textContent = formatTrendAmount(peak);
+    totalNode.textContent = formatTrendAmount(total, normalizedCurrency);
+    peakNode.textContent = formatTrendAmount(peak, normalizedCurrency);
     activeNode.textContent = String(activeDays) + '/' + String(points.length);
 }
 
-function formatTrendAmount(value) {
+function formatTrendAmount(value, currencyCode) {
     if (typeof value !== 'number' || !isFinite(value)) {
-        return '$0.00';
+        value = 0;
     }
 
-    if (Math.abs(value) >= 1000) {
-        return '$' + value.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    const normalizedCurrency = normalizeCurrencyCode(currencyCode);
+    const useCompactPrecision = Math.abs(value) >= 1000;
+
+    try {
+        return new Intl.NumberFormat(undefined, {
+            style: 'currency',
+            currency: normalizedCurrency,
+            minimumFractionDigits: useCompactPrecision ? 0 : 2,
+            maximumFractionDigits: useCompactPrecision ? 0 : 2,
+        }).format(value);
+    } catch (error) {
+        const fixed = useCompactPrecision
+            ? value.toLocaleString(undefined, { maximumFractionDigits: 0 })
+            : value.toFixed(2);
+        return normalizedCurrency + ' ' + fixed;
     }
-    return '$' + value.toFixed(2);
 }
 
 function initBalanceTrendToggle() {
     const toggle = document.querySelector('.js-balance-trend-toggle');
     const panel = document.querySelector('.js-balance-trend-panel');
     if (!toggle || !panel) {
-        return;
+        return null;
     }
 
     const storageKey = 'dashboard.balanceTrendCollapsed';
@@ -210,9 +293,7 @@ function initBalanceTrendToggle() {
         toggle.title = isCollapsed ? 'Expand chart' : 'Collapse chart';
     };
 
-    applyState();
-
-    toggle.addEventListener('click', function () {
+    const onClick = function () {
         isCollapsed = !isCollapsed;
         applyState();
         try {
@@ -220,13 +301,20 @@ function initBalanceTrendToggle() {
         } catch (error) {
             // Ignore storage write errors (private mode / blocked storage).
         }
-    });
+    };
+
+    applyState();
+    toggle.addEventListener('click', onClick);
+
+    return function cleanupBalanceTrendToggle() {
+        toggle.removeEventListener('click', onClick);
+    };
 }
 
 function initBalanceAdjuster() {
     const editor = document.querySelector('.js-balance-adjust-editor');
     if (!editor) {
-        return;
+        return null;
     }
 
     const openButton = document.querySelector('.js-balance-edit-open');
@@ -236,8 +324,17 @@ function initBalanceAdjuster() {
     const status = editor.querySelector('.js-balance-adjust-status');
     const updateUrl = editor.dataset.url;
     if (!openButton || !cancelButton || !saveButton || !input || !updateUrl) {
-        return;
+        return null;
     }
+
+    let hideTimeoutId = null;
+
+    const clearHideTimeout = function () {
+        if (hideTimeoutId !== null) {
+            window.clearTimeout(hideTimeoutId);
+            hideTimeoutId = null;
+        }
+    };
 
     const showEditor = function () {
         editor.classList.remove('hidden');
@@ -246,21 +343,25 @@ function initBalanceAdjuster() {
     };
 
     const hideEditor = function () {
+        clearHideTimeout();
         editor.classList.add('hidden');
         if (status) {
             status.textContent = '';
         }
     };
 
-    openButton.addEventListener('click', function () {
-        if (editor.classList.contains('hidden')) {
-            showEditor();
-            return;
+    const resolveScope = function () {
+        const editorScope = normalizeDashboardScope(editor.dataset.scope);
+        if (editorScope) {
+            return editorScope;
         }
-        hideEditor();
-    });
 
-    cancelButton.addEventListener('click', hideEditor);
+        const scopeSelect = document.getElementById('dashboard-scope');
+        if (!scopeSelect) {
+            return 'personal';
+        }
+        return normalizeDashboardScope(scopeSelect.value) || 'personal';
+    };
 
     const applyBalanceSnapshot = function (payload) {
         const balanceNode = document.querySelector('.js-balance-display');
@@ -277,6 +378,9 @@ function initBalanceAdjuster() {
         }
         if (typeof payload.balance_adjusted_amount === 'number') {
             input.value = payload.balance_adjusted_amount.toFixed(2);
+        }
+        if (payload.dashboard_scope) {
+            editor.dataset.scope = payload.dashboard_scope;
         }
     };
 
@@ -302,7 +406,10 @@ function initBalanceAdjuster() {
                 'X-Requested-With': 'XMLHttpRequest',
                 'X-CSRFToken': getCookie('csrftoken') || '',
             },
-            body: JSON.stringify({ target_balance: value }),
+            body: JSON.stringify({
+                target_balance: value,
+                scope: resolveScope(),
+            }),
         })
             .then(function (response) {
                 return response.json().catch(function () { return {}; }).then(function (data) {
@@ -319,7 +426,8 @@ function initBalanceAdjuster() {
                 if (status) {
                     status.textContent = 'Balance updated.';
                 }
-                window.setTimeout(function () {
+                clearHideTimeout();
+                hideTimeoutId = window.setTimeout(function () {
                     hideEditor();
                 }, 350);
             })
@@ -334,8 +442,23 @@ function initBalanceAdjuster() {
             });
     };
 
-    saveButton.addEventListener('click', submitUpdate);
-    input.addEventListener('keydown', function (event) {
+    const onOpenClick = function () {
+        if (editor.classList.contains('hidden')) {
+            showEditor();
+            return;
+        }
+        hideEditor();
+    };
+
+    const onCancelClick = function () {
+        hideEditor();
+    };
+
+    const onSaveClick = function () {
+        submitUpdate();
+    };
+
+    const onInputKeydown = function (event) {
         if (event.key === 'Enter') {
             event.preventDefault();
             submitUpdate();
@@ -343,7 +466,28 @@ function initBalanceAdjuster() {
             event.preventDefault();
             hideEditor();
         }
-    });
+    };
+
+    openButton.addEventListener('click', onOpenClick);
+    cancelButton.addEventListener('click', onCancelClick);
+    saveButton.addEventListener('click', onSaveClick);
+    input.addEventListener('keydown', onInputKeydown);
+
+    return function cleanupBalanceAdjuster() {
+        clearHideTimeout();
+        openButton.removeEventListener('click', onOpenClick);
+        cancelButton.removeEventListener('click', onCancelClick);
+        saveButton.removeEventListener('click', onSaveClick);
+        input.removeEventListener('keydown', onInputKeydown);
+    };
+}
+
+function normalizeDashboardScope(scopeValue) {
+    const value = String(scopeValue || '').toLowerCase();
+    if (value === 'teams' || value === 'personal') {
+        return value;
+    }
+    return '';
 }
 
 function buildSmoothPath(points) {
@@ -376,17 +520,28 @@ function buildSmoothPath(points) {
 function initActiveSubscriptionsScroller() {
     const viewport = document.querySelector('.js-active-subscriptions-viewport');
     if (!viewport) {
-        return;
+        return null;
     }
 
     const track = viewport.querySelector('.js-active-subscriptions-track');
     if (!track) {
-        return;
+        return null;
     }
 
     const visibleCards = Math.max(1, parseInt(viewport.dataset.visibleCards || '2', 10));
     const scrollIntervalMs = Math.max(3000, parseInt(viewport.dataset.scrollInterval || '7000', 10));
     const animationDurationMs = 450;
+
+    const listeners = [];
+    const listen = function (target, eventName, handler, options) {
+        if (!target || typeof target.addEventListener !== 'function') {
+            return;
+        }
+        target.addEventListener(eventName, handler, options);
+        listeners.push(function () {
+            target.removeEventListener(eventName, handler, options);
+        });
+    };
 
     const getCards = function () {
         return Array.from(track.children);
@@ -414,14 +569,22 @@ function initActiveSubscriptionsScroller() {
     const cards = getCards();
     if (cards.length <= 1 || prefersReducedMotion) {
         setViewportHeight();
-        return;
+        return null;
     }
 
     let isAnimating = false;
     let intervalId = null;
+    let rotationTimeoutId = null;
+
+    const clearRotationTimeout = function () {
+        if (rotationTimeoutId !== null) {
+            window.clearTimeout(rotationTimeoutId);
+            rotationTimeoutId = null;
+        }
+    };
 
     const rotateOnce = function () {
-        if (isAnimating || document.hidden) {
+        if (isAnimating || (typeof document !== 'undefined' && document.hidden)) {
             return;
         }
 
@@ -450,7 +613,8 @@ function initActiveSubscriptionsScroller() {
         track.style.transition = 'transform ' + animationDurationMs + 'ms ease';
         track.style.transform = 'translateY(-' + distance + 'px)';
 
-        window.setTimeout(function () {
+        clearRotationTimeout();
+        rotationTimeoutId = window.setTimeout(function () {
             if (needsCloneForLoop) {
                 track.removeChild(firstCard);
             } else {
@@ -480,56 +644,74 @@ function initActiveSubscriptionsScroller() {
         intervalId = null;
     };
 
-    setViewportHeight();
-    start();
-
-    viewport.addEventListener('mouseenter', stop);
-    viewport.addEventListener('mouseleave', start);
-    viewport.addEventListener('focusin', stop);
-    viewport.addEventListener('focusout', function (event) {
+    const onFocusOut = function (event) {
         if (viewport.contains(event.relatedTarget)) {
             return;
         }
         start();
-    });
+    };
 
-    document.addEventListener('visibilitychange', function () {
+    const onVisibilityChange = function () {
         if (document.hidden) {
             stop();
             return;
         }
         start();
-    });
+    };
 
-    window.addEventListener('resize', setViewportHeight);
+    setViewportHeight();
+    start();
+
+    listen(viewport, 'mouseenter', stop);
+    listen(viewport, 'mouseleave', start);
+    listen(viewport, 'focusin', stop);
+    listen(viewport, 'focusout', onFocusOut);
+    listen(document, 'visibilitychange', onVisibilityChange);
+    listen(window, 'resize', setViewportHeight);
+
+    return function cleanupActiveSubscriptionsScroller() {
+        stop();
+        clearRotationTimeout();
+        track.classList.remove('is-animating');
+        track.style.transition = 'none';
+        track.style.transform = 'translateY(0)';
+        listeners.forEach(function (removeListener) {
+            removeListener();
+        });
+    };
 }
 
-function initMinorOverflowGuard() {
+function initDashboardOverflowGuard(rootElement) {
+    if (typeof window === 'undefined') {
+        return null;
+    }
+
+    const targetRoot = rootElement || (typeof document !== 'undefined'
+        ? document.querySelector('.dashboard-shell')
+        : null);
+
+    if (!targetRoot) {
+        return null;
+    }
+
     const maxHorizontalOverflowPx = 8;
-    const maxVerticalOverflowPx = 20;
+    let rafId = null;
+    let timeoutId = null;
 
     const applyGuard = function () {
-        const root = document.documentElement;
-        const body = document.body;
-        if (!root || !body) {
+        const horizontalOverflow = Math.max(
+            0,
+            Math.ceil(targetRoot.scrollWidth - targetRoot.clientWidth),
+        );
+
+        if (horizontalOverflow > 0 && horizontalOverflow <= maxHorizontalOverflowPx) {
+            targetRoot.style.overflowX = 'hidden';
             return;
         }
 
-        const horizontalOverflow = Math.max(0, Math.ceil(root.scrollWidth - root.clientWidth));
-        const verticalOverflow = Math.max(0, Math.ceil(root.scrollHeight - root.clientHeight));
-
-        if (horizontalOverflow > 0 && horizontalOverflow <= maxHorizontalOverflowPx) {
-            root.style.overflowX = 'hidden';
-            body.style.overflowX = 'hidden';
-        }
-
-        if (verticalOverflow > 0 && verticalOverflow <= maxVerticalOverflowPx) {
-            root.style.overflowY = 'hidden';
-            body.style.overflowY = 'hidden';
-        }
+        targetRoot.style.removeProperty('overflow-x');
     };
 
-    let rafId = null;
     const scheduleGuard = function () {
         if (rafId !== null) {
             return;
@@ -540,8 +722,42 @@ function initMinorOverflowGuard() {
         });
     };
 
+    const onResize = function () {
+        scheduleGuard();
+    };
+
+    const onLoad = function () {
+        scheduleGuard();
+    };
+
     scheduleGuard();
-    window.addEventListener('load', scheduleGuard);
-    window.addEventListener('resize', scheduleGuard);
-    window.setTimeout(scheduleGuard, 0);
+    window.addEventListener('load', onLoad);
+    window.addEventListener('resize', onResize);
+    timeoutId = window.setTimeout(scheduleGuard, 0);
+
+    return function cleanupDashboardOverflowGuard() {
+        if (rafId !== null) {
+            window.cancelAnimationFrame(rafId);
+            rafId = null;
+        }
+        if (timeoutId !== null) {
+            window.clearTimeout(timeoutId);
+            timeoutId = null;
+        }
+
+        window.removeEventListener('load', onLoad);
+        window.removeEventListener('resize', onResize);
+        targetRoot.style.removeProperty('overflow-x');
+    };
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        initDashboardPage,
+        teardownDashboardPage,
+        initActiveSubscriptionsScroller,
+        initDashboardOverflowGuard,
+        formatTrendAmount,
+        updateBalanceTrendMetrics,
+    };
 }

@@ -63,7 +63,8 @@ def adjust_balance(request):
             status=400,
         )
 
-    snapshot = set_user_balance_target(request.user, target_balance)
+    scope = payload.get('scope') or request.GET.get('scope') or 'personal'
+    snapshot = set_user_balance_target(request.user, target_balance, scope=scope)
     return JsonResponse({'ok': True, **snapshot})
 
 
