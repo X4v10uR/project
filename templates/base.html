@@ -1,7 +1,7 @@
 {% load static %}
 {% load tailwind_tags %}
 <!DOCTYPE html>
-<html lang="en"{% if user.is_authenticated %} class="app-auth-layout"{% endif %}>
+<html lang="en" {% if user.is_authenticated %} class="app-auth-layout" {% endif %}>
 
 <head>
     <meta charset="UTF-8">
@@ -187,7 +187,6 @@
         }
 
         .app-tabbar-wrap:not(.is-collapsed) .app-tabbar:hover {
-            transform: translateY(-2px) scale(1.01);
             box-shadow: 0 28px 64px rgba(15, 23, 42, 0.2);
         }
 
@@ -448,6 +447,7 @@
                 transform: translateY(100px) scale(0.9);
                 opacity: 0;
             }
+
             to {
                 transform: translateY(0) scale(1);
                 opacity: 1;
@@ -455,10 +455,12 @@
         }
 
         @keyframes tabbarPulse {
+
             0%,
             100% {
                 box-shadow: 0 0 0 0 rgba(232, 245, 66, 0.65);
             }
+
             50% {
                 box-shadow: 0 0 0 8px rgba(232, 245, 66, 0);
             }
@@ -468,9 +470,11 @@
             0% {
                 transform: translateY(6px) scale(0.96);
             }
+
             65% {
                 transform: translateY(-2px) scale(1.02);
             }
+
             100% {
                 transform: translateY(0) scale(1);
             }
@@ -606,541 +610,656 @@
 
     {% if user.is_authenticated and not hide_global_notifications %}
     <div class="global-notification-shell" id="global-notification-shell">
-        <button
-            type="button"
-            class="global-notification-button"
-            id="global-notification-toggle"
-            aria-expanded="false"
-            aria-controls="global-notification-panel"
-            title="Notifications"
-        >
+        <button type="button" class="global-notification-button" id="global-notification-toggle" aria-expanded="false"
+            aria-controls="global-notification-panel" title="Notifications">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9">
+                </path>
             </svg>
             <span class="global-notification-count hidden" id="global-notification-count">0</span>
         </button>
         <div class="global-notification-panel" id="global-notification-panel">
             <div class="p-3 border-b border-slate-200 flex items-center justify-between gap-2">
                 <p class="font-semibold text-sm text-slate-800">Notifications</p>
-                <button type="button" id="global-notification-read-all" class="text-xs text-slate-600 hover:text-slate-900">
+                <button type="button" id="global-notification-read-all"
+                    class="text-xs text-slate-600 hover:text-slate-900">
                     Mark all read
                 </button>
             </div>
             <div id="global-notification-list" class="max-h-80 overflow-y-auto"></div>
             <div class="p-2 border-t border-slate-100 bg-slate-50 text-right">
-                <a href="{% url 'dashboard:notifications_page' %}" class="text-xs text-slate-700 hover:text-slate-900">View all</a>
+                <a href="{% url 'dashboard:notifications_page' %}"
+                    class="text-xs text-slate-700 hover:text-slate-900">View all</a>
             </div>
         </div>
     </div>
     {% endif %}
 
-    <main{% if user.is_authenticated %} class="app-main-shell"{% else %} class="min-h-screen"{% endif %}>
+    <main{% if user.is_authenticated %} class="app-main-shell" {% else %} class="min-h-screen" {% endif %}>
         <div id="app-content">
             {% if messages and not suppress_base_messages %}
             <div class="max-w-5xl mx-auto mb-3 space-y-2">
                 {% for message in messages %}
-                <div class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">{{ message }}</div>
+                <div class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">{{ message }}
+                </div>
                 {% endfor %}
             </div>
             {% endif %}
             {% block content %}{% endblock %}
         </div>
-    </main>
+        </main>
 
-    {% if user.is_authenticated %}
-    <div id="tabbar-loading" class="app-tabbar-loader" aria-live="polite" aria-atomic="true">
-        <span class="app-tabbar-loader-dot" aria-hidden="true"></span>
-        <span>Loading</span>
-    </div>
-    <button
-        id="tabbar-reveal-toggle"
-        class="app-tabbar-reveal"
-        type="button"
-        aria-label="Show navigation bar"
-        title="Show navigation"
-    >
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M6 14l6-6 6 6"></path>
-        </svg>
-    </button>
-    {% endif %}
+        {% if user.is_authenticated %}
+        <div id="tabbar-loading" class="app-tabbar-loader" aria-live="polite" aria-atomic="true">
+            <span class="app-tabbar-loader-dot" aria-hidden="true"></span>
+            <span>Loading</span>
+        </div>
+        <button id="tabbar-reveal-toggle" class="app-tabbar-reveal" type="button" aria-label="Show navigation bar"
+            title="Show navigation">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                aria-hidden="true">
+                <path d="M6 14l6-6 6 6"></path>
+            </svg>
+        </button>
+        {% endif %}
 
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-    {% if user.is_authenticated %}
-    <script>
-        window.SUBLY_RUNTIME = window.SUBLY_RUNTIME || {};
-        window.SUBLY_RUNTIME.notificationsWsEnabled = {{ notifications_ws_enabled|yesno:"true,false" }};
-    </script>
-    <script>
-        (function () {
-            function normalizePath(path) {
-                if (!path) {
-                    return '/';
-                }
-                return path.endsWith('/') ? path : path + '/';
-            }
-
-            function getActiveTabKey(urlString) {
-                var parsed;
-                try {
-                    parsed = new URL(urlString, window.location.origin);
-                } catch (error) {
-                    parsed = window.location;
-                }
-
-                var path = normalizePath(parsed.pathname || '/');
-                var sortValue = new URLSearchParams(parsed.search || '').get('sort');
-
-                if (path.startsWith('/accounts/settings/')) {
-                    return 'profile';
-                }
-                if (path.startsWith('/dashboard/notifications/')) {
-                    return 'notifications';
-                }
-                if (path.startsWith('/dashboard/')) {
-                    return 'dashboard';
-                }
-                if (path.startsWith('/subscriptions/cards/')) {
-                    return 'cards';
-                }
-                if (path.startsWith('/accounts/teams/')) {
-                    return 'teams';
-                }
-                if (path.startsWith('/subscriptions/') && sortValue === 'renewal_date') {
-                    return 'history';
-                }
-                if (path.startsWith('/subscriptions/')) {
-                    return 'subscriptions';
-                }
-                return '';
-            }
-
-            function syncTabbarActiveState() {
-                var activeKey = getActiveTabKey(window.location.href);
-                document.querySelectorAll('.app-tabbar .app-tab[data-tab-key]').forEach(function (tab) {
-                    var isActive = tab.dataset.tabKey === activeKey;
-                    tab.classList.toggle('is-active', isActive);
-                    tab.classList.toggle('active', isActive);
-                    if (isActive) {
-                        tab.setAttribute('aria-current', 'page');
-                    } else {
-                        tab.removeAttribute('aria-current');
+        <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+        {% if user.is_authenticated %}
+        <script>
+            window.SUBLY_RUNTIME = window.SUBLY_RUNTIME || {};
+            window.SUBLY_RUNTIME.notificationsWsEnabled = {{ notifications_ws_enabled|yesno:"true,false" }};
+        </script>
+        <script>
+            (function () {
+                function normalizePath(path) {
+                    if (!path) {
+                        return '/';
                     }
-                });
-            }
-
-            function applyRouteLayout(path) {
-                var normalized = normalizePath(path);
-                var isTeamsRoute = normalized.startsWith('/accounts/teams/');
-                document.body.classList.toggle('route-teams', isTeamsRoute);
-            }
-
-            function dispatchContentLoaded() {
-                document.dispatchEvent(new CustomEvent('subly:content-loaded'));
-            }
-
-            var showTabbarControl = function () {};
-
-            function scriptForPath(path) {
-                var normalized = normalizePath(path);
-                if (normalized.startsWith('/dashboard/')) {
-                    return '{% static "dashboard/dashboard.js" %}?v=20260224-4';
+                    return path.endsWith('/') ? path : path + '/';
                 }
-                if (normalized.startsWith('/subscriptions/cards/')) {
-                    return '{% static "subscriptions/cards.js" %}';
-                }
-                if (normalized.startsWith('/accounts/teams/')) {
-                    return '{% static "accounts/teams_module.js" %}?v=20260309-1';
-                }
-                return null;
-            }
 
-            function stylesForPath(path) {
-                var normalized = normalizePath(path);
-                if (normalized.startsWith('/subscriptions/cards/')) {
-                    return [
-                        'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap',
-                        '{% static "subscriptions/cards.css" %}?v=20260309-1'
-                    ];
-                }
-                if (normalized.startsWith('/accounts/teams/')) {
-                    return [
-                        'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
-                        '{% static "accounts/teams_module.css" %}?v=20260309-1'
-                    ];
-                }
-                return [];
-            }
-
-            function loadScriptOnce(src) {
-                return new Promise(function (resolve, reject) {
-                    if (!src) {
-                        resolve();
-                        return;
+                function getActiveTabKey(urlString) {
+                    var parsed;
+                    try {
+                        parsed = new URL(urlString, window.location.origin);
+                    } catch (error) {
+                        parsed = window.location;
                     }
 
-                    window.SUBLY_RUNTIME = window.SUBLY_RUNTIME || {};
-                    window.SUBLY_RUNTIME.loadedScripts = window.SUBLY_RUNTIME.loadedScripts || {};
-                    var loadedScripts = window.SUBLY_RUNTIME.loadedScripts;
+                    var path = normalizePath(parsed.pathname || '/');
+                    var sortValue = new URLSearchParams(parsed.search || '').get('sort');
 
-                    if (loadedScripts[src] === 'loaded') {
-                        resolve();
-                        return;
+                    if (path.startsWith('/accounts/settings/')) {
+                        return 'profile';
                     }
-
-                    var existing = document.querySelector('script[src="' + src + '"]');
-                    if (existing) {
-                        loadedScripts[src] = 'loaded';
-                        resolve();
-                        return;
+                    if (path.startsWith('/dashboard/notifications/')) {
+                        return 'notifications';
                     }
-
-                    if (loadedScripts[src] && loadedScripts[src].node) {
-                        loadedScripts[src].node.addEventListener('load', resolve, { once: true });
-                        loadedScripts[src].node.addEventListener('error', reject, { once: true });
-                        return;
+                    if (path.startsWith('/dashboard/')) {
+                        return 'dashboard';
                     }
-
-                    var script = document.createElement('script');
-                    script.src = src;
-                    script.async = false;
-                    script.onload = function () {
-                        loadedScripts[src] = 'loaded';
-                        resolve();
-                    };
-                    script.onerror = function () {
-                        loadedScripts[src] = 'error';
-                        reject(new Error('Failed to load script: ' + src));
-                    };
-
-                    loadedScripts[src] = { node: script };
-                    document.body.appendChild(script);
-                });
-            }
-
-            function loadStyleOnce(href) {
-                return new Promise(function (resolve, reject) {
-                    if (!href) {
-                        resolve();
-                        return;
+                    if (path.startsWith('/subscriptions/cards/')) {
+                        return 'cards';
                     }
-
-                    window.SUBLY_RUNTIME = window.SUBLY_RUNTIME || {};
-                    window.SUBLY_RUNTIME.loadedStyles = window.SUBLY_RUNTIME.loadedStyles || {};
-                    var loadedStyles = window.SUBLY_RUNTIME.loadedStyles;
-
-                    if (loadedStyles[href] === 'loaded') {
-                        resolve();
-                        return;
+                    if (path.startsWith('/accounts/teams/')) {
+                        return 'teams';
                     }
-
-                    var existing = document.querySelector('link[rel="stylesheet"][href="' + href + '"]');
-                    if (existing) {
-                        loadedStyles[href] = 'loaded';
-                        resolve();
-                        return;
+                    if (path.startsWith('/subscriptions/') && sortValue === 'renewal_date') {
+                        return 'history';
                     }
-
-                    if (loadedStyles[href] && loadedStyles[href].node) {
-                        loadedStyles[href].node.addEventListener('load', resolve, { once: true });
-                        loadedStyles[href].node.addEventListener('error', reject, { once: true });
-                        return;
+                    if (path.startsWith('/subscriptions/')) {
+                        return 'subscriptions';
                     }
+                    return '';
+                }
 
-                    var link = document.createElement('link');
-                    link.rel = 'stylesheet';
-                    link.href = href;
-                    link.onload = function () {
-                        loadedStyles[href] = 'loaded';
-                        resolve();
-                    };
-                    link.onerror = function () {
-                        loadedStyles[href] = 'error';
-                        reject(new Error('Failed to load stylesheet: ' + href));
-                    };
+                function syncTabbarActiveState() {
+                    var activeKey = getActiveTabKey(window.location.href);
+                    document.querySelectorAll('.app-tabbar .app-tab[data-tab-key]').forEach(function (tab) {
+                        var isActive = tab.dataset.tabKey === activeKey;
+                        tab.classList.toggle('is-active', isActive);
+                        tab.classList.toggle('active', isActive);
+                        if (isActive) {
+                            tab.setAttribute('aria-current', 'page');
+                        } else {
+                            tab.removeAttribute('aria-current');
+                        }
+                    });
+                }
 
-                    loadedStyles[href] = { node: link };
-                    document.head.appendChild(link);
-                });
-            }
+                function applyRouteLayout(path) {
+                    var normalized = normalizePath(path);
+                    var isTeamsRoute = normalized.startsWith('/accounts/teams/');
+                    document.body.classList.toggle('route-teams', isTeamsRoute);
+                }
 
-            function prepareCurrentView() {
-                applyRouteLayout(window.location.pathname);
-                var stylePromises = stylesForPath(window.location.pathname).map(loadStyleOnce);
-                return Promise.all(stylePromises)
-                    .catch(function () {})
-                    .then(function () {
-                        return loadScriptOnce(scriptForPath(window.location.pathname));
-                    })
-                    .catch(function () {})
-                    .finally(function () {
-                        showTabbarControl();
-                        syncTabbarActiveState();
+                function dispatchContentLoaded() {
+                    document.dispatchEvent(new CustomEvent('subly:content-loaded'));
+                }
+
+                var showTabbarControl = function () { };
+
+                function scriptForPath(path) {
+                    var normalized = normalizePath(path);
+                    if (normalized.startsWith('/dashboard/')) {
+                        return '{% static "dashboard/dashboard.js" %}?v=20260224-4';
+                    }
+                    if (normalized.startsWith('/subscriptions/cards/')) {
+                        return '{% static "subscriptions/cards.js" %}';
+                    }
+                    if (normalized.startsWith('/accounts/teams/')) {
+                        return '{% static "accounts/teams_module.js" %}?v=20260309-1';
+                    }
+                    return null;
+                }
+
+                function stylesForPath(path) {
+                    var normalized = normalizePath(path);
+                    if (normalized.startsWith('/subscriptions/cards/')) {
+                        return [
+                            'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap',
+                            '{% static "subscriptions/cards.css" %}?v=20260309-1'
+                        ];
+                    }
+                    if (normalized.startsWith('/accounts/teams/')) {
+                        return [
+                            'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
+                            '{% static "accounts/teams_module.css" %}?v=20260309-1'
+                        ];
+                    }
+                    return [];
+                }
+
+                function loadScriptOnce(src) {
+                    return new Promise(function (resolve, reject) {
+                        if (!src) {
+                            resolve();
+                            return;
+                        }
+
+                        window.SUBLY_RUNTIME = window.SUBLY_RUNTIME || {};
+                        window.SUBLY_RUNTIME.loadedScripts = window.SUBLY_RUNTIME.loadedScripts || {};
+                        var loadedScripts = window.SUBLY_RUNTIME.loadedScripts;
+
+                        if (loadedScripts[src] === 'loaded') {
+                            resolve();
+                            return;
+                        }
+
+                        var existing = document.querySelector('script[src="' + src + '"]');
+                        if (existing) {
+                            loadedScripts[src] = 'loaded';
+                            resolve();
+                            return;
+                        }
+
+                        if (loadedScripts[src] && loadedScripts[src].node) {
+                            loadedScripts[src].node.addEventListener('load', resolve, { once: true });
+                            loadedScripts[src].node.addEventListener('error', reject, { once: true });
+                            return;
+                        }
+
+                        var script = document.createElement('script');
+                        script.src = src;
+                        script.async = false;
+                        script.onload = function () {
+                            loadedScripts[src] = 'loaded';
+                            resolve();
+                        };
+                        script.onerror = function () {
+                            loadedScripts[src] = 'error';
+                            reject(new Error('Failed to load script: ' + src));
+                        };
+
+                        loadedScripts[src] = { node: script };
+                        document.body.appendChild(script);
+                    });
+                }
+
+                function loadStyleOnce(href) {
+                    return new Promise(function (resolve, reject) {
+                        if (!href) {
+                            resolve();
+                            return;
+                        }
+
+                        window.SUBLY_RUNTIME = window.SUBLY_RUNTIME || {};
+                        window.SUBLY_RUNTIME.loadedStyles = window.SUBLY_RUNTIME.loadedStyles || {};
+                        var loadedStyles = window.SUBLY_RUNTIME.loadedStyles;
+
+                        if (loadedStyles[href] === 'loaded') {
+                            resolve();
+                            return;
+                        }
+
+                        var existing = document.querySelector('link[rel="stylesheet"][href="' + href + '"]');
+                        if (existing) {
+                            loadedStyles[href] = 'loaded';
+                            resolve();
+                            return;
+                        }
+
+                        if (loadedStyles[href] && loadedStyles[href].node) {
+                            loadedStyles[href].node.addEventListener('load', resolve, { once: true });
+                            loadedStyles[href].node.addEventListener('error', reject, { once: true });
+                            return;
+                        }
+
+                        var link = document.createElement('link');
+                        link.rel = 'stylesheet';
+                        link.href = href;
+                        link.onload = function () {
+                            loadedStyles[href] = 'loaded';
+                            resolve();
+                        };
+                        link.onerror = function () {
+                            loadedStyles[href] = 'error';
+                            reject(new Error('Failed to load stylesheet: ' + href));
+                        };
+
+                        loadedStyles[href] = { node: link };
+                        document.head.appendChild(link);
+                    });
+                }
+
+                function prepareCurrentView() {
+                    applyRouteLayout(window.location.pathname);
+                    var stylePromises = stylesForPath(window.location.pathname).map(loadStyleOnce);
+                    return Promise.all(stylePromises)
+                        .catch(function () { })
+                        .then(function () {
+                            return loadScriptOnce(scriptForPath(window.location.pathname));
+                        })
+                        .catch(function () { })
+                        .finally(function () {
+                            showTabbarControl();
+                            syncTabbarActiveState();
+                            dispatchContentLoaded();
+                        });
+                }
+
+                function init() {
+                    var tabbar = document.querySelector('.app-tabbar');
+                    if (!tabbar) {
                         dispatchContentLoaded();
-                    });
-            }
-
-            function init() {
-                var tabbar = document.querySelector('.app-tabbar');
-                if (!tabbar) {
-                    dispatchContentLoaded();
-                    return;
-                }
-
-                var tabbarWrap = document.querySelector('.app-tabbar-wrap');
-                var revealButton = document.getElementById('tabbar-reveal-toggle');
-                var pointerInsideDock = false;
-                var hoverPopTimer = null;
-                var collapseTimer = null;
-                var hoverStateSyncTimer = null;
-                var collapseDelayMs = 260;
-
-                function clearHoverPopTimer() {
-                    if (hoverPopTimer !== null) {
-                        window.clearTimeout(hoverPopTimer);
-                        hoverPopTimer = null;
-                    }
-                }
-
-                function clearCollapseTimer() {
-                    if (collapseTimer !== null) {
-                        window.clearTimeout(collapseTimer);
-                        collapseTimer = null;
-                    }
-                }
-
-                function clearHoverStateSyncTimer() {
-                    if (hoverStateSyncTimer !== null) {
-                        window.clearTimeout(hoverStateSyncTimer);
-                        hoverStateSyncTimer = null;
-                    }
-                }
-
-                function triggerHoverPop() {
-                    if (!tabbarWrap) {
                         return;
                     }
-                    clearHoverPopTimer();
-                    tabbarWrap.classList.remove('is-hover-pop');
-                    void tabbarWrap.offsetWidth;
-                    tabbarWrap.classList.add('is-hover-pop');
-                    hoverPopTimer = window.setTimeout(function () {
+
+                    var tabbarWrap = document.querySelector('.app-tabbar-wrap');
+                    var revealButton = document.getElementById('tabbar-reveal-toggle');
+                    var pointerInsideDock = false;
+                    var hoverPopTimer = null;
+                    var collapseTimer = null;
+                    var hoverStateSyncTimer = null;
+                    var lastPointerPosition = null;
+                    var collapseBlockedUntil = 0;
+                    var hoverGraceUntil = 0;
+                    var hoverGraceRect = null;
+                    var collapseDelayMs = 600;
+                    var transitioningFromReveal = false;
+
+                    function clearHoverPopTimer() {
+                        if (hoverPopTimer !== null) {
+                            window.clearTimeout(hoverPopTimer);
+                            hoverPopTimer = null;
+                        }
+                    }
+
+                    function clearCollapseTimer() {
+                        if (collapseTimer !== null) {
+                            window.clearTimeout(collapseTimer);
+                            collapseTimer = null;
+                        }
+                    }
+
+                    function clearHoverStateSyncTimer() {
+                        if (hoverStateSyncTimer !== null) {
+                            window.clearTimeout(hoverStateSyncTimer);
+                            hoverStateSyncTimer = null;
+                        }
+                    }
+
+                    function updatePointerPosition(event) {
+                        if (!event) {
+                            return;
+                        }
+                        lastPointerPosition = { x: event.clientX, y: event.clientY };
+                    }
+
+                    function blockCollapseFor(ms) {
+                        var duration = Number(ms) || 0;
+                        if (duration <= 0) {
+                            return;
+                        }
+                        var until = Date.now() + duration;
+                        if (until > collapseBlockedUntil) {
+                            collapseBlockedUntil = until;
+                        }
+                    }
+
+                    function isCollapseBlocked() {
+                        return Date.now() < collapseBlockedUntil;
+                    }
+
+                    function setHoverGrace(rect, ms) {
+                        if (!rect) {
+                            return;
+                        }
+                        hoverGraceRect = {
+                            left: rect.left,
+                            right: rect.right,
+                            top: rect.top,
+                            bottom: rect.bottom
+                        };
+                        hoverGraceUntil = Date.now() + (Number(ms) || 0);
+                    }
+
+                    function isHoverGraceActive() {
+                        if (!hoverGraceRect || !lastPointerPosition) {
+                            return false;
+                        }
+                        if (Date.now() >= hoverGraceUntil) {
+                            hoverGraceRect = null;
+                            return false;
+                        }
+                        return isPointerWithinRect(lastPointerPosition, hoverGraceRect, 32);
+                    }
+
+                    function isPointerWithinRect(point, rect, padding) {
+                        if (!point || !rect) {
+                            return false;
+                        }
+                        var pad = padding || 0;
+                        return point.x >= rect.left - pad
+                            && point.x <= rect.right + pad
+                            && point.y >= rect.top - pad
+                            && point.y <= rect.bottom + pad;
+                    }
+
+                    function isPointerWithinDockBounds() {
+                        if (!lastPointerPosition) {
+                            return false;
+                        }
+                        var padding = 28;
+                        if (tabbar && isPointerWithinRect(lastPointerPosition, tabbar.getBoundingClientRect(), padding)) {
+                            return true;
+                        }
+                        if (revealButton && isPointerWithinRect(lastPointerPosition, revealButton.getBoundingClientRect(), padding)) {
+                            return true;
+                        }
+                        return false;
+                    }
+
+                    document.addEventListener('mousemove', updatePointerPosition, { passive: true });
+
+                    function triggerHoverPop() {
+                        if (!tabbarWrap) {
+                            return;
+                        }
+                        clearHoverPopTimer();
                         tabbarWrap.classList.remove('is-hover-pop');
-                        hoverPopTimer = null;
-                    }, 320);
-                }
-
-                var dockItems = Array.from(tabbar.querySelectorAll('.app-tab'));
-                var dockInfluencePx = 140;
-                var dockMaxScale = 1.28;
-                var prefersReducedMotion = window.matchMedia
-                    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-                function resetDockMagnification() {
-                    tabbar.classList.remove('is-dock-active');
-                    dockItems.forEach(function (item) {
-                        item.style.setProperty('--dock-scale', '1');
-                        item.style.setProperty('--dock-lift', '0px');
-                    });
-                }
-
-                function applyDockMagnification(clientX) {
-                    if (prefersReducedMotion || !dockItems.length) {
-                        return;
+                        void tabbarWrap.offsetWidth;
+                        tabbarWrap.classList.add('is-hover-pop');
+                        hoverPopTimer = window.setTimeout(function () {
+                            tabbarWrap.classList.remove('is-hover-pop');
+                            hoverPopTimer = null;
+                        }, 320);
                     }
 
-                    var barRect = tabbar.getBoundingClientRect();
-                    if (clientX < barRect.left || clientX > barRect.right) {
+                    var dockItems = Array.from(tabbar.querySelectorAll('.app-tab'));
+                    var dockInfluencePx = 140;
+                    var dockMaxScale = 1.28;
+                    var prefersReducedMotion = window.matchMedia
+                        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+                    function resetDockMagnification() {
+                        tabbar.classList.remove('is-dock-active');
+                        dockItems.forEach(function (item) {
+                            item.style.setProperty('--dock-scale', '1');
+                            item.style.setProperty('--dock-lift', '0px');
+                        });
+                    }
+
+                    function applyDockMagnification(clientX) {
+                        if (prefersReducedMotion || !dockItems.length) {
+                            return;
+                        }
+
+                        var barRect = tabbar.getBoundingClientRect();
+                        if (clientX < barRect.left || clientX > barRect.right) {
+                            resetDockMagnification();
+                            return;
+                        }
+
+                        tabbar.classList.add('is-dock-active');
+                        dockItems.forEach(function (item) {
+                            var itemRect = item.getBoundingClientRect();
+                            var centerX = itemRect.left + (itemRect.width / 2);
+                            var distance = Math.abs(clientX - centerX);
+                            var proximity = Math.max(0, 1 - (distance / dockInfluencePx));
+                            var easedProximity = proximity * proximity;
+                            var scale = 1 + ((dockMaxScale - 1) * easedProximity);
+                            var lift = -1 * (scale - 1) * 10;
+                            item.style.setProperty('--dock-scale', scale.toFixed(3));
+                            item.style.setProperty('--dock-lift', lift.toFixed(2) + 'px');
+                        });
+                    }
+
+                    function hideTabbar() {
+                        if (!tabbarWrap || !revealButton) {
+                            return;
+                        }
+                        clearHoverStateSyncTimer();
+                        clearCollapseTimer();
                         resetDockMagnification();
-                        return;
+                        tabbarWrap.classList.add('is-collapsed');
+                        revealButton.classList.add('is-visible');
                     }
 
-                    tabbar.classList.add('is-dock-active');
-                    dockItems.forEach(function (item) {
-                        var itemRect = item.getBoundingClientRect();
-                        var centerX = itemRect.left + (itemRect.width / 2);
-                        var distance = Math.abs(clientX - centerX);
-                        var proximity = Math.max(0, 1 - (distance / dockInfluencePx));
-                        var easedProximity = proximity * proximity;
-                        var scale = 1 + ((dockMaxScale - 1) * easedProximity);
-                        var lift = -1 * (scale - 1) * 10;
-                        item.style.setProperty('--dock-scale', scale.toFixed(3));
-                        item.style.setProperty('--dock-lift', lift.toFixed(2) + 'px');
-                    });
-                }
-
-                function hideTabbar() {
-                    if (!tabbarWrap || !revealButton) {
-                        return;
+                    function showTabbar() {
+                        if (!tabbarWrap || !revealButton) {
+                            return;
+                        }
+                        blockCollapseFor(800);
+                        clearHoverStateSyncTimer();
+                        clearCollapseTimer();
+                        tabbarWrap.classList.remove('is-collapsed');
+                        revealButton.classList.remove('is-visible');
+                        hoverStateSyncTimer = window.setTimeout(function () {
+                            hoverStateSyncTimer = null;
+                            if (transitioningFromReveal) {
+                                transitioningFromReveal = false;
+                                if (isPointerWithinDockBounds()) {
+                                    pointerInsideDock = true;
+                                    return;
+                                }
+                            }
+                            if (isPointerHoveringDockZone()) {
+                                pointerInsideDock = true;
+                                return;
+                            }
+                            if (isFocusWithinDock()) {
+                                return;
+                            }
+                            pointerInsideDock = false;
+                            scheduleCollapse();
+                        }, 500);
                     }
-                    clearHoverStateSyncTimer();
-                    clearCollapseTimer();
-                    resetDockMagnification();
-                    tabbarWrap.classList.add('is-collapsed');
-                    revealButton.classList.add('is-visible');
-                }
 
-                function showTabbar() {
-                    if (!tabbarWrap || !revealButton) {
-                        return;
+                    function isFocusWithinDock() {
+                        return tabbar.contains(document.activeElement) || revealButton.contains(document.activeElement);
                     }
-                    clearHoverStateSyncTimer();
-                    clearCollapseTimer();
-                    tabbarWrap.classList.remove('is-collapsed');
-                    revealButton.classList.remove('is-visible');
-                    hoverStateSyncTimer = window.setTimeout(function () {
-                        hoverStateSyncTimer = null;
+
+                    function isPointerHoveringDockZone() {
+                        if (tabbar.matches(':hover') || revealButton.matches(':hover')) {
+                            return true;
+                        }
+                        if (isHoverGraceActive()) {
+                            return true;
+                        }
+                        if (isPointerWithinDockBounds()) {
+                            return true;
+                        }
+                        return dockItems.some(function (item) {
+                            return item.matches(':hover');
+                        });
+                    }
+
+                    function collapseIfIdle() {
+                        if (!tabbarWrap || !revealButton) {
+                            return;
+                        }
+                        if (isCollapseBlocked()) {
+                            scheduleCollapse();
+                            return;
+                        }
                         if (isPointerHoveringDockZone()) {
                             pointerInsideDock = true;
+                            return;
+                        }
+                        if (pointerInsideDock) {
                             return;
                         }
                         if (isFocusWithinDock()) {
                             return;
                         }
-                        pointerInsideDock = false;
-                        scheduleCollapse();
-                    }, 0);
-                }
-
-                function isFocusWithinDock() {
-                    return tabbar.contains(document.activeElement) || revealButton.contains(document.activeElement);
-                }
-
-                function isPointerHoveringDockZone() {
-                    if (tabbar.matches(':hover') || revealButton.matches(':hover')) {
-                        return true;
+                        hideTabbar();
                     }
-                    return dockItems.some(function (item) {
-                        return item.matches(':hover');
-                    });
-                }
 
-                function collapseIfIdle() {
-                    if (!tabbarWrap || !revealButton) {
-                        return;
+                    function scheduleCollapse() {
+                        clearCollapseTimer();
+                        var delay = collapseDelayMs;
+                        if (isCollapseBlocked()) {
+                            delay = Math.max(delay, collapseBlockedUntil - Date.now());
+                        }
+                        collapseTimer = window.setTimeout(function () {
+                            collapseIfIdle();
+                        }, delay);
                     }
-                    if (isPointerHoveringDockZone()) {
-                        pointerInsideDock = true;
-                        return;
-                    }
-                    if (pointerInsideDock) {
-                        return;
-                    }
-                    if (isFocusWithinDock()) {
-                        return;
-                    }
-                    hideTabbar();
-                }
 
-                function scheduleCollapse() {
-                    clearCollapseTimer();
-                    collapseTimer = window.setTimeout(function () {
-                        collapseIfIdle();
-                    }, collapseDelayMs);
-                }
-
-                showTabbarControl = function () {
-                    showTabbar();
-                };
-
-                if (revealButton) {
-                    revealButton.addEventListener('click', function () {
+                    showTabbarControl = function () {
                         showTabbar();
-                    });
-                    revealButton.addEventListener('mouseenter', function (event) {
+                    };
+
+                    if (revealButton) {
+                        revealButton.addEventListener('click', function () {
+                            showTabbar();
+                        });
+                        revealButton.addEventListener('mouseenter', function (event) {
+                            updatePointerPosition(event);
+                            setHoverGrace(revealButton.getBoundingClientRect(), 520);
+                            pointerInsideDock = true;
+                            transitioningFromReveal = true;
+                            triggerHoverPop();
+                            showTabbar();
+                            applyDockMagnification(event.clientX);
+                        });
+                        revealButton.addEventListener('mousemove', updatePointerPosition);
+                        revealButton.addEventListener('mouseleave', function () {
+                            if (transitioningFromReveal) {
+                                return;
+                            }
+                            pointerInsideDock = false;
+                            scheduleCollapse();
+                        });
+                        revealButton.addEventListener('focusin', function () {
+                            showTabbar();
+                        });
+                        revealButton.addEventListener('focusout', function () {
+                            window.setTimeout(collapseIfIdle, 0);
+                        });
+                    }
+
+                    tabbar.addEventListener('mouseenter', function (event) {
+                        updatePointerPosition(event);
+                        setHoverGrace(tabbar.getBoundingClientRect(), 520);
                         pointerInsideDock = true;
-                        triggerHoverPop();
+                        transitioningFromReveal = false;
+                        clearCollapseTimer();
                         showTabbar();
                         applyDockMagnification(event.clientX);
                     });
-                    revealButton.addEventListener('mouseleave', function () {
-                        pointerInsideDock = false;
-                        scheduleCollapse();
+                    tabbar.addEventListener('mousemove', function (event) {
+                        updatePointerPosition(event);
+                        transitioningFromReveal = false;
+                        applyDockMagnification(event.clientX);
                     });
-                    revealButton.addEventListener('focusin', function () {
+                    tabbar.addEventListener('mouseleave', function (event) {
+                        updatePointerPosition(event);
+                        pointerInsideDock = false;
+                        transitioningFromReveal = false;
+                        resetDockMagnification();
+                        window.setTimeout(function () {
+                            if (isPointerWithinDockBounds()) {
+                                pointerInsideDock = true;
+                                return;
+                            }
+                            scheduleCollapse();
+                        }, 50);
+                    });
+                    tabbar.addEventListener('focusin', showTabbar);
+                    tabbar.addEventListener('focusout', function () {
+                        resetDockMagnification();
+                        window.setTimeout(function () {
+                            collapseIfIdle();
+                        }, 0);
+                    });
+                    tabbar.addEventListener('touchstart', showTabbar);
+                    tabbar.addEventListener('click', showTabbar);
+
+                    tabbar.addEventListener('click', function (event) {
+                        var tab = event.target.closest('a.app-tab[data-tab-key]');
+                        if (!tab || tab.dataset.fullReload === 'true') {
+                            return;
+                        }
+                        tabbar.querySelectorAll('.app-tab[data-tab-key]').forEach(function (node) {
+                            node.classList.remove('is-active', 'active');
+                            node.removeAttribute('aria-current');
+                        });
+                        tab.classList.add('is-active', 'active');
+                        tab.setAttribute('aria-current', 'page');
                         showTabbar();
                     });
-                    revealButton.addEventListener('focusout', function () {
-                        window.setTimeout(collapseIfIdle, 0);
+
+                    if (!window.htmx) {
+                        prepareCurrentView();
+                        return;
+                    }
+
+                    document.body.addEventListener('htmx:beforeRequest', function (event) {
+                        if (!event.target.closest('.app-tabbar')) {
+                            return;
+                        }
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        showTabbar();
                     });
+
+                    document.body.addEventListener('htmx:afterSwap', function (event) {
+                        if (!event.detail.target || event.detail.target.id !== 'app-content') {
+                            return;
+                        }
+                        prepareCurrentView();
+                    });
+
+                    document.body.addEventListener('htmx:historyRestore', function () {
+                        prepareCurrentView();
+                    });
+
+                    hideTabbar();
+                    prepareCurrentView();
                 }
 
-                tabbar.addEventListener('mouseenter', function (event) {
-                    pointerInsideDock = true;
-                    triggerHoverPop();
-                    showTabbar();
-                    applyDockMagnification(event.clientX);
-                });
-                tabbar.addEventListener('mousemove', function (event) {
-                    applyDockMagnification(event.clientX);
-                });
-                tabbar.addEventListener('mouseleave', function () {
-                    pointerInsideDock = false;
-                    resetDockMagnification();
-                    scheduleCollapse();
-                });
-                tabbar.addEventListener('focusin', showTabbar);
-                tabbar.addEventListener('focusout', function () {
-                    resetDockMagnification();
-                    window.setTimeout(function () {
-                        collapseIfIdle();
-                    }, 0);
-                });
-                tabbar.addEventListener('touchstart', showTabbar);
-                tabbar.addEventListener('click', showTabbar);
-
-                tabbar.addEventListener('click', function (event) {
-                    var tab = event.target.closest('a.app-tab[data-tab-key]');
-                    if (!tab || tab.dataset.fullReload === 'true') {
-                        return;
-                    }
-                    tabbar.querySelectorAll('.app-tab[data-tab-key]').forEach(function (node) {
-                        node.classList.remove('is-active', 'active');
-                        node.removeAttribute('aria-current');
-                    });
-                    tab.classList.add('is-active', 'active');
-                    tab.setAttribute('aria-current', 'page');
-                    showTabbar();
-                });
-
-                if (!window.htmx) {
-                    prepareCurrentView();
-                    return;
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', init);
+                } else {
+                    init();
                 }
-
-                document.body.addEventListener('htmx:beforeRequest', function (event) {
-                    if (!event.target.closest('.app-tabbar')) {
-                        return;
-                    }
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                    showTabbar();
-                });
-
-                document.body.addEventListener('htmx:afterSwap', function (event) {
-                    if (!event.detail.target || event.detail.target.id !== 'app-content') {
-                        return;
-                    }
-                    prepareCurrentView();
-                });
-
-                document.body.addEventListener('htmx:historyRestore', function () {
-                    prepareCurrentView();
-                });
-
-                hideTabbar();
-                prepareCurrentView();
-            }
-
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', init);
-            } else {
-                init();
-            }
-        })();
-    </script>
-    <script src="{% static 'dashboard/notifications.js' %}?v=20260309-1"></script>
-    {% endif %}
-    {% block extra_js %}{% endblock %}
+            })();
+        </script>
+        <script src="{% static 'dashboard/notifications.js' %}?v=20260309-1"></script>
+        {% endif %}
+        {% block extra_js %}{% endblock %}
 </body>
 
 </html>
