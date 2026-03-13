@@ -2,293 +2,658 @@
 
 {% block title %}Subscriptions - Subly{% endblock %}
 
+{% block extra_css %}
+<style>
+  #subscriptions-page .card-hover {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  #subscriptions-page .card-hover:hover {
+    transform: scale(1.02);
+    box-shadow: 0 18px 32px rgba(15, 23, 42, 0.18);
+  }
+
+  #subscriptions-page .card-hover:active {
+    transform: scale(0.99);
+  }
+
+  #subscription-drawer {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  #subscription-drawer-overlay {
+    transition: opacity 0.3s ease;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div>
-
-    <!-- Filters & Search -->
+<div id="subscriptions-page" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
     <div>
-        <form method="get">
-            {% if due_within %}
-            <input type="hidden" name="due_within" value="{{ due_within }}">
+      <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E8FF6D] text-[#3a5a00] text-xs font-semibold mb-3">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#3a5a00]"></span>SUBSCRIPTIONS
+      </div>
+      <h1 class="text-3xl font-bold text-[#1a1a1a] leading-tight">My Subscriptions</h1>
+      <p class="text-sm text-slate-500 mt-1">Track and manage all your recurring subscriptions in one place.</p>
+    </div>
+    <div class="flex items-center gap-2 shrink-0">
+      <a href="{% url 'subscriptions:export_csv' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Export CSV
+      </a>
+      <a href="{% url 'subscriptions:create' %}" class="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-[#1a1a1a] text-white text-sm font-semibold hover:bg-[#333] transition-all shadow-sm">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        Add Subscription
+      </a>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+    <div class="bg-white rounded-2xl px-4 py-3.5 border border-white/60 shadow-sm">
+      <div class="flex items-center gap-1.5 mb-1">
+        <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total</span>
+      </div>
+      <div class="text-2xl font-bold text-[#1a1a1a]">{{ subscriptions_stats.total }}</div>
+      <div class="text-xs text-slate-400 mt-0.5">subscriptions</div>
+    </div>
+    <div class="bg-[#E8FFF4] rounded-2xl px-4 py-3.5 border border-white/60 shadow-sm">
+      <div class="flex items-center gap-1.5 mb-1">
+        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+        <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Active</span>
+      </div>
+      <div class="text-2xl font-bold text-emerald-700">{{ subscriptions_stats.active }}</div>
+    </div>
+    <div class="bg-[#FFFBEB] rounded-2xl px-4 py-3.5 border border-white/60 shadow-sm">
+      <div class="flex items-center gap-1.5 mb-1">
+        <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+        <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Paused</span>
+      </div>
+      <div class="text-2xl font-bold text-amber-700">{{ subscriptions_stats.paused }}</div>
+    </div>
+    <div class="bg-[#E8FF6D] rounded-2xl px-4 py-3.5 border border-white/60 shadow-sm">
+      <div class="flex items-center gap-1.5 mb-1">
+        <span class="text-xs font-semibold text-[#3a5a00] uppercase tracking-wide">Monthly Spend</span>
+      </div>
+      <div class="text-2xl font-bold text-[#3a5a00]">
+        {% if subscriptions_stats.monthly_spend %}
+          ${% firstof subscriptions_stats.monthly_spend|floatformat:2 "0.00" %}
+        {% else %}
+          $0.00
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <form method="get" class="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 mb-6">
+    {% if due_within %}
+      <input type="hidden" name="due_within" value="{{ due_within }}">
+    {% endif %}
+    {% if cycle_filter %}
+      <input type="hidden" name="cycle" value="{{ cycle_filter }}">
+    {% endif %}
+    {% if shared_filter %}
+      <input type="hidden" name="shared" value="{{ shared_filter }}">
+    {% endif %}
+    <div class="flex flex-col sm:flex-row gap-3">
+      <div class="relative flex-1">
+        <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" name="q" value="{{ query }}" placeholder="Search Netflix, Spotify, AWS..."
+               class="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-[#F8F8F5] border border-transparent text-sm text-[#1a1a1a] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-slate-200" />
+      </div>
+      <button type="button" id="subscriptions-filter-toggle" class="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold transition-all border {% if filters_active %}bg-[#1a1a1a] text-white border-transparent{% else %}bg-[#F8F8F5] text-[#444] border-transparent hover:bg-slate-100{% endif %}">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="4" y1="6" x2="20" y2="6"></line>
+          <line x1="4" y1="12" x2="20" y2="12"></line>
+          <line x1="4" y1="18" x2="20" y2="18"></line>
+        </svg>
+        Filters
+        {% if filters_active %}
+          <span class="w-2 h-2 rounded-full bg-[#E8FF6D]"></span>
+        {% endif %}
+      </button>
+    </div>
+    <div id="subscriptions-filter-panel" class="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-end gap-3 {% if not filters_active %}hidden{% endif %}">
+      <div class="flex flex-col gap-1.5">
+        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</label>
+        <div class="relative">
+          <select name="status" class="appearance-none pl-3 pr-8 py-2.5 rounded-2xl bg-[#F8F8F5] text-sm text-[#1a1a1a] font-medium focus:outline-none cursor-pointer border border-transparent">
+            <option value="" {% if not status_filter %}selected{% endif %}>All Status</option>
+            <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+            <option value="paused" {% if status_filter == 'paused' %}selected{% endif %}>Paused</option>
+            <option value="cancelled" {% if status_filter == 'cancelled' %}selected{% endif %}>Cancelled</option>
+          </select>
+          <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Sort By</label>
+        <div class="relative">
+          <select name="sort" class="appearance-none pl-3 pr-8 py-2.5 rounded-2xl bg-[#F8F8F5] text-sm text-[#1a1a1a] font-medium focus:outline-none cursor-pointer border border-transparent">
+            <option value="renewal_date" {% if sort_by == 'renewal_date' %}selected{% endif %}>Renewal Date</option>
+            <option value="cost" {% if sort_by == 'cost' %}selected{% endif %}>Cost</option>
+            <option value="service_name" {% if sort_by == 'service_name' %}selected{% endif %}>Name</option>
+          </select>
+          <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
+      <div class="flex gap-2 ml-auto">
+        <a href="{% url 'subscriptions:list' %}" class="px-4 py-2.5 rounded-2xl text-sm font-semibold text-slate-500 hover:bg-slate-100 transition-colors">Clear</a>
+        <button type="submit" class="px-5 py-2.5 rounded-2xl bg-[#1a1a1a] text-white text-sm font-semibold hover:bg-[#333] transition-colors">Apply</button>
+      </div>
+    </div>
+  </form>
+
+  <div class="flex items-center justify-between mb-4 px-1">
+    <p class="text-sm text-slate-500 font-medium">
+      {% if subscriptions_filtered_total == subscriptions_total %}
+        {{ subscriptions_total }} subscription{{ subscriptions_total|pluralize }}
+      {% else %}
+        {{ subscriptions_filtered_total }} of {{ subscriptions_total }} subscription{{ subscriptions_total|pluralize }}
+      {% endif %}
+    </p>
+    {% if filters_active %}
+      <a href="{% url 'subscriptions:list' %}" class="text-xs font-semibold text-slate-500 hover:text-slate-900 flex items-center gap-1">
+        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+        Clear filters
+      </a>
+    {% endif %}
+  </div>
+
+  {% if subscriptions %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {% for sub in subscriptions %}
+      <div class="relative rounded-[28px] p-5 cursor-pointer card-hover select-none shadow-lg" style="background-color: {{ sub.card_color }}" data-subscription-card data-subscription-id="{{ sub.pk }}" data-status="{{ sub.status }}" tabindex="0" role="button">
+        {% if sub.is_shared %}
+        <div class="absolute top-4 right-4 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full {{ sub.card_badge_class }}" data-drawer-ignore>
+          <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          Shared
+        </div>
+        {% endif %}
+        <div class="flex items-start justify-between gap-3 mb-5">
+          <div class="w-14 h-14 rounded-2xl bg-white shadow-md flex items-center justify-center overflow-hidden p-2 shrink-0">
+            <img src="{{ sub.get_icon_url }}" alt="{{ sub.service_name }}" class="w-full h-full object-contain" onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');">
+            <div class="hidden w-full h-full rounded-xl flex items-center justify-center font-bold text-xs text-white" style="background-color: {{ sub.card_color }}">
+              {{ sub.get_fallback_icon }}
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="text-[22px] font-bold leading-tight tracking-tight {{ sub.card_text_class }}">
+              {% if sub.currency == 'USD' %}
+                ${{ sub.user_cost|floatformat:2 }}
+              {% else %}
+                {{ sub.currency }} {{ sub.user_cost|floatformat:2 }}
+              {% endif %}
+            </div>
+            <div class="text-sm leading-tight {{ sub.card_muted_class }}">{{ sub.billing_cycle }}</div>
+            {% if sub.is_shared %}
+              <div class="text-[11px] mt-0.5 {{ sub.card_muted_class }}">
+                of {% if sub.currency == 'USD' %}${{ sub.cost|floatformat:2 }}{% else %}{{ sub.currency }} {{ sub.cost|floatformat:2 }}{% endif %} total
+              </div>
             {% endif %}
-            <div>
-                <label>Search</label>
-                <input type="text" name="q" value="{{ query }}" placeholder="Netflix, Spotify...">
-            </div>
-            <div>
-                <label>Status</label>
-                <select name="status">
-                    <option value="">All Status</option>
-                    <option value="active" {% if status_filter == 'active' %} selected {% endif %}>Active</option>
-                    <option value="cancelled" {% if status_filter == 'cancelled' %} selected {% endif %}>Cancelled
-                    </option>
-                    <option value="paused" {% if status_filter == 'paused' %} selected {% endif %}>Paused</option>
-                </select>
-            </div>
-            <div>
-                <label>Sort By</label>
-                <select name="sort">
-                    <option value="renewal_date" {% if sort_by == 'renewal_date' %} selected {% endif %}>Renewal Date
-                    </option>
-                    <option value="cost" {% if sort_by == 'cost' %} selected {% endif %}>Cost</option>
-                    <option value="service_name" {% if sort_by == 'service_name' %} selected {% endif %}>Name</option>
-                </select>
-            </div>
-            <div>
-                <button type="submit">Apply</button>
-                <a href="{% url 'subscriptions:list' %}">Clear</a>
-            </div>
-        </form>
-        <div>
-            <a href="{% url 'subscriptions:create' %}">
-                Add Subscription
-            </a>
-            <a href="{% url 'subscriptions:export_csv' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">
-                Export to CSV
-            </a>
+          </div>
         </div>
-    </div>
-
-    <!-- Table -->
-    <div>
-        <div>
-            <table border="1">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Service</th>
-                        <th>Shared With</th>
-                        <th>Used Account</th>
-                        <th>Cost</th>
-                        <th>Renewal</th>
-                        <th>Status</th>
-                        <th>Category</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for sub in subscriptions %}
-                    <tr>
-                        <td>{{ forloop.counter }}</td>
-                        <td>
-                            <div>
-                                <div>
-                                    <img src="{{ sub.get_icon_url }}" alt="{{ sub.service_name }}"
-                                        onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                                    <div style="display: none;">
-                                        <span>{{ sub.get_fallback_icon }}</span>
-                                    </div>
-                                </div>
-                                <div>
-                                    <div>
-                                        <span>{{ sub.service_name }}</span>
-                                        {% if sub.plan_name %}
-                                        <span>({{ sub.plan_name }})</span>
-                                        {% endif %}
-                                        {% if sub.is_shared %}
-                                        <span>
-                                            Shared
-                                        </span>
-                                        {% endif %}
-                                    </div>
-                                    <span>{{ sub.billing_cycle }}</span>
-                                </div>
-                            </div>
-                        </td>
-                        <td>
-                            {% if sub.is_shared and sub.participant_count > 0 %}
-                            <div>
-                                <span>{{ sub.participant_count|add:"1" }}</span>
-                                <span>people</span>
-                            </div>
-                            {% else %}
-                            <span>Only me</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if sub.account_email %}
-                            <span title="{{ sub.account_email }}">{{ sub.account_email }}</span>
-                            {% else %}
-                            <span>—</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if sub.is_shared %}
-                            <div>
-                                <span>{{ sub.currency }} {{ sub.user_cost }}</span>
-                                <span>Total: {{ sub.currency }} {{ sub.cost }}</span>
-                            </div>
-                            {% else %}
-                            {{ sub.currency }} {{ sub.cost }}
-                            {% endif %}
-                        </td>
-                        <td>
-                            {{ sub.renewal_date|date:"M d, Y" }}
-                            {% if sub.renewal_time %}
-                            <span>{{ sub.renewal_time|time:"g:i A" }}</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <div class="status-dropdown-wrapper" data-subscription-id="{{ sub.pk }}">
-                                <button type="button" class="status-btn" data-current-status="{{ sub.status }}">
-                                    <span class="status-text">{{ sub.status|title }}</span>
-                                </button>
-                                <div class="status-menu hidden">
-                                    <div>
-                                        <button type="button" data-value="active" class="status-option">
-                                            Active
-                                        </button>
-                                        <button type="button" data-value="paused" class="status-option">
-                                            Paused
-                                        </button>
-                                        <button type="button" data-value="cancelled" class="status-option">
-                                            Cancelled
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </td>
-                        <td>{{ sub.category }}</td>
-                        <td>
-                            <a href="{% url 'subscriptions:update' sub.pk %}">Edit</a>
-                            <a href="{% url 'subscriptions:delete' sub.pk %}">Delete</a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="9">
-                            No subscriptions found. <a href="{% url 'subscriptions:create' %}">Add one now</a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="mb-4">
+          <h3 class="text-[26px] font-bold leading-tight tracking-tight {{ sub.card_text_class }}">{{ sub.service_name }}</h3>
+          {% if sub.plan_name %}
+            <p class="text-sm mt-0.5 {{ sub.card_muted_class }}">{{ sub.plan_name }}</p>
+          {% endif %}
         </div>
+        <div class="pt-3.5 border-t {{ sub.card_divider_class }} mb-3">
+          <p class="text-[11px] font-semibold uppercase tracking-wider mb-0.5 {{ sub.card_muted_class }}">Renewal:</p>
+          <p class="text-sm font-bold {{ sub.renewal_text_class }}">
+            {{ sub.renewal_date|date:"m/d/Y" }}
+            {% if sub.days_until_renewal is not None and sub.days_until_renewal >= 0 and sub.days_until_renewal <= 7 %}
+              <span class="font-normal ml-1.5 {{ sub.card_muted_class }}">({% if sub.days_until_renewal == 0 %}today{% else %}{{ sub.days_until_renewal }}d left{% endif %})</span>
+            {% elif sub.days_until_renewal is not None and sub.days_until_renewal < 0 %}
+              <span class="font-normal ml-1.5 {{ sub.card_muted_class }}">(overdue)</span>
+            {% endif %}
+          </p>
+        </div>
+        <div class="flex items-center justify-between gap-2">
+          <div class="text-[11px] font-medium {{ sub.card_muted_class }}">
+            {% if sub.is_shared and sub.participant_count > 0 %}
+              {{ sub.participant_count|add:"1" }} people
+            {% else %}
+              Only me
+            {% endif %}
+          </div>
+          <div class="flex items-center gap-1.5" data-drawer-ignore>
+            {% if sub.card %}
+              <span class="text-[10px] font-semibold px-2 py-1 rounded-full {{ sub.card_badge_class }}">**** {{ sub.card.last4 }}</span>
+            {% endif %}
+            <div class="status-dropdown-wrapper relative" data-subscription-id="{{ sub.pk }}" data-status="{{ sub.status }}" data-drawer-ignore>
+              <button type="button" class="status-btn inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full {{ sub.card_badge_class }}" data-current-status="{{ sub.status }}">
+                <span class="status-dot w-1.5 h-1.5 rounded-full"></span>
+                <span class="status-text">{{ sub.get_status_display }}</span>
+                <svg class="w-3 h-3 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </button>
+              <div class="status-menu hidden absolute right-0 mt-2 w-32 rounded-xl border border-slate-200 bg-white shadow-xl text-xs overflow-hidden z-20">
+                <button type="button" data-value="active" class="status-option w-full text-left px-3 py-2 hover:bg-slate-50">Active</button>
+                <button type="button" data-value="paused" class="status-option w-full text-left px-3 py-2 hover:bg-slate-50">Paused</button>
+                <button type="button" data-value="cancelled" class="status-option w-full text-left px-3 py-2 hover:bg-slate-50">Cancelled</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
     </div>
+  {% else %}
+    <div class="flex flex-col items-center justify-center py-24 text-center">
+      <div class="w-20 h-20 rounded-3xl bg-[#F0F0EC] flex items-center justify-center mb-4">
+        <svg class="w-9 h-9 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7"></rect>
+          <rect x="14" y="3" width="7" height="7"></rect>
+          <rect x="14" y="14" width="7" height="7"></rect>
+          <rect x="3" y="14" width="7" height="7"></rect>
+        </svg>
+      </div>
+      {% if filters_active %}
+        <h3 class="text-lg font-bold text-[#1a1a1a] mb-1">No results found</h3>
+        <p class="text-sm text-slate-500 mb-5 max-w-xs">No subscriptions match your current filters. Try adjusting or clearing them.</p>
+        <a href="{% url 'subscriptions:list' %}" class="px-5 py-2.5 rounded-2xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all">Clear Filters</a>
+      {% else %}
+        <h3 class="text-lg font-bold text-[#1a1a1a] mb-1">No subscriptions yet</h3>
+        <p class="text-sm text-slate-500 mb-5 max-w-xs">Start tracking your recurring payments. Add one now to stay on top of your spending.</p>
+        <a href="{% url 'subscriptions:create' %}" class="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-[#1a1a1a] text-white text-sm font-semibold hover:bg-[#333] transition-all">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          Add Subscription
+        </a>
+      {% endif %}
+    </div>
+  {% endif %}
 </div>
 
-<style>
-    .hidden {
-        display: none;
-    }
-</style>
+<div id="subscription-drawer-overlay" class="fixed inset-0 bg-black/40 z-40 opacity-0 pointer-events-none"></div>
+<div id="subscription-drawer" class="fixed top-0 right-0 h-full w-full max-w-[420px] bg-white z-50 shadow-2xl translate-x-full flex flex-col">
+  <div id="subscription-drawer-content" class="h-full"></div>
+</div>
+<div class="hidden translate-x-0 opacity-100"></div>
 
+{% for sub in subscriptions %}
+<template id="drawer-template-{{ sub.pk }}">
+  <div class="flex flex-col h-full">
+    <div class="px-6 pt-5 pb-6 relative overflow-hidden shrink-0" style="background-color: {{ sub.card_color }}">
+      <button type="button" data-drawer-close class="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+        <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+      <div class="flex items-center gap-4 mb-5">
+        <div class="w-16 h-16 rounded-2xl flex items-center justify-center shadow-md overflow-hidden p-2.5" style="background-color: {{ sub.card_color }}">
+          <img src="{{ sub.get_icon_url }}" alt="{{ sub.service_name }}" class="w-full h-full object-contain" onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');">
+          <div class="hidden w-full h-full rounded-xl flex items-center justify-center font-bold text-base text-white">
+            {{ sub.get_fallback_icon }}
+          </div>
+        </div>
+        <div class="flex-1 min-w-0">
+          <h2 class="text-xl font-bold text-white leading-tight">{{ sub.service_name }}</h2>
+          {% if sub.plan_name %}
+            <p class="text-sm text-white/70 mt-0.5">{{ sub.plan_name }}</p>
+          {% endif %}
+          <div class="flex items-center gap-2 mt-2 flex-wrap">
+            <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-white/20 text-white border border-white/25">{{ sub.get_billing_cycle_display }}</span>
+            {% if sub.is_shared %}
+              <span class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-white/20 text-white border border-white/25">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+                Shared
+              </span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="bg-white/15 rounded-2xl px-4 py-3 border border-white/20">
+        <p class="text-xs text-white/70 mb-0.5 uppercase tracking-wide">Next renewal</p>
+        <p class="text-2xl font-bold text-white">{{ sub.renewal_date|date:"F d, Y" }}</p>
+        {% if sub.renewal_time %}
+          <p class="text-sm text-white/70">{{ sub.renewal_time|time:"g:i A" }}</p>
+        {% endif %}
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Cost</span>
+        <span class="text-lg font-bold text-slate-900">
+          {% if sub.currency == 'USD' %}
+            ${{ sub.user_cost|floatformat:2 }}
+          {% else %}
+            {{ sub.currency }} {{ sub.user_cost|floatformat:2 }}
+          {% endif %}
+        </span>
+      </div>
+      {% if sub.is_shared %}
+      <div class="text-sm text-slate-500">
+        Total plan: {% if sub.currency == 'USD' %}${{ sub.cost|floatformat:2 }}{% else %}{{ sub.currency }} {{ sub.cost|floatformat:2 }}{% endif %}
+      </div>
+      {% endif %}
+      <div class="border-t border-slate-100"></div>
+      <div class="space-y-3">
+        <div class="flex items-center justify-between text-sm">
+          <span class="text-slate-500">Category</span>
+          <span class="font-semibold text-slate-900">{{ sub.category }}</span>
+        </div>
+        <div class="flex items-center justify-between text-sm">
+          <span class="text-slate-500">Account</span>
+          <span class="font-semibold text-slate-900">{% if sub.account_email %}{{ sub.account_email }}{% else %}—{% endif %}</span>
+        </div>
+        <div class="flex items-center justify-between text-sm">
+          <span class="text-slate-500">Payment Card</span>
+          <span class="font-semibold text-slate-900">{% if sub.card %}**** {{ sub.card.last4 }}{% else %}—{% endif %}</span>
+        </div>
+        {% if sub.is_shared %}
+        <div class="flex items-center justify-between text-sm">
+          <span class="text-slate-500">Shared with</span>
+          <span class="font-semibold text-slate-900">{{ sub.participant_count|add:"1" }} people</span>
+        </div>
+        {% endif %}
+        <div class="flex items-center justify-between text-sm">
+          <span class="text-slate-500">Status</span>
+          <div class="status-dropdown-wrapper relative" data-subscription-id="{{ sub.pk }}" data-status="{{ sub.status }}">
+            <button type="button" class="status-btn inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700" data-current-status="{{ sub.status }}">
+              <span class="status-dot w-1.5 h-1.5 rounded-full"></span>
+              <span class="status-text">{{ sub.get_status_display }}</span>
+              <svg class="w-3 h-3 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            <div class="status-menu hidden absolute right-0 mt-2 w-32 rounded-xl border border-slate-200 bg-white shadow-xl text-xs overflow-hidden z-20">
+              <button type="button" data-value="active" class="status-option w-full text-left px-3 py-2 hover:bg-slate-50">Active</button>
+              <button type="button" data-value="paused" class="status-option w-full text-left px-3 py-2 hover:bg-slate-50">Paused</button>
+              <button type="button" data-value="cancelled" class="status-option w-full text-left px-3 py-2 hover:bg-slate-50">Cancelled</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-3 pt-2">
+        <a href="{% url 'subscriptions:update' sub.pk %}" class="flex-1 py-3 rounded-2xl bg-slate-100 text-slate-700 text-sm font-semibold hover:bg-slate-200 transition-colors text-center">
+          Edit
+        </a>
+        <a href="{% url 'subscriptions:delete' sub.pk %}" class="flex-1 py-3 rounded-2xl bg-red-50 text-red-600 text-sm font-semibold hover:bg-red-100 transition-colors text-center">
+          Delete
+        </a>
+      </div>
+    </div>
+  </div>
+</template>
+{% endfor %}
+
+{% endblock %}
+
+{% block extra_js %}
 <script>
-    (function () {
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
+  (function () {
+    function getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim();
+          if (cookie.substring(0, name.length + 1) === (name + '=')) {
+            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+            break;
+          }
+        }
+      }
+      return cookieValue;
+    }
+
+    function showToast(message) {
+      const toast = document.createElement('div');
+      toast.style.position = 'fixed';
+      toast.style.bottom = '14px';
+      toast.style.right = '14px';
+      toast.style.padding = '8px 12px';
+      toast.style.border = '1px solid rgba(15, 23, 42, 0.15)';
+      toast.style.background = 'white';
+      toast.style.borderRadius = '10px';
+      toast.style.boxShadow = '0 10px 30px rgba(15, 23, 42, 0.2)';
+      toast.style.fontSize = '12px';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => {
+        toast.remove();
+      }, 2000);
+    }
+
+    function updateStatusIndicators(wrapper, newStatus) {
+      wrapper.dataset.status = newStatus;
+      const btn = wrapper.querySelector('.status-btn');
+      if (btn) {
+        btn.dataset.currentStatus = newStatus;
+      }
+      const text = wrapper.querySelector('.status-text');
+      if (text) {
+        text.textContent = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
+      }
+
+      const dot = wrapper.querySelector('.status-dot');
+      if (dot) {
+        dot.classList.remove('bg-emerald-500', 'bg-amber-400', 'bg-red-400');
+        if (newStatus === 'active') {
+          dot.classList.add('bg-emerald-500');
+        } else if (newStatus === 'paused') {
+          dot.classList.add('bg-amber-400');
+        } else {
+          dot.classList.add('bg-red-400');
+        }
+      }
+    }
+
+    function syncAllStatusWrappers(subscriptionId, newStatus) {
+      document.querySelectorAll('.status-dropdown-wrapper[data-subscription-id="' + subscriptionId + '"]')
+        .forEach(wrapper => updateStatusIndicators(wrapper, newStatus));
+      const card = document.querySelector('[data-subscription-card][data-subscription-id="' + subscriptionId + '"]');
+      if (card) {
+        card.dataset.status = newStatus;
+      }
+    }
+
+    function initStatusDropdowns(scope) {
+      const root = scope || document;
+      const wrappers = root.querySelectorAll('.status-dropdown-wrapper');
+      wrappers.forEach(wrapper => {
+        if (wrapper.dataset.dropdownInit === '1') {
+          return;
+        }
+        wrapper.dataset.dropdownInit = '1';
+
+        const btn = wrapper.querySelector('.status-btn');
+        const menu = wrapper.querySelector('.status-menu');
+        const options = wrapper.querySelectorAll('.status-option');
+        const subId = wrapper.dataset.subscriptionId;
+
+        if (!btn || !menu || !subId) {
+          return;
+        }
+
+        updateStatusIndicators(wrapper, btn.dataset.currentStatus || wrapper.dataset.status || 'active');
+
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          document.querySelectorAll('.status-menu').forEach(m => {
+            if (m !== menu) {
+              m.classList.add('hidden');
             }
-            return cookieValue;
-        }
+          });
+          menu.classList.toggle('hidden');
+        });
 
-        function showToast(message) {
-            const toast = document.createElement('div');
-            toast.style.position = 'fixed';
-            toast.style.bottom = '10px';
-            toast.style.right = '10px';
-            toast.style.padding = '5px';
-            toast.style.border = '1px solid black';
-            toast.style.background = 'white';
-            toast.textContent = message;
-            document.body.appendChild(toast);
-            setTimeout(() => {
-                toast.remove();
-            }, 2000);
-        }
+        options.forEach(option => {
+          option.addEventListener('click', function (e) {
+            e.stopPropagation();
+            const newStatus = this.dataset.value;
+            const currentStatus = btn.dataset.currentStatus;
 
-        function initStatusDropdowns() {
-            const wrappers = document.querySelectorAll('.status-dropdown-wrapper');
-            wrappers.forEach(wrapper => {
-                if (wrapper.dataset.dropdownInit === '1') {
-                    return;
+            if (newStatus === currentStatus) {
+              menu.classList.add('hidden');
+              return;
+            }
+
+            syncAllStatusWrappers(subId, newStatus);
+            menu.classList.add('hidden');
+
+            fetch(`/subscriptions/${subId}/status/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': getCookie('csrftoken')
+              },
+              body: `status=${newStatus}`
+            })
+              .then(response => response.json())
+              .then(data => {
+                if (data.status === 'success') {
+                  syncAllStatusWrappers(subId, newStatus);
+                  showToast('Status updated');
+                } else {
+                  syncAllStatusWrappers(subId, currentStatus);
+                  showToast('Failed to update');
                 }
-                wrapper.dataset.dropdownInit = '1';
+              })
+              .catch(() => {
+                syncAllStatusWrappers(subId, currentStatus);
+                showToast('Failed to update');
+              });
+          });
+        });
+      });
+    }
 
-                const btn = wrapper.querySelector('.status-btn');
-                const menu = wrapper.querySelector('.status-menu');
-                const options = wrapper.querySelectorAll('.status-option');
-                const subId = wrapper.dataset.subscriptionId;
+    function initDrawer() {
+      const overlay = document.getElementById('subscription-drawer-overlay');
+      const drawer = document.getElementById('subscription-drawer');
+      const content = document.getElementById('subscription-drawer-content');
 
-                if (!btn || !menu || !subId) {
-                    return;
-                }
+      if (!overlay || !drawer || !content) {
+        return;
+      }
 
-                btn.addEventListener('click', function (e) {
-                    e.stopPropagation();
-                    document.querySelectorAll('.status-menu').forEach(m => {
-                        if (m !== menu) {
-                            m.classList.add('hidden');
-                        }
-                    });
-                    menu.classList.toggle('hidden');
-                });
-
-                options.forEach(option => {
-                    option.addEventListener('click', function (e) {
-                        e.stopPropagation();
-                        const newStatus = this.dataset.value;
-                        const currentStatus = btn.dataset.currentStatus;
-
-                        if (newStatus === currentStatus) {
-                            menu.classList.add('hidden');
-                            return;
-                        }
-
-                        btn.querySelector('.status-text').textContent = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
-                        menu.classList.add('hidden');
-
-                        fetch(`/subscriptions/${subId}/status/`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/x-www-form-urlencoded',
-                                'X-Requested-With': 'XMLHttpRequest',
-                                'X-CSRFToken': getCookie('csrftoken')
-                            },
-                            body: `status=${newStatus}`
-                        })
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.status === 'success') {
-                                    btn.dataset.currentStatus = newStatus;
-                                    showToast('Status updated');
-                                } else {
-                                    btn.querySelector('.status-text').textContent = currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1);
-                                    showToast('Failed to update');
-                                }
-                            })
-                            .catch(() => {
-                                btn.querySelector('.status-text').textContent = currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1);
-                                showToast('Failed to update');
-                            });
-                    });
-                });
-            });
+      function openDrawer(id) {
+        const template = document.getElementById('drawer-template-' + id);
+        if (!template) {
+          return;
         }
+        content.innerHTML = template.innerHTML;
+        drawer.classList.remove('translate-x-full');
+        drawer.classList.add('translate-x-0');
+        overlay.classList.remove('opacity-0', 'pointer-events-none');
+        overlay.classList.add('opacity-100');
+        document.body.style.overflow = 'hidden';
+        initStatusDropdowns(content);
+      }
 
-        if (!window.__sublyStatusDropdownDocClickBound) {
-            document.addEventListener('click', function (e) {
-                if (!e.target.closest('.status-dropdown-wrapper')) {
-                    document.querySelectorAll('.status-menu').forEach(menu => menu.classList.add('hidden'));
-                }
-            });
-            window.__sublyStatusDropdownDocClickBound = true;
+      function closeDrawer() {
+        drawer.classList.add('translate-x-full');
+        drawer.classList.remove('translate-x-0');
+        overlay.classList.add('opacity-0', 'pointer-events-none');
+        overlay.classList.remove('opacity-100');
+        document.body.style.overflow = '';
+      }
+
+      overlay.addEventListener('click', closeDrawer);
+      content.addEventListener('click', function (event) {
+        if (event.target.closest('[data-drawer-close]')) {
+          closeDrawer();
         }
+      });
 
-        if (!window.__sublyStatusDropdownEventBound) {
-            document.addEventListener('subly:content-loaded', initStatusDropdowns);
-            window.__sublyStatusDropdownEventBound = true;
+      document.querySelectorAll('[data-subscription-card]').forEach(card => {
+        if (card.dataset.drawerInit === '1') {
+          return;
         }
+        card.dataset.drawerInit = '1';
+        card.addEventListener('click', function (event) {
+          if (event.target.closest('[data-drawer-ignore]')) {
+            return;
+          }
+          openDrawer(card.dataset.subscriptionId);
+        });
+        card.addEventListener('keydown', function (event) {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openDrawer(card.dataset.subscriptionId);
+          }
+        });
+      });
 
-        initStatusDropdowns();
-    })();
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+          closeDrawer();
+        }
+      });
+    }
+
+    function initFilterToggle() {
+      const toggle = document.getElementById('subscriptions-filter-toggle');
+      const panel = document.getElementById('subscriptions-filter-panel');
+      if (!toggle || !panel) {
+        return;
+      }
+      if (toggle.dataset.toggleInit === '1') {
+        return;
+      }
+      toggle.dataset.toggleInit = '1';
+      toggle.addEventListener('click', function () {
+        panel.classList.toggle('hidden');
+      });
+    }
+
+    function initPage() {
+      initStatusDropdowns(document);
+      initDrawer();
+      initFilterToggle();
+    }
+
+    if (!window.__sublyStatusDropdownDocClickBound) {
+      document.addEventListener('click', function (event) {
+        if (!event.target.closest('.status-dropdown-wrapper')) {
+          document.querySelectorAll('.status-menu').forEach(menu => menu.classList.add('hidden'));
+        }
+      });
+      window.__sublyStatusDropdownDocClickBound = true;
+    }
+
+    if (!window.__sublySubscriptionsPageInit) {
+      document.addEventListener('subly:content-loaded', initPage);
+      window.__sublySubscriptionsPageInit = true;
+    }
+
+    initPage();
+  })();
 </script>
 {% endblock %}

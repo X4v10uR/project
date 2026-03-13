@@ -33,6 +33,7 @@ from .cards_state import (
     parse_boolean,
     set_primary_card_for_user,
 )
+from .money import monthly_equivalent
 
 CATEGORY_SUGGESTIONS = [
     "Streaming",
@@ -48,6 +49,107 @@ CATEGORY_SUGGESTIONS = [
 ]
 
 CSV_FORMULA_PREFIXES = ('=', '+', '-', '@')
+
+CARD_COLOR_PALETTE = [
+    "#E50914",
+    "#1DB954",
+    "#0F172A",
+    "#2563EB",
+    "#0F766E",
+    "#7C3AED",
+    "#B91C1C",
+    "#0EA5E9",
+    "#D97706",
+    "#334155",
+]
+
+CATEGORY_COLOR_MAP = {
+    "streaming": "#E50914",
+    "music": "#1DB954",
+    "video": "#B91C1C",
+    "software": "#0F172A",
+    "utilities": "#0EA5E9",
+    "cloud": "#1E3A8A",
+    "gaming": "#7C3AED",
+    "productivity": "#0F766E",
+    "education": "#D97706",
+    "news": "#334155",
+    "fitness": "#D97706",
+}
+
+
+def _hex_to_rgb(value):
+    raw = (value or "").strip()
+    if not raw.startswith("#"):
+        return 0, 0, 0
+    hex_value = raw.lstrip("#")
+    if len(hex_value) == 3:
+        hex_value = "".join(ch * 2 for ch in hex_value)
+    if len(hex_value) != 6:
+        return 0, 0, 0
+    try:
+        return (
+            int(hex_value[0:2], 16),
+            int(hex_value[2:4], 16),
+            int(hex_value[4:6], 16),
+        )
+    except ValueError:
+        return 0, 0, 0
+
+
+def _is_dark_color(value):
+    r, g, b = _hex_to_rgb(value)
+    luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+    return luminance < 0.6
+
+
+def _assign_subscription_card_meta(subscriptions):
+    today = timezone.localdate()
+    for idx, sub in enumerate(subscriptions):
+        category_key = (sub.category or "").strip().lower()
+        color = CATEGORY_COLOR_MAP.get(category_key) or CARD_COLOR_PALETTE[idx % len(CARD_COLOR_PALETTE)]
+        is_dark = _is_dark_color(color)
+        sub.card_color = color
+        sub.card_text_is_light = is_dark
+        sub.card_text_class = "text-white" if is_dark else "text-slate-900"
+        sub.card_muted_class = "text-white/65" if is_dark else "text-slate-600"
+        sub.card_divider_class = "border-white/15" if is_dark else "border-slate-200"
+        sub.card_badge_class = "bg-white/15 text-white" if is_dark else "bg-slate-900/10 text-slate-700"
+        sub.card_badge_border_class = "border-white/20" if is_dark else "border-slate-200"
+
+        if sub.renewal_date:
+            sub.days_until_renewal = (sub.renewal_date - today).days
+        else:
+            sub.days_until_renewal = None
+
+        if sub.days_until_renewal is None:
+            sub.renewal_text_class = sub.card_muted_class
+        elif sub.days_until_renewal < 0:
+            sub.renewal_text_class = "text-red-300" if is_dark else "text-red-600"
+        elif sub.days_until_renewal <= 3:
+            sub.renewal_text_class = "text-yellow-300" if is_dark else "text-orange-600"
+        else:
+            sub.renewal_text_class = sub.card_text_class
+
+
+def _calculate_subscription_stats(subscriptions):
+    total = len(subscriptions)
+    active = sum(1 for s in subscriptions if s.status == "active")
+    paused = sum(1 for s in subscriptions if s.status == "paused")
+    cancelled = sum(1 for s in subscriptions if s.status == "cancelled")
+    monthly_spend = Decimal("0")
+    for sub in subscriptions:
+        if sub.status != "active":
+            continue
+        monthly_spend += monthly_equivalent(sub.user_cost, sub.billing_cycle)
+
+    return {
+        "total": total,
+        "active": active,
+        "paused": paused,
+        "cancelled": cancelled,
+        "monthly_spend": monthly_spend,
+    }
 
 
 def _parse_participants_data(request):
@@ -581,6 +683,17 @@ def cards_api_delete(request, pk):
     return _cards_state_response(request.user)
 
 
+def _base_subscription_queryset(request):
+    return (
+        Subscription.objects.filter(
+            user=request.user,
+            team__isnull=True,
+        )
+        .select_related("card")
+        .annotate(participant_count=Count("participants"))
+    )
+
+
 def _build_subscription_list_state(request):
     query = request.GET.get('q', '')
     status_filter = request.GET.get('status', '')
@@ -589,12 +702,7 @@ def _build_subscription_list_state(request):
     due_within = request.GET.get('due_within', '')
     sort_by = request.GET.get('sort', 'renewal_date')
 
-    subscriptions = Subscription.objects.filter(
-        user=request.user,
-        team__isnull=True,
-    ).annotate(
-        participant_count=Count('participants')
-    )
+    subscriptions = _base_subscription_queryset(request)
 
     if query:
         subscriptions = subscriptions.filter(service_name__icontains=query)
@@ -637,11 +745,27 @@ def _build_subscription_list_state(request):
 @login_required
 def subscription_list(request):
     subscriptions, filters = _build_subscription_list_state(request)
+    subscriptions = list(subscriptions)
+    base_subscriptions = list(_base_subscription_queryset(request))
+    _assign_subscription_card_meta(subscriptions)
+    stats = _calculate_subscription_stats(base_subscriptions)
+    filters_active = bool(
+        filters.get("query")
+        or filters.get("status_filter")
+        or filters.get("cycle_filter")
+        or filters.get("shared_filter")
+        or filters.get("due_within")
+        or filters.get("sort_by") not in ("", "renewal_date")
+    )
     return render(
         request,
         'subscriptions/list.html',
         {
             'subscriptions': subscriptions,
+            'subscriptions_total': len(base_subscriptions),
+            'subscriptions_filtered_total': len(subscriptions),
+            'subscriptions_stats': stats,
+            'filters_active': filters_active,
             **filters,
         },
     )
