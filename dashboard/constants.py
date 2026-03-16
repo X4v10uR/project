@@ -33,6 +33,8 @@ PLACEHOLDER_UPCOMING = {
     'amount': '$0.00',
     'days_left_text': 'No due date',
     'service_name': 'Add Subscription',
+    'billing_cycle_label': '--',
+    'renewal_date': None,
 }
 
 PLACEHOLDER_SUBSCRIPTION = {

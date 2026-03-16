@@ -498,8 +498,113 @@
 
     .dashboard-upcoming-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 13.5rem), 1fr));
-        gap: 0.8rem;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 15.5rem), 1fr));
+        gap: 1.25rem;
+    }
+
+    .dashboard-upcoming-card {
+        position: relative;
+        border-radius: 2rem;
+        padding: 0;
+        background: transparent;
+    }
+
+    .dashboard-upcoming-card-inner {
+        position: relative;
+        z-index: 1;
+        background: #ffffff;
+        border-radius: 2.25rem;
+        padding: 1.5rem;
+        min-height: 11.25rem;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+    }
+
+    .dashboard-upcoming-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .dashboard-upcoming-icon {
+        width: 3.5rem;
+        height: 3.5rem;
+        border-radius: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.25rem;
+        box-shadow: 0 6px 14px rgba(15, 23, 42, 0.12);
+        background: #ffffff;
+        color: #111827;
+        font-size: 1rem;
+        font-weight: 700;
+    }
+
+    .dashboard-upcoming-icon img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+
+    .dashboard-upcoming-price {
+        text-align: right;
+        line-height: 1.05;
+        padding-top: 0.15rem;
+    }
+
+    .dashboard-upcoming-amount {
+        font-size: 1.45rem;
+        font-weight: 800;
+        color: #000000;
+        letter-spacing: -0.02em;
+    }
+
+    .dashboard-upcoming-cycle {
+        display: block;
+        margin-top: 0.35rem;
+        font-size: 1rem;
+        font-weight: 500;
+        text-transform: none;
+        letter-spacing: 0;
+        color: #374151;
+    }
+
+    .dashboard-upcoming-title {
+        font-size: 1.45rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: #000000;
+        margin-bottom: 0.5rem;
+    }
+
+    .dashboard-upcoming-divider {
+        width: 2.5rem;
+        height: 1px;
+        background: #e5e7eb;
+        margin-bottom: 1.25rem;
+    }
+
+    .dashboard-upcoming-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+        color: #1c7bcf;
+        font-size: 1.05rem;
+        font-weight: 500;
+        line-height: 1.25;
+        margin-bottom: 1.5rem;
+    }
+
+    .dashboard-upcoming-footnote {
+        font-size: 1rem;
+        font-weight: 500;
+        color: #1f2937;
+        letter-spacing: -0.01em;
+        margin-top: 0.25rem;
     }
 
     .dashboard-row-content {
@@ -556,10 +661,6 @@
         transform: translateY(-3px);
         box-shadow: 0 22px 36px -30px rgba(15, 23, 42, 0.6);
         border-color: rgba(148, 163, 184, 0.72);
-    }
-
-    .dashboard-upcoming-card {
-        padding: 1.02rem;
     }
 
     .dashboard-subscription-row {
@@ -823,23 +924,36 @@
                     <div class="dashboard-upcoming-grid">
                         {% for bill in upcoming_bills %}
                         <div
-                            class="dashboard-upcoming-card dashboard-soft-card {{ bill.bg_class }} card-hover {% if bill.is_placeholder %}opacity-70{% else %}cursor-pointer js-clickable-card{% endif %}"
-                            {% if bill.bg_style %}style="{{ bill.bg_style }}"{% endif %}
+                            class="dashboard-upcoming-card {% if bill.is_placeholder %}opacity-70{% else %}cursor-pointer js-clickable-card{% endif %}"
                             {% if not bill.is_placeholder %}data-url="{{ bill.edit_url }}"{% endif %}
                         >
-                            <div class="flex items-center gap-3 mb-3">
-                                <div class="w-10 h-10 bg-white/30 backdrop-blur rounded-full flex items-center justify-center overflow-hidden">
-                                    {% if bill.icon_url %}
-                                    <img src="{{ bill.icon_url }}" alt="{{ bill.service_name }}" class="w-6 h-6"
-                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                    {% endif %}
-                                    <span class="w-6 h-6 items-center justify-center text-base font-semibold {% if bill.icon_url %}hidden{% else %}flex{% endif %}">{{ bill.icon_fallback }}</span>
+                            <div class="dashboard-upcoming-card-inner">
+                                <div class="dashboard-upcoming-header">
+                                    <div class="dashboard-upcoming-icon">
+                                        {% if bill.icon_url %}
+                                        <img src="{{ bill.icon_url }}" alt="{{ bill.service_name }}"
+                                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                        {% endif %}
+                                        <span class="w-full h-full items-center justify-center {% if bill.icon_url %}hidden{% else %}flex{% endif %}">{{ bill.icon_fallback }}</span>
+                                    </div>
+                                    <div class="dashboard-upcoming-price">
+                                        <span class="dashboard-upcoming-amount">{{ bill.amount }}</span>
+                                        <span class="dashboard-upcoming-cycle">{{ bill.billing_cycle_label|default:"--"|lower }}</span>
+                                    </div>
                                 </div>
-                            </div>
-                            <div>
-                                <p class="text-lg text-gray-800 dashboard-font-black">{{ bill.amount }}</p>
-                                <p class="text-sm text-gray-600 mb-1">{{ bill.days_left_text }}</p>
-                                <p class="text-sm font-medium text-gray-800">{{ bill.service_name }}</p>
+                                <div class="dashboard-upcoming-title">{{ bill.service_name }}</div>
+                                <div class="dashboard-upcoming-divider"></div>
+                                <div class="dashboard-upcoming-meta">
+                                    <span>Renewal:</span>
+                                    <span>
+                                        {% if bill.renewal_date %}
+                                            {{ bill.renewal_date|date:"m.d.Y" }}
+                                        {% else %}
+                                            {{ bill.days_left_text }}
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                <div class="dashboard-upcoming-footnote">{{ bill.days_left_text }}</div>
                             </div>
                         </div>
                         {% endfor %}
