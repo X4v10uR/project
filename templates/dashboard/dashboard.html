@@ -765,7 +765,138 @@
 
     @media (min-width: 1024px) {
         .dashboard-shell {
-            padding: 1.35rem;
+            padding: 1.15rem;
+        }
+
+        body.route-dashboard .app-main-shell {
+            min-height: 0;
+            height: 100dvh;
+            padding: 8px 10px 40px;
+            overflow: hidden;
+        }
+
+        body.route-dashboard #app-content {
+            height: 100%;
+        }
+
+        body.route-dashboard .dashboard-shell {
+            width: 100%;
+            max-width: none;
+            margin: 0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        body.route-dashboard .dashboard-main-grid {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            padding-bottom: 96px;
+            scrollbar-width: none;
+        }
+
+        body.route-dashboard .dashboard-main-grid::-webkit-scrollbar {
+            width: 0;
+            height: 0;
+        }
+
+        body.route-dashboard {
+            overflow: hidden;
+        }
+    }
+
+    @media (min-width: 1024px) and (max-height: 900px) {
+        body.route-dashboard .app-main-shell {
+            padding: 6px 8px 32px;
+        }
+
+        .dashboard-shell {
+            padding: 0.95rem;
+            border-radius: 1.6rem;
+        }
+
+        .dashboard-header {
+            margin-bottom: 0.8rem;
+            padding-bottom: 0.6rem;
+        }
+
+        .dashboard-main-grid {
+            gap: 1rem;
+        }
+
+        .dashboard-col.space-y-4 > :not([hidden]) ~ :not([hidden]) {
+            margin-top: 0.85rem;
+        }
+
+        .dashboard-balance-card {
+            padding: 0.95rem;
+        }
+
+        .balance-trend-panel {
+            max-height: 10rem;
+        }
+
+        .balance-trend-graph-wrap {
+            height: 3rem;
+        }
+
+        .dashboard-upcoming-grid {
+            gap: 0.9rem;
+        }
+
+        .dashboard-upcoming-card-inner {
+            padding: 1.15rem;
+            min-height: 9.8rem;
+        }
+
+        .dashboard-upcoming-header {
+            margin-bottom: 0.9rem;
+        }
+
+        .dashboard-upcoming-amount {
+            font-size: 1.25rem;
+        }
+
+        .dashboard-upcoming-cycle {
+            font-size: 0.9rem;
+        }
+
+        .dashboard-upcoming-title {
+            font-size: 1.25rem;
+        }
+
+        .dashboard-upcoming-meta {
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+        }
+
+        .dashboard-upcoming-footnote {
+            font-size: 0.9rem;
+        }
+
+        .dashboard-section-title {
+            font-size: 1.3rem;
+        }
+
+        .dashboard-panel-title {
+            font-size: 1.4rem;
+        }
+
+        .dashboard-panel-card {
+            padding: 0.95rem;
+        }
+
+        .dashboard-subscription-row {
+            padding: 0.8rem;
+        }
+
+        .dashboard-active-card {
+            padding: 0.75rem;
+        }
+
+        .dashboard-recent-row {
+            padding: 0.55rem 0.7rem;
         }
     }
 

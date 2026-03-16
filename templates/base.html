@@ -731,7 +731,9 @@
                 function applyRouteLayout(path) {
                     var normalized = normalizePath(path);
                     var isTeamsRoute = normalized.startsWith('/accounts/teams/');
+                    var isDashboardRoute = normalized.startsWith('/dashboard/');
                     document.body.classList.toggle('route-teams', isTeamsRoute);
+                    document.body.classList.toggle('route-dashboard', isDashboardRoute);
                 }
 
                 function dispatchContentLoaded() {
