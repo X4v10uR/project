@@ -318,7 +318,6 @@ def _subscription_destination_url(subscription):
 def _build_upcoming_item(subscription, index, today, service_color_map):
     effective_cost = subscription.user_cost if subscription.is_shared else subscription.cost
     renewal_date = _effective_renewal_date(subscription, today)
-    billing_cycle_label = subscription.get_billing_cycle_display() or '--'
     return {
         'is_placeholder': False,
         'bg_class': '',
@@ -326,8 +325,6 @@ def _build_upcoming_item(subscription, index, today, service_color_map):
         'service_name': subscription.service_name,
         'amount': _format_money(effective_cost, subscription.currency),
         'days_left_text': _days_left_text(renewal_date, today),
-        'billing_cycle_label': billing_cycle_label,
-        'renewal_date': renewal_date,
         'edit_url': _subscription_destination_url(subscription),
         'icon_url': subscription.get_icon_url(),
         'icon_fallback': subscription.get_fallback_icon(),
@@ -344,8 +341,6 @@ def _build_upcoming_placeholder(index):
             'edit_url': '',
             'icon_url': '',
             'icon_fallback': '+',
-            'billing_cycle_label': '--',
-            'renewal_date': None,
         }
     )
     return data
