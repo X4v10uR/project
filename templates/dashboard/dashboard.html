@@ -10,668 +10,422 @@
     .dashboard-shell input,
     .dashboard-shell select,
     .dashboard-shell textarea {
-        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", sans-serif;
-        font-weight: 400;
+        font-family: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Display", "Segoe UI", sans-serif;
         font-style: normal;
-    }
-
-    .dashboard-font-regular {
-        font-weight: 400;
-        font-style: normal;
-    }
-
-    .dashboard-font-bold {
-        font-weight: 700;
-    }
-
-    .dashboard-font-black {
-        font-weight: 900;
-    }
-
-    .dashboard-font-italic {
-        font-weight: 400;
-        font-style: italic;
-    }
-
-    .balance-card {
-        background:
-            radial-gradient(circle at 88% 16%, rgba(232, 245, 66, 0.2), rgba(232, 245, 66, 0) 44%),
-            linear-gradient(135deg, #121826 0%, #1a2334 54%, #101726 100%);
-    }
-
-    .balance-chip-control {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        background: rgba(51, 65, 85, 0.9);
-        color: rgb(226 232 240);
-        border: 1px solid rgba(148, 163, 184, 0.2);
-        border-radius: 9999px;
-        padding: 0.25rem 0.5rem;
-        font-size: 0.75rem;
-        line-height: 1;
-        transition: background-color 160ms ease, border-color 160ms ease;
-    }
-
-    .balance-chip-control:hover {
-        background: rgba(51, 65, 85, 1);
-        border-color: rgba(148, 163, 184, 0.35);
-    }
-
-    .balance-chip-switch {
-        position: relative;
-        width: 1.75rem;
-        height: 1rem;
-        border-radius: 9999px;
-        background: rgba(100, 116, 139, 0.75);
-        transition: background-color 200ms ease;
-        flex-shrink: 0;
-    }
-
-    .balance-chip-switch-knob {
-        position: absolute;
-        top: 2px;
-        left: 2px;
-        width: 0.75rem;
-        height: 0.75rem;
-        border-radius: 9999px;
-        background: rgb(226 232 240);
-        transition: transform 200ms ease, background-color 200ms ease;
-    }
-
-    .balance-chip-control:not(.is-collapsed) .balance-chip-switch {
-        background: rgba(34, 197, 94, 0.4);
-    }
-
-    .balance-chip-control:not(.is-collapsed) .balance-chip-switch-knob {
-        transform: translateX(0.75rem);
-        background: rgb(220 252 231);
-    }
-
-    .balance-trend-panel {
-        margin-top: 1rem;
-        max-height: 14rem;
-        opacity: 1;
-        overflow: hidden;
-        transition: max-height 240ms ease, opacity 180ms ease, margin-top 180ms ease;
-    }
-
-    .balance-trend-panel.is-collapsed {
-        max-height: 0;
-        opacity: 0;
-        margin-top: 0;
-        pointer-events: none;
-    }
-
-    .balance-trend-graph-wrap {
-        position: relative;
-        height: 4rem;
-        border-radius: 0.875rem;
-        background: linear-gradient(
-            180deg,
-            rgba(148, 163, 184, 0.16) 0%,
-            rgba(148, 163, 184, 0.04) 100%
-        );
-        border: 1px solid rgba(148, 163, 184, 0.12);
-        overflow: hidden;
-    }
-
-    .balance-trend-graph-wrap::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background:
-            linear-gradient(180deg, rgba(15, 23, 42, 0.1), rgba(15, 23, 42, 0.3)),
-            repeating-linear-gradient(
-                to right,
-                rgba(148, 163, 184, 0.08) 0,
-                rgba(148, 163, 184, 0.08) 1px,
-                transparent 1px,
-                transparent 14%
-            );
-        pointer-events: none;
-    }
-
-    .balance-trend-graph {
-        position: relative;
-        z-index: 1;
-        width: 100%;
-        height: 100%;
-        display: block;
-    }
-
-    .balance-trend-metrics {
-        margin-top: 0.5rem;
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 0.375rem;
-    }
-
-    .balance-trend-metric {
-        background: rgba(51, 65, 85, 0.34);
-        border: 1px solid rgba(148, 163, 184, 0.2);
-        border-radius: 0.625rem;
-        padding: 0.35rem 0.5rem;
-    }
-
-    .balance-trend-metric-label {
-        display: block;
-        color: rgb(148 163 184);
-        font-size: 10px;
-        line-height: 1;
-        margin-bottom: 0.18rem;
-    }
-
-    .balance-trend-metric-value {
-        display: block;
-        color: rgb(226 232 240);
-        font-size: 11px;
-        font-weight: 600;
-        line-height: 1.1;
-    }
-
-    .balance-adjust-meta {
-        margin-top: 0.35rem;
-        display: flex;
-        align-items: center;
-        gap: 0.45rem;
-        flex-wrap: wrap;
-    }
-
-    .balance-adjust-pill {
-        display: inline-flex;
-        align-items: center;
-        border: 1px solid rgba(148, 163, 184, 0.25);
-        border-radius: 9999px;
-        padding: 0.22rem 0.5rem;
-        font-size: 11px;
-        line-height: 1;
-        color: rgb(203 213 225);
-        background: rgba(51, 65, 85, 0.35);
-    }
-
-    .balance-adjust-action {
-        display: inline-flex;
-        align-items: center;
-        border: 1px solid rgba(34, 197, 94, 0.45);
-        border-radius: 9999px;
-        padding: 0.22rem 0.6rem;
-        font-size: 11px;
-        line-height: 1;
-        color: rgb(134 239 172);
-        background: rgba(22, 101, 52, 0.25);
-        transition: background-color 140ms ease, border-color 140ms ease;
-    }
-
-    .balance-adjust-action:hover {
-        background: rgba(22, 101, 52, 0.4);
-        border-color: rgba(74, 222, 128, 0.7);
-    }
-
-    .balance-adjust-editor {
-        margin-top: 0.7rem;
-        background: rgba(15, 23, 42, 0.45);
-        border: 1px solid rgba(148, 163, 184, 0.24);
-        border-radius: 0.75rem;
-        padding: 0.6rem;
-    }
-
-    .balance-adjust-input {
-        width: 100%;
-        height: 2rem;
-        padding: 0.25rem 0.55rem;
-        border-radius: 0.55rem;
-        border: 1px solid rgba(148, 163, 184, 0.35);
-        background: rgba(15, 23, 42, 0.65);
-        color: rgb(226 232 240);
-        font-size: 0.875rem;
-        outline: none;
-    }
-
-    .balance-adjust-input:focus {
-        border-color: rgba(74, 222, 128, 0.75);
-        box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
-    }
-
-    .balance-adjust-button {
-        height: 2rem;
-        border-radius: 0.55rem;
-        border: 1px solid transparent;
-        padding: 0 0.7rem;
-        font-size: 12px;
-        font-weight: 600;
-        line-height: 1;
-    }
-
-    .balance-adjust-button-save {
-        color: rgb(22, 101, 52);
-        background: rgb(134, 239, 172);
-    }
-
-    .balance-adjust-button-cancel {
-        color: rgb(226 232 240);
-        border-color: rgba(148, 163, 184, 0.35);
-        background: rgba(30, 41, 59, 0.55);
     }
 
     .dashboard-shell {
-        --dashboard-accent: #e8f542;
-        --dashboard-ink: #111827;
-        --dashboard-muted: #667085;
-        --dashboard-card-border: rgba(226, 232, 240, 0.85);
-        width: min(100%, 84rem);
         max-width: 100%;
         margin-inline: auto;
-        overflow-x: clip;
-        position: relative;
-        isolation: isolate;
-        border-radius: 2rem;
-        border: 1px solid rgba(226, 232, 240, 0.96);
-        background:
-            radial-gradient(circle at -8% -20%, rgba(232, 245, 66, 0.28), rgba(232, 245, 66, 0) 48%),
-            linear-gradient(155deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 251, 255, 0.98) 50%, rgba(244, 248, 255, 0.98) 100%);
-        box-shadow:
-            0 34px 68px -48px rgba(15, 23, 42, 0.58),
-            0 3px 8px rgba(15, 23, 42, 0.05);
-        padding: 1.15rem;
-        color: var(--dashboard-ink);
+        color: #0f172a;
     }
 
-    .dashboard-shell::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        pointer-events: none;
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0));
-        z-index: 0;
-    }
-
-    .dashboard-shell::after {
-        content: "";
-        position: absolute;
-        right: -8rem;
-        top: -8.5rem;
-        width: 21rem;
-        height: 21rem;
-        border-radius: 9999px;
-        pointer-events: none;
-        background:
-            radial-gradient(circle at center, rgba(56, 189, 248, 0.18), rgba(56, 189, 248, 0) 62%),
-            radial-gradient(circle at 30% 25%, rgba(232, 245, 66, 0.28), rgba(232, 245, 66, 0) 56%);
-        filter: blur(8px);
-        z-index: 0;
-    }
-
-    .dashboard-header {
-        margin-bottom: 1.45rem;
-        position: relative;
-        z-index: 1;
-        padding: 0.2rem 0 1.15rem;
-        border-bottom: 1px solid rgba(226, 232, 240, 0.78);
-    }
-
-    .dashboard-identity {
+    .dashboard-header-row {
         display: flex;
         align-items: center;
-        gap: 0.82rem;
-        min-width: 0;
+        justify-content: space-between;
+        gap: 0.9rem;
+        margin-bottom: 1.35rem;
     }
 
-    .dashboard-title-wrap {
-        min-width: 0;
-    }
-
-    .dashboard-kicker {
-        display: inline-flex;
+    .dashboard-hello-group {
+        display: flex;
         align-items: center;
-        gap: 0.35rem;
-        border-radius: 9999px;
-        padding: 0.24rem 0.62rem;
-        background: rgba(232, 245, 66, 0.24);
-        border: 1px solid rgba(210, 224, 48, 0.6);
-        color: #5a6606;
-        font-size: 0.66rem;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        line-height: 1;
-        margin-bottom: 0.35rem;
-        white-space: nowrap;
-    }
-
-    .dashboard-kicker::before {
-        content: "";
-        width: 0.34rem;
-        height: 0.34rem;
-        border-radius: 9999px;
-        background: #8ca407;
+        gap: 0.75rem;
+        min-width: 0;
     }
 
     .dashboard-avatar {
-        width: 2.55rem;
-        height: 2.55rem;
+        width: 2.15rem;
+        height: 2.15rem;
         border-radius: 9999px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(180deg, #ecf2f9 0%, #dbe6f2 100%);
-        border: 1px solid rgba(187, 200, 216, 0.78);
-        box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.82),
-            0 8px 18px -16px rgba(15, 23, 42, 0.65);
-    }
-
-    .dashboard-title {
-        font-size: clamp(1.85rem, 4.4vw, 2.55rem);
-        line-height: 1.04;
-        color: #0f172a;
-        letter-spacing: -0.03em;
-        margin: 0;
-        text-wrap: balance;
-    }
-
-    .dashboard-title-highlight {
-        color: #2f3a4f;
-        font-style: italic;
-    }
-
-    .dashboard-subtitle {
-        margin-top: 0.28rem;
-        max-width: 42ch;
-        color: var(--dashboard-muted);
-        font-size: 0.96rem;
-        line-height: 1.42;
-    }
-
-    .dashboard-scope-form {
+        background: #c9ced5;
+        color: #4b5563;
         display: inline-flex;
         align-items: center;
-        gap: 0.45rem;
-        padding: 0.38rem 0.54rem;
-        border-radius: 9999px;
-        border: 1px solid rgba(203, 213, 225, 0.85);
-        background: rgba(255, 255, 255, 0.92);
-        box-shadow: 0 14px 30px -28px rgba(15, 23, 42, 0.52);
+        justify-content: center;
+        font-size: 0.93rem;
+        font-weight: 700;
+        flex-shrink: 0;
     }
 
-    .dashboard-scope-select {
-        border: 1px solid rgba(203, 213, 225, 0.95);
-        border-radius: 9999px;
-        padding: 0.34rem 0.75rem;
-        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-        color: #334155;
-        font-size: 0.84rem;
-        line-height: 1;
-        font-weight: 600;
-        outline: none;
-        transition: border-color 160ms ease, box-shadow 160ms ease;
-    }
-
-    .dashboard-scope-select:focus {
-        border-color: rgba(148, 163, 184, 0.85);
-        box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.2);
+    .dashboard-hello-title {
+        margin: 0;
+        font-size: clamp(1.45rem, 3.2vw, 2.08rem);
+        line-height: 1.08;
+        letter-spacing: -0.02em;
+        color: #0f172a;
+        white-space: nowrap;
     }
 
     .dashboard-bell-link {
+        width: 2.25rem;
+        height: 2.25rem;
+        border-radius: 0.75rem;
+        border: 1px solid transparent;
+        color: #374151;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 2.35rem;
-        height: 2.35rem;
-        border-radius: 0.95rem;
-        border: 1px solid rgba(226, 232, 240, 0.9);
-        background: rgba(248, 250, 252, 0.9);
-        color: rgb(75 85 99);
-        transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+        transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
     }
 
     .dashboard-bell-link:hover {
-        background: #fff;
-        color: rgb(31 41 55);
-        box-shadow: 0 12px 24px -24px rgba(15, 23, 42, 0.4);
+        background: rgba(255, 255, 255, 0.86);
+        border-color: rgba(148, 163, 184, 0.35);
+        color: #111827;
     }
 
     .dashboard-main-grid {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
-        gap: 1.25rem;
-        overflow-x: clip;
-        position: relative;
-        z-index: 1;
+        gap: 1rem;
     }
 
-    .dashboard-col {
+    .dashboard-left-col,
+    .dashboard-right-col {
         min-width: 0;
-        overflow-x: clip;
+    }
+
+    .dashboard-left-col > :not([hidden]) ~ :not([hidden]),
+    .dashboard-right-col > :not([hidden]) ~ :not([hidden]) {
+        margin-top: 1rem;
+    }
+
+    .balance-card {
+        border-radius: 1.45rem;
+        padding: 1.2rem;
+        color: #ffffff;
+        border: 1px solid rgba(71, 85, 105, 0.45);
+        background:
+            radial-gradient(circle at 85% 15%, rgba(232, 245, 66, 0.2), rgba(232, 245, 66, 0) 42%),
+            linear-gradient(135deg, #2b2d32 0%, #1a1b1f 100%);
+        box-shadow: 0 20px 34px -28px rgba(15, 23, 42, 0.82);
+    }
+
+    .dashboard-balance-label {
+        margin: 0 0 0.45rem;
+        color: #93a3ba;
+        font-size: 0.95rem;
+    }
+
+    .dashboard-balance-amount {
+        margin: 0;
+        font-size: clamp(2.25rem, 5.4vw, 3.35rem);
+        line-height: 1;
+        letter-spacing: -0.03em;
+        color: #ffffff;
+        font-weight: 900;
+    }
+
+    .dashboard-balance-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.42rem;
+        border-radius: 9999px;
+        border: 1px solid rgba(100, 116, 139, 0.66);
+        background: rgba(51, 65, 85, 0.86);
+        color: #e2e8f0;
+        padding: 0.22rem 0.5rem;
+        font-size: 0.94rem;
+        line-height: 1;
+        font-weight: 700;
+    }
+
+    .dashboard-balance-chip-toggle {
+        width: 1.8rem;
+        height: 1.05rem;
+        border-radius: 9999px;
+        background: rgba(148, 163, 184, 0.55);
+    }
+
+    .dashboard-section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.7rem;
+        margin-bottom: 0.65rem;
+    }
+
+    .dashboard-section-head-block {
+        margin-bottom: 0.65rem;
     }
 
     .dashboard-section-title {
-        font-size: 1.48rem;
-        line-height: 1.12;
-        color: #111827;
+        margin: 0;
+        font-size: clamp(1.28rem, 2.4vw, 1.78rem);
+        line-height: 1.15;
         letter-spacing: -0.02em;
+        color: #0f172a;
+        font-weight: 800;
     }
 
     .dashboard-section-copy {
-        margin-top: 0.24rem;
-        color: rgb(107 114 128);
-    }
-
-    .dashboard-panel-title {
-        font-size: 1.72rem;
-        line-height: 1.1;
-        color: #111827;
-        letter-spacing: -0.022em;
-    }
-
-    .dashboard-section-header {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.75rem;
+        margin: 0.2rem 0 0;
+        color: #64748b;
+        font-size: 0.99rem;
     }
 
     .dashboard-view-all-link {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-width: 5.6rem;
-        padding: 0.42rem 0.95rem;
+        min-width: 5.4rem;
         border-radius: 9999px;
-        border: 1px solid rgba(200, 210, 224, 0.95);
-        background: rgba(255, 255, 255, 0.94);
-        color: #3f4d63;
-        font-size: 0.78rem;
-        letter-spacing: 0.07em;
-        text-transform: uppercase;
-        font-weight: 700;
-        transition: color 160ms ease, box-shadow 160ms ease, background-color 160ms ease, border-color 160ms ease;
+        border: 1px solid rgba(156, 163, 175, 0.5);
+        padding: 0.42rem 0.9rem;
+        background: rgba(255, 255, 255, 0.56);
+        color: #334155;
+        font-size: 0.96rem;
+        font-weight: 500;
+        transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
     }
 
     .dashboard-view-all-link:hover {
+        background: rgba(255, 255, 255, 0.82);
+        border-color: rgba(100, 116, 139, 0.45);
         color: #0f172a;
-        background: #fff;
-        border-color: rgba(148, 163, 184, 0.9);
-        box-shadow: 0 18px 30px -26px rgba(15, 23, 42, 0.58);
     }
 
     .dashboard-upcoming-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 13.5rem), 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
         gap: 0.8rem;
+    }
+
+    .dashboard-upcoming-card {
+        border-radius: 1.45rem;
+        padding: 0.95rem;
+        border: 1px solid rgba(226, 232, 240, 0.5);
+        box-shadow: 0 18px 30px -28px rgba(15, 23, 42, 0.84);
+    }
+
+    .dashboard-upcoming-icon {
+        width: 2.55rem;
+        height: 2.55rem;
+        border-radius: 9999px;
+        background: rgba(255, 255, 255, 0.38);
+        backdrop-filter: blur(3px);
+        -webkit-backdrop-filter: blur(3px);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        margin-bottom: 0.6rem;
+    }
+
+    .dashboard-upcoming-amount {
+        margin: 0;
+        font-size: 2rem;
+        line-height: 1;
+        font-weight: 800;
+        color: #111827;
+    }
+
+    .dashboard-upcoming-days {
+        margin: 0.28rem 0 0.2rem;
+        color: rgba(31, 41, 55, 0.72);
+        font-size: 0.96rem;
+        font-weight: 600;
+    }
+
+    .dashboard-upcoming-name {
+        margin: 0;
+        color: #111827;
+        font-size: 1.62rem;
+        line-height: 1.1;
+        font-weight: 700;
+        overflow-wrap: anywhere;
+    }
+
+    .dashboard-subscription-list {
+        display: grid;
+        gap: 0.7rem;
+    }
+
+    .dashboard-subscription-row {
+        border-radius: 1.4rem;
+        padding: 0.8rem 0.95rem;
+        border: 1px solid rgba(226, 232, 240, 0.5);
+        box-shadow: 0 16px 24px -24px rgba(15, 23, 42, 0.82);
     }
 
     .dashboard-row-content {
         min-width: 0;
     }
 
-    .dashboard-row-content p {
-        overflow-wrap: anywhere;
+    .dashboard-row-title {
+        margin: 0;
+        color: #111827;
+        font-size: 1.95rem;
+        line-height: 1.06;
+        font-weight: 700;
     }
 
-    .dashboard-col.space-y-4 > :not([hidden]) ~ :not([hidden]) {
-        margin-top: 1.1rem;
+    .dashboard-row-subtitle {
+        margin: 0.24rem 0 0;
+        color: rgba(31, 41, 55, 0.74);
+        font-size: 1.12rem;
+        font-weight: 500;
     }
 
-    .dashboard-col .space-y-2\.5 > :not([hidden]) ~ :not([hidden]) {
-        margin-top: 0.75rem;
-    }
-
-    .dashboard-balance-card {
-        padding: 1.2rem;
-        border-radius: 1.6rem;
-        position: relative;
-        overflow: hidden;
-        border: 1px solid rgba(148, 163, 184, 0.25);
-        box-shadow:
-            0 22px 44px -34px rgba(2, 6, 23, 0.95),
-            0 2px 6px rgba(15, 23, 42, 0.14);
-    }
-
-    .dashboard-balance-card::before {
-        content: "";
-        position: absolute;
-        inset: auto -15% -42% auto;
-        width: 13rem;
-        height: 13rem;
+    .dashboard-row-icon {
+        width: 2.55rem;
+        height: 2.55rem;
         border-radius: 9999px;
-        background: radial-gradient(circle at center, rgba(232, 245, 66, 0.3), rgba(232, 245, 66, 0));
-        pointer-events: none;
-    }
-
-    .dashboard-soft-card {
-        border-radius: 1.45rem;
-        border: 1px solid rgba(255, 255, 255, 0.85);
-        box-shadow: 0 16px 30px -26px rgba(15, 23, 42, 0.45);
-        backdrop-filter: blur(2px);
-        -webkit-backdrop-filter: blur(2px);
-    }
-
-    .card-hover {
-        transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms ease, border-color 220ms ease;
-    }
-
-    .card-hover:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 22px 36px -30px rgba(15, 23, 42, 0.6);
-        border-color: rgba(148, 163, 184, 0.72);
-    }
-
-    .dashboard-upcoming-card {
-        padding: 1.02rem;
-    }
-
-    .dashboard-subscription-row {
-        padding: 1rem;
-    }
-
-    .dashboard-panel-card {
-        padding: 1.2rem;
-        border-radius: 1.55rem;
-        border: 1px solid var(--dashboard-card-border);
-        background: linear-gradient(170deg, rgba(255, 255, 255, 0.98), rgba(249, 251, 255, 0.95));
-        box-shadow:
-            0 24px 44px -35px rgba(15, 23, 42, 0.42),
-            0 2px 6px rgba(15, 23, 42, 0.06);
-    }
-
-    .dashboard-active-card {
-        padding: 0.95rem;
-        border-radius: 1.2rem;
-    }
-
-    .dashboard-recent-row {
-        padding: 0.66rem 0.76rem;
-        border-radius: 0.95rem;
-        border: 1px solid rgba(218, 227, 239, 0.92);
-        background: linear-gradient(180deg, #fafdff 0%, #f4f8ff 100%);
-        transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
-    }
-
-    .dashboard-recent-row:hover {
-        border-color: rgba(166, 182, 201, 0.78);
-        transform: translateY(-1px);
-        box-shadow: 0 16px 26px -26px rgba(15, 23, 42, 0.55);
+        background: rgba(255, 255, 255, 0.42);
+        backdrop-filter: blur(3px);
+        -webkit-backdrop-filter: blur(3px);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        flex-shrink: 0;
     }
 
     .dashboard-add-chip {
-        border: 1px solid rgba(226, 232, 240, 0.92);
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.58);
+        width: 2.2rem;
+        height: 2.2rem;
+        border-radius: 9999px;
+        border: 1px solid rgba(148, 163, 184, 0.34);
+        background: rgba(255, 255, 255, 0.36);
+        color: #475569;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: background-color 140ms ease, border-color 140ms ease;
     }
 
-    .dashboard-edit-chip {
-        box-shadow: 0 10px 20px -18px rgba(15, 23, 42, 0.85);
+    .dashboard-add-chip:hover {
+        background: rgba(255, 255, 255, 0.62);
+        border-color: rgba(100, 116, 139, 0.5);
+    }
+
+    .dashboard-panel-card {
+        border-radius: 1.45rem;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        background: rgba(243, 244, 246, 0.95);
+        padding: 0.9rem;
+        box-shadow: 0 18px 30px -28px rgba(15, 23, 42, 0.84);
+    }
+
+    .dashboard-panel-title {
+        margin: 0 0 0.8rem;
+        color: #0f172a;
+        font-size: 2.02rem;
+        line-height: 1.06;
+        font-weight: 800;
     }
 
     .active-subscriptions-viewport {
         overflow: hidden;
-        border-radius: 1.12rem;
+        border-radius: 1rem;
         position: relative;
     }
 
     .active-subscriptions-track {
         display: grid;
-        gap: 0.78rem;
+        gap: 0.6rem;
     }
 
-    .dashboard-balance-card,
-    .dashboard-upcoming-card,
-    .dashboard-subscription-row,
-    .dashboard-panel-card,
+    .dashboard-active-card {
+        border-radius: 1.18rem;
+        padding: 0.72rem;
+        border: 1px solid rgba(226, 232, 240, 0.5);
+        box-shadow: 0 14px 24px -24px rgba(15, 23, 42, 0.84);
+    }
+
+    .dashboard-duration-pill {
+        border-radius: 9999px;
+        border: 1px solid rgba(148, 163, 184, 0.5);
+        background: rgba(255, 255, 255, 0.42);
+        color: rgba(31, 41, 55, 0.78);
+        font-size: 0.86rem;
+        line-height: 1;
+        padding: 0.2rem 0.5rem;
+    }
+
+    .dashboard-edit-chip {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 9999px;
+        background: #111827;
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .dashboard-active-amount {
+        margin: 0.4rem 0 0.3rem;
+        color: #111827;
+        font-size: 2rem;
+        line-height: 1;
+        font-weight: 800;
+    }
+
+    .dashboard-active-meta {
+        color: rgba(31, 41, 55, 0.76);
+        font-size: 0.9rem;
+        line-height: 1.3;
+    }
+
+    .dashboard-recent-list {
+        display: grid;
+        gap: 0.58rem;
+    }
+
     .dashboard-recent-row {
-        animation: dashboardRise 500ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        border-radius: 0.95rem;
+        border: 1px solid rgba(226, 232, 240, 0.66);
+        background: rgba(255, 255, 255, 0.5);
+        padding: 0.56rem 0.64rem;
     }
 
-    .dashboard-upcoming-grid .dashboard-upcoming-card:nth-child(2) {
-        animation-delay: 40ms;
+    .dashboard-recent-title {
+        margin: 0;
+        color: #0f172a;
+        font-size: 1.05rem;
+        line-height: 1.2;
+        font-weight: 700;
     }
 
-    .dashboard-upcoming-grid .dashboard-upcoming-card:nth-child(3) {
-        animation-delay: 80ms;
+    .dashboard-recent-time {
+        margin: 0.12rem 0 0;
+        color: #64748b;
+        font-size: 0.85rem;
     }
 
-    .dashboard-col .dashboard-subscription-row:nth-child(2) {
-        animation-delay: 120ms;
+    .dashboard-recent-amount {
+        color: #0f172a;
+        font-size: 1.15rem;
+        line-height: 1;
+        font-weight: 700;
+        white-space: nowrap;
     }
 
-    .dashboard-col .dashboard-subscription-row:nth-child(3) {
-        animation-delay: 150ms;
+    .card-hover {
+        transition: transform 180ms ease, box-shadow 180ms ease;
     }
 
-    @keyframes dashboardRise {
-        from {
-            opacity: 0;
-            transform: translateY(9px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    @media (min-width: 1400px) {
-        .dashboard-main-grid {
-            grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
-        }
-    }
-
-    @media (min-width: 768px) and (max-width: 1439px) {
-        .dashboard-shell {
-            max-width: 72rem;
-        }
+    .card-hover:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 18px rgba(15, 23, 42, 0.12);
     }
 
     @media (min-width: 1024px) {
-        .dashboard-shell {
-            padding: 1.15rem;
+        .dashboard-main-grid {
+            grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
         }
 
         body.route-dashboard .app-main-shell {
             min-height: 0;
             height: 100dvh;
-            padding: 8px 10px 40px;
+            padding: 0.85rem;
             overflow: hidden;
+            background: #e5e7eb;
         }
 
         body.route-dashboard #app-content {
@@ -679,419 +433,204 @@
         }
 
         body.route-dashboard .dashboard-shell {
-            width: 100%;
-            max-width: none;
-            margin: 0;
             height: 100%;
             display: flex;
             flex-direction: column;
         }
 
         body.route-dashboard .dashboard-main-grid {
-            flex: 1;
             min-height: 0;
-            overflow-y: auto;
-            padding-bottom: 96px;
-            scrollbar-width: none;
-        }
-
-        body.route-dashboard .dashboard-main-grid::-webkit-scrollbar {
-            width: 0;
-            height: 0;
-        }
-
-        body.route-dashboard {
+            flex: 1;
             overflow: hidden;
         }
     }
 
-    @media (min-width: 1024px) and (max-height: 900px) {
-        body.route-dashboard .app-main-shell {
-            padding: 6px 8px 32px;
-        }
-
+    @media (max-width: 1023px) {
         .dashboard-shell {
-            padding: 0.95rem;
-            border-radius: 1.6rem;
-        }
-
-        .dashboard-header {
-            margin-bottom: 0.8rem;
-            padding-bottom: 0.6rem;
-        }
-
-        .dashboard-main-grid {
-            gap: 1rem;
-        }
-
-        .dashboard-col.space-y-4 > :not([hidden]) ~ :not([hidden]) {
-            margin-top: 0.85rem;
-        }
-
-        .dashboard-balance-card {
-            padding: 0.95rem;
-        }
-
-        .balance-trend-panel {
-            max-height: 10rem;
-        }
-
-        .balance-trend-graph-wrap {
-            height: 3rem;
-        }
-
-        .dashboard-upcoming-grid {
-            gap: 0.9rem;
-        }
-
-        .dashboard-upcoming-card-inner {
-            padding: 1.15rem;
-            min-height: 9.8rem;
-        }
-
-        .dashboard-upcoming-header {
-            margin-bottom: 0.9rem;
-        }
-
-        .dashboard-upcoming-amount {
-            font-size: 1.25rem;
-        }
-
-        .dashboard-upcoming-cycle {
-            font-size: 0.9rem;
-        }
-
-        .dashboard-upcoming-title {
-            font-size: 1.25rem;
-        }
-
-        .dashboard-upcoming-meta {
-            font-size: 0.95rem;
-            margin-bottom: 1rem;
-        }
-
-        .dashboard-upcoming-footnote {
-            font-size: 0.9rem;
-        }
-
-        .dashboard-section-title {
-            font-size: 1.3rem;
-        }
-
-        .dashboard-panel-title {
-            font-size: 1.4rem;
-        }
-
-        .dashboard-panel-card {
-            padding: 0.95rem;
-        }
-
-        .dashboard-subscription-row {
-            padding: 0.8rem;
-        }
-
-        .dashboard-active-card {
-            padding: 0.75rem;
-        }
-
-        .dashboard-recent-row {
-            padding: 0.55rem 0.7rem;
+            padding-bottom: 4.25rem;
         }
     }
 
     @media (max-width: 767px) {
-        .dashboard-shell {
-            border-radius: 1.45rem;
-            padding: 0.95rem;
+        .dashboard-header-row {
+            margin-bottom: 1rem;
         }
 
-        .dashboard-header {
-            padding-bottom: 0.95rem;
+        .dashboard-hello-title {
+            font-size: 1.5rem;
         }
 
-        .dashboard-kicker {
-            margin-bottom: 0.24rem;
-        }
-
-        .dashboard-title {
-            font-size: 1.65rem;
-            line-height: 1.07;
-        }
-
-        .dashboard-subtitle {
-            font-size: 0.9rem;
-        }
-
-        .dashboard-scope-form {
-            width: 100%;
-            justify-content: space-between;
-            border-radius: 0.92rem;
-        }
-
+        .dashboard-section-title,
         .dashboard-panel-title {
-            font-size: 1.55rem;
+            font-size: 1.35rem;
+        }
+
+        .dashboard-upcoming-amount,
+        .dashboard-row-title,
+        .dashboard-active-amount {
+            font-size: 1.8rem;
         }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-
-    <!-- Main Container -->
-    <div class="dashboard-shell">
-
-        <!-- Header -->
-        <div class="dashboard-header flex flex-wrap items-center justify-between gap-3">
-            <div class="dashboard-identity">
-                <div class="dashboard-avatar">
-                    <span class="text-sm text-gray-600 font-medium">{{ avatar_initial }}</span>
-                </div>
-                <div class="dashboard-title-wrap">
-                    <p class="dashboard-kicker dashboard-font-bold">Dashboard</p>
-                    <h1 class="dashboard-title dashboard-font-black">Hello, <span class="dashboard-title-highlight">{{ greeting_name }}</span>.</h1>
-                    <p class="dashboard-subtitle dashboard-font-regular">Track subscriptions, monitor spending, and keep your recurring payments under control.</p>
-                </div>
-            </div>
-            <form method="get" class="dashboard-scope-form">
-                <label for="dashboard-scope" class="text-xs text-slate-600 dashboard-font-regular">Scope</label>
-                <select id="dashboard-scope" name="scope" class="dashboard-scope-select" onchange="this.form.submit()">
-                    <option value="personal" {% if dashboard_scope != 'teams' %}selected{% endif %}>Personal</option>
-                    <option value="teams" {% if dashboard_scope == 'teams' %}selected{% endif %}>Teams</option>
-                </select>
-            </form>
+<div class="dashboard-shell">
+    <div class="dashboard-header-row">
+        <div class="dashboard-hello-group">
+            <div class="dashboard-avatar">{{ avatar_initial }}</div>
+            <h1 class="dashboard-hello-title">Hello, {{ greeting_name }}!</h1>
         </div>
-
-        <!-- Grid Layout -->
-        <div class="dashboard-main-grid">
-
-            <!-- Left Column -->
-            <div class="dashboard-col space-y-4">
-
-                <!-- Balance Card -->
-                <div class="dashboard-balance-card balance-card text-white">
-                    <div class="flex flex-wrap justify-between items-start gap-2 mb-3">
-                        <div>
-                            <p class="text-gray-400 text-xs mb-1.5">Your balance</p>
-                            <h2 class="text-3xl js-balance-display dashboard-font-black">{{ balance_display }}</h2>
-                            <div class="balance-adjust-meta">
-                                <span class="balance-adjust-pill js-balance-base-pill">Base {{ balance_base_display }}</span>
-                                <span class="balance-adjust-pill js-balance-adjustment-pill">Adj {{ balance_adjustment_display }}</span>
-                                <button type="button" class="balance-adjust-action js-balance-edit-open">Adjust</button>
-                            </div>
-                        </div>
-                        <button
-                            type="button"
-                            class="balance-chip-control js-balance-trend-toggle"
-                            aria-expanded="true"
-                            aria-controls="balance-trend-panel"
-                            title="Collapse or expand balance trend chart"
-                        >
-                            <span>Next due {{ balance_chip_date }}</span>
-                            <span class="balance-chip-switch" aria-hidden="true">
-                                <span class="balance-chip-switch-knob"></span>
-                            </span>
-                        </button>
-                    </div>
-                    <div
-                        class="balance-adjust-editor hidden js-balance-adjust-editor"
-                        data-url="{% url 'dashboard:adjust_balance' %}"
-                        data-scope="{{ dashboard_scope }}"
-                    >
-                        <label for="balance-adjust-input" class="text-[11px] text-gray-300 block mb-1.5">Set displayed balance (USD)</label>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <input id="balance-adjust-input" type="number" step="0.01" class="balance-adjust-input js-balance-adjust-input" value="{{ balance_adjusted_amount }}">
-                            <button type="button" class="balance-adjust-button balance-adjust-button-save js-balance-adjust-save">Save</button>
-                            <button type="button" class="balance-adjust-button balance-adjust-button-cancel js-balance-adjust-cancel">Cancel</button>
-                        </div>
-                        <p class="text-[10px] text-gray-400 mt-1.5 js-balance-adjust-status" role="status" aria-live="polite"></p>
-                    </div>
-                    <div id="balance-trend-panel" class="balance-trend-panel js-balance-trend-panel">
-                        <div class="balance-trend-graph-wrap">
-                            <svg
-                                class="balance-trend-graph js-balance-trend-graph"
-                                data-currency="{{ balance_trend_currency }}"
-                                viewBox="0 0 100 32"
-                                preserveAspectRatio="none"
-                                aria-hidden="true"
-                            ></svg>
-                        </div>
-                        <div class="flex items-center justify-between mt-1.5 text-[10px] text-gray-400">
-                            <span>{{ balance_trend_start_label }}</span>
-                            <span class="text-gray-300 uppercase">1M</span>
-                            <span>{{ balance_trend_end_label }}</span>
-                        </div>
-                        <div class="balance-trend-metrics">
-                            <div class="balance-trend-metric">
-                                <span class="balance-trend-metric-label">30D Total ({{ balance_trend_currency }})</span>
-                                <span class="balance-trend-metric-value js-balance-trend-total">--</span>
-                            </div>
-                            <div class="balance-trend-metric">
-                                <span class="balance-trend-metric-label">Peak Day ({{ balance_trend_currency }})</span>
-                                <span class="balance-trend-metric-value js-balance-trend-peak">--</span>
-                            </div>
-                            <div class="balance-trend-metric">
-                                <span class="balance-trend-metric-label">Active Days</span>
-                                <span class="balance-trend-metric-value js-balance-trend-active">--</span>
-                            </div>
-                        </div>
-                        {% if balance_trend_has_multiple_currencies and balance_trend_note %}
-                        <p class="text-[10px] text-gray-400 mt-1">{{ balance_trend_note }}</p>
-                        {% endif %}
-                        {% if not balance_trend_has_activity %}
-                        <p class="text-[10px] text-gray-400 mt-1">No charges recorded in the last 30 days.</p>
-                        {% endif %}
-                    </div>
-                    {{ balance_trend_points|json_script:"balance-trend-points" }}
-                </div>
-
-                <!-- Upcoming Bills -->
-                <div>
-                    <div class="dashboard-section-header mb-3">
-                        <h3 class="dashboard-section-title dashboard-font-bold">Upcoming Bill</h3>
-                        <a href="{{ upcoming_view_all_url }}" class="dashboard-view-all-link dashboard-font-bold">View All</a>
-                    </div>
-
-                    <div class="dashboard-upcoming-grid">
-                        {% for bill in upcoming_bills %}
-                        <div
-                            class="dashboard-upcoming-card dashboard-soft-card {{ bill.bg_class }} card-hover {% if bill.is_placeholder %}opacity-70{% else %}cursor-pointer js-clickable-card{% endif %}"
-                            {% if bill.bg_style %}style="{{ bill.bg_style }}"{% endif %}
-                            {% if not bill.is_placeholder %}data-url="{{ bill.edit_url }}"{% endif %}
-                        >
-                            <div class="flex items-center gap-3 mb-3">
-                                <div class="w-10 h-10 bg-white/30 backdrop-blur rounded-full flex items-center justify-center overflow-hidden">
-                                    {% if bill.icon_url %}
-                                    <img src="{{ bill.icon_url }}" alt="{{ bill.service_name }}" class="w-6 h-6"
-                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                    {% endif %}
-                                    <span class="w-6 h-6 items-center justify-center text-base font-semibold {% if bill.icon_url %}hidden{% else %}flex{% endif %}">{{ bill.icon_fallback }}</span>
-                                </div>
-                            </div>
-                            <div>
-                                <p class="text-lg text-gray-800 dashboard-font-black">{{ bill.amount }}</p>
-                                <p class="text-sm text-gray-600 mb-1">{{ bill.days_left_text }}</p>
-                                <p class="text-sm font-medium text-gray-800">{{ bill.service_name }}</p>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-
-                <!-- Subscriptions Section -->
-                <div>
-                    <div class="dashboard-section-header mb-3">
-                        <div>
-                            <h3 class="dashboard-section-title dashboard-font-bold">Subscriptions</h3>
-                            <p class="dashboard-section-copy text-sm dashboard-font-italic">Subscribe multiple platforms only in one place.</p>
-                        </div>
-                        <a href="{{ subscriptions_view_all_url }}" class="dashboard-view-all-link dashboard-font-bold">View All</a>
-                    </div>
-
-                    <div class="space-y-2.5">
-                        {% for item in subscriptions_panel %}
-                        <div class="dashboard-subscription-row dashboard-soft-card {{ item.bg_class }} flex items-center justify-between card-hover {% if item.is_placeholder %}opacity-70{% endif %}" {% if item.bg_style %}style="{{ item.bg_style }}"{% endif %}>
-                            <div class="flex items-center gap-3 min-w-0">
-                                <div class="w-10 h-10 bg-white/40 backdrop-blur rounded-full flex items-center justify-center overflow-hidden">
-                                    {% if item.icon_url %}
-                                    <img src="{{ item.icon_url }}" alt="{{ item.title }}" class="w-6 h-6"
-                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                    {% endif %}
-                                    <span class="w-6 h-6 items-center justify-center text-sm font-semibold {% if item.icon_url %}hidden{% else %}flex{% endif %}">{{ item.icon_fallback }}</span>
-                                </div>
-                                <div class="dashboard-row-content">
-                                    <p class="font-medium text-gray-800 text-sm">{{ item.title }}</p>
-                                    <p class="text-gray-600 text-sm">{{ item.subtitle }}</p>
-                                </div>
-                            </div>
-                            {% if item.is_placeholder %}
-                            <span class="dashboard-add-chip w-9 h-9 bg-white/40 backdrop-blur rounded-full flex items-center justify-center">
-                                <span class="text-xl text-gray-700">+</span>
-                            </span>
-                            {% else %}
-                            <a href="{{ item.create_url }}" class="dashboard-add-chip w-9 h-9 bg-white/40 backdrop-blur rounded-full flex items-center justify-center hover:bg-white/60 transition">
-                                <span class="text-xl text-gray-700">+</span>
-                            </a>
-                            {% endif %}
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- Right Column -->
-            <div class="dashboard-col space-y-4">
-
-                <!-- Active Subscriptions -->
-                <div class="dashboard-panel-card">
-                    <h3 class="dashboard-panel-title dashboard-font-black mb-3">Active Subscriptions</h3>
-
-                    <div class="active-subscriptions-viewport js-active-subscriptions-viewport" data-visible-cards="2" data-scroll-interval="1">
-                        <div class="active-subscriptions-track js-active-subscriptions-track">
-                            {% for active in active_subscriptions_panel %}
-                            <div class="dashboard-active-card dashboard-soft-card {{ active.bg_class }} active-subscription-card {% if active.is_placeholder %}opacity-70{% endif %}" {% if active.bg_style %}style="{{ active.bg_style }}"{% endif %}>
-                                <div class="flex items-center justify-between mb-2">
-                                    <div class="flex items-center gap-3 min-w-0">
-                                        <div class="w-8 h-8 bg-white/40 backdrop-blur rounded-full flex items-center justify-center overflow-hidden">
-                                            {% if active.icon_url %}
-                                            <img src="{{ active.icon_url }}" alt="{{ active.title }}" class="w-4 h-4"
-                                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                            {% endif %}
-                                            <span class="w-4 h-4 items-center justify-center text-xs font-semibold {% if active.icon_url %}hidden{% else %}flex{% endif %}">{{ active.icon_fallback }}</span>
-                                        </div>
-                                        <div class="dashboard-row-content">
-                                            <p class="font-medium text-gray-800 text-sm">{{ active.title }}</p>
-                                            <span class="text-xs bg-white/50 px-2 py-1 rounded-full text-gray-700">{{ active.duration_label }}</span>
-                                        </div>
-                                    </div>
-                                    {% if active.is_placeholder %}
-                                    <span class="dashboard-edit-chip w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center"></span>
-                                    {% else %}
-                                    <a href="{{ active.edit_url }}" class="dashboard-edit-chip w-6 h-6 bg-gray-800 rounded-full flex items-center justify-center">
-                                        <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
-                                        </svg>
-                                    </a>
-                                    {% endif %}
-                                </div>
-                                <p class="text-lg text-gray-800 mb-1 dashboard-font-black">{{ active.amount }}</p>
-                                <div class="text-xs text-gray-600 space-y-1">
-                                    <p>{{ active.payment_info }}</p>
-                                    <p>{{ active.plan_details }}</p>
-                                </div>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Recent Transactions -->
-                <div class="dashboard-panel-card">
-                    <h3 class="dashboard-panel-title dashboard-font-black mb-3">Recent Transactions</h3>
-
-                    <div class="space-y-2.5">
-                        {% for txn in recent_transactions %}
-                        <div class="dashboard-recent-row flex items-center justify-between {% if txn.is_placeholder %}opacity-70{% endif %}">
-                            <div class="flex items-center gap-3 min-w-0">
-                                <div class="w-8 h-8 {{ txn.bg_class }} rounded-full flex items-center justify-center" {% if txn.swatch_style %}style="{{ txn.swatch_style }}"{% endif %}>
-                                    <span class="text-xs font-semibold text-gray-800">{{ txn.title|slice:":1"|upper }}</span>
-                                </div>
-                                <div class="dashboard-row-content">
-                                    <p class="font-medium text-gray-800 text-sm">{{ txn.title }}</p>
-                                    <p class="text-xs text-gray-500">{{ txn.timestamp }}</p>
-                                </div>
-                            </div>
-                            <p class="text-gray-800 dashboard-font-bold">{{ txn.amount }}</p>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-
-            </div>
-
-        </div>
-
+        <a href="{{ bell_url }}" class="dashboard-bell-link" title="Notifications" aria-label="Notifications">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+            </svg>
+        </a>
     </div>
+
+    <div class="dashboard-main-grid">
+        <div class="dashboard-left-col">
+            <div class="balance-card">
+                <div class="flex justify-between items-start gap-2">
+                    <div>
+                        <p class="dashboard-balance-label">Your balance</p>
+                        <h2 class="dashboard-balance-amount js-balance-display">{{ balance_display }}</h2>
+                    </div>
+                    <span class="dashboard-balance-chip">
+                        {{ balance_chip_date }}
+                        <span class="dashboard-balance-chip-toggle"></span>
+                    </span>
+                </div>
+            </div>
+
+            <section>
+                <div class="dashboard-section-head">
+                    <h3 class="dashboard-section-title">Upcoming Bill</h3>
+                    <a href="{{ upcoming_view_all_url }}" class="dashboard-view-all-link">View All</a>
+                </div>
+                <div class="dashboard-upcoming-grid">
+                    {% for bill in upcoming_bills %}
+                    <article
+                        class="dashboard-upcoming-card card-hover {{ bill.bg_class }} {% if bill.is_placeholder %}opacity-70{% else %}cursor-pointer js-clickable-card{% endif %}"
+                        {% if bill.bg_style %}style="{{ bill.bg_style }}"{% endif %}
+                        {% if not bill.is_placeholder %}data-url="{{ bill.edit_url }}"{% endif %}
+                    >
+                        <span class="dashboard-upcoming-icon">
+                            {% if bill.icon_url %}
+                            <img src="{{ bill.icon_url }}" alt="{{ bill.service_name }}" class="w-7 h-7"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            {% endif %}
+                            <span class="w-7 h-7 items-center justify-center text-xl font-semibold {% if bill.icon_url %}hidden{% else %}flex{% endif %}">{{ bill.icon_fallback }}</span>
+                        </span>
+                        <p class="dashboard-upcoming-amount">{{ bill.amount }}</p>
+                        <p class="dashboard-upcoming-days">{{ bill.days_left_text }}</p>
+                        <p class="dashboard-upcoming-name">{{ bill.service_name }}</p>
+                    </article>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section>
+                <div class="dashboard-section-head-block">
+                    <div class="dashboard-section-head">
+                        <h3 class="dashboard-section-title">Subscriptions</h3>
+                        <a href="{{ subscriptions_view_all_url }}" class="dashboard-view-all-link">View All</a>
+                    </div>
+                    <p class="dashboard-section-copy">Subscribe multiple platforms only in one place.</p>
+                </div>
+
+                <div class="dashboard-subscription-list">
+                    {% for item in subscriptions_panel %}
+                    <article class="dashboard-subscription-row card-hover {{ item.bg_class }} flex items-center justify-between {% if item.is_placeholder %}opacity-70{% endif %}" {% if item.bg_style %}style="{{ item.bg_style }}"{% endif %}>
+                        <div class="flex items-center gap-3 min-w-0">
+                            <span class="dashboard-row-icon">
+                                {% if item.icon_url %}
+                                <img src="{{ item.icon_url }}" alt="{{ item.title }}" class="w-8 h-8"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                {% endif %}
+                                <span class="w-8 h-8 items-center justify-center text-2xl font-semibold {% if item.icon_url %}hidden{% else %}flex{% endif %}">{{ item.icon_fallback }}</span>
+                            </span>
+                            <div class="dashboard-row-content">
+                                <p class="dashboard-row-title">{{ item.title }}</p>
+                                <p class="dashboard-row-subtitle">{{ item.subtitle }}</p>
+                            </div>
+                        </div>
+                        {% if item.is_placeholder %}
+                        <span class="dashboard-add-chip text-2xl">+</span>
+                        {% else %}
+                        <a href="{{ item.create_url }}" class="dashboard-add-chip text-2xl">+</a>
+                        {% endif %}
+                    </article>
+                    {% endfor %}
+                </div>
+            </section>
+        </div>
+
+        <div class="dashboard-right-col">
+            <section class="dashboard-panel-card">
+                <h3 class="dashboard-panel-title">Active Subscriptions</h3>
+
+                <div class="active-subscriptions-viewport js-active-subscriptions-viewport" data-visible-cards="2" data-scroll-interval="1">
+                    <div class="active-subscriptions-track js-active-subscriptions-track">
+                        {% for active in active_subscriptions_panel %}
+                        <article class="dashboard-active-card {{ active.bg_class }} {% if active.is_placeholder %}opacity-70{% endif %}" {% if active.bg_style %}style="{{ active.bg_style }}"{% endif %}>
+                            <div class="flex items-center justify-between gap-2 mb-2">
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <span class="dashboard-row-icon w-10 h-10">
+                                        {% if active.icon_url %}
+                                        <img src="{{ active.icon_url }}" alt="{{ active.title }}" class="w-6 h-6"
+                                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                        {% endif %}
+                                        <span class="w-6 h-6 items-center justify-center text-lg font-semibold {% if active.icon_url %}hidden{% else %}flex{% endif %}">{{ active.icon_fallback }}</span>
+                                    </span>
+                                    <div class="dashboard-row-content">
+                                        <p class="font-semibold text-gray-800 text-3xl leading-tight">{{ active.title }}</p>
+                                        <span class="dashboard-duration-pill">{{ active.duration_label }}</span>
+                                    </div>
+                                </div>
+                                {% if active.is_placeholder %}
+                                <span class="dashboard-edit-chip"></span>
+                                {% else %}
+                                <a href="{{ active.edit_url }}" class="dashboard-edit-chip" aria-label="Edit {{ active.title }}">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                                    </svg>
+                                </a>
+                                {% endif %}
+                            </div>
+                            <p class="dashboard-active-amount">{{ active.amount }}</p>
+                            <div class="dashboard-active-meta">
+                                <p>{{ active.payment_info }}</p>
+                                <p>{{ active.plan_details }}</p>
+                            </div>
+                        </article>
+                        {% endfor %}
+                    </div>
+                </div>
+            </section>
+
+            <section class="dashboard-panel-card">
+                <h3 class="dashboard-panel-title">Recent Transactions</h3>
+                <div class="dashboard-recent-list">
+                    {% for txn in recent_transactions %}
+                    <article class="dashboard-recent-row flex items-center justify-between gap-3 {% if txn.is_placeholder %}opacity-70{% endif %}">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <span class="dashboard-row-icon w-10 h-10 {{ txn.bg_class }}" {% if txn.swatch_style %}style="{{ txn.swatch_style }}"{% endif %}>
+                                <span class="text-lg font-semibold text-gray-800">{{ txn.title|slice:":1"|upper }}</span>
+                            </span>
+                            <div class="dashboard-row-content">
+                                <p class="dashboard-recent-title">{{ txn.title }}</p>
+                                <p class="dashboard-recent-time">{{ txn.timestamp }}</p>
+                            </div>
+                        </div>
+                        <p class="dashboard-recent-amount">{{ txn.amount }}</p>
+                    </article>
+                    {% endfor %}
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
