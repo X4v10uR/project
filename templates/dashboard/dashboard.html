@@ -51,6 +51,37 @@
         gap: 0.75rem;
     }
 
+    .dashboard-icon-10 {
+        width: 2.5rem;
+        height: 2.5rem;
+        min-width: 2.5rem;
+        min-height: 2.5rem;
+    }
+
+    .dashboard-icon-12 {
+        width: 3rem;
+        height: 3rem;
+        min-width: 3rem;
+        min-height: 3rem;
+    }
+
+    .dashboard-icon-14 {
+        width: 3.5rem;
+        height: 3.5rem;
+        min-width: 3.5rem;
+        min-height: 3.5rem;
+    }
+
+    .dashboard-service-icon-badge {
+        aspect-ratio: 1 / 1;
+        flex: 0 0 auto;
+        background: rgba(255, 255, 255, 0.18);
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+
     .dashboard-shell {
         max-width: 80rem;
         margin-left: auto;
@@ -76,11 +107,6 @@
         line-height: 1;
         letter-spacing: -0.025em;
         font-weight: 700;
-    }
-
-    .dashboard-size-14 {
-        width: 3.5rem;
-        height: 3.5rem;
     }
 
     .dashboard-space-y-3 > :not([hidden]) ~ :not([hidden]) {
@@ -159,7 +185,7 @@
                         {% if not bill.is_placeholder %}data-url="{{ bill.edit_url }}"{% endif %}
                     >
                         <div class="flex items-center gap-3 mb-4">
-                            <div class="w-12 h-12 bg-white/30 backdrop-blur rounded-full flex items-center justify-center overflow-hidden">
+                            <div class="dashboard-icon-12 dashboard-service-icon-badge rounded-full flex items-center justify-center overflow-hidden">
                                 {% if bill.icon_url %}
                                 <img src="{{ bill.icon_url }}" alt="{{ bill.service_name }}" class="w-7 h-7"
                                      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
@@ -190,7 +216,7 @@
                     {% for item in subscriptions_panel %}
                     <article class="{{ item.bg_class }} dashboard-p6 rounded-3xl flex items-center justify-between card-hover {% if item.is_placeholder %}opacity-70{% endif %}" {% if item.bg_style %}style="{{ item.bg_style }}"{% endif %}>
                         <div class="flex items-center gap-4 min-w-0">
-                            <div class="dashboard-size-14 bg-white/40 backdrop-blur rounded-full flex items-center justify-center overflow-hidden shrink-0">
+                            <div class="dashboard-icon-14 dashboard-service-icon-badge rounded-full flex items-center justify-center overflow-hidden">
                                 {% if item.icon_url %}
                                 <img src="{{ item.icon_url }}" alt="{{ item.title }}" class="w-8 h-8"
                                      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
@@ -227,7 +253,7 @@
                         <article class="{{ active.bg_class }} p-5 rounded-2xl {% if active.is_placeholder %}opacity-70{% endif %}" {% if active.bg_style %}style="{{ active.bg_style }}"{% endif %}>
                             <div class="flex items-center justify-between mb-3 gap-3">
                                 <div class="flex items-center gap-3 min-w-0">
-                                    <div class="w-10 h-10 bg-white/40 backdrop-blur rounded-full flex items-center justify-center overflow-hidden shrink-0">
+                                    <div class="dashboard-icon-10 dashboard-service-icon-badge rounded-full flex items-center justify-center overflow-hidden">
                                         {% if active.icon_url %}
                                         <img src="{{ active.icon_url }}" alt="{{ active.title }}" class="w-6 h-6"
                                              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
