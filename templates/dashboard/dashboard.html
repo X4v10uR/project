@@ -96,10 +96,24 @@
         align-items: start;
     }
 
-    .dashboard-upcoming-grid {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr);
+    .dashboard-upcoming-marquee {
+        position: relative;
+        overflow: hidden;
+        width: 100%;
+    }
+
+    .dashboard-upcoming-track {
+        display: flex;
+        width: max-content;
+        animation: dashboard-upcoming-scroll 22s linear infinite;
+        will-change: transform;
+    }
+
+    .dashboard-upcoming-group {
+        display: flex;
         gap: 1rem;
+        width: max-content;
+        flex: 0 0 auto;
     }
 
     .dashboard-header {
@@ -130,6 +144,8 @@
         position: relative;
         min-height: 10.25rem;
         padding: 0.25rem 0.25rem 0.5rem;
+        width: clamp(17.5rem, 28vw, 20.5rem);
+        flex: 0 0 clamp(17.5rem, 28vw, 20.5rem);
     }
 
     .dashboard-upcoming-card-v2-strip {
@@ -205,6 +221,20 @@
         white-space: nowrap;
     }
 
+    .dashboard-upcoming-marquee:hover .dashboard-upcoming-track,
+    .dashboard-upcoming-marquee:focus-within .dashboard-upcoming-track {
+        animation-play-state: paused;
+    }
+
+    @keyframes dashboard-upcoming-scroll {
+        from {
+            transform: translateX(0);
+        }
+        to {
+            transform: translateX(-50%);
+        }
+    }
+
     html.app-auth-layout body.route-dashboard {
         background: #f9fafb !important;
     }
@@ -221,8 +251,9 @@
     }
 
     @media (min-width: 768px) {
-        .dashboard-upcoming-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+        .dashboard-upcoming-card-v2 {
+            width: clamp(18rem, 30vw, 21rem);
+            flex-basis: clamp(18rem, 30vw, 21rem);
         }
     }
 
@@ -232,21 +263,31 @@
         }
     }
 
-    @media (min-width: 1280px) {
-        .dashboard-upcoming-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-    }
-
     @media (min-width: 1440px) {
         .dashboard-main-grid {
             grid-template-columns: minmax(0, 1fr) 24rem;
         }
     }
 
+    @media (prefers-reduced-motion: reduce) {
+        .dashboard-upcoming-marquee {
+            overflow-x: auto;
+            padding-bottom: 0.25rem;
+        }
+
+        .dashboard-upcoming-track {
+            animation: none;
+        }
+    }
+
     @media (max-width: 768px) {
         .dashboard-shell {
             padding: 1rem;
+        }
+
+        .dashboard-upcoming-card-v2 {
+            width: min(86vw, 19rem);
+            flex-basis: min(86vw, 19rem);
         }
     }
 </style>
@@ -293,29 +334,57 @@
                     <a href="{{ upcoming_view_all_url }}" class="text-sm text-gray-600 hover:text-gray-800 px-4 py-2 border border-gray-300 rounded-full">View All</a>
                 </div>
 
-                <div class="dashboard-upcoming-grid">
-                    {% for bill in upcoming_bills %}
-                    <article
-                        class="dashboard-upcoming-card-v2 card-hover {% if bill.is_placeholder %}opacity-70 cursor-default{% else %}cursor-pointer js-clickable-card{% endif %}"
-                        {% if not bill.is_placeholder %}data-url="{{ bill.edit_url }}"{% endif %}
-                    >
-                        <div class="dashboard-upcoming-card-v2-strip {{ bill.bg_class }}" {% if bill.bg_style %}style="{{ bill.bg_style }}"{% endif %}></div>
-                        <div class="dashboard-upcoming-card-v2-body">
-                            <div class="dashboard-upcoming-card-v2-icon">
-                                {% if bill.icon_url %}
-                                <img src="{{ bill.icon_url }}" alt="{{ bill.service_name }}" class="w-7 h-7"
-                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                {% endif %}
-                                <span class="w-7 h-7 items-center justify-center text-2xl font-bold text-gray-800 {% if bill.icon_url %}hidden{% else %}flex{% endif %}">{{ bill.icon_fallback }}</span>
-                            </div>
-                            <div class="dashboard-upcoming-card-v2-copy">
-                                <p class="dashboard-upcoming-card-v2-name" title="{{ bill.service_name }}">{{ bill.service_name }}</p>
-                                <p class="dashboard-upcoming-card-v2-amount">{{ bill.amount }}</p>
-                                <p class="dashboard-upcoming-card-v2-days">{{ bill.days_left_text }}</p>
-                            </div>
+                <div class="dashboard-upcoming-marquee">
+                    <div class="dashboard-upcoming-track">
+                        <div class="dashboard-upcoming-group">
+                            {% for bill in upcoming_bills %}
+                            <article
+                                class="dashboard-upcoming-card-v2 card-hover {% if bill.is_placeholder %}opacity-70 cursor-default{% else %}cursor-pointer js-clickable-card{% endif %}"
+                                {% if not bill.is_placeholder %}data-url="{{ bill.edit_url }}"{% endif %}
+                            >
+                                <div class="dashboard-upcoming-card-v2-strip {{ bill.bg_class }}" {% if bill.bg_style %}style="{{ bill.bg_style }}"{% endif %}></div>
+                                <div class="dashboard-upcoming-card-v2-body">
+                                    <div class="dashboard-upcoming-card-v2-icon">
+                                        {% if bill.icon_url %}
+                                        <img src="{{ bill.icon_url }}" alt="{{ bill.service_name }}" class="w-7 h-7"
+                                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                        {% endif %}
+                                        <span class="w-7 h-7 items-center justify-center text-2xl font-bold text-gray-800 {% if bill.icon_url %}hidden{% else %}flex{% endif %}">{{ bill.icon_fallback }}</span>
+                                    </div>
+                                    <div class="dashboard-upcoming-card-v2-copy">
+                                        <p class="dashboard-upcoming-card-v2-name" title="{{ bill.service_name }}">{{ bill.service_name }}</p>
+                                        <p class="dashboard-upcoming-card-v2-amount">{{ bill.amount }}</p>
+                                        <p class="dashboard-upcoming-card-v2-days">{{ bill.days_left_text }}</p>
+                                    </div>
+                                </div>
+                            </article>
+                            {% endfor %}
                         </div>
-                    </article>
-                    {% endfor %}
+                        <div class="dashboard-upcoming-group" aria-hidden="true">
+                            {% for bill in upcoming_bills %}
+                            <article
+                                class="dashboard-upcoming-card-v2 card-hover {% if bill.is_placeholder %}opacity-70 cursor-default{% else %}cursor-pointer js-clickable-card{% endif %}"
+                                {% if not bill.is_placeholder %}data-url="{{ bill.edit_url }}"{% endif %}
+                            >
+                                <div class="dashboard-upcoming-card-v2-strip {{ bill.bg_class }}" {% if bill.bg_style %}style="{{ bill.bg_style }}"{% endif %}></div>
+                                <div class="dashboard-upcoming-card-v2-body">
+                                    <div class="dashboard-upcoming-card-v2-icon">
+                                        {% if bill.icon_url %}
+                                        <img src="{{ bill.icon_url }}" alt="{{ bill.service_name }}" class="w-7 h-7"
+                                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                        {% endif %}
+                                        <span class="w-7 h-7 items-center justify-center text-2xl font-bold text-gray-800 {% if bill.icon_url %}hidden{% else %}flex{% endif %}">{{ bill.icon_fallback }}</span>
+                                    </div>
+                                    <div class="dashboard-upcoming-card-v2-copy">
+                                        <p class="dashboard-upcoming-card-v2-name" title="{{ bill.service_name }}">{{ bill.service_name }}</p>
+                                        <p class="dashboard-upcoming-card-v2-amount">{{ bill.amount }}</p>
+                                        <p class="dashboard-upcoming-card-v2-days">{{ bill.days_left_text }}</p>
+                                    </div>
+                                </div>
+                            </article>
+                            {% endfor %}
+                        </div>
+                    </div>
                 </div>
             </section>
 
