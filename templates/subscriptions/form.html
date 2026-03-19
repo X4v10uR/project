@@ -133,6 +133,18 @@
     .field-error{font-size:12px;color:#b91c1c;line-height:1.4;}
     .form-errors{margin-bottom:16px;border:1px solid #fecaca;background:#fef2f2;padding:12px 14px;border-radius:12px;}
     .form-errors p{font-size:12px;color:#991b1b;line-height:1.45;}
+    .color-picker-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+    .color-picker-shell{display:inline-flex;align-items:center;justify-content:center;width:48px;height:36px;border-radius:10px;border:1px solid rgba(0,0,0,0.1);background:#fff;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.04);}
+    .color-picker-shell input[type=color]{width:100%;height:100%;padding:0;border:none;background:transparent;cursor:pointer;}
+    .color-picker-shell input[type=color]::-webkit-color-swatch-wrapper{padding:0;}
+    .color-picker-shell input[type=color]::-webkit-color-swatch{border:none;border-radius:0;}
+    .color-picker-shell input[type=color]::-moz-color-swatch{border:none;}
+    .color-auto-btn{display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 14px;border-radius:10px;border:1px solid rgba(0,0,0,0.1);background:#fff;color:#374151;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;}
+    .color-auto-btn.active{background:#1a1a2e;color:#fff;border-color:#1a1a2e;}
+    .color-swatch-list{display:flex;flex-wrap:wrap;gap:10px;}
+    .color-swatch{width:28px;height:28px;border-radius:9999px;border:2px solid transparent;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.08);transition:transform .15s,box-shadow .15s,border-color .15s;}
+    .color-swatch:hover{transform:scale(1.06);}
+    .color-swatch.active{border-color:#1a1a2e;box-shadow:0 0 0 3px rgba(26,26,46,.12);}
     .bg-emerald-200{background:#a8f0c8!important;}
     .text-emerald-800{color:#1f2937!important;}
     .bg-orange-200{background:#f5f07a!important;}
@@ -221,6 +233,32 @@
           </div>
           <p class="hint">Type a service name to see its icon preview</p>
           {% if form.service_name.errors %}<p class="field-error">{{ form.service_name.errors.0 }}</p>{% endif %}
+        </div>
+
+        <div class="space-8">
+          <label class="lbl">Card Color</label>
+          <input id="id_display_color" name="display_color" type="hidden" value="{{ display_color_value }}">
+          <div class="color-picker-row">
+            <button type="button" id="display-color-auto" class="color-auto-btn{% if not display_color_value %} active{% endif %}">Auto</button>
+            <label for="id_display_color_picker" class="color-picker-shell" title="Choose a custom color">
+              <input id="id_display_color_picker" type="color" value="{{ display_color_picker_value }}" aria-label="Choose subscription color">
+            </label>
+            <span id="display-color-value" class="hint">{% if display_color_value %}{{ display_color_value }}{% else %}Auto{% endif %}</span>
+          </div>
+          <div class="color-swatch-list">
+            {% for preset in subscription_color_presets %}
+            <button
+              type="button"
+              class="color-swatch{% if display_color_value == preset %} active{% endif %}"
+              data-display-color-swatch="{{ preset }}"
+              style="background:{{ preset }};"
+              aria-label="Use color {{ preset }}"
+              title="{{ preset }}"
+            ></button>
+            {% endfor %}
+          </div>
+          <p class="hint">Pick a lighter shade like <code>#F9F871</code>, or keep Auto.</p>
+          {% if form.display_color.errors %}<p class="field-error">{{ form.display_color.errors.0 }}</p>{% endif %}
         </div>
 
         <!-- Plan Name -->

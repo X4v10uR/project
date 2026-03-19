@@ -83,10 +83,23 @@
     }
 
     .dashboard-shell {
-        max-width: 80rem;
+        max-width: 92rem;
         margin-left: auto;
         margin-right: auto;
         padding: 1.5rem;
+    }
+
+    .dashboard-main-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 1.5rem;
+        align-items: start;
+    }
+
+    .dashboard-upcoming-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 1rem;
     }
 
     .dashboard-header {
@@ -151,16 +164,21 @@
     .dashboard-upcoming-card-v2-copy {
         padding-top: 0.25rem;
         min-width: 0;
+        flex: 1 1 auto;
     }
 
     .dashboard-upcoming-card-v2-name {
         margin: 0;
+        display: block;
+        max-width: 100%;
         color: #1c2b36;
         font-size: clamp(1.45rem, 2vw, 2.05rem);
         line-height: 1.02;
         font-weight: 800;
         letter-spacing: -0.02em;
-        overflow-wrap: anywhere;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .dashboard-upcoming-card-v2-amount {
@@ -202,6 +220,30 @@
         padding-right: 0;
     }
 
+    @media (min-width: 768px) {
+        .dashboard-upcoming-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (min-width: 1024px) {
+        .dashboard-main-grid {
+            grid-template-columns: minmax(0, 1fr) 22rem;
+        }
+    }
+
+    @media (min-width: 1280px) {
+        .dashboard-upcoming-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
+
+    @media (min-width: 1440px) {
+        .dashboard-main-grid {
+            grid-template-columns: minmax(0, 1fr) 24rem;
+        }
+    }
+
     @media (max-width: 768px) {
         .dashboard-shell {
             padding: 1rem;
@@ -226,8 +268,8 @@
         </a>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="dashboard-left lg:col-span-2">
+    <div class="dashboard-main-grid">
+        <div class="dashboard-left">
             <div class="balance-card text-white p-8 rounded-3xl shadow-lg">
                 <div class="flex justify-between items-start mb-4 gap-4">
                     <div>
@@ -251,7 +293,7 @@
                     <a href="{{ upcoming_view_all_url }}" class="text-sm text-gray-600 hover:text-gray-800 px-4 py-2 border border-gray-300 rounded-full">View All</a>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="dashboard-upcoming-grid">
                     {% for bill in upcoming_bills %}
                     <article
                         class="dashboard-upcoming-card-v2 card-hover {% if bill.is_placeholder %}opacity-70 cursor-default{% else %}cursor-pointer js-clickable-card{% endif %}"
@@ -267,7 +309,7 @@
                                 <span class="w-7 h-7 items-center justify-center text-2xl font-bold text-gray-800 {% if bill.icon_url %}hidden{% else %}flex{% endif %}">{{ bill.icon_fallback }}</span>
                             </div>
                             <div class="dashboard-upcoming-card-v2-copy">
-                                <p class="dashboard-upcoming-card-v2-name">{{ bill.service_name }}</p>
+                                <p class="dashboard-upcoming-card-v2-name" title="{{ bill.service_name }}">{{ bill.service_name }}</p>
                                 <p class="dashboard-upcoming-card-v2-amount">{{ bill.amount }}</p>
                                 <p class="dashboard-upcoming-card-v2-days">{{ bill.days_left_text }}</p>
                             </div>

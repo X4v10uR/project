@@ -14,6 +14,7 @@ from django.utils import timezone
 
 from subscriptions.money import monthly_equivalent
 from subscriptions.models import Subscription, Transaction
+from subscriptions.color_utils import normalize_subscription_display_color
 
 from .models import BalanceAdjustment
 from .constants import (
@@ -490,14 +491,18 @@ def _pick_distinct_palette_color(seed_text, used_colors):
 
 def _build_service_color_map(active_subscriptions, recent_transactions):
     service_order = []
+    custom_colors = {}
 
-    def _add_service(name):
+    def _add_service(name, color=""):
         normalized = _normalized_service_name(name)
         if normalized and normalized not in service_order:
             service_order.append(normalized)
+        normalized_color = normalize_subscription_display_color(color)
+        if normalized and normalized_color and normalized not in custom_colors:
+            custom_colors[normalized] = normalized_color
 
     for subscription in active_subscriptions:
-        _add_service(subscription.service_name)
+        _add_service(subscription.service_name, getattr(subscription, "display_color", ""))
     for transaction in recent_transactions:
         _add_service(transaction.service_name_snapshot)
 
@@ -505,6 +510,11 @@ def _build_service_color_map(active_subscriptions, recent_transactions):
     color_map = {}
 
     for normalized in service_order:
+        custom_color = custom_colors.get(normalized)
+        if custom_color:
+            color_map[normalized] = custom_color
+            continue
+
         preferred = SERVICE_COLOR_PREFERENCES.get(normalized)
         if preferred:
             color = _ensure_distinct_color(preferred, normalized, used_colors)

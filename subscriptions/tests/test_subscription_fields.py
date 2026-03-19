@@ -84,6 +84,7 @@ class SubscriptionAccountFieldsTest(TestCase):
         form = SubscriptionForm(
             data={
                 'service_name': "Netflix",
+                'display_color': "",
                 'category': "Streaming",
                 'billing_cycle': "monthly",
                 'cost': "15.00",
@@ -104,6 +105,58 @@ class SubscriptionAccountFieldsTest(TestCase):
 
         self.assertFalse(form.is_valid())
         self.assertIn('account_email', form.errors)
+
+    def test_form_accepts_and_normalizes_display_color(self):
+        form = SubscriptionForm(
+            data={
+                'service_name': "Netflix",
+                'display_color': "f9f871",
+                'category': "Streaming",
+                'billing_cycle': "monthly",
+                'cost': "15.00",
+                'currency': "USD",
+                'start_date': date.today().isoformat(),
+                'renewal_time': "15:00",
+                'status': "active",
+                'reminders_enabled': "on",
+                'card': "",
+                'notes': "",
+                'is_shared': "False",
+                'split_type': "equal",
+                'account_email': "",
+                'account_password': "",
+            },
+            user=self.user
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["display_color"], "#F9F871")
+
+    def test_form_rejects_invalid_display_color(self):
+        form = SubscriptionForm(
+            data={
+                'service_name': "Netflix",
+                'display_color': "not-a-color",
+                'category': "Streaming",
+                'billing_cycle': "monthly",
+                'cost': "15.00",
+                'currency': "USD",
+                'start_date': date.today().isoformat(),
+                'renewal_time': "15:00",
+                'status': "active",
+                'reminders_enabled': "on",
+                'card': "",
+                'notes': "",
+                'is_shared': "False",
+                'split_type': "equal",
+                'account_email': "",
+                'account_password': "",
+            },
+            user=self.user
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('display_color', form.errors)
 
     def test_encrypts_with_explicit_account_password_key(self):
         encryption_key = Fernet.generate_key().decode("utf-8")

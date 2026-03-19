@@ -79,6 +79,7 @@ class SubscriptionWorkflowSafetyTest(TestCase):
             reverse('subscriptions:create'),
             data={
                 'service_name': 'Hulu',
+                'display_color': '#F9F871',
                 'category': 'Streaming',
                 'billing_cycle': 'monthly',
                 'cost': '11.99',
@@ -104,6 +105,7 @@ class SubscriptionWorkflowSafetyTest(TestCase):
         subscription = Subscription.objects.get(user=self.user, service_name='Hulu')
         offsets = sorted(subscription.offsets.values_list('days_before', flat=True))
         self.assertEqual(offsets, [3, 7])
+        self.assertEqual(subscription.display_color, '#F9F871')
 
     def test_update_replaces_existing_reminder_offsets(self):
         subscription = Subscription.objects.create(
@@ -183,6 +185,45 @@ class SubscriptionWorkflowSafetyTest(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertFalse(subscription.offsets.exists())
+
+    def test_update_persists_selected_display_color(self):
+        subscription = Subscription.objects.create(
+            user=self.user,
+            service_name='Figma',
+            category='Software',
+            billing_cycle='monthly',
+            cost=Decimal('12.00'),
+            start_date=date.today(),
+            status='active',
+        )
+
+        response = self.client.post(
+            reverse('subscriptions:update', args=[subscription.pk]),
+            data={
+                'service_name': 'Figma',
+                'display_color': '#AFC0DE',
+                'category': 'Software',
+                'billing_cycle': 'monthly',
+                'cost': '12.00',
+                'currency': 'USD',
+                'start_date': date.today().isoformat(),
+                'renewal_time': '15:00',
+                'status': 'active',
+                'reminders_enabled': 'on',
+                'card': '',
+                'notes': '',
+                'is_shared': 'False',
+                'split_type': 'equal',
+                'participant_name': [],
+                'participant_share': [],
+                'account_email': '',
+                'account_password': '',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        subscription.refresh_from_db()
+        self.assertEqual(subscription.display_color, '#AFC0DE')
 
 
 @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')

@@ -6,6 +6,7 @@ from dashboard.constants import CARD_COLOR_PALETTE, SERVICE_COLOR_PREFERENCES
 
 from .money import monthly_equivalent
 from .models import Card, Subscription
+from .color_utils import normalize_subscription_display_color
 
 
 CARD_BRANDS = ("visa", "mastercard", "amex", "discover", "jcb")
@@ -94,8 +95,14 @@ def _stable_bucket(value):
     return int(digest[:8], 16)
 
 
-def _service_color(service_name):
-    normalized = (service_name or "").strip().lower()
+def _service_color(subscription):
+    custom_color = normalize_subscription_display_color(
+        getattr(subscription, "display_color", "")
+    )
+    if custom_color:
+        return custom_color
+
+    normalized = (subscription.service_name or "").strip().lower()
     preferred = SERVICE_COLOR_PREFERENCES.get(normalized)
     if preferred:
         return preferred
@@ -162,7 +169,7 @@ def build_cards_page_state(user):
     subscriptions_payload = []
     for subscription in subscriptions:
         monthly_price = _monthly_price(subscription)
-        color = _service_color(subscription.service_name)
+        color = _service_color(subscription)
         days_left = 0
         if subscription.renewal_date:
             days_left = max((subscription.renewal_date - today).days, 0)

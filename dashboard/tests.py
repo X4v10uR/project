@@ -281,6 +281,36 @@ class DashboardViewTest(TestCase):
         self.assertEqual(upcoming['bg_style'], subscriptions_item['bg_style'])
         self.assertEqual(subscriptions_item['bg_style'], active_item['bg_style'])
 
+    def test_custom_display_color_is_used_across_sections(self):
+        Subscription.objects.create(
+            user=self.user,
+            service_name='Spotify',
+            display_color='#F9F871',
+            category='Music',
+            billing_cycle='monthly',
+            cost=Decimal('9.99'),
+            start_date=date.today(),
+            status='active',
+        )
+
+        response = self.client.get(reverse('dashboard:home'))
+        upcoming = next(
+            item for item in response.context['upcoming_bills']
+            if not item['is_placeholder'] and item['service_name'] == 'Spotify'
+        )
+        subscriptions_item = next(
+            item for item in response.context['subscriptions_panel']
+            if not item['is_placeholder'] and item['title'] == 'Spotify'
+        )
+        active_item = next(
+            item for item in response.context['active_subscriptions_panel']
+            if not item['is_placeholder'] and item['title'] == 'Spotify'
+        )
+
+        self.assertEqual(upcoming['bg_style'], 'background-color: #F9F871;')
+        self.assertEqual(subscriptions_item['bg_style'], 'background-color: #F9F871;')
+        self.assertEqual(active_item['bg_style'], 'background-color: #F9F871;')
+
     def test_visible_subscriptions_use_distinct_colors(self):
         for service_name in ['Spotify', 'Netflix', 'Apple TV']:
             Subscription.objects.create(

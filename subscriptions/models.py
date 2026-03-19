@@ -10,6 +10,8 @@ import hashlib
 
 from cryptography.fernet import Fernet, InvalidToken
 
+from .color_utils import normalize_subscription_display_color
+
 
 ACCOUNT_PASSWORD_PREFIX = "enc::"
 
@@ -130,6 +132,18 @@ class Subscription(models.Model):
         related_name='subscriptions',
     )
     service_name = models.CharField(max_length=100)
+    display_color = models.CharField(
+        max_length=7,
+        blank=True,
+        default="",
+        validators=[
+            RegexValidator(
+                r"^#[0-9A-Fa-f]{6}$",
+                "Enter a valid 6-digit hex color.",
+            )
+        ],
+        help_text="Optional custom light color for subscription cards.",
+    )
     plan_name = models.CharField(max_length=100, blank=True, null=True, help_text="e.g. Basic, Premium, Family Plan")
     category = models.CharField(max_length=50, help_text="e.g. Streaming, Utilities, Software")
     billing_cycle = models.CharField(max_length=10, choices=BILLING_CYCLE_CHOICES)
@@ -248,6 +262,8 @@ class Subscription(models.Model):
         # If not shared, user pays full cost
         if not self.is_shared:
             self.user_cost = self.cost
+
+        self.display_color = normalize_subscription_display_color(self.display_color)
 
         if self.account_password == "":
             self.account_password = None

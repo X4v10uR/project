@@ -34,6 +34,10 @@ from .cards_state import (
     set_primary_card_for_user,
 )
 from .money import monthly_equivalent
+from .color_utils import (
+    LIGHT_SUBSCRIPTION_COLOR_PRESETS,
+    normalize_subscription_display_color,
+)
 
 CATEGORY_SUGGESTIONS = [
     "Streaming",
@@ -51,30 +55,30 @@ CATEGORY_SUGGESTIONS = [
 CSV_FORMULA_PREFIXES = ('=', '+', '-', '@')
 
 CARD_COLOR_PALETTE = [
-    "#E50914",
-    "#1DB954",
-    "#0F172A",
-    "#2563EB",
-    "#0F766E",
-    "#7C3AED",
-    "#B91C1C",
-    "#0EA5E9",
-    "#D97706",
-    "#334155",
+    "#F9F871",
+    "#7BCFC0",
+    "#B5A5E7",
+    "#AFC0DE",
+    "#F4C3A8",
+    "#9ED6EA",
+    "#C3DDA6",
+    "#E7B3C6",
+    "#D8C6A5",
+    "#C7BEEA",
 ]
 
 CATEGORY_COLOR_MAP = {
-    "streaming": "#E50914",
-    "music": "#1DB954",
-    "video": "#B91C1C",
-    "software": "#0F172A",
-    "utilities": "#0EA5E9",
-    "cloud": "#1E3A8A",
-    "gaming": "#7C3AED",
-    "productivity": "#0F766E",
-    "education": "#D97706",
-    "news": "#334155",
-    "fitness": "#D97706",
+    "streaming": "#B5A5E7",
+    "music": "#7BCFC0",
+    "video": "#F4C3A8",
+    "software": "#AFC0DE",
+    "utilities": "#9ED6EA",
+    "cloud": "#C7BEEA",
+    "gaming": "#E7B3C6",
+    "productivity": "#C3DDA6",
+    "education": "#F9F871",
+    "news": "#D8C6A5",
+    "fitness": "#F4C3A8",
 }
 
 
@@ -107,7 +111,9 @@ def _assign_subscription_card_meta(subscriptions):
     today = timezone.localdate()
     for idx, sub in enumerate(subscriptions):
         category_key = (sub.category or "").strip().lower()
-        color = CATEGORY_COLOR_MAP.get(category_key) or CARD_COLOR_PALETTE[idx % len(CARD_COLOR_PALETTE)]
+        color = normalize_subscription_display_color(getattr(sub, "display_color", ""))
+        if not color:
+            color = CATEGORY_COLOR_MAP.get(category_key) or CARD_COLOR_PALETTE[idx % len(CARD_COLOR_PALETTE)]
         is_dark = _is_dark_color(color)
         sub.card_color = color
         sub.card_text_is_light = is_dark
@@ -343,6 +349,12 @@ def _build_subscription_form_context(request, form, title, *, subscription=None,
     renewal_time_raw = form.data.get("renewal_time") if form.is_bound else form.initial.get("renewal_time", getattr(instance, "renewal_time", None))
     account_email_value = form.data.get("account_email") if form.is_bound else form.initial.get("account_email", getattr(instance, "account_email", ""))
     notes_value = form.data.get("notes") if form.is_bound else form.initial.get("notes", getattr(instance, "notes", ""))
+    display_color_value = (
+        form.data.get("display_color")
+        if form.is_bound
+        else form.initial.get("display_color", getattr(instance, "display_color", ""))
+    )
+    display_color_value = normalize_subscription_display_color(display_color_value)
 
     context = {
         "form": form,
@@ -363,6 +375,11 @@ def _build_subscription_form_context(request, form, title, *, subscription=None,
         "renewal_time_value": _format_time_input(renewal_time_raw),
         "account_email_value": _string_value(account_email_value),
         "notes_value": _string_value(notes_value),
+        "display_color_value": display_color_value,
+        "display_color_picker_value": (
+            display_color_value or LIGHT_SUBSCRIPTION_COLOR_PRESETS[0]
+        ),
+        "subscription_color_presets": LIGHT_SUBSCRIPTION_COLOR_PRESETS,
         "participant_seed": _build_participant_seed(
             subscription=subscription, post_data=post_data
         ),
@@ -910,6 +927,7 @@ def subscription_create(request):
                         'plan_name': subscription.plan_name,
                         'category': subscription.category,
                         'billing_cycle': subscription.billing_cycle,
+                        'display_color': subscription.display_color or '',
                         'cost': str(subscription.cost),
                         'user_cost': str(subscription.user_cost),
                         'is_shared': bool(subscription.is_shared),

@@ -895,6 +895,7 @@ class TeamInviteFlowTest(TestCase):
             {
                 'team_id': str(self.team.pk),
                 'service_name': 'Canva',
+                'display_color': '#F9F871',
                 'category': 'Software',
                 'billing_cycle': 'monthly',
                 'cost': '14.99',
@@ -926,6 +927,7 @@ class TeamInviteFlowTest(TestCase):
         ).first()
         self.assertIsNotNone(request_record)
         self.assertEqual(request_record.payload.get('service_name'), 'Canva')
+        self.assertEqual(request_record.payload.get('display_color'), '#F9F871')
         self.assertNotIn('account_password', request_record.payload)
         self.assertTrue(
             InAppNotification.objects.filter(
@@ -952,6 +954,7 @@ class TeamRequestAuthorizationTest(TestCase):
             requested_by=self.member,
             payload={
                 'service_name': 'Figma',
+                'display_color': '#AFC0DE',
                 'category': 'Software',
                 'billing_cycle': 'monthly',
                 'cost': '12.00',
@@ -1013,3 +1016,4 @@ class TeamRequestAuthorizationTest(TestCase):
         created_subscription.refresh_from_db()
         self.assertEqual(created_subscription.account_email, 'legacy-team@example.com')
         self.assertIsNone(created_subscription.account_password)
+        self.assertEqual(created_subscription.display_color, '#AFC0DE')

@@ -33,6 +33,13 @@ document.addEventListener("DOMContentLoaded", function () {
     const iconPreview = document.getElementById("service-icon-preview");
     const iconImage = document.getElementById("service-icon-image");
     const iconFallback = document.getElementById("service-icon-fallback");
+    const displayColorInput = document.getElementById("id_display_color");
+    const displayColorPicker = document.getElementById("id_display_color_picker");
+    const displayColorAutoButton = document.getElementById("display-color-auto");
+    const displayColorValue = document.getElementById("display-color-value");
+    const displayColorSwatches = Array.from(
+        document.querySelectorAll("[data-display-color-swatch]")
+    );
 
     const startDateInput = document.getElementById("id_start_date");
 
@@ -43,6 +50,43 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const participantSeed = readJsonScript("participant-seed-data", []);
     const reminderSeed = readJsonScript("reminder-seed-data", []);
+    const DEFAULT_PICKER_COLOR = "#F9F871";
+    const SUMMARY_SERVICE_MAP = {
+        netflix: { bg: "#B5A5E7", letter: "N" },
+        spotify: { bg: "#7BCFC0", letter: "S" },
+        youtube: { bg: "#F4C3A8", letter: "Y" },
+        github: { bg: "#AFC0DE", letter: "G" },
+        "apple tv": { bg: "#F9F871", letter: "A" },
+        "paramount+": { bg: "#C7BEEA", letter: "P+" },
+    };
+    const SERVICE_ICON_MAPPINGS = {
+        "chatgpt plus": "openai",
+        "chat gpt": "openai",
+        openai: "openai",
+        "adobe cc": "adobe",
+        "adobe creative cloud": "adobe",
+        "disney+": "disney-plus",
+        "disney plus": "disney-plus",
+        "amazon prime": "amazon-prime-video",
+        "prime video": "amazon-prime-video",
+        "youtube premium": "youtube",
+        "google drive": "google-drive",
+        "google workspace": "google-workspace",
+        "microsoft 365": "microsoft-365",
+        "office 365": "microsoft-365",
+        icloud: "icloud",
+        dropbox: "dropbox",
+        github: "github",
+        gitlab: "gitlab",
+        bitbucket: "bitbucket",
+        aws: "amazon-web-services",
+        "amazon web services": "amazon-web-services",
+        "google cloud": "google-cloud",
+        azure: "microsoft-azure",
+        "digital ocean": "digitalocean",
+        linode: "linode",
+        vultr: "vultr",
+    };
 
     let reminderOffsets = normalizeReminderOffsets(reminderSeed);
 
@@ -50,6 +94,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initializeSplitControls();
     initializeParticipantControls();
     initializeReminderControls();
+    initializeDisplayColorPicker();
     initializeServiceIconPreview();
     initializeStartDateInput();
     initializePasswordToggle();
@@ -89,6 +134,172 @@ document.addEventListener("DOMContentLoaded", function () {
             return a - b;
         });
         return normalized;
+    }
+
+    function normalizeHexColor(rawValue) {
+        const raw = String(rawValue || "").trim().toUpperCase();
+        if (!raw) {
+            return "";
+        }
+
+        let value = raw;
+        if (value.charAt(0) !== "#") {
+            value = "#" + value;
+        }
+
+        if (/^#[0-9A-F]{3}$/.test(value)) {
+            value =
+                "#" +
+                value.charAt(1) +
+                value.charAt(1) +
+                value.charAt(2) +
+                value.charAt(2) +
+                value.charAt(3) +
+                value.charAt(3);
+        }
+
+        return /^#[0-9A-F]{6}$/.test(value) ? value : "";
+    }
+
+    function isDarkColor(rawColor) {
+        const color = normalizeHexColor(rawColor);
+        if (!color) {
+            return false;
+        }
+
+        const red = parseInt(color.slice(1, 3), 16);
+        const green = parseInt(color.slice(3, 5), 16);
+        const blue = parseInt(color.slice(5, 7), 16);
+        const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
+        return luminance < 0.6;
+    }
+
+    function getPreviewTone(rawColor) {
+        if (isDarkColor(rawColor)) {
+            return {
+                primary: "#FFFFFF",
+                secondary: "rgba(255,255,255,0.78)",
+                tagBackground: "rgba(255,255,255,0.2)",
+                tagColor: "#FFFFFF",
+            };
+        }
+
+        return {
+            primary: "#1F2937",
+            secondary: "#4B5563",
+            tagBackground: "rgba(255,255,255,0.42)",
+            tagColor: "#374151",
+        };
+    }
+
+    function getAutoSummaryStyle(serviceName) {
+        const normalized = (serviceName || "").trim().toLowerCase();
+        const preset = SUMMARY_SERVICE_MAP[normalized];
+        if (preset) {
+            return preset;
+        }
+
+        const name = (serviceName || "").trim();
+        return {
+            bg: "#E5E7EB",
+            letter: name ? name.charAt(0).toUpperCase() : "S",
+        };
+    }
+
+    function getEffectiveDisplayColor(serviceName) {
+        const customColor = normalizeHexColor(displayColorInput ? displayColorInput.value : "");
+        if (customColor) {
+            return customColor;
+        }
+        return getAutoSummaryStyle(serviceName).bg;
+    }
+
+    function generateIconUrl(serviceName) {
+        if (!serviceName) {
+            return "";
+        }
+
+        const serviceLower = serviceName.toLowerCase().trim();
+        let iconName = SERVICE_ICON_MAPPINGS[serviceLower];
+        if (!iconName) {
+            iconName = serviceLower
+                .replace(/ /g, "-")
+                .replace(/\+/g, "-plus")
+                .replace(/&/g, "-and")
+                .replace(/\./g, "")
+                .replace(/[()]/g, "")
+                .replace(/_/g, "-");
+        }
+        return "https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/" + iconName + ".svg";
+    }
+
+    function dispatchDisplayColorChange() {
+        if (!displayColorInput) {
+            return;
+        }
+        displayColorInput.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    function syncDisplayColorControls() {
+        const currentColor = normalizeHexColor(displayColorInput ? displayColorInput.value : "");
+
+        if (displayColorPicker) {
+            displayColorPicker.value = currentColor || normalizeHexColor(displayColorPicker.value) || DEFAULT_PICKER_COLOR;
+        }
+        if (displayColorAutoButton) {
+            displayColorAutoButton.classList.toggle("active", !currentColor);
+        }
+        if (displayColorValue) {
+            displayColorValue.textContent = currentColor || "Auto";
+        }
+        displayColorSwatches.forEach(function (button) {
+            button.classList.toggle(
+                "active",
+                normalizeHexColor(button.dataset.displayColorSwatch) === currentColor
+            );
+        });
+    }
+
+    function initializeDisplayColorPicker() {
+        if (!displayColorInput || !displayColorPicker) {
+            return;
+        }
+
+        displayColorInput.value = normalizeHexColor(displayColorInput.value);
+
+        if (displayColorAutoButton) {
+            displayColorAutoButton.addEventListener("click", function () {
+                displayColorInput.value = "";
+                syncDisplayColorControls();
+                dispatchDisplayColorChange();
+            });
+        }
+
+        function applyCustomColor(rawColor) {
+            const color = normalizeHexColor(rawColor);
+            if (!color) {
+                return;
+            }
+            displayColorInput.value = color;
+            displayColorPicker.value = color;
+            syncDisplayColorControls();
+            dispatchDisplayColorChange();
+        }
+
+        displayColorPicker.addEventListener("input", function () {
+            applyCustomColor(displayColorPicker.value);
+        });
+        displayColorPicker.addEventListener("change", function () {
+            applyCustomColor(displayColorPicker.value);
+        });
+
+        displayColorSwatches.forEach(function (button) {
+            button.addEventListener("click", function () {
+                applyCustomColor(button.dataset.displayColorSwatch);
+            });
+        });
+
+        syncDisplayColorControls();
     }
 
     function removeClasses(element, classes) {
@@ -562,56 +773,16 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
-        const serviceMappings = {
-            "chatgpt plus": "openai",
-            "chat gpt": "openai",
-            openai: "openai",
-            "adobe cc": "adobe",
-            "adobe creative cloud": "adobe",
-            "disney+": "disney-plus",
-            "disney plus": "disney-plus",
-            "amazon prime": "amazon-prime-video",
-            "prime video": "amazon-prime-video",
-            "youtube premium": "youtube",
-            "google drive": "google-drive",
-            "google workspace": "google-workspace",
-            "microsoft 365": "microsoft-365",
-            "office 365": "microsoft-365",
-            icloud: "icloud",
-            dropbox: "dropbox",
-            github: "github",
-            gitlab: "gitlab",
-            bitbucket: "bitbucket",
-            aws: "amazon-web-services",
-            "amazon web services": "amazon-web-services",
-            "google cloud": "google-cloud",
-            azure: "microsoft-azure",
-            "digital ocean": "digitalocean",
-            linode: "linode",
-            vultr: "vultr",
-        };
-
-        function generateIconUrl(serviceName) {
-            if (!serviceName) {
-                return "";
-            }
-
-            const serviceLower = serviceName.toLowerCase().trim();
-            let iconName = serviceMappings[serviceLower];
-            if (!iconName) {
-                iconName = serviceLower
-                    .replace(/ /g, "-")
-                    .replace(/\+/g, "-plus")
-                    .replace(/&/g, "-and")
-                    .replace(/\./g, "")
-                    .replace(/[()]/g, "")
-                    .replace(/_/g, "-");
-            }
-            return "https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/" + iconName + ".svg";
-        }
-
         function updateServiceIcon() {
             const serviceName = serviceNameInput.value.trim();
+            const previewColor = getEffectiveDisplayColor(serviceName);
+            const tone = getPreviewTone(previewColor);
+
+            if (iconPreview) {
+                iconPreview.style.backgroundColor = previewColor;
+            }
+            iconFallback.style.color = tone.primary;
+
             if (!serviceName) {
                 if (iconPreview) {
                     iconPreview.classList.remove("hidden");
@@ -646,6 +817,9 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         serviceNameInput.addEventListener("input", updateServiceIcon);
+        if (displayColorInput) {
+            displayColorInput.addEventListener("change", updateServiceIcon);
+        }
         updateServiceIcon();
     }
 
@@ -999,13 +1173,6 @@ document.addEventListener("DOMContentLoaded", function () {
         const summaryCost = document.getElementById("sumCost");
         const summaryCycle = document.getElementById("sumCycle");
         const summaryTags = document.getElementById("sumTags");
-
-        const serviceMap = {
-            netflix: { bg: "#f5f07a", letter: "N" },
-            spotify: { bg: "#a8f0c8", letter: "S" },
-            youtube: { bg: "#fca5a5", letter: "Y" },
-            github: { bg: "#1a1a2e", letter: "G" },
-        };
         const currencyMap = {
             USD: "$",
             EUR: "EUR ",
@@ -1032,24 +1199,25 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             summarySection.style.display = "block";
-            const service = serviceMap[serviceName.toLowerCase()] || {
-                bg: "#e5e7eb",
-                letter: serviceName.charAt(0).toUpperCase(),
-            };
-            summarySection.style.backgroundColor = service.bg;
+            const service = getAutoSummaryStyle(serviceName);
+            const resolvedColor = getEffectiveDisplayColor(serviceName);
+            const tone = getPreviewTone(resolvedColor);
+            summarySection.style.backgroundColor = resolvedColor;
 
             if (summaryLetter) {
                 summaryLetter.textContent = service.letter;
-                summaryLetter.style.color = service.bg === "#1a1a2e" ? "#fff" : "#1a1a2e";
+                summaryLetter.style.color = tone.primary;
             }
             if (summaryName) {
                 summaryName.textContent = serviceName;
+                summaryName.style.color = tone.primary;
             }
 
             const plan = planInput ? (planInput.value || "").trim() : "";
             if (summaryPlan) {
                 summaryPlan.style.display = plan ? "block" : "none";
                 summaryPlan.textContent = plan;
+                summaryPlan.style.color = tone.secondary;
             }
 
             const rawCost = costInput ? (costInput.value || "").trim() : "";
@@ -1059,6 +1227,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     const code = currencyInput ? (currencyInput.value || "").trim().toUpperCase() || "USD" : "USD";
                     summaryCost.style.display = "block";
                     summaryCost.textContent = (currencyMap[code] || code + " ") + parsedCost.toFixed(2);
+                    summaryCost.style.color = tone.primary;
                 } else {
                     summaryCost.style.display = "none";
                 }
@@ -1072,6 +1241,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 const cycleText = cycleOption && billingCycleInput.value ? cycleOption.textContent.toLowerCase() : "";
                 summaryCycle.style.display = cycleText ? "block" : "none";
                 summaryCycle.textContent = cycleText ? "/" + cycleText : "";
+                summaryCycle.style.color = tone.secondary;
             }
 
             if (summaryTags) {
@@ -1114,7 +1284,11 @@ document.addEventListener("DOMContentLoaded", function () {
                 summaryTags.innerHTML = tags
                     .map(function (tag) {
                         return (
-                            '<span style="font-size:12px;background:rgba(255,255,255,0.4);border-radius:10px;padding:4px 8px;color:#374151;text-transform:capitalize;">' +
+                            '<span style="font-size:12px;background:' +
+                            tone.tagBackground +
+                            ";border-radius:10px;padding:4px 8px;color:" +
+                            tone.tagColor +
+                            ';text-transform:capitalize;">' +
                             tag.replace(/</g, "&lt;") +
                             "</span>"
                         );
@@ -1139,6 +1313,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 setTimeout(updateSummary, 0);
             });
         });
+
+        if (displayColorInput) {
+            displayColorInput.addEventListener("change", updateSummary);
+        }
 
         isSharedInputs.forEach(function (input) {
             input.addEventListener("change", updateSummary);

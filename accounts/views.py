@@ -716,6 +716,7 @@ def _create_subscription_from_request_payload(team_request, reviewer):
         user=team_request.requested_by,
         team=team_request.team,
         service_name=payload.get('service_name', ''),
+        display_color=payload.get('display_color') or '',
         plan_name=payload.get('plan_name') or None,
         category=payload.get('category', ''),
         billing_cycle=payload.get('billing_cycle', 'monthly'),

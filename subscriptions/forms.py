@@ -1,5 +1,6 @@
 from django import forms
 from .models import Subscription, Card
+from .color_utils import normalize_subscription_display_color
 
 class CardForm(forms.ModelForm):
     class Meta:
@@ -37,8 +38,9 @@ class SubscriptionForm(forms.ModelForm):
 
     class Meta:
         model = Subscription
-        fields = ['service_name', 'plan_name', 'category', 'billing_cycle', 'cost', 'currency', 'start_date', 'renewal_time', 'status', 'reminders_enabled', 'card', 'notes', 'is_shared', 'split_type', 'account_email', 'account_password']
+        fields = ['service_name', 'display_color', 'plan_name', 'category', 'billing_cycle', 'cost', 'currency', 'start_date', 'renewal_time', 'status', 'reminders_enabled', 'card', 'notes', 'is_shared', 'split_type', 'account_email', 'account_password']
         widgets = {
+            'display_color': forms.HiddenInput(),
             'plan_name': forms.TextInput(attrs={'placeholder': 'e.g. Premium 4K, Family'}),
             'start_date': forms.DateInput(attrs={'type': 'date'}),
             'renewal_time': forms.TimeInput(attrs={'type': 'time'}),
@@ -61,7 +63,7 @@ class SubscriptionForm(forms.ModelForm):
             self.fields['card'].queryset = Card.objects.filter(user=self.user)
         
         for name, field in self.fields.items():
-            if name not in ['card', 'is_shared', 'split_type']: 
+            if name not in ['card', 'is_shared', 'split_type', 'display_color']:
                 field.widget.attrs.update({
                     'class': 'appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm'
                 })
@@ -74,6 +76,16 @@ class SubscriptionForm(forms.ModelForm):
         if not account_email:
             return None
         return account_email.strip()
+
+    def clean_display_color(self):
+        raw_value = self.cleaned_data.get("display_color")
+        if not raw_value:
+            return ""
+
+        normalized = normalize_subscription_display_color(raw_value)
+        if not normalized:
+            raise forms.ValidationError("Choose a valid hex color.")
+        return normalized
 
     def clean_currency(self):
         currency = self.cleaned_data.get("currency")
