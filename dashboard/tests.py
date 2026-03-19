@@ -67,6 +67,28 @@ class DashboardViewTest(TestCase):
         self.assertEqual(len(visible_titles), 3)
         self.assertEqual(sorted(visible_titles), ['Apple TV', 'Netflix', 'Spotify'])
 
+    def test_upcoming_bills_include_all_upcoming_subscriptions(self):
+        for service_name in ['Spotify', 'Netflix', 'Apple TV', 'Paramount+']:
+            Subscription.objects.create(
+                user=self.user,
+                service_name=service_name,
+                category='Streaming',
+                billing_cycle='monthly',
+                cost=Decimal('10.00'),
+                start_date=date.today(),
+                status='active',
+            )
+
+        response = self.client.get(reverse('dashboard:home'))
+        visible_names = [
+            item['service_name']
+            for item in response.context['upcoming_bills']
+            if not item['is_placeholder']
+        ]
+
+        self.assertEqual(len(visible_names), 4)
+        self.assertEqual(sorted(visible_names), ['Apple TV', 'Netflix', 'Paramount+', 'Spotify'])
+
     def test_bell_url_points_to_notifications_page(self):
         response = self.client.get(reverse('dashboard:home'))
         bell_url = response.context['bell_url']

@@ -756,7 +756,7 @@ def build_dashboard_view_model(user, today=None, scope='personal'):
 
     upcoming_items = [
         _build_upcoming_item(sub, index, today, service_color_map)
-        for index, sub in enumerate(upcoming_renewals[:3])
+        for index, sub in enumerate(upcoming_renewals)
     ]
     subscription_panel_items = [
         _build_subscription_panel_item(sub, index, service_color_map)
@@ -771,7 +771,11 @@ def build_dashboard_view_model(user, today=None, scope='personal'):
         for index, txn in enumerate(recent_transactions_qs)
     ]
 
-    upcoming_bills = _slot_pad(upcoming_items, 3, _build_upcoming_placeholder)
+    upcoming_bills = (
+        upcoming_items
+        if upcoming_items
+        else _slot_pad(upcoming_items, 3, _build_upcoming_placeholder)
+    )
     subscriptions_panel = _slot_pad(subscription_panel_items, 3, _build_subscription_placeholder)
     active_subscriptions_panel = (
         active_panel_items
