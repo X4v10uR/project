@@ -531,6 +531,7 @@ function initActiveSubscriptionsScroller() {
     const visibleCards = Math.max(1, parseInt(viewport.dataset.visibleCards || '2', 10));
     const scrollIntervalMs = Math.max(3000, parseInt(viewport.dataset.scrollInterval || '7000', 10));
     const animationDurationMs = 450;
+    const disableScroll = viewport.dataset.disableScroll === '1';
 
     const listeners = [];
     const listen = function (target, eventName, handler, options) {
@@ -547,6 +548,23 @@ function initActiveSubscriptionsScroller() {
         return Array.from(track.children);
     };
 
+    const resetTrackState = function () {
+        track.classList.remove('is-animating');
+        track.style.transition = 'none';
+        track.style.transform = 'translateY(0)';
+    };
+
+    const removeClonedCards = function () {
+        getCards().forEach(function (card) {
+            if (!card || !card.dataset || card.dataset.dashboardClone !== '1') {
+                return;
+            }
+            if (typeof track.removeChild === 'function') {
+                track.removeChild(card);
+            }
+        });
+    };
+
     const setViewportHeight = function () {
         const cards = getCards();
         if (!cards.length) {
@@ -554,7 +572,7 @@ function initActiveSubscriptionsScroller() {
             return;
         }
 
-        if (cards.length === 1) {
+        if (cards.length <= visibleCards) {
             viewport.style.height = 'auto';
             return;
         }
@@ -564,10 +582,13 @@ function initActiveSubscriptionsScroller() {
         viewport.style.height = height + 'px';
     };
 
+    resetTrackState();
+    removeClonedCards();
+
     const prefersReducedMotion = window.matchMedia &&
         window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const cards = getCards();
-    if (cards.length <= 1 || prefersReducedMotion) {
+    if (disableScroll || cards.length <= 1 || cards.length <= visibleCards || prefersReducedMotion) {
         setViewportHeight();
         return null;
     }
@@ -605,7 +626,12 @@ function initActiveSubscriptionsScroller() {
 
         const needsCloneForLoop = currentCards.length <= visibleCards;
         if (needsCloneForLoop) {
-            track.appendChild(firstCard.cloneNode(true));
+            const clone = firstCard.cloneNode(true);
+            if (!clone.dataset) {
+                clone.dataset = {};
+            }
+            clone.dataset.dashboardClone = '1';
+            track.appendChild(clone);
         }
 
         isAnimating = true;
@@ -672,9 +698,9 @@ function initActiveSubscriptionsScroller() {
     return function cleanupActiveSubscriptionsScroller() {
         stop();
         clearRotationTimeout();
-        track.classList.remove('is-animating');
-        track.style.transition = 'none';
-        track.style.transform = 'translateY(0)';
+        resetTrackState();
+        removeClonedCards();
+        setViewportHeight();
         listeners.forEach(function (removeListener) {
             removeListener();
         });

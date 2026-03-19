@@ -5,470 +5,106 @@
 
 {% block extra_css %}
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
     .dashboard-shell,
-    .dashboard-shell button,
-    .dashboard-shell input,
-    .dashboard-shell select,
-    .dashboard-shell textarea {
-        font-family: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Display", "Segoe UI", sans-serif;
-        font-style: normal;
-    }
-
-    .dashboard-shell {
-        max-width: 100%;
-        margin-inline: auto;
-        color: #0f172a;
-    }
-
-    .dashboard-header-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.9rem;
-        margin-bottom: 1.35rem;
-    }
-
-    .dashboard-hello-group {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        min-width: 0;
-    }
-
-    .dashboard-avatar {
-        width: 2.15rem;
-        height: 2.15rem;
-        border-radius: 9999px;
-        background: #c9ced5;
-        color: #4b5563;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.93rem;
-        font-weight: 700;
-        flex-shrink: 0;
-    }
-
-    .dashboard-hello-title {
-        margin: 0;
-        font-size: clamp(1.45rem, 3.2vw, 2.08rem);
-        line-height: 1.08;
-        letter-spacing: -0.02em;
-        color: #0f172a;
-        white-space: nowrap;
-    }
-
-    .dashboard-bell-link {
-        width: 2.25rem;
-        height: 2.25rem;
-        border-radius: 0.75rem;
-        border: 1px solid transparent;
-        color: #374151;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
-    }
-
-    .dashboard-bell-link:hover {
-        background: rgba(255, 255, 255, 0.86);
-        border-color: rgba(148, 163, 184, 0.35);
-        color: #111827;
-    }
-
-    .dashboard-main-grid {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr);
-        gap: 1rem;
-    }
-
-    .dashboard-left-col,
-    .dashboard-right-col {
-        min-width: 0;
-    }
-
-    .dashboard-left-col > :not([hidden]) ~ :not([hidden]),
-    .dashboard-right-col > :not([hidden]) ~ :not([hidden]) {
-        margin-top: 1rem;
-    }
-
-    .balance-card {
-        border-radius: 1.45rem;
-        padding: 1.2rem;
-        color: #ffffff;
-        border: 1px solid rgba(71, 85, 105, 0.45);
-        background:
-            radial-gradient(circle at 85% 15%, rgba(232, 245, 66, 0.2), rgba(232, 245, 66, 0) 42%),
-            linear-gradient(135deg, #2b2d32 0%, #1a1b1f 100%);
-        box-shadow: 0 20px 34px -28px rgba(15, 23, 42, 0.82);
-    }
-
-    .dashboard-balance-label {
-        margin: 0 0 0.45rem;
-        color: #93a3ba;
-        font-size: 0.95rem;
-    }
-
-    .dashboard-balance-amount {
-        margin: 0;
-        font-size: clamp(2.25rem, 5.4vw, 3.35rem);
-        line-height: 1;
-        letter-spacing: -0.03em;
-        color: #ffffff;
-        font-weight: 900;
-    }
-
-    .dashboard-balance-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.42rem;
-        border-radius: 9999px;
-        border: 1px solid rgba(100, 116, 139, 0.66);
-        background: rgba(51, 65, 85, 0.86);
-        color: #e2e8f0;
-        padding: 0.22rem 0.5rem;
-        font-size: 0.94rem;
-        line-height: 1;
-        font-weight: 700;
-    }
-
-    .dashboard-balance-chip-toggle {
-        width: 1.8rem;
-        height: 1.05rem;
-        border-radius: 9999px;
-        background: rgba(148, 163, 184, 0.55);
-    }
-
-    .dashboard-section-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.7rem;
-        margin-bottom: 0.65rem;
-    }
-
-    .dashboard-section-head-block {
-        margin-bottom: 0.65rem;
-    }
-
-    .dashboard-section-title {
-        margin: 0;
-        font-size: clamp(1.28rem, 2.4vw, 1.78rem);
-        line-height: 1.15;
-        letter-spacing: -0.02em;
-        color: #0f172a;
-        font-weight: 800;
-    }
-
-    .dashboard-section-copy {
-        margin: 0.2rem 0 0;
-        color: #64748b;
-        font-size: 0.99rem;
-    }
-
-    .dashboard-view-all-link {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 5.4rem;
-        border-radius: 9999px;
-        border: 1px solid rgba(156, 163, 175, 0.5);
-        padding: 0.42rem 0.9rem;
-        background: rgba(255, 255, 255, 0.56);
-        color: #334155;
-        font-size: 0.96rem;
-        font-weight: 500;
-        transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
-    }
-
-    .dashboard-view-all-link:hover {
-        background: rgba(255, 255, 255, 0.82);
-        border-color: rgba(100, 116, 139, 0.45);
-        color: #0f172a;
-    }
-
-    .dashboard-upcoming-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
-        gap: 0.8rem;
-    }
-
-    .dashboard-upcoming-card {
-        border-radius: 1.45rem;
-        padding: 0.95rem;
-        border: 1px solid rgba(226, 232, 240, 0.5);
-        box-shadow: 0 18px 30px -28px rgba(15, 23, 42, 0.84);
-    }
-
-    .dashboard-upcoming-icon {
-        width: 2.55rem;
-        height: 2.55rem;
-        border-radius: 9999px;
-        background: rgba(255, 255, 255, 0.38);
-        backdrop-filter: blur(3px);
-        -webkit-backdrop-filter: blur(3px);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-        margin-bottom: 0.6rem;
-    }
-
-    .dashboard-upcoming-amount {
-        margin: 0;
-        font-size: 2rem;
-        line-height: 1;
-        font-weight: 800;
-        color: #111827;
-    }
-
-    .dashboard-upcoming-days {
-        margin: 0.28rem 0 0.2rem;
-        color: rgba(31, 41, 55, 0.72);
-        font-size: 0.96rem;
-        font-weight: 600;
-    }
-
-    .dashboard-upcoming-name {
-        margin: 0;
-        color: #111827;
-        font-size: 1.62rem;
-        line-height: 1.1;
-        font-weight: 700;
-        overflow-wrap: anywhere;
-    }
-
-    .dashboard-subscription-list {
-        display: grid;
-        gap: 0.7rem;
-    }
-
-    .dashboard-subscription-row {
-        border-radius: 1.4rem;
-        padding: 0.8rem 0.95rem;
-        border: 1px solid rgba(226, 232, 240, 0.5);
-        box-shadow: 0 16px 24px -24px rgba(15, 23, 42, 0.82);
-    }
-
-    .dashboard-row-content {
-        min-width: 0;
-    }
-
-    .dashboard-row-title {
-        margin: 0;
-        color: #111827;
-        font-size: 1.95rem;
-        line-height: 1.06;
-        font-weight: 700;
-    }
-
-    .dashboard-row-subtitle {
-        margin: 0.24rem 0 0;
-        color: rgba(31, 41, 55, 0.74);
-        font-size: 1.12rem;
-        font-weight: 500;
-    }
-
-    .dashboard-row-icon {
-        width: 2.55rem;
-        height: 2.55rem;
-        border-radius: 9999px;
-        background: rgba(255, 255, 255, 0.42);
-        backdrop-filter: blur(3px);
-        -webkit-backdrop-filter: blur(3px);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-        flex-shrink: 0;
-    }
-
-    .dashboard-add-chip {
-        width: 2.2rem;
-        height: 2.2rem;
-        border-radius: 9999px;
-        border: 1px solid rgba(148, 163, 184, 0.34);
-        background: rgba(255, 255, 255, 0.36);
-        color: #475569;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        transition: background-color 140ms ease, border-color 140ms ease;
-    }
-
-    .dashboard-add-chip:hover {
-        background: rgba(255, 255, 255, 0.62);
-        border-color: rgba(100, 116, 139, 0.5);
-    }
-
-    .dashboard-panel-card {
-        border-radius: 1.45rem;
-        border: 1px solid rgba(226, 232, 240, 0.8);
-        background: rgba(243, 244, 246, 0.95);
-        padding: 0.9rem;
-        box-shadow: 0 18px 30px -28px rgba(15, 23, 42, 0.84);
-    }
-
-    .dashboard-panel-title {
-        margin: 0 0 0.8rem;
-        color: #0f172a;
-        font-size: 2.02rem;
-        line-height: 1.06;
-        font-weight: 800;
-    }
-
-    .active-subscriptions-viewport {
-        overflow: hidden;
-        border-radius: 1rem;
-        position: relative;
-    }
-
-    .active-subscriptions-track {
-        display: grid;
-        gap: 0.6rem;
-    }
-
-    .dashboard-active-card {
-        border-radius: 1.18rem;
-        padding: 0.72rem;
-        border: 1px solid rgba(226, 232, 240, 0.5);
-        box-shadow: 0 14px 24px -24px rgba(15, 23, 42, 0.84);
-    }
-
-    .dashboard-duration-pill {
-        border-radius: 9999px;
-        border: 1px solid rgba(148, 163, 184, 0.5);
-        background: rgba(255, 255, 255, 0.42);
-        color: rgba(31, 41, 55, 0.78);
-        font-size: 0.86rem;
-        line-height: 1;
-        padding: 0.2rem 0.5rem;
-    }
-
-    .dashboard-edit-chip {
-        width: 2rem;
-        height: 2rem;
-        border-radius: 9999px;
-        background: #111827;
-        color: #fff;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-
-    .dashboard-active-amount {
-        margin: 0.4rem 0 0.3rem;
-        color: #111827;
-        font-size: 2rem;
-        line-height: 1;
-        font-weight: 800;
-    }
-
-    .dashboard-active-meta {
-        color: rgba(31, 41, 55, 0.76);
-        font-size: 0.9rem;
-        line-height: 1.3;
-    }
-
-    .dashboard-recent-list {
-        display: grid;
-        gap: 0.58rem;
-    }
-
-    .dashboard-recent-row {
-        border-radius: 0.95rem;
-        border: 1px solid rgba(226, 232, 240, 0.66);
-        background: rgba(255, 255, 255, 0.5);
-        padding: 0.56rem 0.64rem;
-    }
-
-    .dashboard-recent-title {
-        margin: 0;
-        color: #0f172a;
-        font-size: 1.05rem;
-        line-height: 1.2;
-        font-weight: 700;
-    }
-
-    .dashboard-recent-time {
-        margin: 0.12rem 0 0;
-        color: #64748b;
-        font-size: 0.85rem;
-    }
-
-    .dashboard-recent-amount {
-        color: #0f172a;
-        font-size: 1.15rem;
-        line-height: 1;
-        font-weight: 700;
-        white-space: nowrap;
+    .dashboard-shell * {
+        font-family: 'Inter', sans-serif;
     }
 
     .card-hover {
-        transition: transform 180ms ease, box-shadow 180ms ease;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
 
     .card-hover:hover {
         transform: translateY(-2px);
-        box-shadow: 0 10px 18px rgba(15, 23, 42, 0.12);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
     }
 
-    @media (min-width: 1024px) {
-        .dashboard-main-grid {
-            grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
-        }
-
-        body.route-dashboard .app-main-shell {
-            min-height: 0;
-            height: 100dvh;
-            padding: 0.85rem;
-            overflow: hidden;
-            background: #e5e7eb;
-        }
-
-        body.route-dashboard #app-content {
-            height: 100%;
-        }
-
-        body.route-dashboard .dashboard-shell {
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-        }
-
-        body.route-dashboard .dashboard-main-grid {
-            min-height: 0;
-            flex: 1;
-            overflow: hidden;
-        }
+    .balance-card {
+        background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
     }
 
-    @media (max-width: 1023px) {
+    .spotify-bg {
+        background-color: #7dd3c0;
+    }
+
+    .netflix-bg {
+        background-color: #c4b5fd;
+    }
+
+    .apple-bg {
+        background-color: #f9f871;
+    }
+
+    .creative-cloud-bg {
+        background-color: #b4c5e4;
+    }
+
+    .js-active-subscriptions-viewport {
+        overflow: hidden;
+        position: relative;
+    }
+
+    .js-active-subscriptions-track {
+        display: grid;
+        gap: 0.75rem;
+    }
+
+    .dashboard-shell {
+        max-width: 80rem;
+        margin-left: auto;
+        margin-right: auto;
+        padding: 1.5rem;
+    }
+
+    .dashboard-header {
+        margin-bottom: 2rem;
+    }
+
+    .dashboard-left > * + *,
+    .dashboard-right > * + * {
+        margin-top: 1.5rem;
+    }
+
+    .dashboard-p6 {
+        padding: 1.5rem;
+    }
+
+    .dashboard-text-5xl {
+        font-size: 3rem;
+        line-height: 1;
+        letter-spacing: -0.025em;
+        font-weight: 700;
+    }
+
+    .dashboard-size-14 {
+        width: 3.5rem;
+        height: 3.5rem;
+    }
+
+    .dashboard-space-y-3 > :not([hidden]) ~ :not([hidden]) {
+        margin-top: 0.75rem;
+    }
+
+    html.app-auth-layout body.route-dashboard {
+        background: #f9fafb !important;
+    }
+
+    html.app-auth-layout body.route-dashboard::before {
+        display: none;
+    }
+
+    body.route-dashboard .app-main-shell {
+        background: transparent;
+        padding-top: 0;
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    @media (max-width: 768px) {
         .dashboard-shell {
-            padding-bottom: 4.25rem;
-        }
-    }
-
-    @media (max-width: 767px) {
-        .dashboard-header-row {
-            margin-bottom: 1rem;
-        }
-
-        .dashboard-hello-title {
-            font-size: 1.5rem;
-        }
-
-        .dashboard-section-title,
-        .dashboard-panel-title {
-            font-size: 1.35rem;
-        }
-
-        .dashboard-upcoming-amount,
-        .dashboard-row-title,
-        .dashboard-active-amount {
-            font-size: 1.8rem;
+            padding: 1rem;
         }
     }
 </style>
@@ -476,89 +112,104 @@
 
 {% block content %}
 <div class="dashboard-shell">
-    <div class="dashboard-header-row">
-        <div class="dashboard-hello-group">
-            <div class="dashboard-avatar">{{ avatar_initial }}</div>
-            <h1 class="dashboard-hello-title">Hello, {{ greeting_name }}!</h1>
+    <div class="dashboard-header flex items-center justify-between">
+        <div class="flex items-center gap-4 min-w-0">
+            <div class="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center shrink-0">
+                <span class="text-gray-600 font-semibold">{{ avatar_initial }}</span>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-800 truncate">Hello, {{ greeting_name }}!</h1>
         </div>
-        <a href="{{ bell_url }}" class="dashboard-bell-link" title="Notifications" aria-label="Notifications">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <a href="{{ bell_url }}" class="p-2 hover:bg-gray-100 rounded-lg transition inline-flex items-center justify-center" title="Notifications" aria-label="Notifications">
+            <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
             </svg>
         </a>
     </div>
 
-    <div class="dashboard-main-grid">
-        <div class="dashboard-left-col">
-            <div class="balance-card">
-                <div class="flex justify-between items-start gap-2">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="dashboard-left lg:col-span-2">
+            <div class="balance-card text-white p-8 rounded-3xl shadow-lg">
+                <div class="flex justify-between items-start mb-4 gap-4">
                     <div>
-                        <p class="dashboard-balance-label">Your balance</p>
-                        <h2 class="dashboard-balance-amount js-balance-display">{{ balance_display }}</h2>
+                        <p class="text-gray-400 text-sm mb-2">Your balance</p>
+                        <h2 class="dashboard-text-5xl js-balance-display">{{ balance_display }}</h2>
                     </div>
-                    <span class="dashboard-balance-chip">
-                        {{ balance_chip_date }}
-                        <span class="dashboard-balance-chip-toggle"></span>
-                    </span>
+                    <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded-full">
+                        <span class="text-sm">{{ balance_chip_date }}</span>
+                        <div class="w-8 h-5 bg-gray-500 rounded-full"></div>
+                    </div>
+                </div>
+                <div class="sr-only">
+                    <span class="js-balance-base-pill">Base {{ balance_base_display }}</span>
+                    <span class="js-balance-adjustment-pill">Adj {{ balance_adjustment_display }}</span>
                 </div>
             </div>
 
             <section>
-                <div class="dashboard-section-head">
-                    <h3 class="dashboard-section-title">Upcoming Bill</h3>
-                    <a href="{{ upcoming_view_all_url }}" class="dashboard-view-all-link">View All</a>
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-gray-800">Upcoming Bill</h3>
+                    <a href="{{ upcoming_view_all_url }}" class="text-sm text-gray-600 hover:text-gray-800 px-4 py-2 border border-gray-300 rounded-full">View All</a>
                 </div>
-                <div class="dashboard-upcoming-grid">
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {% for bill in upcoming_bills %}
                     <article
-                        class="dashboard-upcoming-card card-hover {{ bill.bg_class }} {% if bill.is_placeholder %}opacity-70{% else %}cursor-pointer js-clickable-card{% endif %}"
+                        class="{{ bill.bg_class }} dashboard-p6 rounded-3xl card-hover {% if bill.is_placeholder %}opacity-70 cursor-default{% else %}cursor-pointer js-clickable-card{% endif %}"
                         {% if bill.bg_style %}style="{{ bill.bg_style }}"{% endif %}
                         {% if not bill.is_placeholder %}data-url="{{ bill.edit_url }}"{% endif %}
                     >
-                        <span class="dashboard-upcoming-icon">
-                            {% if bill.icon_url %}
-                            <img src="{{ bill.icon_url }}" alt="{{ bill.service_name }}" class="w-7 h-7"
-                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                            {% endif %}
-                            <span class="w-7 h-7 items-center justify-center text-xl font-semibold {% if bill.icon_url %}hidden{% else %}flex{% endif %}">{{ bill.icon_fallback }}</span>
-                        </span>
-                        <p class="dashboard-upcoming-amount">{{ bill.amount }}</p>
-                        <p class="dashboard-upcoming-days">{{ bill.days_left_text }}</p>
-                        <p class="dashboard-upcoming-name">{{ bill.service_name }}</p>
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-12 h-12 bg-white/30 backdrop-blur rounded-full flex items-center justify-center overflow-hidden">
+                                {% if bill.icon_url %}
+                                <img src="{{ bill.icon_url }}" alt="{{ bill.service_name }}" class="w-7 h-7"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                {% endif %}
+                                <span class="w-7 h-7 items-center justify-center text-2xl font-bold text-gray-800 {% if bill.icon_url %}hidden{% else %}flex{% endif %}">{{ bill.icon_fallback }}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold text-gray-800">{{ bill.amount }}</p>
+                            <p class="text-sm text-gray-600 mb-1">{{ bill.days_left_text }}</p>
+                            <p class="text-lg font-semibold text-gray-800">{{ bill.service_name }}</p>
+                        </div>
                     </article>
                     {% endfor %}
                 </div>
             </section>
 
             <section>
-                <div class="dashboard-section-head-block">
-                    <div class="dashboard-section-head">
-                        <h3 class="dashboard-section-title">Subscriptions</h3>
-                        <a href="{{ subscriptions_view_all_url }}" class="dashboard-view-all-link">View All</a>
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-800">Subscriptions</h3>
+                        <p class="text-sm text-gray-500">Subscribe multiple platforms only in one place.</p>
                     </div>
-                    <p class="dashboard-section-copy">Subscribe multiple platforms only in one place.</p>
+                    <a href="{{ subscriptions_view_all_url }}" class="text-sm text-gray-600 hover:text-gray-800 px-4 py-2 border border-gray-300 rounded-full">View All</a>
                 </div>
 
-                <div class="dashboard-subscription-list">
+                <div class="dashboard-space-y-3">
                     {% for item in subscriptions_panel %}
-                    <article class="dashboard-subscription-row card-hover {{ item.bg_class }} flex items-center justify-between {% if item.is_placeholder %}opacity-70{% endif %}" {% if item.bg_style %}style="{{ item.bg_style }}"{% endif %}>
-                        <div class="flex items-center gap-3 min-w-0">
-                            <span class="dashboard-row-icon">
+                    <article class="{{ item.bg_class }} dashboard-p6 rounded-3xl flex items-center justify-between card-hover {% if item.is_placeholder %}opacity-70{% endif %}" {% if item.bg_style %}style="{{ item.bg_style }}"{% endif %}>
+                        <div class="flex items-center gap-4 min-w-0">
+                            <div class="dashboard-size-14 bg-white/40 backdrop-blur rounded-full flex items-center justify-center overflow-hidden shrink-0">
                                 {% if item.icon_url %}
                                 <img src="{{ item.icon_url }}" alt="{{ item.title }}" class="w-8 h-8"
                                      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                 {% endif %}
-                                <span class="w-8 h-8 items-center justify-center text-2xl font-semibold {% if item.icon_url %}hidden{% else %}flex{% endif %}">{{ item.icon_fallback }}</span>
-                            </span>
-                            <div class="dashboard-row-content">
-                                <p class="dashboard-row-title">{{ item.title }}</p>
-                                <p class="dashboard-row-subtitle">{{ item.subtitle }}</p>
+                                <span class="w-8 h-8 items-center justify-center text-2xl font-bold text-gray-800 {% if item.icon_url %}hidden{% else %}flex{% endif %}">{{ item.icon_fallback }}</span>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="font-semibold text-gray-800 text-lg truncate">{{ item.title }}</p>
+                                <p class="text-gray-600 text-sm">{{ item.subtitle }}</p>
                             </div>
                         </div>
                         {% if item.is_placeholder %}
-                        <span class="dashboard-add-chip text-2xl">+</span>
+                        <span class="w-10 h-10 bg-white/40 backdrop-blur rounded-full flex items-center justify-center">
+                            <span class="text-2xl text-gray-700 leading-none">+</span>
+                        </span>
                         {% else %}
-                        <a href="{{ item.create_url }}" class="dashboard-add-chip text-2xl">+</a>
+                        <a href="{{ item.create_url }}" class="w-10 h-10 bg-white/40 backdrop-blur rounded-full flex items-center justify-center hover:bg-white/60 transition" aria-label="Add {{ item.title }}">
+                            <span class="text-2xl text-gray-700 leading-none">+</span>
+                        </a>
                         {% endif %}
                     </article>
                     {% endfor %}
@@ -566,40 +217,40 @@
             </section>
         </div>
 
-        <div class="dashboard-right-col">
-            <section class="dashboard-panel-card">
-                <h3 class="dashboard-panel-title">Active Subscriptions</h3>
+        <div class="dashboard-right">
+            <section class="bg-white dashboard-p6 rounded-3xl shadow-sm">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">Active Subscriptions</h3>
 
-                <div class="active-subscriptions-viewport js-active-subscriptions-viewport" data-visible-cards="2" data-scroll-interval="1">
-                    <div class="active-subscriptions-track js-active-subscriptions-track">
+                <div class="js-active-subscriptions-viewport" data-visible-cards="2" data-scroll-interval="1" data-disable-scroll="1">
+                    <div class="js-active-subscriptions-track">
                         {% for active in active_subscriptions_panel %}
-                        <article class="dashboard-active-card {{ active.bg_class }} {% if active.is_placeholder %}opacity-70{% endif %}" {% if active.bg_style %}style="{{ active.bg_style }}"{% endif %}>
-                            <div class="flex items-center justify-between gap-2 mb-2">
+                        <article class="{{ active.bg_class }} p-5 rounded-2xl {% if active.is_placeholder %}opacity-70{% endif %}" {% if active.bg_style %}style="{{ active.bg_style }}"{% endif %}>
+                            <div class="flex items-center justify-between mb-3 gap-3">
                                 <div class="flex items-center gap-3 min-w-0">
-                                    <span class="dashboard-row-icon w-10 h-10">
+                                    <div class="w-10 h-10 bg-white/40 backdrop-blur rounded-full flex items-center justify-center overflow-hidden shrink-0">
                                         {% if active.icon_url %}
                                         <img src="{{ active.icon_url }}" alt="{{ active.title }}" class="w-6 h-6"
                                              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                         {% endif %}
-                                        <span class="w-6 h-6 items-center justify-center text-lg font-semibold {% if active.icon_url %}hidden{% else %}flex{% endif %}">{{ active.icon_fallback }}</span>
-                                    </span>
-                                    <div class="dashboard-row-content">
-                                        <p class="font-semibold text-gray-800 text-3xl leading-tight">{{ active.title }}</p>
-                                        <span class="dashboard-duration-pill">{{ active.duration_label }}</span>
+                                        <span class="w-6 h-6 items-center justify-center text-lg font-bold text-gray-800 {% if active.icon_url %}hidden{% else %}flex{% endif %}">{{ active.icon_fallback }}</span>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <p class="font-semibold text-gray-800 truncate">{{ active.title }}</p>
+                                        <span class="text-xs bg-white/50 px-2 py-1 rounded-full text-gray-700">{{ active.duration_label }}</span>
                                     </div>
                                 </div>
                                 {% if active.is_placeholder %}
-                                <span class="dashboard-edit-chip"></span>
+                                <span class="w-8 h-8 bg-gray-800 rounded-full inline-flex items-center justify-center"></span>
                                 {% else %}
-                                <a href="{{ active.edit_url }}" class="dashboard-edit-chip" aria-label="Edit {{ active.title }}">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <a href="{{ active.edit_url }}" class="w-8 h-8 bg-gray-800 rounded-full inline-flex items-center justify-center" aria-label="Edit {{ active.title }}">
+                                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
                                     </svg>
                                 </a>
                                 {% endif %}
                             </div>
-                            <p class="dashboard-active-amount">{{ active.amount }}</p>
-                            <div class="dashboard-active-meta">
+                            <p class="text-2xl font-bold text-gray-800 mb-1">{{ active.amount }}</p>
+                            <div class="text-xs text-gray-600 space-y-1">
                                 <p>{{ active.payment_info }}</p>
                                 <p>{{ active.plan_details }}</p>
                             </div>
@@ -609,21 +260,22 @@
                 </div>
             </section>
 
-            <section class="dashboard-panel-card">
-                <h3 class="dashboard-panel-title">Recent Transactions</h3>
-                <div class="dashboard-recent-list">
+            <section class="bg-white dashboard-p6 rounded-3xl shadow-sm">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">Recent Transactions</h3>
+
+                <div class="dashboard-space-y-3">
                     {% for txn in recent_transactions %}
-                    <article class="dashboard-recent-row flex items-center justify-between gap-3 {% if txn.is_placeholder %}opacity-70{% endif %}">
+                    <article class="flex items-center justify-between p-3 bg-gray-50 rounded-xl gap-3 {% if txn.is_placeholder %}opacity-70{% endif %}">
                         <div class="flex items-center gap-3 min-w-0">
-                            <span class="dashboard-row-icon w-10 h-10 {{ txn.bg_class }}" {% if txn.swatch_style %}style="{{ txn.swatch_style }}"{% endif %}>
-                                <span class="text-lg font-semibold text-gray-800">{{ txn.title|slice:":1"|upper }}</span>
-                            </span>
-                            <div class="dashboard-row-content">
-                                <p class="dashboard-recent-title">{{ txn.title }}</p>
-                                <p class="dashboard-recent-time">{{ txn.timestamp }}</p>
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center {{ txn.bg_class }}" {% if txn.swatch_style %}style="{{ txn.swatch_style }}"{% endif %}>
+                                <span class="text-sm font-semibold text-gray-800">{{ txn.title|slice:":1"|upper }}</span>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="font-semibold text-gray-800 text-sm truncate">{{ txn.title }}</p>
+                                <p class="text-xs text-gray-500">{{ txn.timestamp }}</p>
                             </div>
                         </div>
-                        <p class="dashboard-recent-amount">{{ txn.amount }}</p>
+                        <p class="font-semibold text-gray-800 whitespace-nowrap">{{ txn.amount }}</p>
                     </article>
                     {% endfor %}
                 </div>

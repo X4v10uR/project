@@ -28,6 +28,12 @@ def landing_page(request):
 def home(request):
     scope = (request.GET.get('scope') or 'personal').lower()
     context = build_dashboard_view_model(request.user, scope=scope)
+    context.update(
+        {
+            'hide_global_notifications': True,
+            'suppress_base_messages': True,
+        }
+    )
     return render(request, 'dashboard/dashboard.html', context)
 
 
