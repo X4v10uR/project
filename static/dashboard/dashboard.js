@@ -572,7 +572,7 @@ function initActiveSubscriptionsScroller() {
             return;
         }
 
-        if (cards.length <= visibleCards) {
+        if (cards.length === 1) {
             viewport.style.height = 'auto';
             return;
         }
@@ -588,7 +588,7 @@ function initActiveSubscriptionsScroller() {
     const prefersReducedMotion = window.matchMedia &&
         window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const cards = getCards();
-    if (disableScroll || cards.length <= 1 || cards.length <= visibleCards || prefersReducedMotion) {
+    if (disableScroll || cards.length <= 1 || prefersReducedMotion) {
         setViewportHeight();
         return null;
     }

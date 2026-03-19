@@ -38,12 +38,34 @@ class DashboardViewTest(TestCase):
                      'balance_display', 'balance_base_display', 'balance_adjustment_display']:
             self.assertIn(key, response.context)
 
-    def test_dashboard_fixed_slot_sections_are_padded(self):
+    def test_dashboard_fixed_slot_sections_are_padded_when_empty(self):
         response = self.client.get(reverse('dashboard:home'))
         self.assertEqual(len(response.context['upcoming_bills']), 3)
         self.assertEqual(len(response.context['subscriptions_panel']), 3)
         self.assertEqual(len(response.context['active_subscriptions_panel']), 2)
         self.assertEqual(len(response.context['recent_transactions']), 2)
+
+    def test_active_subscriptions_panel_includes_all_active_subscriptions(self):
+        for service_name in ['Spotify', 'Netflix', 'Apple TV']:
+            Subscription.objects.create(
+                user=self.user,
+                service_name=service_name,
+                category='Streaming',
+                billing_cycle='monthly',
+                cost=Decimal('10.00'),
+                start_date=date.today(),
+                status='active',
+            )
+
+        response = self.client.get(reverse('dashboard:home'))
+        visible_titles = [
+            item['title']
+            for item in response.context['active_subscriptions_panel']
+            if not item['is_placeholder']
+        ]
+
+        self.assertEqual(len(visible_titles), 3)
+        self.assertEqual(sorted(visible_titles), ['Apple TV', 'Netflix', 'Spotify'])
 
     def test_bell_url_points_to_notifications_page(self):
         response = self.client.get(reverse('dashboard:home'))

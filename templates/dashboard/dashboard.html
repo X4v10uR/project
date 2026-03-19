@@ -363,7 +363,7 @@
             <section class="bg-white dashboard-p6 rounded-3xl shadow-sm">
                 <h3 class="text-lg font-bold text-gray-800 mb-4">Active Subscriptions</h3>
 
-                <div class="js-active-subscriptions-viewport" data-visible-cards="2" data-scroll-interval="1" data-disable-scroll="1">
+                <div class="js-active-subscriptions-viewport" data-visible-cards="2" data-scroll-interval="5000">
                     <div class="js-active-subscriptions-track">
                         {% for active in active_subscriptions_panel %}
                         <article class="{{ active.bg_class }} p-5 rounded-2xl {% if active.is_placeholder %}opacity-70{% endif %}" {% if active.bg_style %}style="{{ active.bg_style }}"{% endif %}>
