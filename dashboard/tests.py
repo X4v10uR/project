@@ -177,9 +177,9 @@ class DashboardViewTest(TestCase):
         response = self.client.get(reverse('dashboard:home'))
         self.assertEqual(response.context['stats_upcoming_bill_balance_display'], '$10.00')
         self.assertEqual(response.context['stats_total_subscriptions_balance_display'], '$60.00')
-        self.assertEqual(response.context['stats_total_active'], 1)
-        self.assertEqual(response.context['stats_total_paused'], 1)
-        self.assertEqual(response.context['stats_total_cancelled'], 1)
+        self.assertEqual(response.context['stats_total_active'], '$10.00')
+        self.assertEqual(response.context['stats_total_paused'], '$20.00')
+        self.assertEqual(response.context['stats_total_cancelled'], '$30.00')
 
     def test_weekly_subscription_uses_52_over_12_monthly_equivalent(self):
         Subscription.objects.create(

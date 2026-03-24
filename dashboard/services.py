@@ -722,6 +722,8 @@ def build_dashboard_view_model(user, today=None, scope='personal'):
             upcoming_renewals.append(sub)
 
     monthly_spend_by_currency = _monthly_spend_by_currency(active_subs)
+    paused_spend_by_currency = _monthly_spend_by_currency(paused_subs_list)
+    cancelled_spend_by_currency = _monthly_spend_by_currency(cancelled_subs_list)
     upcoming_total_by_currency = {}
     for sub in upcoming_renewals:
         currency = (sub.currency or 'USD').upper()
@@ -827,9 +829,9 @@ def build_dashboard_view_model(user, today=None, scope='personal'):
         'balance_trend_note': trend_note,
         'stats_upcoming_bill_balance_display': _format_currency_breakdown(upcoming_total_by_currency),
         'stats_total_subscriptions_balance_display': _format_currency_breakdown(total_subscriptions_balance_by_currency),
-        'stats_total_active': active_count,
-        'stats_total_paused': paused_count,
-        'stats_total_cancelled': cancelled_count,
+        'stats_total_active': _format_currency_breakdown(monthly_spend_by_currency),
+        'stats_total_paused': _format_currency_breakdown(paused_spend_by_currency),
+        'stats_total_cancelled': _format_currency_breakdown(cancelled_spend_by_currency),
         # Dashboard sections
         'upcoming_bills': upcoming_bills,
         'subscriptions_panel': subscriptions_panel,
