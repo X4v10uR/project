@@ -317,48 +317,121 @@ function initBalanceAdjuster() {
         return null;
     }
 
-    const openButton = document.querySelector('.js-balance-edit-open');
-    const cancelButtons = Array.from(editor.querySelectorAll('.js-balance-adjust-cancel'));
-    const overlay = editor.querySelector('.js-balance-adjust-overlay');
-    const saveButton = editor.querySelector('.js-balance-adjust-save');
-    const input = editor.querySelector('.js-balance-adjust-input');
+    const openButton = editor.querySelector('.js-balance-edit-open');
+    const saveButton = editor.querySelector('.js-balance-inline-save');
+    const cancelButton = editor.querySelector('.js-balance-inline-cancel');
+    const input = editor.querySelector('.js-balance-inline-input');
+    const inputWrap = editor.querySelector('.js-balance-inline-field-wrap');
+    const helpText = editor.querySelector('.js-balance-inline-help');
+    const balanceNode = editor.querySelector('.js-balance-display');
     const status = editor.querySelector('.js-balance-adjust-status');
     const updateUrl = editor.dataset.url;
-    if (!openButton || !cancelButtons.length || !saveButton || !input || !updateUrl) {
+    if (!openButton || !saveButton || !cancelButton || !input || !inputWrap || !balanceNode || !updateUrl) {
         return null;
     }
 
-    let hideTimeoutId = null;
-    let previousBodyOverflow = '';
+    let isEditing = false;
+    let isSubmitting = false;
+    let previousValue = '0.00';
+    let suppressBlurSave = false;
+    let statusTimeoutId = null;
 
-    const clearHideTimeout = function () {
-        if (hideTimeoutId !== null) {
-            window.clearTimeout(hideTimeoutId);
-            hideTimeoutId = null;
+    const normalizeInputValue = function (rawValue) {
+        const value = String(rawValue || '');
+        const stripped = value.replace(/[^\d.]/g, '');
+        const firstDotIndex = stripped.indexOf('.');
+        let sanitized = stripped;
+        if (firstDotIndex !== -1) {
+            sanitized = stripped.slice(0, firstDotIndex + 1)
+                + stripped.slice(firstDotIndex + 1).replace(/\./g, '');
+        }
+
+        const parts = sanitized.split('.');
+        const integerPart = parts[0] || '0';
+        if (parts.length < 2) {
+            return integerPart;
+        }
+
+        return integerPart + '.' + (parts[1] || '').slice(0, 2);
+    };
+
+    const formatAmount = function (amount) {
+        return Number(amount).toFixed(2);
+    };
+
+    const syncInputWidth = function () {
+        const contentLength = Math.max(4, String(input.value || '').length + 1);
+        input.style.width = String(contentLength) + 'ch';
+    };
+
+    const parseAmount = function (rawValue) {
+        const normalized = normalizeInputValue(rawValue);
+        if (!normalized || normalized === '.') {
+            return null;
+        }
+
+        const amount = Number(normalized);
+        if (!isFinite(amount)) {
+            return null;
+        }
+
+        return amount;
+    };
+
+    const clearStatusTimeout = function () {
+        if (statusTimeoutId !== null) {
+            window.clearTimeout(statusTimeoutId);
+            statusTimeoutId = null;
         }
     };
 
-    const showEditor = function () {
-        editor.classList.remove('hidden');
-        editor.setAttribute('aria-hidden', 'false');
-        if (typeof document !== 'undefined' && document.body) {
-            previousBodyOverflow = document.body.style.overflow || '';
-            document.body.style.overflow = 'hidden';
-        }
-        input.focus();
-        input.select();
-    };
-
-    const hideEditor = function () {
-        clearHideTimeout();
-        editor.classList.add('hidden');
-        editor.setAttribute('aria-hidden', 'true');
-        if (typeof document !== 'undefined' && document.body) {
-            document.body.style.overflow = previousBodyOverflow;
-        }
+    const setStatus = function (text) {
         if (status) {
-            status.textContent = '';
+            status.textContent = text || '';
         }
+    };
+
+    const setEditingState = function (editing) {
+        isEditing = editing;
+        balanceNode.classList.toggle('hidden', editing);
+        inputWrap.classList.toggle('hidden', !editing);
+        inputWrap.classList.toggle('inline-flex', editing);
+        openButton.classList.toggle('hidden', editing);
+        saveButton.classList.toggle('hidden', !editing);
+        cancelButton.classList.toggle('hidden', !editing);
+        if (helpText) {
+            helpText.classList.toggle('hidden', !editing);
+        }
+
+        if (!editing) {
+            input.blur();
+            return;
+        }
+
+        input.focus();
+        syncInputWidth();
+        const valueLength = input.value.length;
+        if (typeof input.setSelectionRange === 'function') {
+            input.setSelectionRange(valueLength, valueLength);
+        }
+    };
+
+    const enterEdit = function () {
+        previousValue = normalizeInputValue(input.value) || '0.00';
+        input.value = previousValue;
+        clearStatusTimeout();
+        setStatus('');
+        setEditingState(true);
+    };
+
+    const cancelEdit = function (preserveStatus) {
+        input.value = previousValue;
+        isSubmitting = false;
+        clearStatusTimeout();
+        if (!preserveStatus) {
+            setStatus('');
+        }
+        setEditingState(false);
     };
 
     const resolveScope = function () {
@@ -375,10 +448,9 @@ function initBalanceAdjuster() {
     };
 
     const applyBalanceSnapshot = function (payload) {
-        const balanceNode = document.querySelector('.js-balance-display');
         const basePillNode = document.querySelector('.js-balance-base-pill');
         const adjustmentPillNode = document.querySelector('.js-balance-adjustment-pill');
-        if (balanceNode && payload.balance_display) {
+        if (payload.balance_display) {
             balanceNode.textContent = payload.balance_display;
         }
         if (basePillNode && payload.balance_base_display) {
@@ -396,19 +468,28 @@ function initBalanceAdjuster() {
     };
 
     const submitUpdate = function () {
-        const value = Number(input.value);
-        if (!isFinite(value)) {
-            if (status) {
-                status.textContent = 'Please enter a valid amount.';
-            }
+        if (isSubmitting) {
             return;
         }
 
-        saveButton.disabled = true;
-        saveButton.textContent = 'Saving...';
-        if (status) {
-            status.textContent = '';
+        const amount = parseAmount(input.value);
+        if (amount === null) {
+            cancelEdit(true);
+            setStatus('Balance reverted to previous value.');
+            return;
         }
+
+        if (amount < 0) {
+            setStatus('Balance cannot be negative.');
+            return;
+        }
+
+        const formattedAmount = formatAmount(amount);
+        input.value = formattedAmount;
+        saveButton.disabled = true;
+        cancelButton.disabled = true;
+        isSubmitting = true;
+        setStatus('');
 
         fetch(updateUrl, {
             method: 'POST',
@@ -418,7 +499,7 @@ function initBalanceAdjuster() {
                 'X-CSRFToken': getCookie('csrftoken') || '',
             },
             body: JSON.stringify({
-                target_balance: value,
+                target_balance: Number(formattedAmount),
                 scope: resolveScope(),
             }),
         })
@@ -434,39 +515,33 @@ function initBalanceAdjuster() {
                 }
 
                 applyBalanceSnapshot(result.data);
-                if (status) {
-                    status.textContent = 'Balance updated.';
-                }
-                clearHideTimeout();
-                hideTimeoutId = window.setTimeout(function () {
-                    hideEditor();
-                }, 350);
+                previousValue = normalizeInputValue(input.value) || formattedAmount;
+                setStatus('Balance updated.');
+                setEditingState(false);
+                clearStatusTimeout();
+                statusTimeoutId = window.setTimeout(function () {
+                    setStatus('');
+                }, 1200);
             })
             .catch(function (error) {
-                if (status) {
-                    status.textContent = error.message || 'Failed to update balance.';
-                }
+                setStatus(error.message || 'Failed to update balance.');
             })
             .finally(function () {
                 saveButton.disabled = false;
-                saveButton.textContent = 'Save';
+                cancelButton.disabled = false;
+                isSubmitting = false;
             });
     };
 
     const onOpenClick = function () {
-        if (editor.classList.contains('hidden')) {
-            showEditor();
+        if (isEditing) {
             return;
         }
-        hideEditor();
+        enterEdit();
     };
 
     const onCancelClick = function () {
-        hideEditor();
-    };
-
-    const onOverlayClick = function () {
-        hideEditor();
+        cancelEdit();
     };
 
     const onSaveClick = function () {
@@ -479,32 +554,59 @@ function initBalanceAdjuster() {
             submitUpdate();
         } else if (event.key === 'Escape') {
             event.preventDefault();
-            hideEditor();
+            cancelEdit();
         }
     };
 
+    const onInputValueChange = function () {
+        const normalized = normalizeInputValue(input.value);
+        if (normalized !== input.value) {
+            input.value = normalized;
+        }
+        syncInputWidth();
+    };
+
+    const onActionPointerDown = function () {
+        suppressBlurSave = true;
+        window.setTimeout(function () {
+            suppressBlurSave = false;
+        }, 0);
+    };
+
+    const onInputBlur = function () {
+        if (!isEditing || isSubmitting) {
+            return;
+        }
+        if (suppressBlurSave) {
+            return;
+        }
+        submitUpdate();
+    };
+
+    previousValue = formatAmount(parseAmount(input.value) || 0);
+    input.value = previousValue;
+    syncInputWidth();
+    setEditingState(false);
+
     openButton.addEventListener('click', onOpenClick);
-    cancelButtons.forEach(function (button) {
-        button.addEventListener('click', onCancelClick);
-    });
-    if (overlay) {
-        overlay.addEventListener('click', onOverlayClick);
-    }
+    saveButton.addEventListener('pointerdown', onActionPointerDown);
+    cancelButton.addEventListener('pointerdown', onActionPointerDown);
+    cancelButton.addEventListener('click', onCancelClick);
     saveButton.addEventListener('click', onSaveClick);
     input.addEventListener('keydown', onInputKeydown);
+    input.addEventListener('input', onInputValueChange);
+    input.addEventListener('blur', onInputBlur);
 
     return function cleanupBalanceAdjuster() {
-        clearHideTimeout();
-        hideEditor();
+        clearStatusTimeout();
         openButton.removeEventListener('click', onOpenClick);
-        cancelButtons.forEach(function (button) {
-            button.removeEventListener('click', onCancelClick);
-        });
-        if (overlay) {
-            overlay.removeEventListener('click', onOverlayClick);
-        }
+        saveButton.removeEventListener('pointerdown', onActionPointerDown);
+        cancelButton.removeEventListener('pointerdown', onActionPointerDown);
+        cancelButton.removeEventListener('click', onCancelClick);
         saveButton.removeEventListener('click', onSaveClick);
         input.removeEventListener('keydown', onInputKeydown);
+        input.removeEventListener('input', onInputValueChange);
+        input.removeEventListener('blur', onInputBlur);
     };
 }
 

@@ -311,23 +311,59 @@
 
     <div class="dashboard-main-grid">
         <div class="dashboard-left">
-            <div class="balance-card text-white p-8 rounded-3xl shadow-lg">
+            <div class="balance-card text-white p-8 rounded-3xl shadow-lg js-balance-adjust-editor" data-url="{% url 'dashboard:adjust_balance' %}" data-scope="{{ dashboard_scope }}">
                 <div class="flex justify-between items-start mb-4 gap-4">
                     <div>
-                        <div class="flex items-center gap-2 mb-2">
-                            <p class="text-gray-400 text-sm">Your balance</p>
+                        <p class="text-gray-400 text-sm mb-2">Your balance</p>
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <h2 class="dashboard-text-5xl js-balance-display">{{ balance_display }}</h2>
+                            <div class="hidden js-balance-inline-field-wrap items-end border-b border-white/25">
+                                <span class="dashboard-text-5xl font-bold text-white leading-none mr-1">$</span>
+                                <input
+                                    id="balance-inline-input"
+                                    type="text"
+                                    inputmode="decimal"
+                                    autocomplete="off"
+                                    spellcheck="false"
+                                    class="js-balance-inline-input bg-transparent p-0 m-0 border-0 text-white dashboard-text-5xl font-bold leading-none focus:outline-none"
+                                    value="{{ balance_adjusted_amount|floatformat:2 }}"
+                                    aria-label="Edit balance amount"
+                                >
+                            </div>
                             <button
                                 type="button"
-                                class="js-balance-edit-open inline-flex items-center justify-center w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 transition"
-                                aria-label="Edit your balance and view more stats"
-                                title="Edit balance and view more stats"
+                                class="js-balance-edit-open inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 transition shrink-0"
+                                aria-label="Edit balance"
+                                title="Edit balance"
                             >
-                                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9" d="M16.862 4.487l1.688-1.688a1.875 1.875 0 112.652 2.652L9.583 17.07a4.5 4.5 0 01-1.897 1.13L5 19l.8-2.686a4.5 4.5 0 011.13-1.897l9.932-9.93z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9" d="M19.5 7.125V18A2.25 2.25 0 0117.25 20.25H6.75A2.25 2.25 0 014.5 18V6A2.25 2.25 0 016.75 3.75H14.5"></path>
+                                </svg>
+                            </button>
+                            <button
+                                type="button"
+                                class="hidden js-balance-inline-save inline-flex items-center justify-center w-10 h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white transition shrink-0"
+                                aria-label="Save balance"
+                                title="Save"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                            </button>
+                            <button
+                                type="button"
+                                class="hidden js-balance-inline-cancel inline-flex items-center justify-center w-10 h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white transition shrink-0"
+                                aria-label="Cancel balance edit"
+                                title="Cancel"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M6 18L18 6M6 6l12 12"></path>
                                 </svg>
                             </button>
                         </div>
-                        <h2 class="dashboard-text-5xl js-balance-display">{{ balance_display }}</h2>
+                        <p class="hidden js-balance-inline-help mt-2 text-xs text-gray-300">Enter new balance</p>
+                        <p class="js-balance-adjust-status min-h-[1.25rem] mt-2 text-xs text-gray-300" aria-live="polite"></p>
                     </div>
                     <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded-full">
                         <span class="text-sm">{{ balance_chip_date }}</span>
@@ -338,72 +374,6 @@
                     <span class="js-balance-base-pill">Base {{ balance_base_display }}</span>
                     <span class="js-balance-adjustment-pill">Adj {{ balance_adjustment_display }}</span>
                 </div>
-            </div>
-            <div
-                class="js-balance-adjust-editor hidden fixed inset-0 z-50 flex items-center justify-center p-4"
-                data-url="{% url 'dashboard:adjust_balance' %}"
-                data-scope="{{ dashboard_scope }}"
-                aria-hidden="true"
-            >
-                <div class="js-balance-adjust-overlay absolute inset-0 bg-black/50"></div>
-                <section class="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="balance-stats-title">
-                    <div class="flex items-start justify-between gap-4 mb-4">
-                        <div>
-                            <h4 id="balance-stats-title" class="text-lg font-bold text-gray-900">Balance & Stats</h4>
-                            <p class="text-sm text-gray-500">Quick overview and update control.</p>
-                        </div>
-                        <button
-                            type="button"
-                            class="js-balance-adjust-cancel inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 text-gray-500"
-                            aria-label="Close balance stats popup"
-                            title="Close"
-                        >
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                        </button>
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-                        <article class="rounded-xl border border-gray-200 bg-gray-50 p-3">
-                            <p class="text-xs uppercase tracking-wide text-gray-500">Total Upcoming Bill Balance</p>
-                            <p class="text-lg font-semibold text-gray-900">{{ stats_upcoming_bill_balance_display }}</p>
-                        </article>
-                        <article class="rounded-xl border border-gray-200 bg-gray-50 p-3">
-                            <p class="text-xs uppercase tracking-wide text-gray-500">Total Subscriptions Balance</p>
-                            <p class="text-lg font-semibold text-gray-900">{{ stats_total_subscriptions_balance_display }}</p>
-                        </article>
-                        <article class="rounded-xl border border-gray-200 bg-gray-50 p-3">
-                            <p class="text-xs uppercase tracking-wide text-gray-500">Total Active</p>
-                            <p class="text-lg font-semibold text-gray-900">{{ stats_total_active }}</p>
-                        </article>
-                        <article class="rounded-xl border border-gray-200 bg-gray-50 p-3">
-                            <p class="text-xs uppercase tracking-wide text-gray-500">Total Paused</p>
-                            <p class="text-lg font-semibold text-gray-900">{{ stats_total_paused }}</p>
-                        </article>
-                        <article class="rounded-xl border border-gray-200 bg-gray-50 p-3 sm:col-span-2">
-                            <p class="text-xs uppercase tracking-wide text-gray-500">Total Cancelled</p>
-                            <p class="text-lg font-semibold text-gray-900">{{ stats_total_cancelled }}</p>
-                        </article>
-                    </div>
-
-                    <div class="space-y-2">
-                        <label for="balance-adjust-input" class="text-sm font-medium text-gray-700">Update Your Balance</label>
-                        <input
-                            id="balance-adjust-input"
-                            type="number"
-                            step="0.01"
-                            class="js-balance-adjust-input w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
-                            value="{{ balance_adjusted_amount|floatformat:2 }}"
-                        >
-                        <p class="js-balance-adjust-status min-h-[1.25rem] text-xs text-gray-500" aria-live="polite"></p>
-                    </div>
-
-                    <div class="flex justify-end gap-2 mt-4">
-                        <button type="button" class="js-balance-adjust-cancel px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
-                        <button type="button" class="js-balance-adjust-save px-3 py-2 rounded-lg bg-gray-900 text-white text-sm hover:bg-gray-800">Save</button>
-                    </div>
-                </section>
             </div>
 
             <section>
@@ -466,42 +436,33 @@
                 </div>
             </section>
 
-            <section>
-                <div class="flex justify-between items-center mb-4">
-                    <div>
-                        <h3 class="text-xl font-bold text-gray-800">Subscriptions</h3>
-                        <p class="text-sm text-gray-500">Subscribe multiple platforms only in one place.</p>
-                    </div>
-                    <a href="{{ subscriptions_view_all_url }}" class="text-sm text-gray-600 hover:text-gray-800 px-4 py-2 border border-gray-300 rounded-full">View All</a>
+            <section class="bg-white dashboard-p6 rounded-3xl shadow-sm">
+                <div class="mb-4">
+                    <h3 class="text-xl font-bold text-gray-800">Balance & Stats</h3>
+                    <p class="text-sm text-gray-500">Quick overview and update control.</p>
                 </div>
 
-                <div class="dashboard-space-y-3">
-                    {% for item in subscriptions_panel %}
-                    <article class="{{ item.bg_class }} dashboard-p6 rounded-3xl flex items-center justify-between card-hover {% if item.is_placeholder %}opacity-70{% endif %}" {% if item.bg_style %}style="{{ item.bg_style }}"{% endif %}>
-                        <div class="flex items-center gap-4 min-w-0">
-                            <div class="dashboard-icon-14 dashboard-service-icon-badge rounded-full flex items-center justify-center overflow-hidden">
-                                {% if item.icon_url %}
-                                <img src="{{ item.icon_url }}" alt="{{ item.title }}" class="w-8 h-8"
-                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                {% endif %}
-                                <span class="w-8 h-8 items-center justify-center text-2xl font-bold text-gray-800 {% if item.icon_url %}hidden{% else %}flex{% endif %}">{{ item.icon_fallback }}</span>
-                            </div>
-                            <div class="min-w-0">
-                                <p class="font-semibold text-gray-800 text-lg truncate">{{ item.title }}</p>
-                                <p class="text-gray-600 text-sm">{{ item.subtitle }}</p>
-                            </div>
-                        </div>
-                        {% if item.is_placeholder %}
-                        <span class="w-10 h-10 bg-white/40 backdrop-blur rounded-full flex items-center justify-center">
-                            <span class="text-2xl text-gray-700 leading-none">+</span>
-                        </span>
-                        {% else %}
-                        <a href="{{ item.create_url }}" class="w-10 h-10 bg-white/40 backdrop-blur rounded-full flex items-center justify-center hover:bg-white/60 transition" aria-label="Add {{ item.title }}">
-                            <span class="text-2xl text-gray-700 leading-none">+</span>
-                        </a>
-                        {% endif %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+                    <article class="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                        <p class="text-xs uppercase tracking-wide text-gray-500">Total Upcoming Bill Balance</p>
+                        <p class="text-lg font-semibold text-gray-900">{{ stats_upcoming_bill_balance_display }}</p>
                     </article>
-                    {% endfor %}
+                    <article class="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                        <p class="text-xs uppercase tracking-wide text-gray-500">Total Subscriptions Balance</p>
+                        <p class="text-lg font-semibold text-gray-900">{{ stats_total_subscriptions_balance_display }}</p>
+                    </article>
+                    <article class="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                        <p class="text-xs uppercase tracking-wide text-gray-500">Total Active</p>
+                        <p class="text-lg font-semibold text-gray-900">{{ stats_total_active }}</p>
+                    </article>
+                    <article class="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                        <p class="text-xs uppercase tracking-wide text-gray-500">Total Paused</p>
+                        <p class="text-lg font-semibold text-gray-900">{{ stats_total_paused }}</p>
+                    </article>
+                    <article class="rounded-xl border border-gray-200 bg-gray-50 p-3 sm:col-span-2">
+                        <p class="text-xs uppercase tracking-wide text-gray-500">Total Cancelled</p>
+                        <p class="text-lg font-semibold text-gray-900">{{ stats_total_cancelled }}</p>
+                    </article>
                 </div>
             </section>
         </div>
@@ -587,5 +548,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'dashboard/dashboard.js' %}?v=20260224-4"></script>
+<script src="{% static 'dashboard/dashboard.js' %}?v=20260324-4"></script>
 {% endblock %}
