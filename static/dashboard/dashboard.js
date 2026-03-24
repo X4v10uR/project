@@ -318,16 +318,18 @@ function initBalanceAdjuster() {
     }
 
     const openButton = document.querySelector('.js-balance-edit-open');
-    const cancelButton = editor.querySelector('.js-balance-adjust-cancel');
+    const cancelButtons = Array.from(editor.querySelectorAll('.js-balance-adjust-cancel'));
+    const overlay = editor.querySelector('.js-balance-adjust-overlay');
     const saveButton = editor.querySelector('.js-balance-adjust-save');
     const input = editor.querySelector('.js-balance-adjust-input');
     const status = editor.querySelector('.js-balance-adjust-status');
     const updateUrl = editor.dataset.url;
-    if (!openButton || !cancelButton || !saveButton || !input || !updateUrl) {
+    if (!openButton || !cancelButtons.length || !saveButton || !input || !updateUrl) {
         return null;
     }
 
     let hideTimeoutId = null;
+    let previousBodyOverflow = '';
 
     const clearHideTimeout = function () {
         if (hideTimeoutId !== null) {
@@ -338,6 +340,11 @@ function initBalanceAdjuster() {
 
     const showEditor = function () {
         editor.classList.remove('hidden');
+        editor.setAttribute('aria-hidden', 'false');
+        if (typeof document !== 'undefined' && document.body) {
+            previousBodyOverflow = document.body.style.overflow || '';
+            document.body.style.overflow = 'hidden';
+        }
         input.focus();
         input.select();
     };
@@ -345,6 +352,10 @@ function initBalanceAdjuster() {
     const hideEditor = function () {
         clearHideTimeout();
         editor.classList.add('hidden');
+        editor.setAttribute('aria-hidden', 'true');
+        if (typeof document !== 'undefined' && document.body) {
+            document.body.style.overflow = previousBodyOverflow;
+        }
         if (status) {
             status.textContent = '';
         }
@@ -454,6 +465,10 @@ function initBalanceAdjuster() {
         hideEditor();
     };
 
+    const onOverlayClick = function () {
+        hideEditor();
+    };
+
     const onSaveClick = function () {
         submitUpdate();
     };
@@ -469,14 +484,25 @@ function initBalanceAdjuster() {
     };
 
     openButton.addEventListener('click', onOpenClick);
-    cancelButton.addEventListener('click', onCancelClick);
+    cancelButtons.forEach(function (button) {
+        button.addEventListener('click', onCancelClick);
+    });
+    if (overlay) {
+        overlay.addEventListener('click', onOverlayClick);
+    }
     saveButton.addEventListener('click', onSaveClick);
     input.addEventListener('keydown', onInputKeydown);
 
     return function cleanupBalanceAdjuster() {
         clearHideTimeout();
+        hideEditor();
         openButton.removeEventListener('click', onOpenClick);
-        cancelButton.removeEventListener('click', onCancelClick);
+        cancelButtons.forEach(function (button) {
+            button.removeEventListener('click', onCancelClick);
+        });
+        if (overlay) {
+            overlay.removeEventListener('click', onOverlayClick);
+        }
         saveButton.removeEventListener('click', onSaveClick);
         input.removeEventListener('keydown', onInputKeydown);
     };

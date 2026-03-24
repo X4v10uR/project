@@ -142,6 +142,45 @@ class DashboardViewTest(TestCase):
         self.assertEqual(response.context['yearly_spend'], Decimal('60.00'))
         self.assertEqual(response.context['avg_monthly_spend'], Decimal('5.00'))
 
+    def test_balance_stats_include_upcoming_total_and_status_totals(self):
+        Subscription.objects.create(
+            user=self.user,
+            service_name='Active Service',
+            category='Streaming',
+            billing_cycle='monthly',
+            cost=Decimal('10.00'),
+            currency='USD',
+            start_date=date.today(),
+            status='active',
+        )
+        Subscription.objects.create(
+            user=self.user,
+            service_name='Paused Service',
+            category='Streaming',
+            billing_cycle='monthly',
+            cost=Decimal('20.00'),
+            currency='USD',
+            start_date=date.today(),
+            status='paused',
+        )
+        Subscription.objects.create(
+            user=self.user,
+            service_name='Cancelled Service',
+            category='Streaming',
+            billing_cycle='monthly',
+            cost=Decimal('30.00'),
+            currency='USD',
+            start_date=date.today(),
+            status='cancelled',
+        )
+
+        response = self.client.get(reverse('dashboard:home'))
+        self.assertEqual(response.context['stats_upcoming_bill_balance_display'], '$10.00')
+        self.assertEqual(response.context['stats_total_subscriptions_balance_display'], '$60.00')
+        self.assertEqual(response.context['stats_total_active'], 1)
+        self.assertEqual(response.context['stats_total_paused'], 1)
+        self.assertEqual(response.context['stats_total_cancelled'], 1)
+
     def test_weekly_subscription_uses_52_over_12_monthly_equivalent(self):
         Subscription.objects.create(
             user=self.user,

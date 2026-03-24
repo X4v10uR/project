@@ -712,6 +712,8 @@ def build_dashboard_view_model(user, today=None, scope='personal'):
     )
     paused_subs = user_subs.filter(status='paused')
     cancelled_subs = user_subs.filter(status='cancelled')
+    paused_subs_list = list(paused_subs)
+    cancelled_subs_list = list(cancelled_subs)
     shared_subs = active_subs_qs.filter(is_shared=True)
     upcoming_renewals = []
     for sub in active_subs:
@@ -720,6 +722,20 @@ def build_dashboard_view_model(user, today=None, scope='personal'):
             upcoming_renewals.append(sub)
 
     monthly_spend_by_currency = _monthly_spend_by_currency(active_subs)
+    upcoming_total_by_currency = {}
+    for sub in upcoming_renewals:
+        currency = (sub.currency or 'USD').upper()
+        charge_amount = sub.user_cost if sub.is_shared else sub.cost
+        upcoming_total_by_currency[currency] = (
+            upcoming_total_by_currency.get(currency, Decimal('0.00')) + charge_amount
+        )
+    total_subscriptions_balance_by_currency = {}
+    for sub in active_subs + paused_subs_list + cancelled_subs_list:
+        currency = (sub.currency or 'USD').upper()
+        total_subscriptions_balance_by_currency[currency] = (
+            total_subscriptions_balance_by_currency.get(currency, Decimal('0.00'))
+            + _monthly_cost(sub)
+        )
 
     monthly_spend = monthly_spend_by_currency.get('USD', Decimal('0.00'))
     yearly_spend = monthly_spend * Decimal('12')
@@ -727,8 +743,8 @@ def build_dashboard_view_model(user, today=None, scope='personal'):
     usd_active_count = sum(
         1 for sub in active_subs if (sub.currency or 'USD').upper() == 'USD'
     )
-    paused_count = paused_subs.count()
-    cancelled_count = cancelled_subs.count()
+    paused_count = len(paused_subs_list)
+    cancelled_count = len(cancelled_subs_list)
     shared_count = shared_subs.count()
     avg_monthly_spend = (
         monthly_spend / Decimal(usd_active_count)
@@ -809,6 +825,11 @@ def build_dashboard_view_model(user, today=None, scope='personal'):
         'balance_trend_currency': balance_trend['currency'],
         'balance_trend_has_multiple_currencies': balance_trend['has_multiple_currencies'],
         'balance_trend_note': trend_note,
+        'stats_upcoming_bill_balance_display': _format_currency_breakdown(upcoming_total_by_currency),
+        'stats_total_subscriptions_balance_display': _format_currency_breakdown(total_subscriptions_balance_by_currency),
+        'stats_total_active': active_count,
+        'stats_total_paused': paused_count,
+        'stats_total_cancelled': cancelled_count,
         # Dashboard sections
         'upcoming_bills': upcoming_bills,
         'subscriptions_panel': subscriptions_panel,
