@@ -22,7 +22,6 @@ from .constants import (
     CARD_THEME_ROTATION,
     PLACEHOLDER_ACTIVE,
     PLACEHOLDER_SUBSCRIPTION,
-    PLACEHOLDER_TRANSACTION,
     PLACEHOLDER_UPCOMING,
     SERVICE_COLOR_PREFERENCES,
 )
@@ -691,18 +690,6 @@ def _build_transaction_item(transaction, index, service_color_map):
     }
 
 
-def _build_transaction_placeholder(index):
-    data = PLACEHOLDER_TRANSACTION.copy()
-    data.update(
-        {
-            'is_placeholder': True,
-            'bg_class': CARD_THEME_ROTATION[index % len(CARD_THEME_ROTATION)],
-            'swatch_style': '',
-        }
-    )
-    return data
-
-
 def build_dashboard_view_model(user, today=None, scope='personal'):
     today = today or timezone.localdate()
     next_30_days = today + timedelta(days=30)
@@ -750,7 +737,9 @@ def build_dashboard_view_model(user, today=None, scope='personal'):
     )
 
     recent_transactions_qs = list(
-        Transaction.objects.filter(user=user).select_related('subscription')[:2]
+        Transaction.objects.filter(user=user)
+        .select_related('subscription')
+        .order_by('-charged_at')[:2]
     )
     service_color_map = _build_service_color_map(active_subs, recent_transactions_qs)
 
@@ -782,7 +771,7 @@ def build_dashboard_view_model(user, today=None, scope='personal'):
         if active_panel_items
         else _slot_pad(active_panel_items, 2, _build_active_placeholder)
     )
-    recent_transactions = _slot_pad(recent_transaction_items, 2, _build_transaction_placeholder)
+    recent_transactions = recent_transaction_items
 
     next_renewal = upcoming_renewals[0] if upcoming_renewals else None
     next_renewal_date = _effective_renewal_date(next_renewal, today) if next_renewal else None

@@ -11,7 +11,7 @@ import tempfile
 
 from accounts.models import Team, TeamInvite, TeamMembership
 from accounts.services import create_team_invite
-from subscriptions.models import InAppNotification, Subscription, TeamSubscriptionRequest
+from subscriptions.models import InAppNotification, Subscription, TeamSubscriptionRequest, Transaction
 
 User = get_user_model()
 
@@ -1017,3 +1017,9 @@ class TeamRequestAuthorizationTest(TestCase):
         self.assertEqual(created_subscription.account_email, 'legacy-team@example.com')
         self.assertIsNone(created_subscription.account_password)
         self.assertEqual(created_subscription.display_color, '#AFC0DE')
+        self.assertTrue(
+            Transaction.objects.filter(
+                subscription=created_subscription,
+                source=Transaction.SOURCE_RENEWAL,
+            ).exists()
+        )

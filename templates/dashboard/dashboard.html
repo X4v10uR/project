@@ -432,7 +432,7 @@
             <section class="bg-white dashboard-p6 rounded-3xl shadow-sm">
                 <h3 class="text-lg font-bold text-gray-800 mb-4">Active Subscriptions</h3>
 
-                <div class="js-active-subscriptions-viewport" data-visible-cards="2" data-scroll-interval="5000">
+                <div class="js-active-subscriptions-viewport" data-visible-cards="2" data-scroll-interval="2000">
                     <div class="js-active-subscriptions-track">
                         {% for active in active_subscriptions_panel %}
                         <article class="{{ active.bg_class }} p-5 rounded-2xl {% if active.is_placeholder %}opacity-70{% endif %}" {% if active.bg_style %}style="{{ active.bg_style }}"{% endif %}>
@@ -475,8 +475,9 @@
                 <h3 class="text-lg font-bold text-gray-800 mb-4">Recent Transactions</h3>
 
                 <div class="dashboard-space-y-3">
+                    {% if recent_transactions %}
                     {% for txn in recent_transactions %}
-                    <article class="flex items-center justify-between p-3 bg-gray-50 rounded-xl gap-3 {% if txn.is_placeholder %}opacity-70{% endif %}">
+                    <article class="flex items-center justify-between p-3 bg-gray-50 rounded-xl gap-3">
                         <div class="flex items-center gap-3 min-w-0">
                             <div class="w-10 h-10 rounded-full flex items-center justify-center {{ txn.bg_class }}" {% if txn.swatch_style %}style="{{ txn.swatch_style }}"{% endif %}>
                                 <span class="text-sm font-semibold text-gray-800">{{ txn.title|slice:":1"|upper }}</span>
@@ -489,6 +490,17 @@
                         <p class="font-semibold text-gray-800 whitespace-nowrap">{{ txn.amount }}</p>
                     </article>
                     {% endfor %}
+                    {% else %}
+                    <article class="flex items-center p-3 bg-gray-50 rounded-xl gap-3">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center bg-gray-200">
+                            <span class="text-sm font-semibold text-gray-500">-</span>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="font-semibold text-gray-800 text-sm">No transactions yet</p>
+                            <p class="text-xs text-gray-500">Recent charges will appear here.</p>
+                        </div>
+                    </article>
+                    {% endif %}
                 </div>
             </section>
         </div>

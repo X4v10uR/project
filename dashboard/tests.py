@@ -43,7 +43,7 @@ class DashboardViewTest(TestCase):
         self.assertEqual(len(response.context['upcoming_bills']), 3)
         self.assertEqual(len(response.context['subscriptions_panel']), 3)
         self.assertEqual(len(response.context['active_subscriptions_panel']), 2)
-        self.assertEqual(len(response.context['recent_transactions']), 2)
+        self.assertEqual(len(response.context['recent_transactions']), 0)
 
     def test_active_subscriptions_panel_includes_all_active_subscriptions(self):
         for service_name in ['Spotify', 'Netflix', 'Apple TV']:

@@ -51,6 +51,39 @@ def _advance_renewal_date(subscription):
     return next_renewal
 
 
+def record_due_charge_for_subscription(subscription, charge_date=None):
+    """
+    Record a renewal charge for a single subscription when it is due today.
+    Returns (transaction, created).
+    """
+    if not subscription:
+        return None, False
+
+    charge_date = charge_date or timezone.localdate()
+    if subscription.status != 'active':
+        return None, False
+    if subscription.renewal_date != charge_date:
+        return None, False
+
+    amount = subscription.user_cost if subscription.is_shared else subscription.cost
+    transaction_defaults = {
+        'user': subscription.user,
+        'service_name_snapshot': subscription.service_name,
+        'amount': amount,
+        'currency': subscription.currency,
+    }
+
+    transaction_record, created = Transaction.objects.get_or_create(
+        subscription=subscription,
+        charged_for_date=charge_date,
+        source=Transaction.SOURCE_RENEWAL,
+        defaults=transaction_defaults,
+    )
+    if created:
+        _advance_renewal_date(subscription)
+    return transaction_record, created
+
+
 def _time_in_window(candidate_time, window_start, window_end):
     if window_start <= window_end:
         return window_start <= candidate_time <= window_end
@@ -90,33 +123,27 @@ class BillingService:
         }
 
         for subscription in due_subscriptions:
-            amount = subscription.user_cost if subscription.is_shared else subscription.cost
-
-            exists = Transaction.objects.filter(
-                subscription=subscription,
-                charged_for_date=charge_date,
-                source=Transaction.SOURCE_RENEWAL,
-            ).exists()
-            if exists:
-                results['existing'] += 1
-                continue
-
             if dry_run:
-                results['created'] += 1
+                exists = Transaction.objects.filter(
+                    subscription=subscription,
+                    charged_for_date=charge_date,
+                    source=Transaction.SOURCE_RENEWAL,
+                ).exists()
+                if exists:
+                    results['existing'] += 1
+                else:
+                    results['created'] += 1
                 continue
 
             try:
-                Transaction.objects.create(
-                    user=subscription.user,
-                    subscription=subscription,
-                    service_name_snapshot=subscription.service_name,
-                    amount=amount,
-                    currency=subscription.currency,
-                    charged_for_date=charge_date,
-                    source=Transaction.SOURCE_RENEWAL,
+                _, created = record_due_charge_for_subscription(
+                    subscription,
+                    charge_date=charge_date,
                 )
-                _advance_renewal_date(subscription)
-                results['created'] += 1
+                if created:
+                    results['created'] += 1
+                else:
+                    results['existing'] += 1
             except IntegrityError:
                 results['existing'] += 1
             except Exception:

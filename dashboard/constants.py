@@ -48,8 +48,3 @@ PLACEHOLDER_ACTIVE = {
     'plan_details': 'Plan details: --',
 }
 
-PLACEHOLDER_TRANSACTION = {
-    'title': 'No Transaction',
-    'timestamp': 'No recent charges',
-    'amount': '$0.00',
-}

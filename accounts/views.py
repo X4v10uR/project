@@ -18,6 +18,7 @@ from django.utils import timezone
 from subscriptions.models import ReminderOffset, Subscription, SubscriptionParticipant, TeamSubscriptionRequest
 from subscriptions.notifications import create_notification, create_team_notifications
 from subscriptions.money import monthly_equivalent
+from subscriptions.services import record_due_charge_for_subscription
 
 from .forms import (
     AccountDeletionForm,
@@ -760,6 +761,8 @@ def _create_subscription_from_request_payload(team_request, reviewer):
             continue
         if 1 <= days <= 30:
             ReminderOffset.objects.get_or_create(subscription=subscription, days_before=days)
+
+    record_due_charge_for_subscription(subscription)
 
     team_request.status = TeamSubscriptionRequest.STATUS_APPROVED
     team_request.reviewed_by = reviewer

@@ -21,6 +21,7 @@ from .models import (
 )
 from .notifications import create_notification, create_team_notifications
 from .forms import SubscriptionForm, CardForm
+from .services import record_due_charge_for_subscription
 from django.http import HttpResponse, JsonResponse
 from .cards_state import (
     CARD_BRANDS,
@@ -994,6 +995,7 @@ def subscription_create(request):
                     if participants_to_create:
                         SubscriptionParticipant.objects.bulk_create(participants_to_create)
                     _sync_reminder_offsets(subscription, reminder_offsets)
+                    record_due_charge_for_subscription(subscription)
 
                 create_team_notifications(
                     team=team_context,
@@ -1013,6 +1015,7 @@ def subscription_create(request):
                 if participants_to_create:
                     SubscriptionParticipant.objects.bulk_create(participants_to_create)
                 _sync_reminder_offsets(subscription, reminder_offsets)
+                record_due_charge_for_subscription(subscription)
             return redirect('subscriptions:list')
     else:
         initial = _build_subscription_prefill(request.GET)

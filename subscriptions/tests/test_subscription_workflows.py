@@ -13,6 +13,7 @@ from subscriptions.models import (
     ReminderOffset,
     Subscription,
     SubscriptionParticipant,
+    Transaction,
 )
 from subscriptions.services import NotificationService
 
@@ -106,6 +107,38 @@ class SubscriptionWorkflowSafetyTest(TestCase):
         offsets = sorted(subscription.offsets.values_list('days_before', flat=True))
         self.assertEqual(offsets, [3, 7])
         self.assertEqual(subscription.display_color, '#F9F871')
+
+    def test_create_active_subscription_records_initial_transaction(self):
+        response = self.client.post(
+            reverse('subscriptions:create'),
+            data={
+                'service_name': 'Notion',
+                'display_color': '#AFC0DE',
+                'category': 'Software',
+                'billing_cycle': 'monthly',
+                'cost': '12.50',
+                'currency': 'USD',
+                'start_date': date.today().isoformat(),
+                'renewal_time': '15:00',
+                'status': 'active',
+                'reminders_enabled': 'on',
+                'notes': '',
+                'card': '',
+                'is_shared': 'False',
+                'split_type': 'equal',
+                'participant_name': [],
+                'participant_share': [],
+                'account_email': '',
+                'account_password': '',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        subscription = Subscription.objects.get(user=self.user, service_name='Notion')
+        transaction = Transaction.objects.get(subscription=subscription)
+        self.assertEqual(transaction.source, Transaction.SOURCE_RENEWAL)
+        self.assertEqual(transaction.amount, Decimal('12.50'))
+        self.assertEqual(transaction.charged_for_date, date.today())
 
     def test_update_replaces_existing_reminder_offsets(self):
         subscription = Subscription.objects.create(
