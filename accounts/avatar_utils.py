@@ -10,6 +10,18 @@ from django.templatetags.static import static
 
 _SUPPORTED_IMAGE_SUFFIXES = {".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp"}
 _MEMOJI_SECTIONS = ("male_memoji", "female_memoji")
+DEFAULT_AVATAR_BACKGROUND = "lavender"
+_AVATAR_BACKGROUND_OPTIONS = (
+    ("lavender", "Lavender", "#D4C6F5"),
+    ("mint", "Mint", "#A8F0D4"),
+    ("sky", "Sky", "#C0CFF5"),
+    ("peach", "Peach", "#F7D9A0"),
+    ("rose", "Rose", "#F5C9DD"),
+)
+_AVATAR_BACKGROUND_KEYS = {option[0] for option in _AVATAR_BACKGROUND_OPTIONS}
+_AVATAR_BACKGROUND_COLORS = {
+    option[0]: option[2] for option in _AVATAR_BACKGROUND_OPTIONS
+}
 _AVATAR_FILENAME_PATTERN = re.compile(
     r"^(?:Person|Character)=(?P<person>[^,]+),\s*"
     r"Skin\s*[Tt]one=(?P<skin_tone>[^,]+),\s*"
@@ -103,6 +115,27 @@ def parse_avatar_filename_metadata(filename):
 def _stable_digest(seed):
     normalized_seed = (seed or "").strip() or "anonymous-user"
     return hashlib.sha256(normalized_seed.encode("utf-8")).hexdigest()
+
+
+def normalize_avatar_background(background_key):
+    key = (background_key or "").strip().lower()
+    if key in _AVATAR_BACKGROUND_KEYS:
+        return key
+    return DEFAULT_AVATAR_BACKGROUND
+
+
+def get_avatar_background_color(background_key):
+    key = normalize_avatar_background(background_key)
+    return _AVATAR_BACKGROUND_COLORS.get(
+        key, _AVATAR_BACKGROUND_COLORS[DEFAULT_AVATAR_BACKGROUND]
+    )
+
+
+def get_avatar_background_options():
+    return [
+        {"key": key, "label": label, "color": color}
+        for key, label, color in _AVATAR_BACKGROUND_OPTIONS
+    ]
 
 
 def _select_memoji_path(seed):

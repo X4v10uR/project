@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from accounts.avatar_utils import (
     build_user_avatar_url,
+    get_avatar_background_options,
     get_avatar_sections,
     parse_avatar_filename_metadata,
 )
@@ -134,6 +135,7 @@ class SettingsViewTest(TestCase):
         self.assertContains(response, 'Avatar Preview')
         self.assertContains(response, 'id="avatarPickerPreviewImage"', html=False)
         self.assertContains(response, 'id="avatarPreviewPerson"', html=False)
+        self.assertContains(response, 'id="avatarBgSwatches"', html=False)
         self.assertContains(response, 'No avatars match the current filters.')
 
         male_sample = response.context['avatar_sections']['male'][0]
@@ -142,6 +144,7 @@ class SettingsViewTest(TestCase):
         self.assertIn('posture', male_sample)
         self.assertIn('mood_raw', male_sample)
         self.assertIn('mood_label', male_sample)
+        self.assertTrue(response.context['avatar_background_options'])
         self.assertContains(response, 'Save plan metadata')
         self.assertContains(response, 'Save preferences')
         self.assertContains(response, 'Change password')
@@ -210,6 +213,32 @@ class SettingsViewTest(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.avatar_choice, male_avatar_path)
         self.assertIn('male_memoji', build_user_avatar_url(self.user))
+
+    def test_profile_settings_post_updates_avatar_background(self):
+        self.client.force_login(self.user)
+        male_avatar_path = get_avatar_sections()['male'][0]['path']
+        background_key = get_avatar_background_options()[1]['key']
+
+        response = self.client.post(
+            reverse('accounts:settings'),
+            {
+                'form_type': 'profile',
+                'first_name': self.user.first_name,
+                'last_name': self.user.last_name,
+                'display_name': '',
+                'email': self.user.email,
+                'bio': '',
+                'timezone': 'UTC',
+                'preferred_currency': 'USD',
+                'avatar_choice': male_avatar_path,
+                'avatar_background': background_key,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('?updated=profile', response.url)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.avatar_background, background_key)
 
     def test_profile_settings_post_rejects_invalid_avatar_choice(self):
         self.client.force_login(self.user)

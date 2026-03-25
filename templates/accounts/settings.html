@@ -125,6 +125,30 @@
     .settings-notification-count { min-width: 8px !important; width: auto !important; height: 8px !important; background: var(--yellow) !important; border: 2px solid var(--light) !important; top: 8px !important; right: 8px !important; padding: 0 !important; }
     .settings-notification-count:not(.hidden) { min-width: 16px !important; height: 16px !important; padding: 0 4px !important; color: var(--dark) !important; font-size: 9px !important; font-weight: 800 !important; line-height: 12px !important; text-align: center !important; }
 
+    .profile-avatar-strip {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 4px 0 8px;
+    }
+    .profile-avatar-meta { display: flex; flex-direction: column; gap: 6px; }
+    .profile-avatar-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .avatar-bg-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+    .avatar-bg-swatch {
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      border: 1px solid rgba(0,0,0,.12);
+      cursor: pointer;
+      box-shadow: 0 0 0 2px #fff inset;
+      transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+    }
+    .avatar-bg-swatch:hover { transform: translateY(-1px); }
+    .avatar-bg-swatch.is-selected {
+      border-color: #111;
+      box-shadow: 0 0 0 1px #111, 0 0 0 3px #fff inset;
+    }
+
     .avatar-picker-overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 140; }
     .avatar-picker-overlay.is-open { display: flex; }
     .avatar-picker-backdrop { position: absolute; inset: 0; background: rgba(13,13,16,.46); opacity: 0; }
@@ -184,6 +208,7 @@
         padding: 12px 12px 104px !important;
       }
       .settings-page { height: auto; min-height: 0; border-radius: 22px; }
+      .profile-avatar-strip { padding: 4px 0 8px; }
       .avatar-picker-modal { width: min(95vw, 940px); }
       .avatar-picker-filters { grid-template-columns: 1fr; }
       .avatar-picker-body { grid-template-columns: 1fr; max-height: none; }
@@ -265,6 +290,7 @@
               {% csrf_token %}
               <input type="hidden" name="form_type" value="profile">
               <input id="avatarChoiceInput" type="hidden" name="avatar_choice" value="{{ selected_avatar_choice|default_if_none:'' }}" />
+              <input id="avatarBackgroundInput" type="hidden" name="avatar_background" value="{{ selected_avatar_background|default_if_none:'' }}" />
               <div style="display: flex; flex-direction: column; gap: 18px;">
                 {% if profile_form.non_field_errors %}
                 <div style="display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: #FF475712; border: 1.5px solid #FF475730; border-radius: 12px;">
@@ -272,9 +298,9 @@
                   <p style="font-size: 13px; color: #FF4757; font-weight: 500;">{{ profile_form.non_field_errors.0 }}</p>
                 </div>
                 {% endif %}
-                <div style="display: flex; align-items: center; gap: 16px; padding: 4px 0 8px;">
+                <div class="profile-avatar-strip">
                   <div style="position: relative; flex-shrink: 0;">
-                    <div style="width: 68px; height: 68px; border-radius: 20px; background: #D4C6F5; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; color: var(--dark); overflow: hidden;">
+                    <div id="profilePreviewFrame" style="width: 68px; height: 68px; border-radius: 20px; background: {{ selected_avatar_background_color }}; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; color: var(--dark); overflow: hidden;">
                       <img id="profilePreviewImage" src="{{ request.user.avatar_url }}" alt="Profile photo" style="width: 100%; height: 100%; object-fit: cover;" />
                       <span id="profilePreviewFallback" style="display: none;">{% if profile_form.first_name.value %}{{ profile_form.first_name.value|first|upper }}{% else %}{{ request.user.email|first|upper }}{% endif %}</span>
                     </div>
@@ -282,10 +308,25 @@
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
                     </button>
                   </div>
-                  <div>
+                  <div class="profile-avatar-meta">
                     <p id="profilePreviewName" style="font-size: 15px; font-weight: 700; color: var(--dark);">{% if profile_form.first_name.value or profile_form.last_name.value %}{{ profile_form.first_name.value|default_if_none:'' }} {{ profile_form.last_name.value|default_if_none:'' }}{% elif profile_form.display_name.value %}{{ profile_form.display_name.value }}{% elif request.user.get_full_name %}{{ request.user.get_full_name }}{% else %}{{ request.user.email }}{% endif %}</p>
                     <p style="font-size: 12px; color: var(--mid);">Choose from Male or Female memoji avatars</p>
-                    <button id="openAvatarPickerBtn" type="button" style="margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--dark); background: #EDEE45; border: none; border-radius: 8px; padding: 4px 12px; cursor: pointer; display: inline-flex;">Select Avatar</button>
+                    <div class="profile-avatar-actions">
+                      <button id="openAvatarPickerBtn" type="button" style="font-size: 12px; font-weight: 600; color: var(--dark); background: #EDEE45; border: none; border-radius: 8px; padding: 4px 12px; cursor: pointer; display: inline-flex;">Select Avatar</button>
+                      <div id="avatarBgSwatches" class="avatar-bg-swatches" aria-label="Avatar background options">
+                        {% for option in avatar_background_options %}
+                        <button
+                          type="button"
+                          class="avatar-bg-swatch{% if option.key == selected_avatar_background %} is-selected{% endif %}"
+                          data-avatar-bg="{{ option.key }}"
+                          data-avatar-bg-color="{{ option.color }}"
+                          title="{{ option.label }}"
+                          aria-label="Select {{ option.label }} background"
+                          style="background: {{ option.color }};"
+                        ></button>
+                        {% endfor %}
+                      </div>
+                    </div>
                   </div>
                 </div>
                 {% if profile_form.avatar_choice.errors %}
@@ -612,7 +653,7 @@
       <aside class="avatar-picker-preview" aria-live="polite">
         <div class="avatar-picker-preview-card">
           <p class="avatar-picker-preview-title">Avatar Preview</p>
-          <div class="avatar-picker-preview-image-wrap">
+          <div id="avatarPickerPreviewImageWrap" class="avatar-picker-preview-image-wrap" style="background: {{ selected_avatar_background_color }};">
             <img id="avatarPickerPreviewImage" alt="Selected avatar preview" />
           </div>
           <p id="avatarPickerPreviewEmpty" class="avatar-picker-preview-empty" style="display: none;">Select an avatar to preview its details.</p>
@@ -843,6 +884,15 @@
 
     var avatarSectionsDataEl = document.getElementById('avatar-sections-data');
     var avatarSections = avatarSectionsDataEl ? JSON.parse(avatarSectionsDataEl.textContent) : { male: [], female: [] };
+    var avatarBackgroundByKey = {};
+    document.querySelectorAll('#avatarBgSwatches .avatar-bg-swatch').forEach(function(button) {
+      var key = button.getAttribute('data-avatar-bg') || '';
+      var color = button.getAttribute('data-avatar-bg-color') || '';
+      if (key && color) {
+        avatarBackgroundByKey[key] = color;
+      }
+    });
+    var defaultAvatarBackgroundKey = '{{ selected_avatar_background|escapejs }}';
     var avatarUrlByPath = {};
     var avatarItemByPath = {};
     ['male', 'female'].forEach(function(section) {
@@ -863,6 +913,7 @@
     var avatarPickerState = {
       activeSection: 'male',
       pendingChoice: '',
+      pendingBackground: defaultAvatarBackgroundKey,
       filters: {
         person: '',
         skin_tone: '',
@@ -871,6 +922,19 @@
       },
     };
 
+    function normalizeAvatarBackgroundKey(backgroundKey) {
+      var key = (backgroundKey || '').trim().toLowerCase();
+      if (key && avatarBackgroundByKey[key]) return key;
+      if (avatarBackgroundByKey[defaultAvatarBackgroundKey]) return defaultAvatarBackgroundKey;
+      var available = Object.keys(avatarBackgroundByKey);
+      return available.length ? available[0] : '';
+    }
+
+    function getAvatarBackgroundColor(backgroundKey) {
+      var key = normalizeAvatarBackgroundKey(backgroundKey);
+      return avatarBackgroundByKey[key] || '#D4C6F5';
+    }
+
     function setProfilePreviewByChoice(path) {
       var img = document.getElementById('profilePreviewImage');
       var fallback = document.getElementById('profilePreviewFallback');
@@ -878,6 +942,26 @@
       img.src = avatarUrlByPath[path];
       img.style.display = 'block';
       fallback.style.display = 'none';
+    }
+
+    function setProfilePreviewBackgroundByKey(backgroundKey) {
+      var frame = document.getElementById('profilePreviewFrame');
+      if (!frame) return;
+      frame.style.background = getAvatarBackgroundColor(backgroundKey);
+    }
+
+    function setAvatarPickerPreviewBackgroundByKey(backgroundKey) {
+      var wrap = document.getElementById('avatarPickerPreviewImageWrap');
+      if (!wrap) return;
+      wrap.style.background = getAvatarBackgroundColor(backgroundKey);
+    }
+
+    function syncAvatarBackgroundSwatches() {
+      var activeBackground = normalizeAvatarBackgroundKey(avatarPickerState.pendingBackground);
+      document.querySelectorAll('#avatarBgSwatches .avatar-bg-swatch').forEach(function(button) {
+        var key = button.getAttribute('data-avatar-bg') || '';
+        button.classList.toggle('is-selected', key === activeBackground);
+      });
     }
 
     function avatarSectionFromChoice(path) {
@@ -941,6 +1025,7 @@
         img.style.display = 'none';
         empty.style.display = 'block';
         meta.style.display = 'none';
+        setAvatarPickerPreviewBackgroundByKey(avatarPickerState.pendingBackground);
         setPreviewMetaValue('avatarPreviewCollection', '');
         setPreviewMetaValue('avatarPreviewPerson', '');
         setPreviewMetaValue('avatarPreviewSkinTone', '');
@@ -953,6 +1038,7 @@
       img.style.display = 'block';
       empty.style.display = 'none';
       meta.style.display = 'grid';
+      setAvatarPickerPreviewBackgroundByKey(avatarPickerState.pendingBackground);
       var sectionName = (preview.section || avatarSectionFromChoice(preview.path)) === 'female' ? 'Female' : 'Male';
       setPreviewMetaValue('avatarPreviewCollection', sectionName);
       setPreviewMetaValue('avatarPreviewPerson', preview.person);
@@ -1080,10 +1166,14 @@
     function openAvatarPicker() {
       var overlay = document.getElementById('avatarPickerOverlay');
       var input = document.getElementById('avatarChoiceInput');
+      var backgroundInput = document.getElementById('avatarBackgroundInput');
       if (!overlay || !input) return;
       avatarPickerState.pendingChoice = input.value || '';
+      avatarPickerState.pendingBackground = normalizeAvatarBackgroundKey(backgroundInput ? backgroundInput.value : defaultAvatarBackgroundKey);
       avatarPickerState.activeSection = avatarSectionFromChoice(avatarPickerState.pendingChoice);
       syncAvatarSectionButtons();
+      syncAvatarBackgroundSwatches();
+      setAvatarPickerPreviewBackgroundByKey(avatarPickerState.pendingBackground);
       syncFilterOptions(true);
       renderAvatarPickerGrid();
       overlay.classList.add('is-open');
@@ -1110,9 +1200,17 @@
 
     function applyAvatarChoice() {
       var input = document.getElementById('avatarChoiceInput');
-      if (!input || !avatarPickerState.pendingChoice) return;
-      input.value = avatarPickerState.pendingChoice;
-      setProfilePreviewByChoice(avatarPickerState.pendingChoice);
+      var backgroundInput = document.getElementById('avatarBackgroundInput');
+      if (!input) return;
+      if (avatarPickerState.pendingChoice) {
+        input.value = avatarPickerState.pendingChoice;
+        setProfilePreviewByChoice(avatarPickerState.pendingChoice);
+      }
+      if (backgroundInput) {
+        var normalizedBackground = normalizeAvatarBackgroundKey(avatarPickerState.pendingBackground);
+        backgroundInput.value = normalizedBackground;
+        setProfilePreviewBackgroundByKey(normalizedBackground);
+      }
       closeAvatarPicker();
     }
 
@@ -1131,6 +1229,26 @@
           avatarPickerState.filters[entry.key] = this.value || '';
           renderAvatarPickerGrid();
         });
+      });
+    }
+
+    function bindAvatarBackgroundEvents() {
+      var swatchWrap = document.getElementById('avatarBgSwatches');
+      if (!swatchWrap) return;
+      swatchWrap.addEventListener('click', function(event) {
+        var target = event.target;
+        if (!target || !target.closest) return;
+        var button = target.closest('.avatar-bg-swatch');
+        if (!button || !swatchWrap.contains(button)) return;
+        var key = button.getAttribute('data-avatar-bg') || '';
+        avatarPickerState.pendingBackground = normalizeAvatarBackgroundKey(key);
+        syncAvatarBackgroundSwatches();
+        var backgroundInput = document.getElementById('avatarBackgroundInput');
+        if (backgroundInput) {
+          backgroundInput.value = avatarPickerState.pendingBackground;
+        }
+        setProfilePreviewBackgroundByKey(avatarPickerState.pendingBackground);
+        setAvatarPickerPreviewBackgroundByKey(avatarPickerState.pendingBackground);
       });
     }
 
@@ -1157,6 +1275,8 @@
       if (avatarChoiceInput && avatarChoiceInput.value) {
         setProfilePreviewByChoice(avatarChoiceInput.value);
       }
+      var avatarBackgroundInput = document.getElementById('avatarBackgroundInput');
+      setProfilePreviewBackgroundByKey(avatarBackgroundInput ? avatarBackgroundInput.value : defaultAvatarBackgroundKey);
 
       if (activeSection && activeSection !== 'profile') {
         setTimeout(function() { jumpTo(activeSection, 'instant'); }, 50);
@@ -1209,6 +1329,7 @@
       });
       bindAvatarFilterEvents();
       bindAvatarGridEvents();
+      bindAvatarBackgroundEvents();
       ['openAvatarPickerFab', 'openAvatarPickerBtn'].forEach(function(id) {
         var trigger = document.getElementById(id);
         if (trigger) {

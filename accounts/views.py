@@ -22,8 +22,11 @@ from subscriptions.services import record_due_charge_for_subscription
 
 from .avatar_utils import (
     build_user_avatar_path,
+    get_avatar_background_color,
+    get_avatar_background_options,
     get_avatar_sections,
     is_valid_avatar_choice,
+    normalize_avatar_background,
     normalize_avatar_choice,
 )
 from .forms import (
@@ -142,7 +145,11 @@ def settings(request):
     selected_avatar_choice = normalize_avatar_choice(profile_form['avatar_choice'].value() or '')
     if not is_valid_avatar_choice(selected_avatar_choice):
         selected_avatar_choice = build_user_avatar_path(request.user)
+    selected_avatar_background = normalize_avatar_background(
+        profile_form['avatar_background'].value() or getattr(request.user, 'avatar_background', '')
+    )
     avatar_sections = get_avatar_sections()
+    avatar_background_options = get_avatar_background_options()
 
     if selected_timezone and selected_timezone not in TIMEZONE_CHOICES:
         timezone_choices = (selected_timezone,) + TIMEZONE_CHOICES
@@ -168,6 +175,9 @@ def settings(request):
             'timezone_choices': timezone_choices,
             'avatar_sections': avatar_sections,
             'selected_avatar_choice': selected_avatar_choice,
+            'avatar_background_options': avatar_background_options,
+            'selected_avatar_background': selected_avatar_background,
+            'selected_avatar_background_color': get_avatar_background_color(selected_avatar_background),
             'hide_global_notifications': True,
             'suppress_base_messages': True,
         },
