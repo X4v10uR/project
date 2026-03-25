@@ -114,7 +114,7 @@
     .avatar-picker-overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 140; }
     .avatar-picker-overlay.is-open { display: flex; }
     .avatar-picker-backdrop { position: absolute; inset: 0; background: rgba(13,13,16,.46); }
-    .avatar-picker-modal { position: relative; width: min(90vw, 780px); max-height: min(84vh, 760px); border-radius: 22px; border: 1px solid rgba(0,0,0,.08); background: #fff; box-shadow: 0 24px 44px -28px rgba(15,23,42,.5); overflow: hidden; display: flex; flex-direction: column; }
+    .avatar-picker-modal { position: relative; width: min(92vw, 940px); max-height: min(84vh, 760px); border-radius: 22px; border: 1px solid rgba(0,0,0,.08); background: #fff; box-shadow: 0 24px 44px -28px rgba(15,23,42,.5); overflow: hidden; display: flex; flex-direction: column; }
     .avatar-picker-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border-bottom: 1px solid rgba(0,0,0,.06); }
     .avatar-picker-title { font-size: 16px; font-weight: 800; color: var(--dark); }
     .avatar-picker-close { border: 0; background: #f5f5ef; width: 34px; height: 34px; border-radius: 10px; color: var(--dark); font-size: 20px; line-height: 1; cursor: pointer; }
@@ -127,7 +127,8 @@
     .avatar-picker-filter { display: flex; flex-direction: column; gap: 4px; }
     .avatar-picker-filter label { font-size: 11px; font-weight: 700; color: var(--mid); }
     .avatar-picker-filter select { width: 100%; height: 34px; border-radius: 10px; border: 1px solid rgba(0,0,0,.1); background: #f8f8f3; color: var(--dark); padding: 0 10px; font-size: 12px; font-weight: 600; }
-    .avatar-picker-grid-wrap { padding: 14px 18px; overflow-y: auto; min-height: 220px; }
+    .avatar-picker-body { display: grid; grid-template-columns: minmax(0, 1fr) 260px; min-height: 280px; max-height: min(50vh, 460px); }
+    .avatar-picker-grid-wrap { padding: 14px 18px; overflow-y: auto; border-right: 1px solid rgba(0,0,0,.06); }
     .avatar-picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(66px, 1fr)); gap: 10px; }
     .avatar-picker-item { border: 1.5px solid rgba(0,0,0,.08); border-radius: 14px; width: 100%; aspect-ratio: 1/1; overflow: hidden; background: #fafaf6; cursor: pointer; transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease; }
     .avatar-picker-item:hover { transform: translateY(-1px); }
@@ -135,6 +136,16 @@
     .avatar-picker-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .avatar-picker-hint { margin-top: 8px; font-size: 11px; color: var(--mid); display: none; }
     .avatar-picker-hint.is-visible { display: block; }
+    .avatar-picker-preview { padding: 14px; overflow-y: auto; background: #fafaf6; }
+    .avatar-picker-preview-card { border: 1px solid rgba(0,0,0,.08); border-radius: 16px; background: #fff; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 100%; }
+    .avatar-picker-preview-title { font-size: 12px; font-weight: 800; color: var(--dark); letter-spacing: .02em; text-transform: uppercase; }
+    .avatar-picker-preview-image-wrap { width: 100%; aspect-ratio: 1/1; border-radius: 14px; border: 1.5px solid rgba(0,0,0,.08); background: #f5f5ef; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .avatar-picker-preview-image-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .avatar-picker-preview-empty { font-size: 12px; color: var(--mid); line-height: 1.4; }
+    .avatar-picker-meta { display: grid; gap: 6px; }
+    .avatar-picker-meta-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 12px; line-height: 1.4; }
+    .avatar-picker-meta-label { color: var(--mid); font-weight: 700; }
+    .avatar-picker-meta-value { color: var(--dark); font-weight: 600; text-align: right; }
     .avatar-picker-footer { padding: 12px 18px 16px; border-top: 1px solid rgba(0,0,0,.06); display: flex; justify-content: flex-end; gap: 8px; }
     .avatar-picker-btn { border: 0; border-radius: 10px; padding: 9px 14px; font-size: 12px; font-weight: 700; cursor: pointer; }
     .avatar-picker-btn-cancel { background: #f1f1eb; color: var(--dark); }
@@ -142,8 +153,10 @@
 
     @media (max-width: 767px) {
       .settings-page { height: auto; min-height: 0; border-radius: 22px; }
-      .avatar-picker-modal { width: min(95vw, 780px); }
+      .avatar-picker-modal { width: min(95vw, 940px); }
       .avatar-picker-filters { grid-template-columns: 1fr; }
+      .avatar-picker-body { grid-template-columns: 1fr; max-height: none; }
+      .avatar-picker-grid-wrap { border-right: none; border-bottom: 1px solid rgba(0,0,0,.06); max-height: 42vh; }
     }
   </style>
 {% endblock %}
@@ -556,9 +569,27 @@
         </select>
       </div>
     </div>
-    <div class="avatar-picker-grid-wrap">
-      <div id="avatarPickerGrid" class="avatar-picker-grid"></div>
-      <p id="avatarPickerHint" class="avatar-picker-hint">No avatars match the current filters.</p>
+    <div class="avatar-picker-body">
+      <div class="avatar-picker-grid-wrap">
+        <div id="avatarPickerGrid" class="avatar-picker-grid"></div>
+        <p id="avatarPickerHint" class="avatar-picker-hint">No avatars match the current filters.</p>
+      </div>
+      <aside class="avatar-picker-preview" aria-live="polite">
+        <div class="avatar-picker-preview-card">
+          <p class="avatar-picker-preview-title">Avatar Preview</p>
+          <div class="avatar-picker-preview-image-wrap">
+            <img id="avatarPickerPreviewImage" alt="Selected avatar preview" />
+          </div>
+          <p id="avatarPickerPreviewEmpty" class="avatar-picker-preview-empty" style="display: none;">Select an avatar to preview its details.</p>
+          <div id="avatarPickerPreviewMeta" class="avatar-picker-meta">
+            <div class="avatar-picker-meta-row"><span class="avatar-picker-meta-label">Collection</span><span id="avatarPreviewCollection" class="avatar-picker-meta-value">-</span></div>
+            <div class="avatar-picker-meta-row"><span class="avatar-picker-meta-label">Person</span><span id="avatarPreviewPerson" class="avatar-picker-meta-value">-</span></div>
+            <div class="avatar-picker-meta-row"><span class="avatar-picker-meta-label">Skin Tone</span><span id="avatarPreviewSkinTone" class="avatar-picker-meta-value">-</span></div>
+            <div class="avatar-picker-meta-row"><span class="avatar-picker-meta-label">Posture</span><span id="avatarPreviewPosture" class="avatar-picker-meta-value">-</span></div>
+            <div class="avatar-picker-meta-row"><span class="avatar-picker-meta-label">Mood</span><span id="avatarPreviewMood" class="avatar-picker-meta-value">-</span></div>
+          </div>
+        </div>
+      </aside>
     </div>
     <div class="avatar-picker-footer">
       <button id="avatarPickerCancel" type="button" class="avatar-picker-btn avatar-picker-btn-cancel">Cancel</button>
@@ -778,9 +809,20 @@
     var avatarSectionsDataEl = document.getElementById('avatar-sections-data');
     var avatarSections = avatarSectionsDataEl ? JSON.parse(avatarSectionsDataEl.textContent) : { male: [], female: [] };
     var avatarUrlByPath = {};
+    var avatarItemByPath = {};
     ['male', 'female'].forEach(function(section) {
       (avatarSections[section] || []).forEach(function(item) {
         avatarUrlByPath[item.path] = item.url;
+        avatarItemByPath[item.path] = {
+          path: item.path,
+          url: item.url,
+          person: item.person || '',
+          skin_tone: item.skin_tone || '',
+          posture: item.posture || '',
+          mood_raw: item.mood_raw || '',
+          mood_label: item.mood_label || item.mood_raw || '',
+          section: section,
+        };
       });
     });
     var avatarPickerState = {
@@ -812,6 +854,11 @@
       return avatarSections[avatarPickerState.activeSection] || [];
     }
 
+    function getAvatarItemByPath(path) {
+      if (!path) return null;
+      return avatarItemByPath[path] || null;
+    }
+
     function getFilteredAvatars() {
       var filters = avatarPickerState.filters;
       return getActiveSectionAvatars().filter(function(item) {
@@ -828,6 +875,55 @@
       if (!hint) return;
       var hasResults = getFilteredAvatars().length > 0;
       hint.className = hasResults ? 'avatar-picker-hint' : 'avatar-picker-hint is-visible';
+    }
+
+    function getCurrentPreviewAvatar() {
+      var pendingItem = getAvatarItemByPath(avatarPickerState.pendingChoice);
+      if (pendingItem && pendingItem.section === avatarPickerState.activeSection) {
+        return pendingItem;
+      }
+      var filtered = getFilteredAvatars();
+      if (filtered.length) {
+        return getAvatarItemByPath(filtered[0].path) || filtered[0];
+      }
+      return pendingItem;
+    }
+
+    function setPreviewMetaValue(id, value) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = value || '-';
+    }
+
+    function updateAvatarPickerPreview() {
+      var preview = getCurrentPreviewAvatar();
+      var img = document.getElementById('avatarPickerPreviewImage');
+      var empty = document.getElementById('avatarPickerPreviewEmpty');
+      var meta = document.getElementById('avatarPickerPreviewMeta');
+      if (!img || !empty || !meta) return;
+
+      if (!preview || !preview.url) {
+        img.style.display = 'none';
+        empty.style.display = 'block';
+        meta.style.display = 'none';
+        setPreviewMetaValue('avatarPreviewCollection', '');
+        setPreviewMetaValue('avatarPreviewPerson', '');
+        setPreviewMetaValue('avatarPreviewSkinTone', '');
+        setPreviewMetaValue('avatarPreviewPosture', '');
+        setPreviewMetaValue('avatarPreviewMood', '');
+        return;
+      }
+
+      img.src = preview.url;
+      img.style.display = 'block';
+      empty.style.display = 'none';
+      meta.style.display = 'grid';
+      var sectionName = (preview.section || avatarSectionFromChoice(preview.path)) === 'female' ? 'Female' : 'Male';
+      setPreviewMetaValue('avatarPreviewCollection', sectionName);
+      setPreviewMetaValue('avatarPreviewPerson', preview.person);
+      setPreviewMetaValue('avatarPreviewSkinTone', preview.skin_tone);
+      setPreviewMetaValue('avatarPreviewPosture', preview.posture ? String(preview.posture) : '');
+      setPreviewMetaValue('avatarPreviewMood', preview.mood_label || preview.mood_raw);
     }
 
     function buildUniqueSortedValues(items, key, comparator) {
@@ -904,6 +1000,7 @@
         });
       });
       updateAvatarPickerHint();
+      updateAvatarPickerPreview();
     }
 
     function syncAvatarSectionButtons() {

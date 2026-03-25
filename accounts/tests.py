@@ -131,6 +131,9 @@ class SettingsViewTest(TestCase):
         self.assertContains(response, 'id="avatarFilterSkinTone"', html=False)
         self.assertContains(response, 'id="avatarFilterPosture"', html=False)
         self.assertContains(response, 'id="avatarFilterMood"', html=False)
+        self.assertContains(response, 'Avatar Preview')
+        self.assertContains(response, 'id="avatarPickerPreviewImage"', html=False)
+        self.assertContains(response, 'id="avatarPreviewPerson"', html=False)
         self.assertContains(response, 'No avatars match the current filters.')
 
         male_sample = response.context['avatar_sections']['male'][0]
