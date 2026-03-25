@@ -745,7 +745,7 @@
                 function scriptForPath(path) {
                     var normalized = normalizePath(path);
                     if (normalized.startsWith('/dashboard/')) {
-                        return '{% static "dashboard/dashboard.js" %}?v=20260224-4';
+                        return '{% static "dashboard/dashboard.js" %}?v=20260325-1';
                     }
                     if (normalized.startsWith('/subscriptions/cards/')) {
                         return '{% static "subscriptions/cards.js" %}';
@@ -758,6 +758,11 @@
 
                 function stylesForPath(path) {
                     var normalized = normalizePath(path);
+                    if (normalized.startsWith('/dashboard/')) {
+                        return [
+                            '{% static "dashboard/dashboard.css" %}?v=20260325-2'
+                        ];
+                    }
                     if (normalized.startsWith('/subscriptions/cards/')) {
                         return [
                             'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap',
