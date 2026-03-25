@@ -390,7 +390,7 @@
         <div class="dashboard-left">
             <div class="balance-card text-white p-8 rounded-3xl shadow-lg js-balance-adjust-editor" data-url="{% url 'dashboard:adjust_balance' %}" data-scope="{{ dashboard_scope }}">
                 <div class="flex justify-between items-start mb-4 gap-4">
-                    <div>
+                    <div class="js-balance-inline-panel">
                         <p class="text-gray-400 text-sm mb-2">Your balance</p>
                         <div class="flex items-center gap-3 flex-wrap">
                             <h2 class="dashboard-text-5xl js-balance-display">{{ balance_display }}</h2>
@@ -628,5 +628,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'dashboard/dashboard.js' %}?v=20260324-4"></script>
+<script src="{% static 'dashboard/dashboard.js' %}?v=20260325-1"></script>
 {% endblock %}

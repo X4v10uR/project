@@ -323,6 +323,7 @@ function initBalanceAdjuster() {
     const input = editor.querySelector('.js-balance-inline-input');
     const inputWrap = editor.querySelector('.js-balance-inline-field-wrap');
     const helpText = editor.querySelector('.js-balance-inline-help');
+    const inlinePanel = editor.querySelector('.js-balance-inline-panel');
     const balanceNode = editor.querySelector('.js-balance-display');
     const status = editor.querySelector('.js-balance-adjust-status');
     const updateUrl = editor.dataset.url;
@@ -335,6 +336,11 @@ function initBalanceAdjuster() {
     let previousValue = '0.00';
     let suppressBlurSave = false;
     let statusTimeoutId = null;
+    let inlinePanelTransitionCleanup = null;
+
+    const prefersReducedMotion = Boolean(
+        window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    );
 
     const normalizeInputValue = function (rawValue) {
         const value = String(rawValue || '');
@@ -391,7 +397,63 @@ function initBalanceAdjuster() {
         }
     };
 
-    const setEditingState = function (editing) {
+    const clearInlinePanelTransition = function () {
+        if (typeof inlinePanelTransitionCleanup === 'function') {
+            const cleanup = inlinePanelTransitionCleanup;
+            inlinePanelTransitionCleanup = null;
+            cleanup();
+        }
+    };
+
+    const animateInlinePanelHeight = function (startHeight) {
+        if (!inlinePanel || prefersReducedMotion || typeof startHeight !== 'number') {
+            return;
+        }
+
+        const endHeight = inlinePanel.offsetHeight;
+        if (!isFinite(endHeight) || Math.abs(endHeight - startHeight) < 1) {
+            return;
+        }
+
+        clearInlinePanelTransition();
+
+        let timeoutId = null;
+        const onTransitionEnd = function (event) {
+            if (event && event.propertyName !== 'height') {
+                return;
+            }
+            clearInlinePanelTransition();
+        };
+
+        const cleanup = function () {
+            if (timeoutId !== null) {
+                window.clearTimeout(timeoutId);
+                timeoutId = null;
+            }
+            inlinePanel.removeEventListener('transitionend', onTransitionEnd);
+            inlinePanel.style.removeProperty('height');
+            inlinePanel.style.removeProperty('overflow');
+            inlinePanel.style.removeProperty('transition');
+        };
+
+        inlinePanelTransitionCleanup = cleanup;
+        inlinePanel.addEventListener('transitionend', onTransitionEnd);
+        timeoutId = window.setTimeout(function () {
+            clearInlinePanelTransition();
+        }, 340);
+
+        inlinePanel.style.height = startHeight + 'px';
+        inlinePanel.style.overflow = 'hidden';
+        inlinePanel.style.transition = 'height 260ms cubic-bezier(0.22, 1, 0.36, 1)';
+        inlinePanel.getBoundingClientRect();
+        inlinePanel.style.height = endHeight + 'px';
+    };
+
+    const setEditingState = function (editing, options) {
+        clearInlinePanelTransition();
+        const shouldAnimate = !options || options.animate !== false;
+        const startHeight = shouldAnimate && inlinePanel ? inlinePanel.offsetHeight : null;
+
         isEditing = editing;
         balanceNode.classList.toggle('hidden', editing);
         inputWrap.classList.toggle('hidden', !editing);
@@ -401,6 +463,10 @@ function initBalanceAdjuster() {
         cancelButton.classList.toggle('hidden', !editing);
         if (helpText) {
             helpText.classList.toggle('hidden', !editing);
+        }
+
+        if (shouldAnimate && startHeight !== null) {
+            animateInlinePanelHeight(startHeight);
         }
 
         if (!editing) {
@@ -586,7 +652,7 @@ function initBalanceAdjuster() {
     previousValue = formatAmount(parseAmount(input.value) || 0);
     input.value = previousValue;
     syncInputWidth();
-    setEditingState(false);
+    setEditingState(false, { animate: false });
 
     openButton.addEventListener('click', onOpenClick);
     saveButton.addEventListener('pointerdown', onActionPointerDown);
@@ -599,6 +665,7 @@ function initBalanceAdjuster() {
 
     return function cleanupBalanceAdjuster() {
         clearStatusTimeout();
+        clearInlinePanelTransition();
         openButton.removeEventListener('click', onOpenClick);
         saveButton.removeEventListener('pointerdown', onActionPointerDown);
         cancelButton.removeEventListener('pointerdown', onActionPointerDown);
