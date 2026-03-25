@@ -3,6 +3,8 @@ from django.db import models
 from django.utils import timezone
 import hashlib
 
+from .avatar_utils import build_user_avatar_url
+
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
@@ -75,6 +77,10 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+    @property
+    def avatar_url(self):
+        return build_user_avatar_url(self)
 
 
 class Team(models.Model):

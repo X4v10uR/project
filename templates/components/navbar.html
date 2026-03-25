@@ -21,21 +21,11 @@
         >
             <span class="app-tab-pill">
                 <span class="app-tab-icon">
-                    {% if request.user.profile_photo %}
                     <img
                         class="app-tab-avatar"
-                        src="{{ request.user.profile_photo.url }}"
+                        src="{{ request.user.avatar_url }}"
                         alt="{{ request.user.email }}"
                     />
-                    {% else %}
-                    <span class="app-tab-avatar-fallback">
-                        {% if request.user.first_name %}
-                            {{ request.user.first_name|first|upper }}
-                        {% else %}
-                            {{ request.user.email|first|upper }}
-                        {% endif %}
-                    </span>
-                    {% endif %}
                 </span>
                 <span class="app-tab-label-wrap">
                     <span class="app-tab-label">

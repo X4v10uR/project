@@ -950,9 +950,8 @@
     width: 32px;
     height: 32px;
     border-radius: 999px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    display: block;
+    object-fit: cover;
     background: #ebebf0;
     color: var(--teams-muted);
     font-size: 0.75rem;
