@@ -136,14 +136,14 @@
     .avatar-picker-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .avatar-picker-hint { margin-top: 8px; font-size: 11px; color: var(--mid); display: none; }
     .avatar-picker-hint.is-visible { display: block; }
-    .avatar-picker-preview { padding: 14px; overflow-y: auto; background: #fafaf6; }
-    .avatar-picker-preview-card { border: 1px solid rgba(0,0,0,.08); border-radius: 16px; background: #fff; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 100%; }
+    .avatar-picker-preview { padding: 12px; overflow: hidden; background: #fafaf6; display: flex; }
+    .avatar-picker-preview-card { border: 1px solid rgba(0,0,0,.08); border-radius: 16px; background: #fff; padding: 10px; display: flex; flex-direction: column; gap: 8px; min-height: 100%; width: 100%; }
     .avatar-picker-preview-title { font-size: 12px; font-weight: 800; color: var(--dark); letter-spacing: .02em; text-transform: uppercase; }
-    .avatar-picker-preview-image-wrap { width: 100%; aspect-ratio: 1/1; border-radius: 14px; border: 1.5px solid rgba(0,0,0,.08); background: #f5f5ef; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .avatar-picker-preview-image-wrap { width: min(100%, 170px); margin: 0 auto; aspect-ratio: 1/1; border-radius: 14px; border: 1.5px solid rgba(0,0,0,.08); background: #f5f5ef; overflow: hidden; display: flex; align-items: center; justify-content: center; }
     .avatar-picker-preview-image-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .avatar-picker-preview-empty { font-size: 12px; color: var(--mid); line-height: 1.4; }
-    .avatar-picker-meta { display: grid; gap: 6px; }
-    .avatar-picker-meta-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 12px; line-height: 1.4; }
+    .avatar-picker-meta { display: grid; gap: 4px; }
+    .avatar-picker-meta-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 12px; line-height: 1.3; }
     .avatar-picker-meta-label { color: var(--mid); font-weight: 700; }
     .avatar-picker-meta-value { color: var(--dark); font-weight: 600; text-align: right; }
     .avatar-picker-footer { padding: 12px 18px 16px; border-top: 1px solid rgba(0,0,0,.06); display: flex; justify-content: flex-end; gap: 8px; }
