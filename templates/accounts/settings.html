@@ -7,7 +7,19 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; }
-    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; overflow: hidden; }
+    main.app-main-shell {
+      height: 100vh;
+      min-height: 100vh;
+      overflow: hidden;
+      padding: 12px !important;
+    }
+    @supports (height: 100dvh) {
+      main.app-main-shell {
+        height: 100dvh;
+        min-height: 100dvh;
+      }
+    }
     :root {
       --yellow: #EDEE45; --mint: #A8F0D4; --lavender: #D4C6F5;
       --blue: #C0CFF5; --red: #FF4757; --dark: #0D0D10;
@@ -83,8 +95,8 @@
 
     .settings-page {
       display: flex;
-      height: calc(100vh - 32px);
-      min-height: calc(100vh - 32px);
+      height: calc(100vh - 24px);
+      min-height: calc(100vh - 24px);
       overflow: hidden;
       border-radius: 28px;
       background: var(--light);
@@ -93,10 +105,12 @@
 
     @supports (height: 100dvh) {
       .settings-page {
-        height: calc(100dvh - 32px);
-        min-height: calc(100dvh - 32px);
+        height: calc(100dvh - 24px);
+        min-height: calc(100dvh - 24px);
       }
     }
+
+    #mainScroll { overscroll-behavior: contain; }
 
     .settings-notification-shell { position: relative; }
     .settings-notification-panel { position: absolute; top: calc(100% + 10px); right: 0; width: min(94vw, 340px); max-height: 420px; overflow: hidden; border: 1px solid rgba(0,0,0,.08); border-radius: 20px; background: #fff; box-shadow: 0 24px 44px -32px rgba(15, 23, 42, .5); display: none; z-index: 12; }
@@ -162,6 +176,13 @@
     .avatar-picker-btn-apply { background: #111; color: #fff; }
 
     @media (max-width: 767px) {
+      body { overflow-y: auto; }
+      main.app-main-shell {
+        height: auto;
+        min-height: 100vh;
+        overflow: visible;
+        padding: 12px 12px 104px !important;
+      }
       .settings-page { height: auto; min-height: 0; border-radius: 22px; }
       .avatar-picker-modal { width: min(95vw, 940px); }
       .avatar-picker-filters { grid-template-columns: 1fr; }
@@ -884,19 +905,19 @@
       });
     }
 
-    function updateAvatarPickerHint() {
+    function updateAvatarPickerHint(filteredAvatars) {
       var hint = document.getElementById('avatarPickerHint');
       if (!hint) return;
-      var hasResults = getFilteredAvatars().length > 0;
+      var hasResults = (filteredAvatars || getFilteredAvatars()).length > 0;
       hint.className = hasResults ? 'avatar-picker-hint' : 'avatar-picker-hint is-visible';
     }
 
-    function getCurrentPreviewAvatar() {
+    function getCurrentPreviewAvatar(filteredAvatars) {
       var pendingItem = getAvatarItemByPath(avatarPickerState.pendingChoice);
       if (pendingItem && pendingItem.section === avatarPickerState.activeSection) {
         return pendingItem;
       }
-      var filtered = getFilteredAvatars();
+      var filtered = filteredAvatars || getFilteredAvatars();
       if (filtered.length) {
         return getAvatarItemByPath(filtered[0].path) || filtered[0];
       }
@@ -909,8 +930,8 @@
       el.textContent = value || '-';
     }
 
-    function updateAvatarPickerPreview() {
-      var preview = getCurrentPreviewAvatar();
+    function updateAvatarPickerPreview(filteredAvatars) {
+      var preview = getCurrentPreviewAvatar(filteredAvatars);
       var img = document.getElementById('avatarPickerPreviewImage');
       var empty = document.getElementById('avatarPickerPreviewEmpty');
       var meta = document.getElementById('avatarPickerPreviewMeta');
@@ -938,6 +959,16 @@
       setPreviewMetaValue('avatarPreviewSkinTone', preview.skin_tone);
       setPreviewMetaValue('avatarPreviewPosture', preview.posture ? String(preview.posture) : '');
       setPreviewMetaValue('avatarPreviewMood', preview.mood_label || preview.mood_raw);
+    }
+
+    function updateAvatarGridSelectionClasses() {
+      var grid = document.getElementById('avatarPickerGrid');
+      if (!grid) return;
+      var selectedPath = avatarPickerState.pendingChoice;
+      grid.querySelectorAll('.avatar-picker-item').forEach(function(button) {
+        var path = button.getAttribute('data-avatar-path') || '';
+        button.classList.toggle('is-selected', path && path === selectedPath);
+      });
     }
 
     function buildUniqueSortedValues(items, key, comparator) {
@@ -968,10 +999,13 @@
       var persons = buildUniqueSortedValues(avatars, 'person');
       var skinTones = buildUniqueSortedValues(avatars, 'skin_tone');
       var postures = buildUniqueSortedValues(avatars, 'posture', function(a, b) { return Number(a) - Number(b); });
-      var moods = buildUniqueSortedValues(avatars, 'mood_raw', function(a, b) {
-        var labelA = (avatars.find(function(item) { return item.mood_raw === a; }) || {}).mood_label || a;
-        var labelB = (avatars.find(function(item) { return item.mood_raw === b; }) || {}).mood_label || b;
-        return labelA.localeCompare(labelB);
+      var moodLabelByRaw = {};
+      avatars.forEach(function(item) {
+        if (!item.mood_raw || moodLabelByRaw[item.mood_raw]) return;
+        moodLabelByRaw[item.mood_raw] = item.mood_label || item.mood_raw;
+      });
+      var moods = Object.keys(moodLabelByRaw).sort(function(a, b) {
+        return (moodLabelByRaw[a] || a).localeCompare(moodLabelByRaw[b] || b);
       });
 
       if (resetInvalidValues) {
@@ -993,8 +1027,7 @@
       populateFilterSelect('avatarFilterSkinTone', skinTones, avatarPickerState.filters.skin_tone);
       populateFilterSelect('avatarFilterPosture', postures, avatarPickerState.filters.posture, function(value) { return String(value); });
       populateFilterSelect('avatarFilterMood', moods, avatarPickerState.filters.mood_raw, function(value) {
-        var mood = avatars.find(function(item) { return item.mood_raw === value; });
-        return mood ? (mood.mood_label || mood.mood_raw) : value;
+        return moodLabelByRaw[value] || value;
       });
     }
 
@@ -1007,14 +1040,24 @@
         return '<button type="button" class="avatar-picker-item' + selectedClass + '" data-avatar-path="' + item.path + '" aria-label="Select avatar"><img src="' + item.url + '" loading="lazy" alt="Avatar"></button>';
       }).join('');
       grid.innerHTML = html;
-      grid.querySelectorAll('.avatar-picker-item').forEach(function(button) {
-        button.addEventListener('click', function() {
-          avatarPickerState.pendingChoice = this.getAttribute('data-avatar-path') || '';
-          renderAvatarPickerGrid();
-        });
+      updateAvatarPickerHint(list);
+      updateAvatarPickerPreview(list);
+    }
+
+    function bindAvatarGridEvents() {
+      var grid = document.getElementById('avatarPickerGrid');
+      if (!grid) return;
+      grid.addEventListener('click', function(event) {
+        var target = event.target;
+        if (!target || !target.closest) return;
+        var button = target.closest('.avatar-picker-item');
+        if (!button || !grid.contains(button)) return;
+        var path = button.getAttribute('data-avatar-path') || '';
+        if (!path || path === avatarPickerState.pendingChoice) return;
+        avatarPickerState.pendingChoice = path;
+        updateAvatarGridSelectionClasses();
+        updateAvatarPickerPreview();
       });
-      updateAvatarPickerHint();
-      updateAvatarPickerPreview();
     }
 
     function syncAvatarSectionButtons() {
@@ -1061,7 +1104,8 @@
       if (!list.length) return;
       var randomIndex = Math.floor(Math.random() * list.length);
       avatarPickerState.pendingChoice = list[randomIndex].path;
-      renderAvatarPickerGrid();
+      updateAvatarGridSelectionClasses();
+      updateAvatarPickerPreview(list);
     }
 
     function applyAvatarChoice() {
@@ -1164,6 +1208,7 @@
         if (el) el.addEventListener('input', updateProfileMeta);
       });
       bindAvatarFilterEvents();
+      bindAvatarGridEvents();
       ['openAvatarPickerFab', 'openAvatarPickerBtn'].forEach(function(id) {
         var trigger = document.getElementById(id);
         if (trigger) {
