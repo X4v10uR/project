@@ -679,6 +679,7 @@
 {% block extra_js %}
   {{ avatar_sections|json_script:"avatar-sections-data" }}
   <script>
+    var avatarUpdateUrl = '{% url "accounts:settings_avatar_update" %}';
     var page = document.querySelector('.settings-page');
     var COLORS = { profile:'#EDEE45', plan:'#A8F0D4', preferences:'#D4C6F5', password:'#C0CFF5', danger:'#FFB3BA' };
     var PLAN_COLORS = { free:'#C0CFF5', starter:'#EDEE45', pro:'#A8F0D4', business:'#D4C6F5' };
@@ -921,6 +922,7 @@
         mood_raw: '',
       },
     };
+    var avatarPersistTimer = null;
 
     function normalizeAvatarBackgroundKey(backgroundKey) {
       var key = (backgroundKey || '').trim().toLowerCase();
@@ -933,6 +935,82 @@
     function getAvatarBackgroundColor(backgroundKey) {
       var key = normalizeAvatarBackgroundKey(backgroundKey);
       return avatarBackgroundByKey[key] || '#D4C6F5';
+    }
+
+    function getCsrfToken() {
+      var tokenInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+      return tokenInput ? tokenInput.value : '';
+    }
+
+    function applyGlobalAvatarBackgroundColor(color) {
+      if (!color) return;
+      document.querySelectorAll('.app-tab-avatar').forEach(function(img) {
+        img.style.background = color;
+      });
+      document.querySelectorAll('.app-sidebar-user-avatar img').forEach(function(img) {
+        img.style.background = color;
+      });
+      document.querySelectorAll('.teams-member-avatar').forEach(function(img) {
+        if (img.alt === '{{ request.user.email|escapejs }}') {
+          img.style.background = color;
+        }
+      });
+      document.querySelectorAll('.dashboard-header img[alt="{{ request.user.email|escapejs }}"]').forEach(function(img) {
+        img.style.background = color;
+      });
+    }
+
+    function persistAvatarPreferences() {
+      var avatarChoiceInput = document.getElementById('avatarChoiceInput');
+      var avatarBackgroundInput = document.getElementById('avatarBackgroundInput');
+      var csrfToken = getCsrfToken();
+      if (!avatarBackgroundInput || !csrfToken) return;
+
+      var body = new URLSearchParams();
+      body.set('avatar_choice', avatarChoiceInput ? (avatarChoiceInput.value || '') : '');
+      body.set('avatar_background', avatarBackgroundInput.value || '');
+
+      fetch(avatarUpdateUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          'X-CSRFToken': csrfToken,
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: body.toString(),
+      }).then(function(response) {
+        if (!response.ok) throw new Error('Avatar update failed');
+        return response.json();
+      }).then(function(payload) {
+        if (!payload || !payload.ok) return;
+        if (avatarChoiceInput && payload.avatar_choice) {
+          avatarChoiceInput.value = payload.avatar_choice;
+        }
+        if (avatarBackgroundInput && payload.avatar_background) {
+          avatarBackgroundInput.value = payload.avatar_background;
+          avatarPickerState.pendingBackground = normalizeAvatarBackgroundKey(payload.avatar_background);
+        }
+        if (payload.avatar_url) {
+          setProfilePreviewByChoice(avatarChoiceInput ? avatarChoiceInput.value : payload.avatar_choice);
+        }
+        if (payload.avatar_background_color) {
+          setProfilePreviewBackgroundByKey(avatarPickerState.pendingBackground);
+          setAvatarPickerPreviewBackgroundByKey(avatarPickerState.pendingBackground);
+          applyGlobalAvatarBackgroundColor(payload.avatar_background_color);
+        }
+      }).catch(function() {
+        // Keep UI responsive even if network save fails; user can still Save profile manually.
+      });
+    }
+
+    function queuePersistAvatarPreferences(delayMs) {
+      if (avatarPersistTimer) {
+        clearTimeout(avatarPersistTimer);
+      }
+      avatarPersistTimer = setTimeout(function() {
+        persistAvatarPreferences();
+        avatarPersistTimer = null;
+      }, delayMs || 260);
     }
 
     function setProfilePreviewByChoice(path) {
@@ -1211,6 +1289,7 @@
         backgroundInput.value = normalizedBackground;
         setProfilePreviewBackgroundByKey(normalizedBackground);
       }
+      persistAvatarPreferences();
       closeAvatarPicker();
     }
 
@@ -1249,6 +1328,7 @@
         }
         setProfilePreviewBackgroundByKey(avatarPickerState.pendingBackground);
         setAvatarPickerPreviewBackgroundByKey(avatarPickerState.pendingBackground);
+        queuePersistAvatarPreferences(220);
       });
     }
 

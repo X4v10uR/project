@@ -14,6 +14,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from subscriptions.models import ReminderOffset, Subscription, SubscriptionParticipant, TeamSubscriptionRequest
 from subscriptions.notifications import create_notification, create_team_notifications
@@ -181,6 +182,38 @@ def settings(request):
             'hide_global_notifications': True,
             'suppress_base_messages': True,
         },
+    )
+
+
+@login_required
+@require_POST
+def settings_avatar_update(request):
+    avatar_choice = normalize_avatar_choice(request.POST.get('avatar_choice') or '')
+    avatar_background = normalize_avatar_background(request.POST.get('avatar_background') or '')
+
+    if avatar_choice and not is_valid_avatar_choice(avatar_choice):
+        return JsonResponse({'ok': False, 'error': 'invalid_avatar_choice'}, status=400)
+
+    user = request.user
+    update_fields = []
+    if avatar_choice and avatar_choice != user.avatar_choice:
+        user.avatar_choice = avatar_choice
+        update_fields.append('avatar_choice')
+    if avatar_background != user.avatar_background:
+        user.avatar_background = avatar_background
+        update_fields.append('avatar_background')
+
+    if update_fields:
+        user.save(update_fields=update_fields)
+
+    return JsonResponse(
+        {
+            'ok': True,
+            'avatar_choice': build_user_avatar_path(user),
+            'avatar_background': user.avatar_background,
+            'avatar_background_color': get_avatar_background_color(user.avatar_background),
+            'avatar_url': user.avatar_url,
+        }
     )
 
 

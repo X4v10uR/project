@@ -201,7 +201,7 @@
             <div class="teams-members-list">
                 {% for member in team_members %}
                 <div class="teams-member-row">
-                    <img class="teams-member-avatar" src="{{ member.user.avatar_url }}" alt="{{ member.user.email }}" />
+                    <img class="teams-member-avatar" src="{{ member.user.avatar_url }}" alt="{{ member.user.email }}" style="background: {{ member.user.avatar_background_color }};" />
                     <p class="teams-member-email">{{ member.user.email }}{% if member.user_id == request.user.id %}<span style="color:var(--teams-muted); font-size:0.75rem; margin-left:6px;">(you)</span>{% endif %}</p>
                     <div class="teams-member-actions">
                         <span class="teams-member-role {% if member.role == 'owner' %}owner{% else %}member{% endif %}">{{ member.role|title }}</span>

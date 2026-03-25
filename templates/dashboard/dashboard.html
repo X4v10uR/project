@@ -11,8 +11,8 @@
 <div class="dashboard-shell">
     <div class="dashboard-header flex items-center justify-between">
         <div class="flex items-center gap-4 min-w-0">
-            <div class="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center overflow-hidden shrink-0">
-                <img src="{{ request.user.avatar_url }}" alt="{{ request.user.email }}" class="w-full h-full object-cover">
+            <div class="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden shrink-0" style="background: {{ request.user.avatar_background_color }};">
+                <img src="{{ request.user.avatar_url }}" alt="{{ request.user.email }}" class="w-full h-full object-cover" style="background: {{ request.user.avatar_background_color }};">
             </div>
             <h1 class="text-2xl font-bold text-gray-800 truncate">Hello, {{ greeting_name }}!</h1>
         </div>

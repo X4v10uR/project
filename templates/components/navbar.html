@@ -25,6 +25,7 @@
                         class="app-tab-avatar"
                         src="{{ request.user.avatar_url }}"
                         alt="{{ request.user.email }}"
+                        style="background: {{ request.user.avatar_background_color }};"
                     />
                 </span>
                 <span class="app-tab-label-wrap">

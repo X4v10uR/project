@@ -3,7 +3,7 @@ from django.db import models
 from django.utils import timezone
 import hashlib
 
-from .avatar_utils import build_user_avatar_url
+from .avatar_utils import build_user_avatar_url, get_avatar_background_color
 
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -83,6 +83,10 @@ class User(AbstractUser):
     @property
     def avatar_url(self):
         return build_user_avatar_url(self)
+
+    @property
+    def avatar_background_color(self):
+        return get_avatar_background_color(getattr(self, 'avatar_background', ''))
 
 
 class Team(models.Model):

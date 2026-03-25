@@ -240,6 +240,45 @@ class SettingsViewTest(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.avatar_background, background_key)
 
+    def test_settings_avatar_update_endpoint_persists_choice_and_background(self):
+        self.client.force_login(self.user)
+        male_avatar_path = get_avatar_sections()['male'][0]['path']
+        background_key = get_avatar_background_options()[2]['key']
+
+        response = self.client.post(
+            reverse('accounts:settings_avatar_update'),
+            {
+                'avatar_choice': male_avatar_path,
+                'avatar_background': background_key,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload['ok'])
+        self.assertEqual(payload['avatar_choice'], male_avatar_path)
+        self.assertEqual(payload['avatar_background'], background_key)
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.avatar_choice, male_avatar_path)
+        self.assertEqual(self.user.avatar_background, background_key)
+
+    def test_settings_avatar_update_rejects_invalid_choice(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse('accounts:settings_avatar_update'),
+            {
+                'avatar_choice': 'male_memoji/not-real.svg',
+                'avatar_background': get_avatar_background_options()[0]['key'],
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        payload = response.json()
+        self.assertFalse(payload['ok'])
+        self.assertEqual(payload['error'], 'invalid_avatar_choice')
+
     def test_profile_settings_post_rejects_invalid_avatar_choice(self):
         self.client.force_login(self.user)
         response = self.client.post(
