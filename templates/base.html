@@ -153,12 +153,12 @@
             justify-content: center;
             pointer-events: none;
             z-index: 75;
-            transition: transform 260ms ease, opacity 220ms ease;
+            transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1), opacity 360ms ease;
             will-change: transform, opacity;
         }
 
         .app-tabbar-wrap.is-collapsed {
-            transform: translateY(104px);
+            transform: translateY(112px);
             opacity: 0;
             pointer-events: none;
         }
@@ -193,6 +193,8 @@
         .app-tab {
             --dock-scale: 1;
             --dock-lift: 0px;
+            --collapse-shift: 0px;
+            --collapse-scale: 1;
             border: 0;
             background: transparent;
             padding: 0;
@@ -201,9 +203,26 @@
             border-radius: 32px;
             text-decoration: none;
             transform-origin: center bottom;
-            transform: translateY(var(--dock-lift)) scale(var(--dock-scale));
+            transform: translateX(var(--collapse-shift)) translateY(var(--dock-lift)) scale(calc(var(--dock-scale) * var(--collapse-scale)));
             transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), color 240ms ease;
             position: relative;
+        }
+
+        .app-tabbar-wrap.is-collapsing .app-tab {
+            --collapse-scale: 0.92;
+            --dock-lift: 0px;
+            transition-duration: 240ms;
+        }
+
+        .app-tabbar-wrap.is-collapsing .app-tab-pill {
+            max-width: 52px !important;
+            padding: 0 12px !important;
+            gap: 0 !important;
+        }
+
+        .app-tabbar-wrap.is-collapsing .app-tab-label {
+            opacity: 0 !important;
+            transform: translateX(-8px) !important;
         }
 
         .app-tabbar.is-dock-active .app-tab {
@@ -898,12 +917,14 @@
                     var pointerInsideDock = false;
                     var hoverPopTimer = null;
                     var collapseTimer = null;
+                    var collapsePhaseTimer = null;
                     var hoverStateSyncTimer = null;
                     var lastPointerPosition = null;
                     var collapseBlockedUntil = 0;
                     var hoverGraceUntil = 0;
                     var hoverGraceRect = null;
                     var collapseDelayMs = 600;
+                    var collapseGatherDurationMs = 240;
                     var transitioningFromReveal = false;
 
                     function clearHoverPopTimer() {
@@ -917,6 +938,13 @@
                         if (collapseTimer !== null) {
                             window.clearTimeout(collapseTimer);
                             collapseTimer = null;
+                        }
+                    }
+
+                    function clearCollapsePhaseTimer() {
+                        if (collapsePhaseTimer !== null) {
+                            window.clearTimeout(collapsePhaseTimer);
+                            collapsePhaseTimer = null;
                         }
                     }
 
@@ -1028,6 +1056,27 @@
                         });
                     }
 
+                    function clearCollapseShifts() {
+                        dockItems.forEach(function (item) {
+                            item.style.removeProperty('--collapse-shift');
+                            item.style.removeProperty('--collapse-scale');
+                        });
+                    }
+
+                    function updateCollapseShiftsToCenter() {
+                        if (!dockItems.length) {
+                            return;
+                        }
+                        var barRect = tabbar.getBoundingClientRect();
+                        var barCenterX = barRect.left + (barRect.width / 2);
+                        dockItems.forEach(function (item) {
+                            var itemRect = item.getBoundingClientRect();
+                            var itemCenterX = itemRect.left + (itemRect.width / 2);
+                            var shift = barCenterX - itemCenterX;
+                            item.style.setProperty('--collapse-shift', shift.toFixed(2) + 'px');
+                        });
+                    }
+
                     function applyDockMagnification(clientX) {
                         if (prefersReducedMotion || !dockItems.length) {
                             return;
@@ -1057,11 +1106,32 @@
                         if (!tabbarWrap || !revealButton) {
                             return;
                         }
+                        if (tabbarWrap.classList.contains('is-collapsed')) {
+                            revealButton.classList.add('is-visible');
+                            return;
+                        }
+                        if (tabbarWrap.classList.contains('is-collapsing')) {
+                            return;
+                        }
                         clearHoverStateSyncTimer();
                         clearCollapseTimer();
+                        clearCollapsePhaseTimer();
                         resetDockMagnification();
-                        tabbarWrap.classList.add('is-collapsed');
-                        revealButton.classList.add('is-visible');
+                        if (prefersReducedMotion) {
+                            tabbarWrap.classList.remove('is-collapsing');
+                            tabbarWrap.classList.add('is-collapsed');
+                            revealButton.classList.add('is-visible');
+                            clearCollapseShifts();
+                            return;
+                        }
+
+                        updateCollapseShiftsToCenter();
+                        tabbarWrap.classList.add('is-collapsing');
+                        collapsePhaseTimer = window.setTimeout(function () {
+                            collapsePhaseTimer = null;
+                            tabbarWrap.classList.add('is-collapsed');
+                            revealButton.classList.add('is-visible');
+                        }, collapseGatherDurationMs);
                     }
 
                     function showTabbar() {
@@ -1071,7 +1141,10 @@
                         blockCollapseFor(800);
                         clearHoverStateSyncTimer();
                         clearCollapseTimer();
+                        clearCollapsePhaseTimer();
                         tabbarWrap.classList.remove('is-collapsed');
+                        tabbarWrap.classList.remove('is-collapsing');
+                        clearCollapseShifts();
                         revealButton.classList.remove('is-visible');
                         hoverStateSyncTimer = window.setTimeout(function () {
                             hoverStateSyncTimer = null;
