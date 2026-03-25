@@ -113,8 +113,18 @@
 
     .avatar-picker-overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 140; }
     .avatar-picker-overlay.is-open { display: flex; }
-    .avatar-picker-backdrop { position: absolute; inset: 0; background: rgba(13,13,16,.46); }
+    .avatar-picker-backdrop { position: absolute; inset: 0; background: rgba(13,13,16,.46); opacity: 0; }
     .avatar-picker-modal { position: relative; width: min(92vw, 940px); max-height: min(84vh, 760px); border-radius: 22px; border: 1px solid rgba(0,0,0,.08); background: #fff; box-shadow: 0 24px 44px -28px rgba(15,23,42,.5); overflow: hidden; display: flex; flex-direction: column; }
+    .avatar-picker-overlay.is-open .avatar-picker-backdrop { animation: avatar-picker-backdrop-in .2s ease forwards; }
+    .avatar-picker-overlay.is-open .avatar-picker-modal { animation: avatar-picker-modal-in .24s cubic-bezier(.2,.75,.25,1) forwards; }
+    @keyframes avatar-picker-backdrop-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes avatar-picker-modal-in {
+      from { opacity: 0; transform: translateY(10px) scale(.985); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
     .avatar-picker-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border-bottom: 1px solid rgba(0,0,0,.06); }
     .avatar-picker-title { font-size: 16px; font-weight: 800; color: var(--dark); }
     .avatar-picker-close { border: 0; background: #f5f5ef; width: 34px; height: 34px; border-radius: 10px; color: var(--dark); font-size: 20px; line-height: 1; cursor: pointer; }
@@ -157,6 +167,10 @@
       .avatar-picker-filters { grid-template-columns: 1fr; }
       .avatar-picker-body { grid-template-columns: 1fr; max-height: none; }
       .avatar-picker-grid-wrap { border-right: none; border-bottom: 1px solid rgba(0,0,0,.06); max-height: 42vh; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .avatar-picker-overlay.is-open .avatar-picker-backdrop,
+      .avatar-picker-overlay.is-open .avatar-picker-modal { animation: none; opacity: 1; transform: none; }
     }
   </style>
 {% endblock %}
