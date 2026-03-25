@@ -54,6 +54,7 @@ class User(AbstractUser):
     display_name = models.CharField(max_length=120, blank=True)
     bio = models.CharField(max_length=280, blank=True)
     profile_photo = models.ImageField(upload_to='profile_photos/', null=True, blank=True)
+    avatar_choice = models.CharField(max_length=255, blank=True, default='')
     timezone = models.CharField(max_length=64, default='UTC')
     preferred_currency = models.CharField(max_length=3, default='USD')
     subscription_plan = models.CharField(

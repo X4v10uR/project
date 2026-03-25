@@ -20,6 +20,12 @@ from subscriptions.notifications import create_notification, create_team_notific
 from subscriptions.money import monthly_equivalent
 from subscriptions.services import record_due_charge_for_subscription
 
+from .avatar_utils import (
+    build_user_avatar_path,
+    get_avatar_sections,
+    is_valid_avatar_choice,
+    normalize_avatar_choice,
+)
 from .forms import (
     AccountDeletionForm,
     BillingSettingsForm,
@@ -132,10 +138,17 @@ def settings(request):
     updated = request.GET.get('updated', '')
     active_settings_section = SETTINGS_SECTION_MAP.get(updated, active_settings_section)
     selected_timezone = (profile_form['timezone'].value() or request.user.timezone or 'UTC').strip()
+
+    selected_avatar_choice = normalize_avatar_choice(profile_form['avatar_choice'].value() or '')
+    if not is_valid_avatar_choice(selected_avatar_choice):
+        selected_avatar_choice = build_user_avatar_path(request.user)
+    avatar_sections = get_avatar_sections()
+
     if selected_timezone and selected_timezone not in TIMEZONE_CHOICES:
         timezone_choices = (selected_timezone,) + TIMEZONE_CHOICES
     else:
         timezone_choices = TIMEZONE_CHOICES
+
     return render(
         request,
         'accounts/settings.html',
@@ -153,6 +166,8 @@ def settings(request):
             'active_settings_section': active_settings_section,
             'updated_form': updated,
             'timezone_choices': timezone_choices,
+            'avatar_sections': avatar_sections,
+            'selected_avatar_choice': selected_avatar_choice,
             'hide_global_notifications': True,
             'suppress_base_messages': True,
         },

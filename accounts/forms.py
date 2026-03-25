@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from .avatar_utils import is_valid_avatar_choice, normalize_avatar_choice
 from .models import Team, TeamMembership, User
 
 class CustomUserCreationForm(UserCreationForm):
@@ -23,11 +24,24 @@ class ProfileSettingsForm(forms.ModelForm):
             'last_name',
             'display_name',
             'email',
-            'profile_photo',
+            'avatar_choice',
             'bio',
             'timezone',
             'preferred_currency',
         )
+
+    def clean_avatar_choice(self):
+        raw_avatar_choice = self.cleaned_data.get('avatar_choice') or ''
+        avatar_choice = normalize_avatar_choice(raw_avatar_choice)
+
+        if not avatar_choice:
+            current_choice = normalize_avatar_choice(getattr(self.instance, 'avatar_choice', ''))
+            return current_choice
+
+        if not is_valid_avatar_choice(avatar_choice):
+            raise forms.ValidationError('Please select a valid avatar from the picker.')
+
+        return avatar_choice
 
     def clean_timezone(self):
         tz = (self.cleaned_data.get('timezone') or 'UTC').strip()

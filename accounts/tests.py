@@ -2,13 +2,12 @@ from django.test import TestCase, Client
 from django.test import override_settings
 from django.urls import reverse
 from django.contrib.auth import get_user_model
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
-import tempfile
 
+from accounts.avatar_utils import build_user_avatar_url, get_avatar_sections
 from accounts.models import Team, TeamInvite, TeamMembership
 from accounts.services import create_team_invite
 from subscriptions.models import InAppNotification, Subscription, TeamSubscriptionRequest, Transaction
@@ -98,6 +97,10 @@ class SettingsViewTest(TestCase):
         response = self.client.get(reverse('accounts:settings'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Save profile')
+        self.assertContains(response, 'Select Avatar')
+        self.assertContains(response, 'Male')
+        self.assertContains(response, 'Female')
+        self.assertContains(response, 'Dice')
         self.assertContains(response, 'Save plan metadata')
         self.assertContains(response, 'Save preferences')
         self.assertContains(response, 'Change password')
@@ -142,40 +145,90 @@ class SettingsViewTest(TestCase):
         self.assertEqual(self.user.timezone, 'UTC')
         self.assertEqual(self.user.preferred_currency, 'EUR')
 
-    def test_profile_settings_post_updates_profile_photo(self):
+    def test_profile_settings_post_updates_avatar_choice(self):
         self.client.force_login(self.user)
-        tiny_gif = (
-            b'GIF87a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff'
-            b'!\xf9\x04\x00\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00'
-            b'\x00\x02\x02D\x01\x00;'
-        )
-        upload = SimpleUploadedFile(
-            'avatar.gif',
-            tiny_gif,
-            content_type='image/gif',
-        )
+        male_avatar_path = get_avatar_sections()['male'][0]['path']
 
-        with tempfile.TemporaryDirectory() as temp_media_root:
-            with override_settings(MEDIA_ROOT=temp_media_root):
-                response = self.client.post(
-                    reverse('accounts:settings'),
-                    {
-                        'form_type': 'profile',
-                        'first_name': self.user.first_name,
-                        'last_name': self.user.last_name,
-                        'display_name': '',
-                        'email': self.user.email,
-                        'bio': '',
-                        'timezone': 'UTC',
-                        'preferred_currency': 'USD',
-                        'profile_photo': upload,
-                    },
-                )
+        response = self.client.post(
+            reverse('accounts:settings'),
+            {
+                'form_type': 'profile',
+                'first_name': self.user.first_name,
+                'last_name': self.user.last_name,
+                'display_name': '',
+                'email': self.user.email,
+                'bio': '',
+                'timezone': 'UTC',
+                'preferred_currency': 'USD',
+                'avatar_choice': male_avatar_path,
+            },
+        )
 
         self.assertEqual(response.status_code, 302)
         self.assertIn('?updated=profile', response.url)
         self.user.refresh_from_db()
-        self.assertTrue(self.user.profile_photo.name.startswith('profile_photos/'))
+        self.assertEqual(self.user.avatar_choice, male_avatar_path)
+        self.assertIn('male_memoji', build_user_avatar_url(self.user))
+
+    def test_profile_settings_post_rejects_invalid_avatar_choice(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse('accounts:settings'),
+            {
+                'form_type': 'profile',
+                'first_name': self.user.first_name,
+                'last_name': self.user.last_name,
+                'display_name': '',
+                'email': self.user.email,
+                'bio': '',
+                'timezone': 'UTC',
+                'preferred_currency': 'USD',
+                'avatar_choice': 'male_memoji/not-valid.svg',
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Please select a valid avatar from the picker.')
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.avatar_choice, '')
+
+    def test_profile_settings_post_updates_female_avatar_choice(self):
+        self.client.force_login(self.user)
+        female_avatar_path = get_avatar_sections()['female'][0]['path']
+
+        response = self.client.post(
+            reverse('accounts:settings'),
+            {
+                'form_type': 'profile',
+                'first_name': self.user.first_name,
+                'last_name': self.user.last_name,
+                'display_name': '',
+                'email': self.user.email,
+                'bio': '',
+                'timezone': 'UTC',
+                'preferred_currency': 'USD',
+                'avatar_choice': female_avatar_path,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('?updated=profile', response.url)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.avatar_choice, female_avatar_path)
+        self.assertIn('female_memoji', build_user_avatar_url(self.user))
+
+    def test_avatar_url_uses_memoji_even_when_profile_photo_exists(self):
+        self.client.force_login(self.user)
+        male_avatar_path = get_avatar_sections()['male'][0]['path']
+
+        self.user.profile_photo = 'profile_photos/legacy-avatar.jpg'
+        self.user.avatar_choice = male_avatar_path
+        self.user.save(update_fields=['profile_photo', 'avatar_choice'])
+
+        avatar_url = build_user_avatar_url(self.user)
+        self.assertIn('/static/', avatar_url)
+        self.assertIn('male_memoji', avatar_url)
+        self.assertNotIn('/media/', avatar_url)
 
     def test_billing_settings_post_updates_plan_fields(self):
         self.client.force_login(self.user)
