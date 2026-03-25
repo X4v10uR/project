@@ -7,7 +7,11 @@ from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
-from accounts.avatar_utils import build_user_avatar_url, get_avatar_sections
+from accounts.avatar_utils import (
+    build_user_avatar_url,
+    get_avatar_sections,
+    parse_avatar_filename_metadata,
+)
 from accounts.models import Team, TeamInvite, TeamMembership
 from accounts.services import create_team_invite
 from subscriptions.models import InAppNotification, Subscription, TeamSubscriptionRequest, Transaction
@@ -77,6 +81,28 @@ class AuthRequiredTest(TestCase):
         self.assertIn('/accounts/login/', response.url)
 
 
+class AvatarMetadataExtractionTest(TestCase):
+    def test_parse_avatar_filename_person_pattern(self):
+        metadata = parse_avatar_filename_metadata(
+            'Person=Alfred, Skin Tone=Black, Posture=1 Happy.svg'
+        )
+        self.assertEqual(metadata['person'], 'Alfred')
+        self.assertEqual(metadata['skin_tone'], 'Black')
+        self.assertEqual(metadata['posture'], 1)
+        self.assertEqual(metadata['mood_raw'], 'Happy')
+        self.assertEqual(metadata['mood_label'], 'Happy')
+
+    def test_parse_avatar_filename_character_pattern(self):
+        metadata = parse_avatar_filename_metadata(
+            'Character=Angela, Skin tone=White, Posture=2 Luaghing.svg'
+        )
+        self.assertEqual(metadata['person'], 'Angela')
+        self.assertEqual(metadata['skin_tone'], 'White')
+        self.assertEqual(metadata['posture'], 2)
+        self.assertEqual(metadata['mood_raw'], 'Luaghing')
+        self.assertEqual(metadata['mood_label'], 'Laughing')
+
+
 class SettingsViewTest(TestCase):
     def setUp(self):
         self.client = Client()
@@ -101,6 +127,18 @@ class SettingsViewTest(TestCase):
         self.assertContains(response, 'Male')
         self.assertContains(response, 'Female')
         self.assertContains(response, 'Dice')
+        self.assertContains(response, 'id="avatarFilterPerson"', html=False)
+        self.assertContains(response, 'id="avatarFilterSkinTone"', html=False)
+        self.assertContains(response, 'id="avatarFilterPosture"', html=False)
+        self.assertContains(response, 'id="avatarFilterMood"', html=False)
+        self.assertContains(response, 'No avatars match the current filters.')
+
+        male_sample = response.context['avatar_sections']['male'][0]
+        self.assertIn('person', male_sample)
+        self.assertIn('skin_tone', male_sample)
+        self.assertIn('posture', male_sample)
+        self.assertIn('mood_raw', male_sample)
+        self.assertIn('mood_label', male_sample)
         self.assertContains(response, 'Save plan metadata')
         self.assertContains(response, 'Save preferences')
         self.assertContains(response, 'Change password')

@@ -1,6 +1,7 @@
 from functools import lru_cache
 import hashlib
 from pathlib import Path
+import re
 from urllib.parse import quote, unquote
 
 from django.conf import settings
@@ -9,6 +10,14 @@ from django.templatetags.static import static
 
 _SUPPORTED_IMAGE_SUFFIXES = {".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp"}
 _MEMOJI_SECTIONS = ("male_memoji", "female_memoji")
+_AVATAR_FILENAME_PATTERN = re.compile(
+    r"^(?:Person|Character)=(?P<person>[^,]+),\s*"
+    r"Skin\s*[Tt]one=(?P<skin_tone>[^,]+),\s*"
+    r"Posture=(?P<posture>\d+)\s+(?P<mood>.+)$"
+)
+_MOOD_LABEL_FIXUPS = {
+    "luaghing": "Laughing",
+}
 
 
 @lru_cache(maxsize=1)
@@ -46,6 +55,49 @@ def _memoji_path_set():
     for section in _MEMOJI_SECTIONS:
         valid.update(catalog.get(section, []))
     return valid
+
+
+def _to_title_case(value):
+    parts = (value or "").strip().split()
+    return " ".join(part[:1].upper() + part[1:].lower() if part else "" for part in parts)
+
+
+def _friendly_mood_label(mood_raw):
+    normalized_mood = (mood_raw or "").strip()
+    if not normalized_mood:
+        return ""
+
+    fixed = _MOOD_LABEL_FIXUPS.get(normalized_mood.lower())
+    if fixed:
+        return fixed
+
+    return _to_title_case(normalized_mood)
+
+
+def parse_avatar_filename_metadata(filename):
+    stem = Path(filename or "").stem.strip()
+    match = _AVATAR_FILENAME_PATTERN.match(stem)
+    if not match:
+        return {
+            "person": "",
+            "skin_tone": "",
+            "posture": 0,
+            "mood_raw": "",
+            "mood_label": "",
+        }
+
+    person = match.group("person").strip()
+    skin_tone = _to_title_case(match.group("skin_tone"))
+    posture = int(match.group("posture"))
+    mood_raw = match.group("mood").strip()
+
+    return {
+        "person": person,
+        "skin_tone": skin_tone,
+        "posture": posture,
+        "mood_raw": mood_raw,
+        "mood_label": _friendly_mood_label(mood_raw),
+    }
 
 
 def _stable_digest(seed):
@@ -111,11 +163,19 @@ def get_avatar_sections():
     catalog = _memoji_path_catalog()
     return {
         "male": [
-            {"path": path, "url": build_avatar_url_from_path(path)}
+            {
+                "path": path,
+                "url": build_avatar_url_from_path(path),
+                **parse_avatar_filename_metadata(Path(path).name),
+            }
             for path in catalog["male_memoji"]
         ],
         "female": [
-            {"path": path, "url": build_avatar_url_from_path(path)}
+            {
+                "path": path,
+                "url": build_avatar_url_from_path(path),
+                **parse_avatar_filename_metadata(Path(path).name),
+            }
             for path in catalog["female_memoji"]
         ],
     }
