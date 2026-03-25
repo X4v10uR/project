@@ -211,7 +211,8 @@
         .app-tabbar-wrap.is-collapsing .app-tab {
             --collapse-scale: 0.92;
             --dock-lift: 0px;
-            transition-duration: 240ms;
+            transition-duration: 320ms;
+            transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
         }
 
         .app-tabbar-wrap.is-collapsing .app-tab-pill {
@@ -423,12 +424,12 @@
             height: 46px;
             border: 1px solid rgba(255, 255, 255, 0.78);
             border-radius: 999px;
-            background: rgba(17, 25, 40, 0.88);
-            color: var(--tabbar-accent);
+            background: rgba(255, 255, 255, 0.88);
             box-shadow: 0 20px 34px -30px rgba(15, 23, 42, 0.8);
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            overflow: hidden;
             opacity: 0;
             pointer-events: none;
             transition: opacity 180ms ease, transform 180ms ease;
@@ -439,14 +440,30 @@
         .app-tabbar-reveal.is-visible {
             opacity: 1;
             pointer-events: auto;
-            transform: translateX(-50%) translateY(0);
+            transform: translateX(-50%) translateY(0) scale(1.16);
         }
 
-        .app-tabbar-reveal svg {
-            width: 20px;
-            height: 20px;
+        .app-tabbar-reveal-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
             display: block;
-            stroke: currentColor;
+            border: 1.5px solid rgba(255, 255, 255, 0.92);
+        }
+
+        .app-tabbar-reveal-avatar-fallback {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1.5px solid rgba(255, 255, 255, 0.92);
+            color: #111827;
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1;
         }
 
         .app-tab-logout-form {
@@ -676,10 +693,22 @@
         </div>
         <button id="tabbar-reveal-toggle" class="app-tabbar-reveal" type="button" aria-label="Show navigation bar"
             title="Show navigation">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                aria-hidden="true">
-                <path d="M6 14l6-6 6 6"></path>
-            </svg>
+            {% if request.user.avatar_url %}
+            <img
+                class="app-tabbar-reveal-avatar"
+                src="{{ request.user.avatar_url }}"
+                alt="{{ request.user.email }}"
+                style="background: {{ request.user.avatar_background_color }};"
+            />
+            {% else %}
+            <span
+                class="app-tabbar-reveal-avatar-fallback"
+                style="background: {{ request.user.avatar_background_color }};"
+                aria-hidden="true"
+            >
+                {% if request.user.first_name %}{{ request.user.first_name|slice:":1"|upper }}{% else %}{{ request.user.email|default:"U"|slice:":1"|upper }}{% endif %}
+            </span>
+            {% endif %}
         </button>
         {% endif %}
 
@@ -924,7 +953,7 @@
                     var hoverGraceUntil = 0;
                     var hoverGraceRect = null;
                     var collapseDelayMs = 600;
-                    var collapseGatherDurationMs = 240;
+                    var collapseGatherDurationMs = 320;
                     var transitioningFromReveal = false;
 
                     function clearHoverPopTimer() {
