@@ -93,6 +93,25 @@
     position: relative;
     overflow: hidden;
     width: 100%;
+    /* Fade edges so sliding cards don't look sharply clipped at the viewport. */
+    -webkit-mask-image: linear-gradient(
+        to right,
+        transparent 0%,
+        #000 4%,
+        #000 96%,
+        transparent 100%
+    );
+    mask-image: linear-gradient(
+        to right,
+        transparent 0%,
+        #000 4%,
+        #000 96%,
+        transparent 100%
+    );
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
 }
 
 .dashboard-upcoming-track {
@@ -450,6 +469,8 @@ body.route-dashboard .app-main-shell {
     .dashboard-upcoming-marquee {
         overflow-x: auto;
         padding-bottom: 0.25rem;
+        -webkit-mask-image: none;
+        mask-image: none;
     }
 
     .dashboard-upcoming-track {
