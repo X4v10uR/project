@@ -343,11 +343,6 @@
     white-space: nowrap;
 }
 
-.dashboard-upcoming-marquee:hover .dashboard-upcoming-track,
-.dashboard-upcoming-marquee:focus-within .dashboard-upcoming-track {
-    animation-play-state: paused;
-}
-
 @keyframes dashboard-upcoming-scroll {
     from {
         transform: translateX(0);

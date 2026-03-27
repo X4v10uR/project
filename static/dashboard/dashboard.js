@@ -75,6 +75,7 @@ function initDashboardPage() {
     initBalanceTrendChart();
     registerCleanup(initBalanceTrendToggle());
     registerCleanup(initBalanceAdjuster());
+    registerCleanup(initUpcomingMarqueePause());
     registerCleanup(initActiveSubscriptionsScroller());
     registerCleanup(initDashboardOverflowGuard(dashboardRoot));
 
@@ -308,6 +309,162 @@ function initBalanceTrendToggle() {
 
     return function cleanupBalanceTrendToggle() {
         toggle.removeEventListener('click', onClick);
+    };
+}
+
+function initUpcomingMarqueePause() {
+    const marquee = document.querySelector('.dashboard-upcoming-marquee');
+    if (!marquee) {
+        return null;
+    }
+
+    const track = marquee.querySelector('.dashboard-upcoming-track');
+    if (!track) {
+        return null;
+    }
+
+    const smoothStopDurationMs = 1250;
+    let rafId = null;
+    let tweenToken = 0;
+    let shouldRemainStopped = false;
+
+    const easeOutCubic = function (value) {
+        return 1 - Math.pow(1 - value, 3);
+    };
+
+    const getTrackAnimation = function () {
+        if (typeof track.getAnimations !== 'function') {
+            return null;
+        }
+        const animations = track.getAnimations();
+        if (!animations.length) {
+            return null;
+        }
+        return animations[0];
+    };
+
+    const clearTweenFrame = function () {
+        if (rafId === null) {
+            return;
+        }
+        window.cancelAnimationFrame(rafId);
+        rafId = null;
+    };
+
+    const tweenPlaybackRate = function (targetRate, durationMs, done) {
+        const animation = getTrackAnimation();
+        if (!animation || typeof animation.playbackRate !== 'number') {
+            track.style.animationPlayState = targetRate <= 0 ? 'paused' : 'running';
+            if (typeof done === 'function') {
+                done(null);
+            }
+            return;
+        }
+
+        const token = ++tweenToken;
+        const fromRate = animation.playbackRate;
+        const startTime = performance.now();
+
+        clearTweenFrame();
+
+        const step = function (timestamp) {
+            if (token !== tweenToken) {
+                return;
+            }
+
+            const elapsed = timestamp - startTime;
+            const progress = Math.min(1, elapsed / durationMs);
+            const eased = easeOutCubic(progress);
+            animation.playbackRate = fromRate + ((targetRate - fromRate) * eased);
+
+            if (progress >= 1) {
+                rafId = null;
+                animation.playbackRate = targetRate;
+                if (typeof done === 'function') {
+                    done(animation);
+                }
+                return;
+            }
+
+            rafId = window.requestAnimationFrame(step);
+        };
+
+        rafId = window.requestAnimationFrame(step);
+    };
+
+    const smoothStop = function () {
+        shouldRemainStopped = true;
+        const animation = getTrackAnimation();
+        if (animation) {
+            animation.play();
+            animation.playbackRate = Math.max(animation.playbackRate || 1, 0.0001);
+        } else {
+            track.style.animationPlayState = 'running';
+        }
+
+        tweenPlaybackRate(0, smoothStopDurationMs, function (activeAnimation) {
+            if (!shouldRemainStopped) {
+                return;
+            }
+            if (activeAnimation) {
+                activeAnimation.pause();
+                activeAnimation.playbackRate = 1;
+            } else {
+                track.style.animationPlayState = 'paused';
+            }
+        });
+    };
+
+    const resume = function () {
+        shouldRemainStopped = false;
+        tweenToken += 1;
+        clearTweenFrame();
+
+        const animation = getTrackAnimation();
+        if (animation) {
+            animation.playbackRate = 1;
+            animation.play();
+        }
+        track.style.animationPlayState = 'running';
+    };
+
+    const onPointerEnter = function () {
+        smoothStop();
+    };
+
+    const onPointerLeave = function () {
+        resume();
+    };
+
+    const onFocusIn = function () {
+        smoothStop();
+    };
+
+    const onFocusOut = function (event) {
+        if (marquee.contains(event.relatedTarget)) {
+            return;
+        }
+        resume();
+    };
+
+    marquee.addEventListener('pointerenter', onPointerEnter);
+    marquee.addEventListener('pointerleave', onPointerLeave);
+    marquee.addEventListener('focusin', onFocusIn);
+    marquee.addEventListener('focusout', onFocusOut);
+
+    return function cleanupUpcomingMarqueePause() {
+        tweenToken += 1;
+        clearTweenFrame();
+        marquee.removeEventListener('pointerenter', onPointerEnter);
+        marquee.removeEventListener('pointerleave', onPointerLeave);
+        marquee.removeEventListener('focusin', onFocusIn);
+        marquee.removeEventListener('focusout', onFocusOut);
+        const animation = getTrackAnimation();
+        if (animation) {
+            animation.playbackRate = 1;
+            animation.play();
+        }
+        track.style.removeProperty('animation-play-state');
     };
 }
 
