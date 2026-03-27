@@ -155,36 +155,15 @@
                 </div>
             </section>
 
-            <section class="dashboard-balance-stats dashboard-p6 rounded-3xl shadow-sm">
-                <div class="dashboard-balance-stats-header">
+            <section class="bg-white dashboard-p6 rounded-3xl shadow-sm">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
                         <h3 class="text-xl font-bold text-gray-800">Balance & Stats</h3>
-                        <p class="text-sm text-gray-500">Quick overview and update control.</p>
+                        <p class="text-sm text-gray-500">Moved to a dedicated screen. Charts and deeper insights coming next.</p>
                     </div>
-                    <span class="dashboard-balance-stats-pill">Live Snapshot</span>
-                </div>
-
-                <div class="dashboard-metric-grid">
-                    <article class="dashboard-metric-card dashboard-metric-card-wide">
-                        <p class="dashboard-metric-label">Total Upcoming Bill Balance</p>
-                        <p class="dashboard-metric-value">{{ stats_upcoming_bill_balance_display }}</p>
-                    </article>
-                    <article class="dashboard-metric-card dashboard-metric-card-wide">
-                        <p class="dashboard-metric-label">Total Subscriptions Balance</p>
-                        <p class="dashboard-metric-value">{{ stats_total_subscriptions_balance_display }}</p>
-                    </article>
-                    <article class="dashboard-metric-card">
-                        <p class="dashboard-metric-label">Total Active</p>
-                        <p class="dashboard-metric-value">{{ stats_total_active }}</p>
-                    </article>
-                    <article class="dashboard-metric-card">
-                        <p class="dashboard-metric-label">Total Paused</p>
-                        <p class="dashboard-metric-value">{{ stats_total_paused }}</p>
-                    </article>
-                    <article class="dashboard-metric-card dashboard-metric-card-wide">
-                        <p class="dashboard-metric-label">Total Cancelled</p>
-                        <p class="dashboard-metric-value">{{ stats_total_cancelled }}</p>
-                    </article>
+                    <a href="{% url 'dashboard:balance_stats' %}{% if dashboard_scope and dashboard_scope != 'personal' %}?scope={{ dashboard_scope }}{% endif %}" class="inline-flex items-center justify-center px-4 py-2 rounded-full border border-gray-300 text-sm font-medium text-gray-700 hover:text-gray-900 hover:border-gray-400">
+                        Open Screen
+                    </a>
                 </div>
             </section>
         </div>

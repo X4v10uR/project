@@ -38,6 +38,19 @@ class DashboardViewTest(TestCase):
                      'balance_display', 'balance_base_display', 'balance_adjustment_display']:
             self.assertIn(key, response.context)
 
+    def test_balance_stats_page_renders_with_context(self):
+        response = self.client.get(reverse('dashboard:balance_stats'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'dashboard/balance_stats.html')
+        for key in [
+            'stats_upcoming_bill_balance_display',
+            'stats_total_subscriptions_balance_display',
+            'stats_total_active',
+            'stats_total_paused',
+            'stats_total_cancelled',
+        ]:
+            self.assertIn(key, response.context)
+
     def test_dashboard_fixed_slot_sections_are_padded_when_empty(self):
         response = self.client.get(reverse('dashboard:home'))
         self.assertEqual(len(response.context['upcoming_bills']), 3)

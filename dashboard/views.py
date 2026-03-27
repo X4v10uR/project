@@ -38,6 +38,19 @@ def home(request):
 
 
 @login_required
+def balance_stats_page(request):
+    scope = (request.GET.get('scope') or 'personal').lower()
+    context = build_dashboard_view_model(request.user, scope=scope)
+    context.update(
+        {
+            'hide_global_notifications': True,
+            'suppress_base_messages': True,
+        }
+    )
+    return render(request, 'dashboard/balance_stats.html', context)
+
+
+@login_required
 @require_POST
 def adjust_balance(request):
     try:
