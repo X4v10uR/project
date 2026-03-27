@@ -744,6 +744,9 @@
                     if (path.startsWith('/dashboard/notifications/')) {
                         return 'notifications';
                     }
+                    if (path.startsWith('/dashboard/balance-stats')) {
+                        return 'stats';
+                    }
                     if (path.startsWith('/dashboard/')) {
                         return 'dashboard';
                     }

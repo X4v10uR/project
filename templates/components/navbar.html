@@ -42,9 +42,9 @@
 
         <a
             href="{% url 'dashboard:home' %}"
-            class="app-tab {% if ns == 'dashboard' and name != 'notifications_page' %}is-active active{% endif %}"
+            class="app-tab {% if ns == 'dashboard' and name != 'notifications_page' and name != 'balance_stats' %}is-active active{% endif %}"
             data-tab-key="dashboard"
-            {% if ns == 'dashboard' and name != 'notifications_page' %}aria-current="page"{% endif %}
+            {% if ns == 'dashboard' and name != 'notifications_page' and name != 'balance_stats' %}aria-current="page"{% endif %}
         >
             <span class="app-tab-pill">
                 <span class="app-tab-icon">
@@ -57,6 +57,27 @@
                 </span>
                 <span class="app-tab-label-wrap">
                     <span class="app-tab-label">Dashboard</span>
+                </span>
+            </span>
+        </a>
+
+        <a
+            href="{% url 'dashboard:balance_stats' %}"
+            class="app-tab {% if name == 'balance_stats' %}is-active active{% endif %}"
+            data-tab-key="stats"
+            {% if name == 'balance_stats' %}aria-current="page"{% endif %}
+        >
+            <span class="app-tab-pill">
+                <span class="app-tab-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M4 19.5h16"></path>
+                        <rect x="5.5" y="12.5" width="3.8" height="7" rx="1.2"></rect>
+                        <rect x="10.1" y="9.5" width="3.8" height="10" rx="1.2"></rect>
+                        <rect x="14.7" y="6.5" width="3.8" height="13" rx="1.2"></rect>
+                    </svg>
+                </span>
+                <span class="app-tab-label-wrap">
+                    <span class="app-tab-label">Stats</span>
                 </span>
             </span>
         </a>
