@@ -51,6 +51,11 @@ class DashboardViewTest(TestCase):
         ]:
             self.assertIn(key, response.context)
 
+    def test_balance_stats_global_alias_route_resolves(self):
+        response = self.client.get(reverse('balance_stats'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'dashboard/balance_stats.html')
+
     def test_dashboard_fixed_slot_sections_are_padded_when_empty(self):
         response = self.client.get(reverse('dashboard:home'))
         self.assertEqual(len(response.context['upcoming_bills']), 3)

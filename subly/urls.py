@@ -26,6 +26,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('accounts.urls')),
     path('subscriptions/', include('subscriptions.urls')),
+    path('dashboard/balance-stats/', dashboard_views.balance_stats_page, name='balance_stats'),
     path('dashboard/', include('dashboard.urls')),
     path('', dashboard_views.landing_page, name='landing'),
 ]
