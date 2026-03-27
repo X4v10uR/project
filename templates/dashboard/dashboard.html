@@ -4,7 +4,7 @@
 {% block title %}Dashboard - Subly{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'dashboard/dashboard.css' %}?v=20260325-2">
+<link rel="stylesheet" href="{% static 'dashboard/dashboard.css' %}?v=20260327-1">
 {% endblock %}
 
 {% block content %}
@@ -92,7 +92,12 @@
 
             <section>
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xl font-bold text-gray-800">Upcoming Bill</h3>
+                    <h3 class="dashboard-section-title text-xl font-bold text-gray-800">
+                        <span>Upcoming Bill</span>
+                        <span class="dashboard-count-badge" aria-label="{{ upcoming_renewals|length }} upcoming bills">
+                            {{ upcoming_renewals|length }}
+                        </span>
+                    </h3>
                     <a href="{{ upcoming_view_all_url }}" class="text-sm text-gray-600 hover:text-gray-800 px-4 py-2 border border-gray-300 rounded-full">View All</a>
                 </div>
 
@@ -186,7 +191,12 @@
 
         <div class="dashboard-right">
             <section class="bg-white dashboard-p6 rounded-3xl shadow-sm">
-                <h3 class="text-lg font-bold text-gray-800 mb-4">Active Subscriptions</h3>
+                <h3 class="dashboard-section-title text-lg font-bold text-gray-800 mb-4">
+                    <span>Active Subscriptions</span>
+                    <span class="dashboard-count-badge" aria-label="{{ total_active }} active subscriptions">
+                        {{ total_active }}
+                    </span>
+                </h3>
 
                 <div class="js-active-subscriptions-viewport" data-visible-cards="2" data-scroll-interval="2000">
                     <div class="js-active-subscriptions-track">
