@@ -18,6 +18,7 @@ from .models import (
     Subscription,
     SubscriptionParticipant,
     TeamSubscriptionRequest,
+    Transaction,
 )
 from .notifications import create_notification, create_team_notifications
 from .forms import SubscriptionForm, CardForm
@@ -137,6 +138,70 @@ def _assign_subscription_card_meta(subscriptions):
             sub.renewal_text_class = "text-yellow-300" if is_dark else "text-orange-600"
         else:
             sub.renewal_text_class = sub.card_text_class
+
+
+def _ordinal_day(day):
+    if 10 <= day % 100 <= 20:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
+    return f"{day}{suffix}"
+
+
+def _assign_subscription_drawer_meta(subscriptions):
+    if not subscriptions:
+        return
+
+    transaction_map = {subscription.pk: [] for subscription in subscriptions}
+    recent_transactions = (
+        Transaction.objects.filter(subscription_id__in=transaction_map.keys())
+        .order_by("-charged_for_date", "-charged_at")
+    )
+
+    for txn in recent_transactions:
+        bucket = transaction_map.get(txn.subscription_id)
+        if bucket is None or len(bucket) >= 3:
+            continue
+        bucket.append(txn)
+
+    for subscription in subscriptions:
+        total_cost = Decimal(subscription.cost or 0)
+        user_cost = Decimal(subscription.user_cost or 0)
+
+        share_percent = 100
+        if total_cost > 0:
+            share_percent = int(
+                (user_cost * Decimal("100") / total_cost).quantize(Decimal("1"))
+            )
+        share_percent = max(0, min(share_percent, 100))
+
+        share_width = share_percent
+        if user_cost > 0 and share_width < 12:
+            share_width = 12
+
+        subscription.drawer_share_percent = share_percent
+        subscription.drawer_share_width = max(0, min(share_width, 100))
+        subscription.drawer_billing_label = subscription.get_billing_cycle_display()
+        if subscription.renewal_date:
+            subscription.drawer_billing_label = (
+                f"{subscription.get_billing_cycle_display()}, "
+                f"{_ordinal_day(subscription.renewal_date.day)}"
+            )
+
+        if subscription.is_shared and subscription.participant_count > 0:
+            subscription.drawer_participant_label = (
+                f"{subscription.participant_count + 1} People"
+            )
+        else:
+            subscription.drawer_participant_label = "Only me"
+
+        if subscription.card:
+            brand_label = (subscription.card.brand or subscription.card.nickname or "").strip().upper()
+            subscription.drawer_card_brand = brand_label or "CARD"
+        else:
+            subscription.drawer_card_brand = ""
+
+        subscription.drawer_transactions = transaction_map.get(subscription.pk, [])
 
 
 def _calculate_subscription_stats(subscriptions):
@@ -809,6 +874,7 @@ def subscription_list(request):
     subscriptions = list(subscriptions)
     base_subscriptions = list(_base_subscription_queryset(request))
     _assign_subscription_card_meta(subscriptions)
+    _assign_subscription_drawer_meta(subscriptions)
     stats = _calculate_subscription_stats(base_subscriptions)
     burn_metrics = _calculate_subscription_burn_metrics(base_subscriptions)
     filters_active = bool(

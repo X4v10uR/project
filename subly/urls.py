@@ -17,8 +17,10 @@ Including another URLconf
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import path, include
+from django.contrib.staticfiles.views import serve as serve_staticfiles
 from django.shortcuts import redirect
+from django.urls import path, include, re_path
+from django.views.static import serve as serve_media
 
 from dashboard import views as dashboard_views
 
@@ -33,3 +35,9 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+if not settings.DEBUG:
+    urlpatterns += [
+        re_path(r"^static/(?P<path>.*)$", serve_staticfiles, {"insecure": True}),
+        re_path(r"^media/(?P<path>.*)$", serve_media, {"document_root": settings.MEDIA_ROOT}),
+    ]

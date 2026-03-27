@@ -800,6 +800,9 @@
                     if (normalized.startsWith('/dashboard/')) {
                         return '{% static "dashboard/dashboard.js" %}?v=20260327-5';
                     }
+                    if (normalized === '/subscriptions/') {
+                        return '{% static "subscriptions/list.js" %}?v=20260327-2';
+                    }
                     if (normalized.startsWith('/subscriptions/cards/')) {
                         return '{% static "subscriptions/cards.js" %}';
                     }
@@ -814,6 +817,11 @@
                     if (normalized.startsWith('/dashboard/')) {
                         return [
                             '{% static "dashboard/dashboard.css" %}?v=20260327-1'
+                        ];
+                    }
+                    if (normalized === '/subscriptions/') {
+                        return [
+                            '{% static "subscriptions/list.css" %}?v=20260327-2'
                         ];
                     }
                     if (normalized.startsWith('/subscriptions/cards/')) {
@@ -849,9 +857,26 @@
 
                         var existing = document.querySelector('script[src="' + src + '"]');
                         if (existing) {
-                            loadedScripts[src] = 'loaded';
-                            resolve();
-                            return;
+                            if (existing.dataset.sublyManaged === '1') {
+                                if (existing.dataset.sublyLoadState === 'loaded') {
+                                    loadedScripts[src] = 'loaded';
+                                    resolve();
+                                    return;
+                                }
+
+                                if (existing.dataset.sublyLoadState === 'loading') {
+                                    existing.addEventListener('load', resolve, { once: true });
+                                    existing.addEventListener('error', reject, { once: true });
+                                    return;
+                                }
+
+                                existing.remove();
+                                delete loadedScripts[src];
+                            } else {
+                                loadedScripts[src] = 'loaded';
+                                resolve();
+                                return;
+                            }
                         }
 
                         if (loadedScripts[src] && loadedScripts[src].node) {
@@ -863,11 +888,15 @@
                         var script = document.createElement('script');
                         script.src = src;
                         script.async = false;
+                        script.dataset.sublyManaged = '1';
+                        script.dataset.sublyLoadState = 'loading';
                         script.onload = function () {
+                            script.dataset.sublyLoadState = 'loaded';
                             loadedScripts[src] = 'loaded';
                             resolve();
                         };
                         script.onerror = function () {
+                            script.dataset.sublyLoadState = 'error';
                             loadedScripts[src] = 'error';
                             reject(new Error('Failed to load script: ' + src));
                         };
@@ -895,9 +924,26 @@
 
                         var existing = document.querySelector('link[rel="stylesheet"][href="' + href + '"]');
                         if (existing) {
-                            loadedStyles[href] = 'loaded';
-                            resolve();
-                            return;
+                            if (existing.dataset.sublyManaged === '1') {
+                                if (existing.dataset.sublyLoadState === 'loaded') {
+                                    loadedStyles[href] = 'loaded';
+                                    resolve();
+                                    return;
+                                }
+
+                                if (existing.dataset.sublyLoadState === 'loading') {
+                                    existing.addEventListener('load', resolve, { once: true });
+                                    existing.addEventListener('error', reject, { once: true });
+                                    return;
+                                }
+
+                                existing.remove();
+                                delete loadedStyles[href];
+                            } else {
+                                loadedStyles[href] = 'loaded';
+                                resolve();
+                                return;
+                            }
                         }
 
                         if (loadedStyles[href] && loadedStyles[href].node) {
@@ -909,11 +955,15 @@
                         var link = document.createElement('link');
                         link.rel = 'stylesheet';
                         link.href = href;
+                        link.dataset.sublyManaged = '1';
+                        link.dataset.sublyLoadState = 'loading';
                         link.onload = function () {
+                            link.dataset.sublyLoadState = 'loaded';
                             loadedStyles[href] = 'loaded';
                             resolve();
                         };
                         link.onerror = function () {
+                            link.dataset.sublyLoadState = 'error';
                             loadedStyles[href] = 'error';
                             reject(new Error('Failed to load stylesheet: ' + href));
                         };
@@ -923,12 +973,34 @@
                     });
                 }
 
+                function pruneManagedStyles(activeHrefs) {
+                    window.SUBLY_RUNTIME = window.SUBLY_RUNTIME || {};
+                    window.SUBLY_RUNTIME.loadedStyles = window.SUBLY_RUNTIME.loadedStyles || {};
+                    var loadedStyles = window.SUBLY_RUNTIME.loadedStyles;
+                    var activeMap = {};
+
+                    (activeHrefs || []).forEach(function (href) {
+                        activeMap[href] = true;
+                    });
+
+                    document.querySelectorAll('link[rel="stylesheet"][data-subly-managed="1"]').forEach(function (link) {
+                        var href = link.getAttribute('href');
+                        if (activeMap[href]) {
+                            return;
+                        }
+                        link.remove();
+                        delete loadedStyles[href];
+                    });
+                }
+
                 function prepareCurrentView() {
                     applyRouteLayout(window.location.pathname);
-                    var stylePromises = stylesForPath(window.location.pathname).map(loadStyleOnce);
+                    var activeStyleHrefs = stylesForPath(window.location.pathname);
+                    var stylePromises = activeStyleHrefs.map(loadStyleOnce);
                     return Promise.all(stylePromises)
                         .catch(function () { })
                         .then(function () {
+                            pruneManagedStyles(activeStyleHrefs);
                             return loadScriptOnce(scriptForPath(window.location.pathname));
                         })
                         .catch(function () { })
