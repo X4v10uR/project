@@ -780,8 +780,10 @@
                     var normalized = normalizePath(path);
                     var isTeamsRoute = normalized.startsWith('/accounts/teams/');
                     var isDashboardRoute = normalized.startsWith('/dashboard/');
+                    var isDashboardHomeRoute = normalized === '/dashboard/' || normalized === '/dashboard';
                     document.body.classList.toggle('route-teams', isTeamsRoute);
                     document.body.classList.toggle('route-dashboard', isDashboardRoute);
+                    document.body.classList.toggle('route-dashboard-home', isDashboardHomeRoute);
                 }
 
                 function dispatchContentLoaded() {
