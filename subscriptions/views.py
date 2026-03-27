@@ -159,6 +159,49 @@ def _calculate_subscription_stats(subscriptions):
     }
 
 
+def _calculate_subscription_burn_metrics(subscriptions):
+    active_monthly_spend = Decimal("0")
+    tracked_monthly_spend = Decimal("0")
+    active_count = 0
+    tracked_count = 0
+
+    for subscription in subscriptions:
+        if subscription.status == "cancelled":
+            continue
+
+        tracked_count += 1
+        tracked_monthly_spend += monthly_equivalent(
+            subscription.user_cost,
+            subscription.billing_cycle,
+        )
+
+        if subscription.status == "active":
+            active_count += 1
+            active_monthly_spend += monthly_equivalent(
+                subscription.user_cost,
+                subscription.billing_cycle,
+            )
+
+    active_share_percent = 0
+    if tracked_monthly_spend > 0:
+        active_share_percent = int(
+            (active_monthly_spend * Decimal("100") / tracked_monthly_spend).quantize(Decimal("1"))
+        )
+
+    active_share_width = active_share_percent
+    if active_monthly_spend > 0 and active_share_width < 12:
+        active_share_width = 12
+
+    return {
+        "active_monthly_spend": active_monthly_spend,
+        "tracked_monthly_spend": tracked_monthly_spend,
+        "active_count": active_count,
+        "tracked_count": tracked_count,
+        "active_share_percent": max(0, min(active_share_percent, 100)),
+        "active_share_width": max(0, min(active_share_width, 100)),
+    }
+
+
 def _parse_participants_data(request):
     participant_names = request.POST.getlist('participant_name')
     participant_shares = request.POST.getlist('participant_share')
@@ -767,6 +810,7 @@ def subscription_list(request):
     base_subscriptions = list(_base_subscription_queryset(request))
     _assign_subscription_card_meta(subscriptions)
     stats = _calculate_subscription_stats(base_subscriptions)
+    burn_metrics = _calculate_subscription_burn_metrics(base_subscriptions)
     filters_active = bool(
         filters.get("query")
         or filters.get("status_filter")
@@ -783,6 +827,7 @@ def subscription_list(request):
             'subscriptions_total': len(base_subscriptions),
             'subscriptions_filtered_total': len(subscriptions),
             'subscriptions_stats': stats,
+            'subscriptions_burn_metrics': burn_metrics,
             'filters_active': filters_active,
             **filters,
         },
