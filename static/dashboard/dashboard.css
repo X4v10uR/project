@@ -93,6 +93,8 @@
     position: relative;
     overflow: hidden;
     width: 100%;
+    padding-top: 0.2rem;
+    padding-bottom: 0.8rem;
     /* Fade edges so sliding cards don't look sharply clipped at the viewport. */
     -webkit-mask-image: linear-gradient(
         to right,
@@ -262,6 +264,12 @@
     flex: 0 0 clamp(17.5rem, 28vw, 20.5rem);
 }
 
+.dashboard-upcoming-card-v2.card-hover:hover,
+.dashboard-upcoming-card-v2.card-hover:focus-within {
+    border-radius: 1.4rem;
+    overflow: hidden;
+}
+
 .dashboard-upcoming-card-v2-strip {
     height: 3.45rem;
     border-radius: 9999px;
@@ -426,6 +434,11 @@ body.route-dashboard .app-main-shell {
         flex-basis: clamp(15.5rem, 23vw, 18.3rem);
     }
 
+    .dashboard-home-shell .dashboard-upcoming-marquee {
+        padding-top: 0.15rem;
+        padding-bottom: 0.65rem;
+    }
+
     .dashboard-home-shell .dashboard-upcoming-card-v2-strip {
         height: 2.9rem;
     }
@@ -468,7 +481,7 @@ body.route-dashboard .app-main-shell {
 @media (prefers-reduced-motion: reduce) {
     .dashboard-upcoming-marquee {
         overflow-x: auto;
-        padding-bottom: 0.25rem;
+        padding-bottom: 0.6rem;
         -webkit-mask-image: none;
         mask-image: none;
     }
