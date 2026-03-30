@@ -67,6 +67,20 @@
         }
     }
 
+    function setStatusPending(subscriptionId, isPending) {
+        document.querySelectorAll('.status-dropdown-wrapper[data-subscription-id="' + subscriptionId + '"]')
+            .forEach(function (wrapper) {
+                wrapper.dataset.statusPending = isPending ? '1' : '0';
+                const btn = wrapper.querySelector('.status-btn');
+                if (btn) {
+                    btn.disabled = isPending;
+                }
+                wrapper.querySelectorAll('.status-option').forEach(function (option) {
+                    option.disabled = isPending;
+                });
+            });
+    }
+
     function initStatusDropdowns(scope) {
         const root = scope || document;
         const wrappers = root.querySelectorAll('.status-dropdown-wrapper');
@@ -90,6 +104,9 @@
 
             btn.addEventListener('click', function (event) {
                 event.stopPropagation();
+                if (wrapper.dataset.statusPending === '1') {
+                    return;
+                }
                 document.querySelectorAll('.status-menu').forEach(function (node) {
                     if (node !== menu) {
                         node.classList.add('hidden');
@@ -109,6 +126,11 @@
                         return;
                     }
 
+                    if (wrapper.dataset.statusPending === '1') {
+                        return;
+                    }
+
+                    setStatusPending(subId, true);
                     syncAllStatusWrappers(subId, newStatus);
                     menu.classList.add('hidden');
 
@@ -134,6 +156,9 @@
                         .catch(function () {
                             syncAllStatusWrappers(subId, currentStatus);
                             showToast('Failed to update');
+                        })
+                        .finally(function () {
+                            setStatusPending(subId, false);
                         });
                 });
             });

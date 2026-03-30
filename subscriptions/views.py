@@ -83,6 +83,11 @@ CATEGORY_COLOR_MAP = {
     "fitness": "#F4C3A8",
 }
 
+ALLOWED_STATUS_FILTERS = {choice for choice, _ in Subscription.STATUS_CHOICES}
+ALLOWED_BILLING_CYCLES = {choice for choice, _ in Subscription.BILLING_CYCLE_CHOICES}
+ALLOWED_SHARED_FILTERS = {"", "true", "false"}
+ALLOWED_SORT_FIELDS = {"cost", "renewal_date", "service_name"}
+
 
 def _hex_to_rgb(value):
     raw = (value or "").strip()
@@ -204,16 +209,55 @@ def _assign_subscription_drawer_meta(subscriptions):
         subscription.drawer_transactions = transaction_map.get(subscription.pk, [])
 
 
+def _normalize_currency_code(raw_currency):
+    currency = (raw_currency or "USD").strip().upper()
+    return currency or "USD"
+
+
+def _format_currency_amount(amount, currency):
+    if currency == "USD":
+        return f"${amount:.2f}"
+    return f"{currency} {amount:.2f}"
+
+
+def _accumulate_monthly_spend_by_currency(subscriptions):
+    totals = {}
+    for subscription in subscriptions:
+        currency = _normalize_currency_code(subscription.currency)
+        totals[currency] = totals.get(currency, Decimal("0")) + monthly_equivalent(
+            subscription.user_cost,
+            subscription.billing_cycle,
+        )
+    return totals
+
+
+def _format_spend_display(spend_by_currency):
+    if not spend_by_currency:
+        return "$0.00"
+    if len(spend_by_currency) > 1:
+        return "Multiple currencies"
+
+    currency, amount = next(iter(spend_by_currency.items()))
+    return _format_currency_amount(amount, currency)
+
+
 def _calculate_subscription_stats(subscriptions):
     total = len(subscriptions)
     active = sum(1 for s in subscriptions if s.status == "active")
     paused = sum(1 for s in subscriptions if s.status == "paused")
     cancelled = sum(1 for s in subscriptions if s.status == "cancelled")
-    monthly_spend = Decimal("0")
-    for sub in subscriptions:
-        if sub.status != "active":
-            continue
-        monthly_spend += monthly_equivalent(sub.user_cost, sub.billing_cycle)
+    active_subscriptions = [sub for sub in subscriptions if sub.status == "active"]
+    spend_by_currency = _accumulate_monthly_spend_by_currency(active_subscriptions)
+    is_mixed_currency = len(spend_by_currency) > 1
+
+    if not spend_by_currency:
+        monthly_spend = Decimal("0")
+        monthly_spend_currency = "USD"
+    elif is_mixed_currency:
+        monthly_spend = None
+        monthly_spend_currency = "MIXED"
+    else:
+        monthly_spend_currency, monthly_spend = next(iter(spend_by_currency.items()))
 
     return {
         "total": total,
@@ -221,12 +265,15 @@ def _calculate_subscription_stats(subscriptions):
         "paused": paused,
         "cancelled": cancelled,
         "monthly_spend": monthly_spend,
+        "monthly_spend_currency": monthly_spend_currency,
+        "monthly_spend_display": _format_spend_display(spend_by_currency),
+        "monthly_spend_is_mixed": is_mixed_currency,
     }
 
 
 def _calculate_subscription_burn_metrics(subscriptions):
-    active_monthly_spend = Decimal("0")
-    tracked_monthly_spend = Decimal("0")
+    active_subscriptions = []
+    tracked_subscriptions = []
     active_count = 0
     tracked_count = 0
 
@@ -234,34 +281,68 @@ def _calculate_subscription_burn_metrics(subscriptions):
         if subscription.status == "cancelled":
             continue
 
+        tracked_subscriptions.append(subscription)
         tracked_count += 1
-        tracked_monthly_spend += monthly_equivalent(
-            subscription.user_cost,
-            subscription.billing_cycle,
-        )
 
         if subscription.status == "active":
+            active_subscriptions.append(subscription)
             active_count += 1
-            active_monthly_spend += monthly_equivalent(
-                subscription.user_cost,
-                subscription.billing_cycle,
-            )
+
+    active_spend_by_currency = _accumulate_monthly_spend_by_currency(active_subscriptions)
+    tracked_spend_by_currency = _accumulate_monthly_spend_by_currency(tracked_subscriptions)
+    spend_is_mixed = len(tracked_spend_by_currency) > 1
 
     active_share_percent = 0
-    if tracked_monthly_spend > 0:
+    share_basis = "count"
+    active_monthly_spend = Decimal("0")
+    tracked_monthly_spend = Decimal("0")
+    active_monthly_spend_currency = "USD"
+    tracked_monthly_spend_currency = "USD"
+
+    if not spend_is_mixed and tracked_spend_by_currency:
+        tracked_monthly_spend_currency, tracked_monthly_spend = next(
+            iter(tracked_spend_by_currency.items())
+        )
+        active_monthly_spend_currency = tracked_monthly_spend_currency
+        active_monthly_spend = active_spend_by_currency.get(
+            tracked_monthly_spend_currency, Decimal("0")
+        )
+        if tracked_monthly_spend > 0:
+            share_basis = "spend"
+            active_share_percent = int(
+                (active_monthly_spend * Decimal("100") / tracked_monthly_spend).quantize(
+                    Decimal("1")
+                )
+            )
+
+    if share_basis != "spend" and tracked_count > 0:
         active_share_percent = int(
-            (active_monthly_spend * Decimal("100") / tracked_monthly_spend).quantize(Decimal("1"))
+            (Decimal(active_count) * Decimal("100") / Decimal(tracked_count)).quantize(
+                Decimal("1")
+            )
         )
 
+    if spend_is_mixed:
+        active_monthly_spend = None
+        tracked_monthly_spend = None
+        active_monthly_spend_currency = "MIXED"
+        tracked_monthly_spend_currency = "MIXED"
+
     active_share_width = active_share_percent
-    if active_monthly_spend > 0 and active_share_width < 12:
+    if active_share_percent > 0 and active_share_width < 12:
         active_share_width = 12
 
     return {
         "active_monthly_spend": active_monthly_spend,
         "tracked_monthly_spend": tracked_monthly_spend,
+        "active_monthly_spend_currency": active_monthly_spend_currency,
+        "tracked_monthly_spend_currency": tracked_monthly_spend_currency,
+        "active_monthly_spend_display": _format_spend_display(active_spend_by_currency),
+        "tracked_monthly_spend_display": _format_spend_display(tracked_spend_by_currency),
         "active_count": active_count,
         "tracked_count": tracked_count,
+        "active_share_basis": share_basis,
+        "spend_is_mixed": spend_is_mixed,
         "active_share_percent": max(0, min(active_share_percent, 100)),
         "active_share_width": max(0, min(active_share_width, 100)),
     }
@@ -821,12 +902,21 @@ def _base_subscription_queryset(request):
 
 
 def _build_subscription_list_state(request):
-    query = request.GET.get('q', '')
-    status_filter = request.GET.get('status', '')
-    cycle_filter = request.GET.get('cycle', '')
-    shared_filter = request.GET.get('shared', '')
-    due_within = request.GET.get('due_within', '')
-    sort_by = request.GET.get('sort', 'renewal_date')
+    query = request.GET.get('q', '').strip()
+    status_filter = request.GET.get('status', '').strip().lower()
+    cycle_filter = request.GET.get('cycle', '').strip().lower()
+    shared_filter = request.GET.get('shared', '').strip().lower()
+    due_within_raw = request.GET.get('due_within', '').strip()
+    sort_by = request.GET.get('sort', 'renewal_date').strip()
+
+    if status_filter not in ALLOWED_STATUS_FILTERS:
+        status_filter = ''
+    if cycle_filter not in ALLOWED_BILLING_CYCLES:
+        cycle_filter = ''
+    if shared_filter not in ALLOWED_SHARED_FILTERS:
+        shared_filter = ''
+    if sort_by not in ALLOWED_SORT_FIELDS:
+        sort_by = 'renewal_date'
 
     subscriptions = _base_subscription_queryset(request)
 
@@ -838,13 +928,17 @@ def _build_subscription_list_state(request):
         subscriptions = subscriptions.filter(billing_cycle=cycle_filter)
     if shared_filter == 'true':
         subscriptions = subscriptions.filter(is_shared=True)
+    if shared_filter == 'false':
+        subscriptions = subscriptions.filter(is_shared=False)
 
     due_within_days = None
-    if due_within:
+    due_within = ''
+    if due_within_raw:
         try:
-            parsed_due_within = int(due_within)
+            parsed_due_within = int(due_within_raw)
             if 1 <= parsed_due_within <= 365:
                 due_within_days = parsed_due_within
+                due_within = str(parsed_due_within)
         except (TypeError, ValueError):
             due_within_days = None
 
@@ -854,8 +948,7 @@ def _build_subscription_list_state(request):
             renewal_date__range=[today, today + timedelta(days=due_within_days)]
         )
 
-    if sort_by in ['cost', 'renewal_date', 'service_name']:
-        subscriptions = subscriptions.order_by(sort_by)
+    subscriptions = subscriptions.order_by(sort_by)
 
     filters = {
         'query': query,

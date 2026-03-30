@@ -80,27 +80,18 @@
         </svg>
         Monthly Spend
       </div>
-      <p class="subscriptions-stat-value">
-        {% if subscriptions_stats.monthly_spend %}
-          ${{ subscriptions_stats.monthly_spend|floatformat:2 }}
+      <p class="subscriptions-stat-value">{{ subscriptions_stats.monthly_spend_display }}</p>
+      <p class="subscriptions-stat-caption">
+        {% if subscriptions_stats.monthly_spend_is_mixed %}
+          active across currencies
         {% else %}
-          $0.00
+          active monthly equivalent
         {% endif %}
       </p>
-      <p class="subscriptions-stat-caption">active monthly equivalent</p>
     </article>
   </section>
 
   <form method="get" class="subscriptions-filters">
-    {% if due_within %}
-      <input type="hidden" name="due_within" value="{{ due_within }}">
-    {% endif %}
-    {% if cycle_filter %}
-      <input type="hidden" name="cycle" value="{{ cycle_filter }}">
-    {% endif %}
-    {% if shared_filter %}
-      <input type="hidden" name="shared" value="{{ shared_filter }}">
-    {% endif %}
     <div class="subscriptions-filter-layout">
       <label class="subscriptions-search" for="subscriptions-query">
         <svg class="subscriptions-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -140,6 +131,40 @@
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
           </label>
+          <label class="subscriptions-select" for="subscriptions-cycle">
+            <select id="subscriptions-cycle" name="cycle" class="subscriptions-select-control">
+              <option value="" {% if not cycle_filter %}selected{% endif %}>All Cycles</option>
+              <option value="weekly" {% if cycle_filter == 'weekly' %}selected{% endif %}>Weekly</option>
+              <option value="monthly" {% if cycle_filter == 'monthly' %}selected{% endif %}>Monthly</option>
+              <option value="yearly" {% if cycle_filter == 'yearly' %}selected{% endif %}>Yearly</option>
+            </select>
+            <svg class="subscriptions-select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </label>
+          <label class="subscriptions-select" for="subscriptions-shared">
+            <select id="subscriptions-shared" name="shared" class="subscriptions-select-control">
+              <option value="" {% if not shared_filter %}selected{% endif %}>All Plans</option>
+              <option value="true" {% if shared_filter == 'true' %}selected{% endif %}>Shared only</option>
+              <option value="false" {% if shared_filter == 'false' %}selected{% endif %}>Solo only</option>
+            </select>
+            <svg class="subscriptions-select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </label>
+          <label class="subscriptions-select" for="subscriptions-due-within">
+            <select id="subscriptions-due-within" name="due_within" class="subscriptions-select-control">
+              <option value="" {% if not due_within %}selected{% endif %}>Any renewal date</option>
+              <option value="7" {% if due_within == '7' %}selected{% endif %}>Due within 7 days</option>
+              <option value="14" {% if due_within == '14' %}selected{% endif %}>Due within 14 days</option>
+              <option value="30" {% if due_within == '30' %}selected{% endif %}>Due within 30 days</option>
+              <option value="60" {% if due_within == '60' %}selected{% endif %}>Due within 60 days</option>
+              <option value="90" {% if due_within == '90' %}selected{% endif %}>Due within 90 days</option>
+            </select>
+            <svg class="subscriptions-select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </label>
           <button type="submit" class="subscriptions-apply">Apply</button>
           <a href="{% url 'subscriptions:list' %}" class="subscriptions-clear">Clear</a>
         </div>
@@ -153,8 +178,10 @@
         {% if cycle_filter %}
           <span class="subscriptions-helper-chip">Cycle: {{ cycle_filter|title }}</span>
         {% endif %}
-        {% if shared_filter %}
+        {% if shared_filter == 'true' %}
           <span class="subscriptions-helper-chip">Shared only</span>
+        {% elif shared_filter == 'false' %}
+          <span class="subscriptions-helper-chip">Solo only</span>
         {% endif %}
       </div>
     {% endif %}
@@ -311,7 +338,7 @@
         </div>
         {% if filters_active %}
           <h3 class="subscriptions-empty-title">No subscriptions match this view</h3>
-          <p class="subscriptions-empty-copy">Try broadening the search, clearing the status filter, or removing the carried-over helper filters to bring your full portfolio back into focus.</p>
+          <p class="subscriptions-empty-copy">Try broadening the search, adjusting cycle and shared filters, or clearing all filters to bring your full portfolio back into focus.</p>
           <a href="{% url 'subscriptions:list' %}" class="subscriptions-action">Clear Filters</a>
         {% else %}
           <h3 class="subscriptions-empty-title">No subscriptions yet</h3>
@@ -327,7 +354,11 @@
       <div class="subscriptions-burn-copy">
         <h2>Monthly Burn Rate</h2>
         {% if subscriptions_burn_metrics.tracked_count %}
-          <p>Active subscriptions account for {{ subscriptions_burn_metrics.active_share_percent }}% of your tracked recurring portfolio right now, giving you an immediate sense of how much of your catalog is still actively billing.</p>
+          {% if subscriptions_burn_metrics.active_share_basis == 'spend' %}
+            <p>Active subscriptions account for {{ subscriptions_burn_metrics.active_share_percent }}% of your tracked recurring spend right now, giving you an immediate sense of where your billing pressure sits this month.</p>
+          {% else %}
+            <p>Active subscriptions account for {{ subscriptions_burn_metrics.active_share_percent }}% of your tracked catalog right now. Share is count-based because your plans include multiple currencies.</p>
+          {% endif %}
         {% else %}
           <p>Add active subscriptions to start seeing how your recurring portfolio is distributed month over month.</p>
         {% endif %}
@@ -336,19 +367,11 @@
         </div>
         <div class="subscriptions-burn-scale">
           <span>
-            {% if subscriptions_burn_metrics.active_monthly_spend %}
-              ${{ subscriptions_burn_metrics.active_monthly_spend|floatformat:2 }}
-            {% else %}
-              $0.00
-            {% endif %}
+            {{ subscriptions_burn_metrics.active_monthly_spend_display }}
             active
           </span>
           <span>
-            {% if subscriptions_burn_metrics.tracked_monthly_spend %}
-              ${{ subscriptions_burn_metrics.tracked_monthly_spend|floatformat:2 }}
-            {% else %}
-              $0.00
-            {% endif %}
+            {{ subscriptions_burn_metrics.tracked_monthly_spend_display }}
             tracked
           </span>
         </div>

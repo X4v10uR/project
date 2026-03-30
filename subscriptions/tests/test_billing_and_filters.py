@@ -50,6 +50,94 @@ class SubscriptionListAndPrefillTest(TestCase):
         self.assertEqual(len(subs), 1)
         self.assertEqual(subs[0].pk, near.pk)
 
+    def test_invalid_due_within_is_ignored_and_not_marked_active(self):
+        Subscription.objects.create(
+            user=self.user,
+            service_name='Single Service',
+            category='Streaming',
+            billing_cycle='monthly',
+            cost=Decimal('10.00'),
+            start_date=date.today(),
+            status='active',
+        )
+
+        response = self.client.get(reverse('subscriptions:list'), {'due_within': 'abc'})
+
+        self.assertEqual(response.context['due_within'], '')
+        self.assertFalse(response.context['filters_active'])
+        self.assertEqual(
+            response.context['subscriptions_filtered_total'],
+            response.context['subscriptions_total'],
+        )
+        self.assertNotContains(response, 'Due within abc')
+
+    def test_shared_filter_false_returns_only_solo_subscriptions(self):
+        today = date.today()
+        shared = Subscription.objects.create(
+            user=self.user,
+            service_name='Shared Plan',
+            category='Streaming',
+            billing_cycle='monthly',
+            cost=Decimal('15.00'),
+            is_shared=True,
+            start_date=today,
+            status='active',
+        )
+        solo = Subscription.objects.create(
+            user=self.user,
+            service_name='Solo Plan',
+            category='Utilities',
+            billing_cycle='monthly',
+            cost=Decimal('9.00'),
+            is_shared=False,
+            start_date=today,
+            status='active',
+        )
+        SubscriptionParticipant.objects.create(
+            subscription=shared,
+            name='Alex',
+            share_amount=Decimal('5.00'),
+        )
+
+        response = self.client.get(reverse('subscriptions:list'), {'shared': 'false'})
+        subs = list(response.context['subscriptions'])
+
+        self.assertEqual(len(subs), 1)
+        self.assertEqual(subs[0].pk, solo.pk)
+
+    def test_mixed_currency_metrics_use_safe_display_and_count_share(self):
+        today = date.today()
+        Subscription.objects.create(
+            user=self.user,
+            service_name='USD Active',
+            category='Software',
+            billing_cycle='monthly',
+            cost=Decimal('10.00'),
+            currency='USD',
+            start_date=today,
+            status='active',
+        )
+        Subscription.objects.create(
+            user=self.user,
+            service_name='PKR Active',
+            category='Utilities',
+            billing_cycle='monthly',
+            cost=Decimal('3000.00'),
+            currency='PKR',
+            start_date=today,
+            status='active',
+        )
+
+        response = self.client.get(reverse('subscriptions:list'))
+        stats = response.context['subscriptions_stats']
+        burn_metrics = response.context['subscriptions_burn_metrics']
+
+        self.assertTrue(stats['monthly_spend_is_mixed'])
+        self.assertEqual(stats['monthly_spend_display'], 'Multiple currencies')
+        self.assertTrue(burn_metrics['spend_is_mixed'])
+        self.assertEqual(burn_metrics['active_share_basis'], 'count')
+        self.assertEqual(burn_metrics['active_share_percent'], 100)
+
     def test_create_form_prefills_safe_query_params(self):
         response = self.client.get(
             reverse('subscriptions:create'),
