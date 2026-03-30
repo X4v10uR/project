@@ -112,18 +112,74 @@
   <script>
     const BASE = "https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/";
 
-    const ICONS = [
-      "netflix", "google", "google-cloud", "paramount-plus",
-      "github", "gitlab", "discord", "slack", "notion", "figma",
-      "stripe", "shopify", "hubspot", "paypal", "spotify", "zoom",
-      "dropbox", "cloudflare", "docker", "mongodb", "redis",
-      "vercel", "supabase", "linear", "asana", "trello",
-      "twitch", "airbnb", "apple", "microsoft",
-      "aws", "azure", "digitalocean", "postgresql",
-      "nginx", "wordpress", "grafana", "prometheus",
-      "kubernetes", "terraform", "plex", "jellyfin",
-      "nextcloud", "bitwarden", "gitea", "pihole",
-      "portainer", "traefik", "vaultwarden", "influxdb"
+    const SERVICE_ICON_MAP = [
+      { name: "Netflix", preferred: ["netflix"] },
+      { name: "Disney+", preferred: ["disney-plus"] },
+      { name: "Amazon Prime Video", preferred: ["amazon-prime-video", "amazon-prime", "amazon"] },
+      { name: "Hulu", preferred: ["hulu"] },
+      { name: "HBO Max", preferred: ["hbo-max", "max"] },
+      { name: "Apple TV+", preferred: ["apple-tv-plus", "apple-tv", "apple"] },
+      { name: "Paramount+", preferred: ["paramount-plus"] },
+      { name: "Peacock", preferred: ["peacock"] },
+      { name: "Crunchyroll", preferred: ["crunchyroll"] },
+      { name: "Discovery+", preferred: ["discovery-plus", "hbo-max", "paramount-plus"] },
+      { name: "Viu", preferred: ["viu", "youtube"] },
+      { name: "Shudder", preferred: ["shudder", "hbo-max"] },
+      { name: "BritBox", preferred: ["britbox", "paramount-plus"] },
+      { name: "YouTube Premium", preferred: ["youtube-premium", "youtube"] },
+      { name: "CuriosityStream", preferred: ["curiositystream", "youtube"] },
+      { name: "Spotify", preferred: ["spotify"] },
+      { name: "Apple Music", preferred: ["apple-music", "apple"] },
+      { name: "YouTube Music", preferred: ["youtube-music", "youtube"] },
+      { name: "Amazon Music", preferred: ["amazon-music", "amazon"] },
+      { name: "Tidal", preferred: ["tidal"] },
+      { name: "Deezer", preferred: ["deezer"] },
+      { name: "Google One", preferred: ["google-one", "google"] },
+      { name: "iCloud+", preferred: ["icloud-plus", "icloud", "apple"] },
+      { name: "Dropbox", preferred: ["dropbox"] },
+      { name: "Microsoft 365", preferred: ["microsoft-365", "microsoft"] },
+      { name: "Notion", preferred: ["notion"] },
+      { name: "Evernote", preferred: ["evernote", "notion"] },
+      { name: "Canva Pro", preferred: ["canva-pro", "canva", "adobe"] },
+      { name: "Adobe Creative Cloud", preferred: ["adobe-creative-cloud", "adobe"] },
+      { name: "Xbox Game Pass", preferred: ["xbox-game-pass", "xbox"] },
+      { name: "PlayStation Plus", preferred: ["playstation-plus", "playstation"] },
+      { name: "Nintendo Switch Online", preferred: ["nintendo-switch-online", "nintendo-switch", "nintendo"] },
+      { name: "EA Play", preferred: ["ea-play", "electronic-arts"] },
+      { name: "Ubisoft+", preferred: ["ubisoft-plus", "ubisoft", "playstation"] },
+      { name: "Apple Arcade", preferred: ["apple-arcade", "apple"] },
+      { name: "Google Play Pass", preferred: ["google-play-pass", "google-play", "google"] },
+      { name: "Audible", preferred: ["audible"] },
+      { name: "Kindle Unlimited", preferred: ["kindle-unlimited", "amazon"] },
+      { name: "Coursera Plus", preferred: ["coursera-plus", "coursera"] },
+      { name: "Skillshare", preferred: ["skillshare", "coursera"] },
+      { name: "MasterClass", preferred: ["masterclass", "coursera"] },
+      { name: "Duolingo Plus", preferred: ["duolingo-plus", "duolingo"] },
+      { name: "Patreon", preferred: ["patreon"] },
+      { name: "Substack", preferred: ["substack", "patreon"] }
+    ];
+
+    const FALLBACK_ICONS = [
+      "google",
+      "youtube",
+      "amazon",
+      "apple",
+      "microsoft",
+      "dropbox",
+      "spotify",
+      "patreon",
+      "coursera",
+      "adobe",
+      "playstation",
+      "xbox",
+      "hbo-max",
+      "paramount-plus",
+      "disney-plus",
+      "paypal",
+      "docker",
+      "cloudflare",
+      "github",
+      "discord"
     ];
 
     const BITMAPS = {
@@ -149,9 +205,43 @@
 
     const CELL = 54;
     const GAP = 7;
-    const pool = [...ICONS].sort(() => Math.random() - 0.5);
+    const pool = [...SERVICE_ICON_MAP].sort(() => Math.random() - 0.5);
     let iconIdx = 0;
     let animStep = 0;
+
+    function rotatePool(list, startIndex) {
+      const offset = startIndex % list.length;
+      return list.slice(offset).concat(list.slice(0, offset));
+    }
+
+    function setPastelFallback(el, seed) {
+      const hue = (seed * 47) % 360;
+      el.style.background = `hsl(${hue}, 55%, 88%)`;
+    }
+
+    function mountIconWithFallback(el, service, seed) {
+      const fallbackCandidates = rotatePool(FALLBACK_ICONS, seed);
+      const iconCandidates = [...new Set([...(service.preferred || []), ...fallbackCandidates])];
+      const img = document.createElement("img");
+      let candidateIndex = 0;
+
+      img.alt = service.name;
+      img.draggable = false;
+      img.style.cssText = "width:32px; height:32px; object-fit:contain; pointer-events:none;";
+
+      img.onerror = function () {
+        candidateIndex += 1;
+        if (candidateIndex >= iconCandidates.length) {
+          this.remove();
+          setPastelFallback(el, seed);
+          return;
+        }
+        this.src = `${BASE}${iconCandidates[candidateIndex]}.svg`;
+      };
+
+      img.src = `${BASE}${iconCandidates[candidateIndex]}.svg`;
+      el.appendChild(img);
+    }
 
     function renderDigit(bitmap) {
       const cols = bitmap[0].length;
@@ -169,7 +259,7 @@
           el.style.cssText = `width:${CELL}px; height:${CELL}px; border-radius:14px;`;
 
           if (cell === 1) {
-            const name = pool[iconIdx % pool.length];
+            const service = pool[iconIdx % pool.length];
             iconIdx += 1;
             const delay = animStep * 38;
             animStep += 1;
@@ -190,19 +280,8 @@
               el.style.animationName = "none";
               el.style.opacity = "1";
             }, { once: true });
-
-            const img = document.createElement("img");
-            img.src = `${BASE}${name}.svg`;
-            img.alt = name;
-            img.draggable = false;
-            img.style.cssText = "width:32px; height:32px; object-fit:contain; pointer-events:none;";
-            img.onerror = function () {
-              this.remove();
-              const hue = (iconIdx * 47) % 360;
-              el.style.background = `hsl(${hue}, 55%, 88%)`;
-            };
-
-            el.appendChild(img);
+            el.title = service.name;
+            mountIconWithFallback(el, service, iconIdx);
           }
 
           wrap.appendChild(el);
