@@ -1,34 +1,226 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>404 - Not Found</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,600&display=swap" rel="stylesheet" />
 
-{% block title %}Page Not Found - Subly{% endblock %}
+  <style>
+    *, body {
+      font-family: "Bricolage Grotesque", system-ui, sans-serif;
+    }
 
-{% block content %}
-<section class="max-w-3xl mx-auto px-4 py-16 sm:py-24">
-  <div class="rounded-3xl border border-slate-200/80 bg-white/90 shadow-sm p-8 sm:p-10">
-    <div class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
-      <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="10"></circle>
-        <line x1="12" y1="8" x2="12" y2="12"></line>
-        <line x1="12" y1="16" x2="12.01" y2="16"></line>
-      </svg>
-    </div>
+    body {
+      background-color: #f0eee9;
+      background-image:
+        radial-gradient(circle at 20% 20%, rgba(200, 195, 255, 0.18) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(255, 200, 180, 0.15) 0%, transparent 50%);
+    }
 
-    <p class="mt-5 text-xs font-semibold tracking-[0.24em] uppercase text-slate-500">Error 404</p>
-    <h1 class="mt-2 text-3xl sm:text-4xl font-semibold tracking-tight text-slate-900">Page Not Found</h1>
-    <p class="mt-4 text-slate-600 leading-relaxed">
-      The link might be broken, or the page may have been moved or removed.
-      Try heading back to your dashboard or subscriptions list.
-    </p>
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image: radial-gradient(circle, #aaa5 1px, transparent 1px);
+      background-size: 28px 28px;
+      pointer-events: none;
+      opacity: 0.35;
+    }
 
-    <div class="mt-8 flex flex-wrap gap-3">
-      {% if request.user.is_authenticated %}
-        <a href="{% url 'dashboard:home' %}" class="inline-flex items-center rounded-full bg-slate-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-800 transition-colors">Go To Dashboard</a>
-        <a href="{% url 'subscriptions:list' %}" class="inline-flex items-center rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">View Subscriptions</a>
-      {% else %}
-        <a href="{% url 'landing' %}" class="inline-flex items-center rounded-full bg-slate-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-800 transition-colors">Back To Home</a>
-        <a href="{% url 'accounts:login' %}" class="inline-flex items-center rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">Login</a>
-      {% endif %}
+    @keyframes popIn {
+      0% {
+        opacity: 0;
+        transform: scale(0.55) translateY(10px);
+      }
+      65% {
+        transform: scale(1.09) translateY(-2px);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .icon-cell {
+      animation: popIn 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+      will-change: transform;
+      transition:
+        transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+        box-shadow 0.22s ease;
+      cursor: default;
+    }
+
+    .icon-cell:hover {
+      transform: scale(1.12) rotate(-4deg);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.13) !important;
+      z-index: 20;
+    }
+
+    .fade-up-1 {
+      animation: fadeUp 0.55s ease both;
+      animation-delay: 1.1s;
+    }
+
+    .fade-up-2 {
+      animation: fadeUp 0.55s ease both;
+      animation-delay: 1.25s;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-8 select-none">
+  <div class="flex flex-col items-center" style="gap: 52px;">
+    <div id="root" class="flex items-start" style="gap: 20px;"></div>
+
+    <div class="text-center space-y-5 fade-up-1">
+      <p class="text-stone-500 text-[1.15rem] tracking-tight leading-snug">
+        Oops! The page you're looking for doesn't exist.
+      </p>
+      <div class="fade-up-2">
+        {% if request.user.is_authenticated %}
+          <a href="{% url 'dashboard:home' %}" class="inline-flex items-center gap-2 bg-stone-900 text-white text-sm font-medium px-7 py-3 rounded-full hover:bg-stone-700 active:scale-95 transition-all duration-200 tracking-wide shadow-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
+              <path fill-rule="evenodd" d="M9.293 2.293a1 1 0 0 1 1.414 0l7 7A1 1 0 0 1 17 11h-1v6a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6H3a1 1 0 0 1-.707-1.707l7-7Z" clip-rule="evenodd" />
+            </svg>
+            Go To Dashboard
+          </a>
+        {% else %}
+          <a href="{% url 'landing' %}" class="inline-flex items-center gap-2 bg-stone-900 text-white text-sm font-medium px-7 py-3 rounded-full hover:bg-stone-700 active:scale-95 transition-all duration-200 tracking-wide shadow-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
+              <path fill-rule="evenodd" d="M9.293 2.293a1 1 0 0 1 1.414 0l7 7A1 1 0 0 1 17 11h-1v6a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6H3a1 1 0 0 1-.707-1.707l7-7Z" clip-rule="evenodd" />
+            </svg>
+            Go Back Home
+          </a>
+        {% endif %}
+      </div>
     </div>
   </div>
-</section>
-{% endblock %}
+
+  <script>
+    const BASE = "https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/";
+
+    const ICONS = [
+      "netflix", "google", "google-cloud", "paramount-plus",
+      "github", "gitlab", "discord", "slack", "notion", "figma",
+      "stripe", "shopify", "hubspot", "paypal", "spotify", "zoom",
+      "dropbox", "cloudflare", "docker", "mongodb", "redis",
+      "vercel", "supabase", "linear", "asana", "trello",
+      "twitch", "airbnb", "apple", "microsoft",
+      "aws", "azure", "digitalocean", "postgresql",
+      "nginx", "wordpress", "grafana", "prometheus",
+      "kubernetes", "terraform", "plex", "jellyfin",
+      "nextcloud", "bitwarden", "gitea", "pihole",
+      "portainer", "traefik", "vaultwarden", "influxdb"
+    ];
+
+    const BITMAPS = {
+      "4": [
+        [1, 0, 0, 1, 0],
+        [1, 0, 0, 1, 0],
+        [1, 0, 0, 1, 0],
+        [1, 1, 1, 1, 1],
+        [0, 0, 0, 1, 0],
+        [0, 0, 0, 1, 0],
+        [0, 0, 0, 1, 0],
+      ],
+      "0": [
+        [0, 1, 1, 1, 0],
+        [1, 0, 0, 0, 1],
+        [1, 0, 0, 0, 1],
+        [1, 0, 0, 0, 1],
+        [1, 0, 0, 0, 1],
+        [1, 0, 0, 0, 1],
+        [0, 1, 1, 1, 0],
+      ]
+    };
+
+    const CELL = 54;
+    const GAP = 7;
+    const pool = [...ICONS].sort(() => Math.random() - 0.5);
+    let iconIdx = 0;
+    let animStep = 0;
+
+    function renderDigit(bitmap) {
+      const cols = bitmap[0].length;
+      const wrap = document.createElement("div");
+      wrap.style.cssText = `
+        display: grid;
+        grid-template-columns: repeat(${cols}, ${CELL}px);
+        grid-template-rows: repeat(${bitmap.length}, ${CELL}px);
+        gap: ${GAP}px;
+      `;
+
+      bitmap.forEach((row) => {
+        row.forEach((cell) => {
+          const el = document.createElement("div");
+          el.style.cssText = `width:${CELL}px; height:${CELL}px; border-radius:14px;`;
+
+          if (cell === 1) {
+            const name = pool[iconIdx % pool.length];
+            iconIdx += 1;
+            const delay = animStep * 38;
+            animStep += 1;
+
+            el.className = "icon-cell";
+            el.style.cssText += `
+              background: #ffffff;
+              box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 4px 14px rgba(0,0,0,0.07);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              animation-delay: ${delay}ms;
+              position: relative;
+              overflow: hidden;
+            `;
+
+            el.addEventListener("animationend", () => {
+              el.style.animationName = "none";
+              el.style.opacity = "1";
+            }, { once: true });
+
+            const img = document.createElement("img");
+            img.src = `${BASE}${name}.svg`;
+            img.alt = name;
+            img.draggable = false;
+            img.style.cssText = "width:32px; height:32px; object-fit:contain; pointer-events:none;";
+            img.onerror = function () {
+              this.remove();
+              const hue = (iconIdx * 47) % 360;
+              el.style.background = `hsl(${hue}, 55%, 88%)`;
+            };
+
+            el.appendChild(img);
+          }
+
+          wrap.appendChild(el);
+        });
+      });
+
+      return wrap;
+    }
+
+    const root = document.getElementById("root");
+    ["4", "0", "4"].forEach((digit, i) => {
+      if (i > 0) {
+        const spacer = document.createElement("div");
+        spacer.style.width = "12px";
+        root.appendChild(spacer);
+      }
+      root.appendChild(renderDigit(BITMAPS[digit]));
+    });
+  </script>
+</body>
+</html>
