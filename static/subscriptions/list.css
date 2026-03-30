@@ -59,12 +59,18 @@
 }
 
 #subscription-drawer {
-    transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
-    transform: translateX(100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    transition: opacity 0.24s ease, transform 0.28s cubic-bezier(0.2, 0.85, 0.3, 1);
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.96) translateY(12px);
 }
 
 #subscription-drawer-overlay {
-    transition: opacity 0.3s ease;
+    transition: opacity 0.24s ease;
     opacity: 0;
     pointer-events: none;
 }
@@ -76,19 +82,23 @@
 }
 
 #subscription-drawer {
-    width: min(100%, 24rem);
-    max-width: 24rem;
-    background: var(--subscriptions-surface);
-    border-left: 1px solid rgba(171, 173, 174, 0.18);
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.46), 0 28px 64px rgba(44, 47, 48, 0.12);
+    width: 100%;
+    max-width: none;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
 }
 
 #subscription-drawer.translate-x-full {
-    transform: translateX(100%);
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.96) translateY(12px);
 }
 
 #subscription-drawer.translate-x-0 {
-    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1) translateY(0);
 }
 
 #subscription-drawer-overlay.opacity-0 {
@@ -102,13 +112,21 @@
 }
 
 #subscription-drawer-content {
-    height: 100%;
+    width: min(100%, 25rem);
+    max-height: min(92vh, 46rem);
+    height: min(92vh, 46rem);
+    border-radius: 2rem;
+    overflow: hidden;
+    background: var(--subscriptions-surface);
+    border: 1px solid rgba(171, 173, 174, 0.18);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.46), 0 28px 64px rgba(44, 47, 48, 0.16);
 }
 
 .subscription-drawer-panel {
     display: flex;
     flex-direction: column;
     height: 100%;
+    min-height: 0;
     background: var(--subscriptions-surface);
 }
 
@@ -166,6 +184,11 @@
     background: rgba(255, 255, 255, 0.98);
     box-shadow: var(--subscriptions-shadow-float);
     padding: 0.3rem;
+    top: calc(100% + 0.45rem);
+    right: 0;
+    bottom: auto;
+    margin-top: 0;
+    z-index: 60;
 }
 
 #subscription-drawer .status-option {
@@ -1569,7 +1592,14 @@
 
 @media (max-width: 720px) {
     #subscription-drawer {
-        max-width: 100%;
+        padding: 0.55rem;
+    }
+
+    #subscription-drawer-content {
+        width: 100%;
+        max-height: 94vh;
+        height: 94vh;
+        border-radius: 1.35rem;
     }
 
     .subscription-drawer-scroll {
