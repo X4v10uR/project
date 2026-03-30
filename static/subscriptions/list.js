@@ -273,7 +273,9 @@
             return;
         }
 
-        historyItems.forEach(function (item) {
+        const maxHistoryItems = window.matchMedia('(min-width: 920px)').matches ? 2 : 3;
+        const visibleHistory = historyItems.slice(0, maxHistoryItems);
+        visibleHistory.forEach(function (item) {
             const historyItem = document.createElement('div');
             historyItem.className = 'subscription-drawer-history-item';
             historyItem.innerHTML =

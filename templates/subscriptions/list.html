@@ -4,7 +4,7 @@
 {% block title %}Subscriptions - Subly{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'subscriptions/list.css' %}?v=20260330-6">
+<link rel="stylesheet" href="{% static 'subscriptions/list.css' %}?v=20260330-10">
 {% endblock %}
 
 {% block content %}
@@ -528,7 +528,7 @@
               </div>
             </div>
 
-            <div>
+            <div class="subscription-drawer-history-section">
               <h3 class="subscription-drawer-section-title">Payment History</h3>
               <div id="subscription-drawer-history" class="subscription-drawer-history"></div>
             </div>
@@ -562,6 +562,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'subscriptions/list.js' %}?v=20260330-10"></script>
+<script src="{% static 'subscriptions/list.js' %}?v=20260330-12"></script>
 {% endblock %}
 
