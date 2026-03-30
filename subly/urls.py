@@ -19,10 +19,16 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.staticfiles.views import serve as serve_staticfiles
 from django.shortcuts import redirect
+from django.shortcuts import render
 from django.urls import path, include, re_path
 from django.views.static import serve as serve_media
 
 from dashboard import views as dashboard_views
+
+
+def custom_404_view(request, exception):
+    return render(request, "404.html", status=404)
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -41,3 +47,5 @@ if not settings.DEBUG:
         re_path(r"^static/(?P<path>.*)$", serve_staticfiles, {"insecure": True}),
         re_path(r"^media/(?P<path>.*)$", serve_media, {"document_root": settings.MEDIA_ROOT}),
     ]
+
+handler404 = "subly.urls.custom_404_view"
