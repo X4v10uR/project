@@ -284,6 +284,123 @@ def _calculate_subscription_burn_metrics(subscriptions):
     }
 
 
+def _ordinal_suffix(day):
+    if 11 <= (day % 100) <= 13:
+        return "th"
+    return {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
+
+
+def _build_subscription_drawer_payload(subscriptions):
+    subscription_ids = [sub.pk for sub in subscriptions]
+    transactions_by_subscription = {sub_id: [] for sub_id in subscription_ids}
+
+    if subscription_ids:
+        recent_transactions = (
+            Transaction.objects.filter(
+                subscription_id__in=subscription_ids,
+                source=Transaction.SOURCE_RENEWAL,
+            )
+            .only("subscription_id", "charged_for_date", "amount", "currency", "charged_at")
+            .order_by("subscription_id", "-charged_for_date", "-charged_at")
+        )
+        for transaction in recent_transactions:
+            bucket = transactions_by_subscription.get(transaction.subscription_id)
+            if bucket is None or len(bucket) >= 6:
+                continue
+            currency = _normalize_currency_code(transaction.currency)
+            bucket.append(
+                {
+                    "charged_for_date": (
+                        transaction.charged_for_date.isoformat()
+                        if transaction.charged_for_date
+                        else ""
+                    ),
+                    "charged_for_date_display": (
+                        transaction.charged_for_date.strftime("%b %d, %Y")
+                        if transaction.charged_for_date
+                        else "Unknown date"
+                    ),
+                    "amount": str(transaction.amount),
+                    "currency": currency,
+                    "amount_display": _format_currency_amount(transaction.amount, currency),
+                }
+            )
+
+    payload = {}
+    for subscription in subscriptions:
+        currency = _normalize_currency_code(subscription.currency)
+        total_cost = subscription.cost or Decimal("0")
+        user_cost = subscription.user_cost or Decimal("0")
+        participant_count = int(getattr(subscription, "participant_count", 0) or 0)
+        total_people = 1 + participant_count if subscription.is_shared else 1
+
+        share_percent = 0
+        if total_cost > 0:
+            share_percent = int(
+                (user_cost * Decimal("100") / total_cost).quantize(Decimal("1"))
+            )
+        share_percent = max(0, min(share_percent, 100))
+
+        renewal_date_display = (
+            subscription.renewal_date.strftime("%b %d, %Y")
+            if subscription.renewal_date
+            else "No renewal date"
+        )
+        billing_cycle_display = subscription.get_billing_cycle_display()
+        if subscription.renewal_date:
+            renewal_day = subscription.renewal_date.day
+            billing_cycle_detail = (
+                f"{billing_cycle_display}, {renewal_day}{_ordinal_suffix(renewal_day)}"
+            )
+        else:
+            billing_cycle_detail = billing_cycle_display
+
+        card_last4 = subscription.card.last4 if subscription.card else ""
+        card_brand = (subscription.card.brand or "").upper() if subscription.card else ""
+        icon_url = subscription.get_icon_url()
+        fallback_icon = subscription.get_fallback_icon()
+
+        payload[str(subscription.pk)] = {
+            "id": subscription.pk,
+            "service_name": subscription.service_name,
+            "plan_name": subscription.plan_name or "",
+            "category": subscription.category or "Uncategorized",
+            "billing_cycle": subscription.billing_cycle,
+            "billing_cycle_display": billing_cycle_display,
+            "billing_cycle_detail": billing_cycle_detail,
+            "status": subscription.status,
+            "status_display": subscription.get_status_display(),
+            "currency": currency,
+            "cost": str(total_cost),
+            "cost_display": _format_currency_amount(total_cost, currency),
+            "user_cost": str(user_cost),
+            "user_cost_display": _format_currency_amount(user_cost, currency),
+            "is_shared": bool(subscription.is_shared),
+            "participant_count": participant_count,
+            "total_people": total_people,
+            "share_percent": share_percent,
+            "renewal_date": (
+                subscription.renewal_date.isoformat()
+                if subscription.renewal_date
+                else ""
+            ),
+            "renewal_date_display": renewal_date_display,
+            "days_until_renewal": subscription.days_until_renewal,
+            "account_email": subscription.account_email or "",
+            "has_card": bool(subscription.card_id),
+            "card_last4": card_last4,
+            "card_brand": card_brand,
+            "icon_url": icon_url,
+            "fallback_icon": fallback_icon,
+            "history": transactions_by_subscription.get(subscription.pk, []),
+            "edit_url": reverse("subscriptions:update", args=[subscription.pk]),
+            "delete_url": reverse("subscriptions:delete", args=[subscription.pk]),
+            "status_url": reverse("subscriptions:update_status", args=[subscription.pk]),
+        }
+
+    return payload
+
+
 def _parse_participants_data(request):
     participant_names = request.POST.getlist('participant_name')
     participant_shares = request.POST.getlist('participant_share')
@@ -903,6 +1020,7 @@ def subscription_list(request):
     subscriptions = list(subscriptions)
     base_subscriptions = list(_base_subscription_queryset(request))
     _assign_subscription_card_meta(subscriptions)
+    drawer_payload = _build_subscription_drawer_payload(subscriptions)
     stats = _calculate_subscription_stats(base_subscriptions)
     burn_metrics = _calculate_subscription_burn_metrics(base_subscriptions)
     filters_active = bool(
@@ -922,6 +1040,7 @@ def subscription_list(request):
             'subscriptions_filtered_total': len(subscriptions),
             'subscriptions_stats': stats,
             'subscriptions_burn_metrics': burn_metrics,
+            'subscription_drawer_data': drawer_payload,
             'filters_active': filters_active,
             **filters,
         },

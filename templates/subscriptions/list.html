@@ -4,7 +4,7 @@
 {% block title %}Subscriptions - Subly{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'subscriptions/list.css' %}?v=20260330-5">
+<link rel="stylesheet" href="{% static 'subscriptions/list.css' %}?v=20260330-6">
 {% endblock %}
 
 {% block content %}
@@ -204,7 +204,7 @@
     {% if subscriptions %}
       <div class="subscriptions-grid">
         {% for sub in subscriptions %}
-        <article class="subscription-card card-hover" style="--subscription-accent: {{ sub.card_color }}; --subscription-accent-soft: {{ sub.card_color }}22;" data-subscription-id="{{ sub.pk }}" data-status="{{ sub.status }}">
+        <article class="subscription-card card-hover" style="--subscription-accent: {{ sub.card_color }}; --subscription-accent-soft: {{ sub.card_color }}22;" data-subscription-id="{{ sub.pk }}" data-status="{{ sub.status }}" tabindex="0" role="button" aria-label="Open details for {{ sub.service_name }}">
           <div class="subscription-card-top">
             <div class="subscription-brand-lockup">
               <div class="subscription-icon">
@@ -401,11 +401,167 @@
       </div>
     </section>
   {% endif %}
+
+  <div id="subscription-drawer-overlay" class="opacity-0" aria-hidden="true" style="position: fixed; inset: 0; z-index: 110;"></div>
+  <aside id="subscription-drawer" class="translate-x-full" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="subscription-drawer-title" style="position: fixed; top: 0; right: 0; height: 100vh; z-index: 111;">
+    <div id="subscription-drawer-content">
+      <div class="subscription-drawer-panel">
+        <div class="subscription-drawer-head">
+          <button id="subscription-drawer-close" type="button" class="subscription-drawer-close" aria-label="Close subscription details">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+          <div id="subscription-drawer-status-wrapper" class="status-dropdown-wrapper relative" data-subscription-id="" data-status="" data-status-url="">
+            <button type="button" class="status-btn subscription-drawer-status" data-current-status="active">
+              <span class="status-dot w-1.5 h-1.5 rounded-full"></span>
+              <span class="status-text">Active</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            <div class="status-menu hidden absolute right-0 top-full mt-2 z-20 overflow-hidden">
+              <button type="button" data-value="active" class="status-option w-full text-left px-3 py-2">Active</button>
+              <button type="button" data-value="paused" class="status-option w-full text-left px-3 py-2">Paused</button>
+              <button type="button" data-value="cancelled" class="status-option w-full text-left px-3 py-2">Cancelled</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="subscription-drawer-scroll">
+          <div class="subscription-drawer-hero">
+            <div class="subscription-drawer-hero-icon">
+              <div class="subscription-drawer-service-logo">
+                <img id="subscription-drawer-service-image" src="" alt="">
+                <div id="subscription-drawer-service-fallback" class="subscription-drawer-service-fallback"></div>
+              </div>
+              <div id="subscription-drawer-service-badge" class="subscription-drawer-service-badge" aria-hidden="true">SUB</div>
+            </div>
+            <h2 id="subscription-drawer-title" class="subscription-drawer-title">Subscription</h2>
+            <div class="subscription-drawer-chips">
+              <span id="subscription-drawer-plan-chip" class="subscription-drawer-chip is-plan"></span>
+              <span id="subscription-drawer-shared-chip" class="subscription-drawer-chip is-shared">Shared</span>
+            </div>
+            <div class="subscription-drawer-renewal">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="5" width="18" height="16" rx="2"></rect>
+                <line x1="16" y1="3" x2="16" y2="7"></line>
+                <line x1="8" y1="3" x2="8" y2="7"></line>
+                <line x1="3" y1="11" x2="21" y2="11"></line>
+              </svg>
+              <span id="subscription-drawer-renewal-text">Next renewal: --</span>
+            </div>
+          </div>
+
+          <div class="subscription-drawer-stack">
+            <div class="subscription-drawer-share-card">
+              <p class="subscription-drawer-share-label">Your Monthly Share</p>
+              <div class="subscription-drawer-share-amount">
+                <span id="subscription-drawer-share-amount">$0.00</span>
+                <span id="subscription-drawer-share-period">/month</span>
+              </div>
+              <div class="subscription-drawer-share-bar">
+                <span id="subscription-drawer-share-bar-fill" style="width: 0%;"></span>
+              </div>
+              <p id="subscription-drawer-share-copy" class="subscription-drawer-share-copy"></p>
+            </div>
+
+            <div class="subscription-drawer-detail-grid">
+              <div class="subscription-drawer-detail-tile">
+                <p class="subscription-drawer-detail-kicker">Category</p>
+                <p class="subscription-drawer-detail-value">
+                  <span class="subscription-drawer-detail-dot"></span>
+                  <span id="subscription-drawer-category">--</span>
+                </p>
+              </div>
+              <div class="subscription-drawer-detail-tile">
+                <p class="subscription-drawer-detail-kicker">Participants</p>
+                <p class="subscription-drawer-detail-value">
+                  <span class="subscription-drawer-detail-dot is-secondary"></span>
+                  <span id="subscription-drawer-participants">Only me</span>
+                </p>
+              </div>
+            </div>
+
+            <div class="subscription-drawer-list">
+              <div class="subscription-drawer-row">
+                <div class="subscription-drawer-row-main">
+                  <span class="subscription-drawer-row-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="9"></circle>
+                      <line x1="9" y1="12" x2="15" y2="12"></line>
+                      <path d="M12 9v6"></path>
+                    </svg>
+                  </span>
+                  <span class="subscription-drawer-row-label">Account Email</span>
+                </div>
+                <span id="subscription-drawer-email" class="subscription-drawer-row-value">Not set</span>
+              </div>
+              <div class="subscription-drawer-row">
+                <div class="subscription-drawer-row-main">
+                  <span class="subscription-drawer-row-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+                      <line x1="2" y1="10" x2="22" y2="10"></line>
+                    </svg>
+                  </span>
+                  <span class="subscription-drawer-row-label">Payment Card</span>
+                </div>
+                <span class="subscription-drawer-row-value subscription-drawer-row-card">
+                  <span id="subscription-drawer-card-last4">Not linked</span>
+                  <span id="subscription-drawer-card-brand" class="subscription-drawer-card-brand"></span>
+                </span>
+              </div>
+              <div class="subscription-drawer-row">
+                <div class="subscription-drawer-row-main">
+                  <span class="subscription-drawer-row-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M3.5 12a8.5 8.5 0 1 0 2.4-5.9"></path>
+                      <path d="M3.5 5.5v4.3h4.3"></path>
+                      <path d="M12 7.8v4.6l2.9 1.7"></path>
+                    </svg>
+                  </span>
+                  <span class="subscription-drawer-row-label">Billing Cycle</span>
+                </div>
+                <span id="subscription-drawer-billing-cycle" class="subscription-drawer-row-value">--</span>
+              </div>
+            </div>
+
+            <div>
+              <h3 class="subscription-drawer-section-title">Payment History</h3>
+              <div id="subscription-drawer-history" class="subscription-drawer-history"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="subscription-drawer-footer">
+          <a id="subscription-drawer-edit-link" href="#" class="subscription-drawer-edit">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 20h9"></path>
+              <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
+            </svg>
+            Edit details
+          </a>
+          <a id="subscription-drawer-delete-link" href="#" class="subscription-drawer-delete" aria-label="Delete subscription">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6l-1 14H6L5 6"></path>
+              <path d="M10 11v6"></path>
+              <path d="M14 11v6"></path>
+              <path d="M9 6V4h6v2"></path>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </aside>
+  {{ subscription_drawer_data|json_script:"subscription-drawer-data" }}
 </div>
 
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'subscriptions/list.js' %}?v=20260330-9"></script>
+<script src="{% static 'subscriptions/list.js' %}?v=20260330-10"></script>
 {% endblock %}
 

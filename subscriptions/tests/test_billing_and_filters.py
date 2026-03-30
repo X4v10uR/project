@@ -224,6 +224,48 @@ class SubscriptionListAndPrefillTest(TestCase):
         self.assertEqual(row['Account Email'], "'  -email@example.com")
         self.assertEqual(row['Notes'], "'=1+1")
 
+    def test_subscription_list_includes_drawer_payload_with_recent_history(self):
+        today = date.today()
+        sub = Subscription.objects.create(
+            user=self.user,
+            service_name='Drawer Service',
+            category='Software',
+            billing_cycle='monthly',
+            cost=Decimal('19.99'),
+            user_cost=Decimal('7.00'),
+            is_shared=True,
+            start_date=today,
+            status='active',
+            account_email='drawer@example.com',
+        )
+        SubscriptionParticipant.objects.create(
+            subscription=sub,
+            name='Sam',
+            share_amount=Decimal('12.99'),
+        )
+        sub.transactions.create(
+            user=self.user,
+            service_name_snapshot=sub.service_name,
+            amount=Decimal('7.00'),
+            currency='USD',
+            charged_for_date=today,
+            source=Transaction.SOURCE_RENEWAL,
+        )
+
+        response = self.client.get(reverse('subscriptions:list'))
+        payload = response.context['subscription_drawer_data']
+
+        self.assertIn(str(sub.pk), payload)
+        entry = payload[str(sub.pk)]
+        self.assertEqual(entry['service_name'], 'Drawer Service')
+        self.assertEqual(entry['status'], 'active')
+        self.assertEqual(entry['total_people'], 2)
+        self.assertTrue(entry['edit_url'].endswith(f'/subscriptions/{sub.pk}/edit/'))
+        self.assertTrue(entry['delete_url'].endswith(f'/subscriptions/{sub.pk}/delete/'))
+        self.assertTrue(entry['status_url'].endswith(f'/subscriptions/{sub.pk}/status/'))
+        self.assertEqual(len(entry['history']), 1)
+        self.assertEqual(entry['history'][0]['amount_display'], '$7.00')
+
 
 class BillingServiceTest(TestCase):
     def setUp(self):
