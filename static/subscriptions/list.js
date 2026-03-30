@@ -80,8 +80,9 @@
             const menu = wrapper.querySelector('.status-menu');
             const options = wrapper.querySelectorAll('.status-option');
             const subId = wrapper.dataset.subscriptionId;
+            const statusUrl = wrapper.dataset.statusUrl;
 
-            if (!btn || !menu || !subId) {
+            if (!btn || !menu || !subId || !statusUrl) {
                 return;
             }
 
@@ -111,7 +112,7 @@
                     syncAllStatusWrappers(subId, newStatus);
                     menu.classList.add('hidden');
 
-                    fetch('/subscriptions/' + subId + '/status/', {
+                    fetch(statusUrl, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded',
@@ -140,15 +141,37 @@
     }
 
     function initDrawer() {
-        const overlay = document.getElementById('subscription-drawer-overlay');
-        const drawer = document.getElementById('subscription-drawer');
-        const content = document.getElementById('subscription-drawer-content');
+        function getDrawerElements() {
+            return {
+                overlay: document.getElementById('subscription-drawer-overlay'),
+                drawer: document.getElementById('subscription-drawer'),
+                content: document.getElementById('subscription-drawer-content')
+            };
+        }
 
-        if (!overlay || !drawer || !content) {
+        function syncDrawerVisualState() {
+            const elements = getDrawerElements();
+            if (!elements.overlay || !elements.drawer || !elements.content) {
+                return false;
+            }
+            elements.drawer.style.transform = elements.drawer.classList.contains('translate-x-0') ? 'translateX(0)' : 'translateX(100%)';
+            elements.overlay.style.opacity = elements.overlay.classList.contains('opacity-100') ? '1' : '0';
+            elements.overlay.style.pointerEvents = elements.overlay.classList.contains('opacity-100') ? 'auto' : 'none';
+            return true;
+        }
+
+        if (!syncDrawerVisualState()) {
             return;
         }
 
         function openDrawer(id) {
+            const elements = getDrawerElements();
+            if (!elements.overlay || !elements.drawer || !elements.content) {
+                return;
+            }
+            const overlay = elements.overlay;
+            const drawer = elements.drawer;
+            const content = elements.content;
             const template = document.getElementById('drawer-template-' + id);
             if (!template) {
                 return;
@@ -156,55 +179,78 @@
             content.innerHTML = template.innerHTML;
             drawer.classList.remove('translate-x-full');
             drawer.classList.add('translate-x-0');
+            drawer.style.transform = 'translateX(0)';
+            drawer.setAttribute('aria-hidden', 'false');
             overlay.classList.remove('opacity-0', 'pointer-events-none');
             overlay.classList.add('opacity-100');
+            overlay.style.opacity = '1';
+            overlay.style.pointerEvents = 'auto';
+            overlay.setAttribute('aria-hidden', 'false');
             document.body.style.overflow = 'hidden';
             initStatusDropdowns(content);
         }
 
         function closeDrawer() {
+            const elements = getDrawerElements();
+            if (!elements.overlay || !elements.drawer) {
+                return;
+            }
+            const overlay = elements.overlay;
+            const drawer = elements.drawer;
             drawer.classList.add('translate-x-full');
             drawer.classList.remove('translate-x-0');
+            drawer.style.transform = 'translateX(100%)';
+            drawer.setAttribute('aria-hidden', 'true');
             overlay.classList.add('opacity-0', 'pointer-events-none');
             overlay.classList.remove('opacity-100');
+            overlay.style.opacity = '0';
+            overlay.style.pointerEvents = 'none';
+            overlay.setAttribute('aria-hidden', 'true');
             document.body.style.overflow = '';
         }
 
-        if (!overlay.dataset.drawerCloseBound) {
-            overlay.dataset.drawerCloseBound = '1';
-            overlay.addEventListener('click', closeDrawer);
-        }
+        if (!document.body.dataset.subscriptionDrawerDelegationBound) {
+            document.body.dataset.subscriptionDrawerDelegationBound = '1';
 
-        if (!content.dataset.drawerContentBound) {
-            content.dataset.drawerContentBound = '1';
-            content.addEventListener('click', function (event) {
+            document.addEventListener('click', function (event) {
+                if (event.target && event.target.id === 'subscription-drawer-overlay') {
+                    closeDrawer();
+                    return;
+                }
                 if (event.target.closest('[data-drawer-close]')) {
                     closeDrawer();
+                    return;
                 }
-            });
-        }
-
-        document.querySelectorAll('[data-subscription-card]').forEach(function (card) {
-            if (card.dataset.drawerInit === '1') {
-                return;
-            }
-            card.dataset.drawerInit = '1';
-            card.addEventListener('click', function (event) {
+                const card = event.target.closest('[data-subscription-card]');
+                if (!card) {
+                    return;
+                }
                 if (event.target.closest('[data-drawer-ignore]')) {
                     return;
                 }
                 openDrawer(card.dataset.subscriptionId);
             });
-            card.addEventListener('keydown', function (event) {
-                if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    openDrawer(card.dataset.subscriptionId);
-                }
-            });
-        });
 
-        if (!document.body.dataset.subscriptionDrawerEscapeBound) {
-            document.body.dataset.subscriptionDrawerEscapeBound = '1';
+            document.addEventListener('keydown', function (event) {
+                if (event.key !== 'Enter' && event.key !== ' ') {
+                    return;
+                }
+                const card = event.target.closest('[data-subscription-card]');
+                if (!card) {
+                    return;
+                }
+                if (event.target.closest('[data-drawer-ignore]')) {
+                    return;
+                }
+                if (
+                    event.target !== card
+                    && event.target.closest('a,button,input,select,textarea,[role="button"],[role="link"]')
+                ) {
+                    return;
+                }
+                event.preventDefault();
+                openDrawer(card.dataset.subscriptionId);
+            });
             document.addEventListener('keydown', function (event) {
                 if (event.key === 'Escape') {
                     closeDrawer();

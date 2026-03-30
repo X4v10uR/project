@@ -60,10 +60,13 @@
 
 #subscription-drawer {
     transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateX(100%);
 }
 
 #subscription-drawer-overlay {
     transition: opacity 0.3s ease;
+    opacity: 0;
+    pointer-events: none;
 }
 
 #subscription-drawer-overlay {
@@ -78,6 +81,24 @@
     background: var(--subscriptions-surface);
     border-left: 1px solid rgba(171, 173, 174, 0.18);
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.46), 0 28px 64px rgba(44, 47, 48, 0.12);
+}
+
+#subscription-drawer.translate-x-full {
+    transform: translateX(100%);
+}
+
+#subscription-drawer.translate-x-0 {
+    transform: translateX(0);
+}
+
+#subscription-drawer-overlay.opacity-0 {
+    opacity: 0;
+    pointer-events: none;
+}
+
+#subscription-drawer-overlay.opacity-100 {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 #subscription-drawer-content {
@@ -993,7 +1014,7 @@
 
 #subscriptions-page .subscription-card {
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     min-height: 18rem;
     border: 0;
     border-radius: 2rem;
@@ -1316,6 +1337,7 @@
 
 #subscriptions-page .status-dropdown-wrapper {
     position: relative;
+    z-index: 20;
 }
 
 #subscriptions-page .status-menu {
@@ -1325,6 +1347,11 @@
     background: rgba(255, 255, 255, 0.98);
     box-shadow: var(--subscriptions-shadow-float);
     padding: 0.3rem;
+    top: auto;
+    right: 0;
+    bottom: calc(100% + 0.45rem);
+    margin-top: 0;
+    z-index: 40;
 }
 
 #subscriptions-page .status-option {
@@ -1335,6 +1362,11 @@
 
 #subscriptions-page .status-option:hover {
     background: var(--subscriptions-surface-low);
+}
+
+#subscriptions-page .status-menu.hidden,
+#subscription-drawer .status-menu.hidden {
+    display: none;
 }
 
 #subscriptions-page .subscriptions-empty {
@@ -1501,6 +1533,10 @@
 }
 
 @media (min-width: 900px) {
+    #subscriptions-page .subscriptions-filter-toggle {
+        display: none;
+    }
+
     #subscriptions-page .subscriptions-filter-panel.hidden {
         display: flex !important;
     }

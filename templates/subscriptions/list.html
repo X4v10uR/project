@@ -4,7 +4,7 @@
 {% block title %}Subscriptions - Subly{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'subscriptions/list.css' %}?v=20260327-1">
+<link rel="stylesheet" href="{% static 'subscriptions/list.css' %}?v=20260330-5">
 {% endblock %}
 
 {% block content %}
@@ -110,7 +110,7 @@
         <input id="subscriptions-query" class="subscriptions-search-input" type="text" name="q" value="{{ query }}" placeholder="Search subscriptions..." />
       </label>
       <div class="subscriptions-filter-actions">
-        <button type="button" id="subscriptions-filter-toggle" class="subscriptions-filter-toggle {% if filters_active %}is-active{% endif %}">
+        <button type="button" id="subscriptions-filter-toggle" class="subscriptions-filter-toggle {% if filters_active %}is-active{% endif %}" aria-controls="subscriptions-filter-panel">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <line x1="4" y1="6" x2="20" y2="6"></line>
             <line x1="7" y1="12" x2="17" y2="12"></line>
@@ -267,7 +267,7 @@
                   {% endif %}
                 </span>
               </div>
-              <div class="subscription-card-actions" data-drawer-ignore>
+              <div class="subscription-card-actions">
                 {% if sub.card %}
                   <span class="subscription-card-pill">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -279,7 +279,7 @@
                 {% else %}
                   <span class="subscription-card-pill">No card linked</span>
                 {% endif %}
-                <div class="status-dropdown-wrapper" data-subscription-id="{{ sub.pk }}" data-status="{{ sub.status }}" data-drawer-ignore>
+                <div class="status-dropdown-wrapper" data-subscription-id="{{ sub.pk }}" data-status="{{ sub.status }}" data-status-url="{% url 'subscriptions:update_status' sub.pk %}" data-drawer-ignore>
                   <button type="button" class="status-btn subscriptions-status-button" data-current-status="{{ sub.status }}">
                     <span class="status-dot w-1.5 h-1.5 rounded-full"></span>
                     <span class="status-text">{{ sub.get_status_display }}</span>
@@ -396,7 +396,7 @@
           <line x1="6" y1="6" x2="18" y2="18"></line>
         </svg>
       </button>
-      <div class="status-dropdown-wrapper relative" data-subscription-id="{{ sub.pk }}" data-status="{{ sub.status }}">
+      <div class="status-dropdown-wrapper relative" data-subscription-id="{{ sub.pk }}" data-status="{{ sub.status }}" data-status-url="{% url 'subscriptions:update_status' sub.pk %}">
         <button type="button" class="status-btn subscription-drawer-status" data-current-status="{{ sub.status }}">
           <span class="status-dot w-1.5 h-1.5 rounded-full"></span>
           <span class="status-text">{{ sub.get_status_display }}</span>
@@ -588,5 +588,9 @@
 </template>
 {% endfor %}
 
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'subscriptions/list.js' %}?v=20260330-6"></script>
 {% endblock %}
 
