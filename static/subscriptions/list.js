@@ -61,10 +61,6 @@
             .forEach(function (wrapper) {
                 updateStatusIndicators(wrapper, newStatus);
             });
-        const card = document.querySelector('[data-subscription-card][data-subscription-id="' + subscriptionId + '"]');
-        if (card) {
-            card.dataset.status = newStatus;
-        }
     }
 
     function setStatusPending(subscriptionId, isPending) {
@@ -125,7 +121,6 @@
                         menu.classList.add('hidden');
                         return;
                     }
-
                     if (wrapper.dataset.statusPending === '1') {
                         return;
                     }
@@ -165,125 +160,6 @@
         });
     }
 
-    function initDrawer() {
-        function getDrawerElements() {
-            return {
-                overlay: document.getElementById('subscription-drawer-overlay'),
-                drawer: document.getElementById('subscription-drawer'),
-                content: document.getElementById('subscription-drawer-content')
-            };
-        }
-
-        function syncDrawerVisualState() {
-            const elements = getDrawerElements();
-            if (!elements.overlay || !elements.drawer || !elements.content) {
-                return false;
-            }
-            elements.drawer.style.transform = elements.drawer.classList.contains('translate-x-0') ? 'translateX(0)' : 'translateX(100%)';
-            elements.overlay.style.opacity = elements.overlay.classList.contains('opacity-100') ? '1' : '0';
-            elements.overlay.style.pointerEvents = elements.overlay.classList.contains('opacity-100') ? 'auto' : 'none';
-            return true;
-        }
-
-        if (!syncDrawerVisualState()) {
-            return;
-        }
-
-        function openDrawer(id) {
-            const elements = getDrawerElements();
-            if (!elements.overlay || !elements.drawer || !elements.content) {
-                return;
-            }
-            const overlay = elements.overlay;
-            const drawer = elements.drawer;
-            const content = elements.content;
-            const template = document.getElementById('drawer-template-' + id);
-            if (!template) {
-                return;
-            }
-            content.innerHTML = template.innerHTML;
-            drawer.classList.remove('translate-x-full');
-            drawer.classList.add('translate-x-0');
-            drawer.style.transform = 'translateX(0)';
-            drawer.setAttribute('aria-hidden', 'false');
-            overlay.classList.remove('opacity-0', 'pointer-events-none');
-            overlay.classList.add('opacity-100');
-            overlay.style.opacity = '1';
-            overlay.style.pointerEvents = 'auto';
-            overlay.setAttribute('aria-hidden', 'false');
-            document.body.style.overflow = 'hidden';
-            initStatusDropdowns(content);
-        }
-
-        function closeDrawer() {
-            const elements = getDrawerElements();
-            if (!elements.overlay || !elements.drawer) {
-                return;
-            }
-            const overlay = elements.overlay;
-            const drawer = elements.drawer;
-            drawer.classList.add('translate-x-full');
-            drawer.classList.remove('translate-x-0');
-            drawer.style.transform = 'translateX(100%)';
-            drawer.setAttribute('aria-hidden', 'true');
-            overlay.classList.add('opacity-0', 'pointer-events-none');
-            overlay.classList.remove('opacity-100');
-            overlay.style.opacity = '0';
-            overlay.style.pointerEvents = 'none';
-            overlay.setAttribute('aria-hidden', 'true');
-            document.body.style.overflow = '';
-        }
-
-        if (!document.body.dataset.subscriptionDrawerDelegationBound) {
-            document.body.dataset.subscriptionDrawerDelegationBound = '1';
-
-            document.addEventListener('click', function (event) {
-                if (event.target && event.target.id === 'subscription-drawer-overlay') {
-                    closeDrawer();
-                    return;
-                }
-                if (event.target.closest('[data-drawer-close]')) {
-                    closeDrawer();
-                    return;
-                }
-                const card = event.target.closest('[data-subscription-card]');
-                if (!card) {
-                    return;
-                }
-                if (event.target.closest('[data-drawer-ignore]')) {
-                    return;
-                }
-                openDrawer(card.dataset.subscriptionId);
-            });
-
-            document.addEventListener('keydown', function (event) {
-                if (event.key !== 'Enter' && event.key !== ' ') {
-                    return;
-                }
-                const card = event.target.closest('[data-subscription-card]');
-                if (!card) {
-                    return;
-                }
-                if (event.target.closest('[data-drawer-ignore]')) {
-                    return;
-                }
-                if (
-                    event.target !== card
-                    && event.target.closest('a,button,input,select,textarea,[role="button"],[role="link"]')
-                ) {
-                    return;
-                }
-                event.preventDefault();
-                openDrawer(card.dataset.subscriptionId);
-            });
-            document.addEventListener('keydown', function (event) {
-                if (event.key === 'Escape') {
-                    closeDrawer();
-                }
-            });
-        }
-    }
-
     function initFilterToggle() {
         const toggle = document.getElementById('subscriptions-filter-toggle');
         const panel = document.getElementById('subscriptions-filter-panel');
@@ -294,11 +170,13 @@
             return;
         }
         toggle.dataset.toggleInit = '1';
+
         const syncToggleState = function () {
             const isOpen = !panel.classList.contains('hidden');
             toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
             toggle.classList.toggle('is-active', isOpen);
         };
+
         syncToggleState();
         toggle.addEventListener('click', function () {
             panel.classList.toggle('hidden');
@@ -311,7 +189,6 @@
             return;
         }
         initStatusDropdowns(document);
-        initDrawer();
         initFilterToggle();
     }
 
@@ -329,6 +206,15 @@
     if (!window.__sublySubscriptionsPageInit) {
         document.addEventListener('subly:content-loaded', initPage);
         window.__sublySubscriptionsPageInit = true;
+    }
+
+    if (!window.__sublySubscriptionsPageHtmxSwapInit && window.htmx) {
+        document.body.addEventListener('htmx:afterSwap', function (event) {
+            if (event && event.detail && event.detail.target && event.detail.target.id === 'app-content') {
+                initPage();
+            }
+        });
+        window.__sublySubscriptionsPageHtmxSwapInit = true;
     }
 
     initPage();

@@ -204,7 +204,7 @@
     {% if subscriptions %}
       <div class="subscriptions-grid">
         {% for sub in subscriptions %}
-        <article class="subscription-card card-hover cursor-pointer select-none" style="--subscription-accent: {{ sub.card_color }}; --subscription-accent-soft: {{ sub.card_color }}22;" data-subscription-card data-subscription-id="{{ sub.pk }}" data-status="{{ sub.status }}" tabindex="0" role="button" aria-label="Open details for {{ sub.service_name }}">
+        <article class="subscription-card card-hover" style="--subscription-accent: {{ sub.card_color }}; --subscription-accent-soft: {{ sub.card_color }}22;" data-subscription-id="{{ sub.pk }}" data-status="{{ sub.status }}">
           <div class="subscription-card-top">
             <div class="subscription-brand-lockup">
               <div class="subscription-icon">
@@ -306,7 +306,7 @@
                 {% else %}
                   <span class="subscription-card-pill">No card linked</span>
                 {% endif %}
-                <div class="status-dropdown-wrapper" data-subscription-id="{{ sub.pk }}" data-status="{{ sub.status }}" data-status-url="{% url 'subscriptions:update_status' sub.pk %}" data-drawer-ignore>
+                <div class="status-dropdown-wrapper" data-subscription-id="{{ sub.pk }}" data-status="{{ sub.status }}" data-status-url="{% url 'subscriptions:update_status' sub.pk %}">
                   <button type="button" class="status-btn subscriptions-status-button" data-current-status="{{ sub.status }}">
                     <span class="status-dot w-1.5 h-1.5 rounded-full"></span>
                     <span class="status-text">{{ sub.get_status_display }}</span>
@@ -403,217 +403,9 @@
   {% endif %}
 </div>
 
-<div id="subscription-drawer-overlay" class="fixed inset-0 z-40 opacity-0 pointer-events-none"></div>
-<div id="subscription-drawer" class="fixed top-0 right-0 z-50 h-full w-full translate-x-full flex flex-col">
-  <div id="subscription-drawer-content" class="h-full"></div>
-</div>
-<div class="hidden translate-x-0 opacity-100"></div>
-
-{% for sub in subscriptions %}
-<template id="drawer-template-{{ sub.pk }}">
-  <div class="subscription-drawer-panel">
-    <div class="subscription-drawer-head">
-      <button type="button" data-drawer-close class="subscription-drawer-close" aria-label="Close subscription details">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-      </button>
-      <div class="status-dropdown-wrapper relative" data-subscription-id="{{ sub.pk }}" data-status="{{ sub.status }}" data-status-url="{% url 'subscriptions:update_status' sub.pk %}">
-        <button type="button" class="status-btn subscription-drawer-status" data-current-status="{{ sub.status }}">
-          <span class="status-dot w-1.5 h-1.5 rounded-full"></span>
-          <span class="status-text">{{ sub.get_status_display }}</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
-        </button>
-        <div class="status-menu hidden absolute right-0 mt-2 z-20 overflow-hidden">
-          <button type="button" data-value="active" class="status-option w-full text-left px-3 py-2">Active</button>
-          <button type="button" data-value="paused" class="status-option w-full text-left px-3 py-2">Paused</button>
-          <button type="button" data-value="cancelled" class="status-option w-full text-left px-3 py-2">Cancelled</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="subscription-drawer-scroll">
-      <div class="subscription-drawer-hero">
-        <div class="subscription-drawer-hero-icon">
-          <div class="subscription-drawer-service-logo">
-            <img src="{{ sub.get_icon_url }}" alt="{{ sub.service_name }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-            <div class="subscription-drawer-service-fallback {{ sub.card_text_class }}" style="background-color: {{ sub.card_color }}">
-              {{ sub.get_fallback_icon }}
-            </div>
-          </div>
-          <div class="subscription-drawer-service-badge">{{ sub.category|slice:":1"|upper }}</div>
-        </div>
-        <h2 class="subscription-drawer-title">{{ sub.service_name }}</h2>
-        <div class="subscription-drawer-chips">
-          {% if sub.plan_name %}
-            <span class="subscription-drawer-chip is-plan">{{ sub.plan_name }}</span>
-          {% endif %}
-          {% if sub.is_shared %}
-            <span class="subscription-drawer-chip is-shared">Shared</span>
-          {% elif not sub.plan_name and sub.category %}
-            <span class="subscription-drawer-chip is-plan">{{ sub.category }}</span>
-          {% endif %}
-        </div>
-        <div class="subscription-drawer-renewal">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="3" y="5" width="18" height="16" rx="2"></rect>
-            <line x1="16" y1="3" x2="16" y2="7"></line>
-            <line x1="8" y1="3" x2="8" y2="7"></line>
-            <line x1="3" y1="11" x2="21" y2="11"></line>
-          </svg>
-          <span>Next renewal: <strong class="text-[#2c2f30]">{{ sub.renewal_date|date:"F d, Y" }}</strong></span>
-        </div>
-      </div>
-
-      <div class="subscription-drawer-stack">
-        <div class="subscription-drawer-share-card">
-          <div class="subscription-drawer-share-label">Your Monthly Share</div>
-          <div class="subscription-drawer-share-amount">
-            <span>
-              {% if sub.currency == 'USD' %}
-                ${{ sub.user_cost|floatformat:2 }}
-              {% else %}
-                {{ sub.currency }} {{ sub.user_cost|floatformat:2 }}
-              {% endif %}
-            </span>
-            <span>/{{ sub.billing_cycle }}</span>
-          </div>
-          <div class="subscription-drawer-share-bar" aria-hidden="true">
-            <span style="width: {{ sub.drawer_share_width }}%;"></span>
-          </div>
-          <div class="subscription-drawer-share-copy">
-            This accounts for {{ sub.drawer_share_percent }}% of the total plan cost
-            ({% if sub.currency == 'USD' %}${{ sub.cost|floatformat:2 }}{% else %}{{ sub.currency }} {{ sub.cost|floatformat:2 }}{% endif %}).
-          </div>
-        </div>
-
-        <div class="subscription-drawer-detail-grid">
-          <div class="subscription-drawer-detail-tile">
-            <div class="subscription-drawer-detail-kicker">Category</div>
-            <div class="subscription-drawer-detail-value">
-              <span class="subscription-drawer-detail-dot" aria-hidden="true"></span>
-              <span>{{ sub.category }}</span>
-            </div>
-          </div>
-          <div class="subscription-drawer-detail-tile">
-            <div class="subscription-drawer-detail-kicker">Participants</div>
-            <div class="subscription-drawer-detail-value">
-              <span class="subscription-drawer-detail-dot is-secondary" aria-hidden="true"></span>
-              <span>{{ sub.drawer_participant_label }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="subscription-drawer-list">
-          <div class="subscription-drawer-row">
-            <div class="subscription-drawer-row-main">
-              <span class="subscription-drawer-row-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="3" y="6" width="18" height="12" rx="2"></rect>
-                  <path d="M3 8l9 6 9-6"></path>
-                </svg>
-              </span>
-              <span class="subscription-drawer-row-label">Account Email</span>
-            </div>
-            <span class="subscription-drawer-row-value">{% if sub.account_email %}{{ sub.account_email }}{% else %}Not set{% endif %}</span>
-          </div>
-
-          <div class="subscription-drawer-row">
-            <div class="subscription-drawer-row-main">
-              <span class="subscription-drawer-row-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="2" y="6" width="20" height="12" rx="2"></rect>
-                  <line x1="2" y1="10" x2="22" y2="10"></line>
-                </svg>
-              </span>
-              <span class="subscription-drawer-row-label">Payment Card</span>
-            </div>
-            <div class="subscription-drawer-row-value subscription-drawer-row-card">
-              {% if sub.card %}
-                <span>**** {{ sub.card.last4 }}</span>
-                <span class="subscription-drawer-card-brand">{{ sub.drawer_card_brand }}</span>
-              {% else %}
-                <span>Not linked</span>
-              {% endif %}
-            </div>
-          </div>
-
-          <div class="subscription-drawer-row">
-            <div class="subscription-drawer-row-main">
-              <span class="subscription-drawer-row-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M12 6v6l4 2"></path>
-                  <circle cx="12" cy="12" r="8"></circle>
-                </svg>
-              </span>
-              <span class="subscription-drawer-row-label">Billing Cycle</span>
-            </div>
-            <span class="subscription-drawer-row-value">{{ sub.drawer_billing_label }}</span>
-          </div>
-        </div>
-
-        <div>
-          <h3 class="subscription-drawer-section-title">Payment History</h3>
-          <div class="subscription-drawer-history">
-            {% if sub.drawer_transactions %}
-              {% for txn in sub.drawer_transactions %}
-                <div class="subscription-drawer-history-item">
-                  <div class="subscription-drawer-history-main">
-                    <span class="subscription-drawer-history-check" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M5 13l4 4L19 7"></path>
-                      </svg>
-                    </span>
-                    <div>
-                      <div class="subscription-drawer-history-date">{{ txn.charged_for_date|date:"M d, Y" }}</div>
-                      <div class="subscription-drawer-history-copy">{{ txn.get_source_display }}</div>
-                    </div>
-                  </div>
-                  <div class="subscription-drawer-history-amount">
-                    {% if txn.currency == 'USD' %}
-                      ${{ txn.amount|floatformat:2 }}
-                    {% else %}
-                      {{ txn.currency }} {{ txn.amount|floatformat:2 }}
-                    {% endif %}
-                  </div>
-                </div>
-              {% endfor %}
-            {% else %}
-              <div class="subscription-drawer-history-empty">No recorded renewal charges yet.</div>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="subscription-drawer-footer">
-      <a href="{% url 'subscriptions:update' sub.pk %}" class="subscription-drawer-edit">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M12 20h9"></path>
-          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
-        </svg>
-        Edit details
-      </a>
-      <a href="{% url 'subscriptions:delete' sub.pk %}" class="subscription-drawer-delete" aria-label="Delete {{ sub.service_name }}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M3 6h18"></path>
-          <path d="M8 6V4h8v2"></path>
-          <path d="M19 6l-1 14H6L5 6"></path>
-          <path d="M10 11v6"></path>
-          <path d="M14 11v6"></path>
-        </svg>
-      </a>
-    </div>
-  </div>
-</template>
-{% endfor %}
-
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'subscriptions/list.js' %}?v=20260330-6"></script>
+<script src="{% static 'subscriptions/list.js' %}?v=20260330-9"></script>
 {% endblock %}
 
