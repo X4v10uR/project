@@ -116,12 +116,26 @@
     .o-remove{display:flex;align-items:center;color:#9ca3af;cursor:pointer;background:none;border:none;padding:0;outline:none;transition:color .15s;line-height:0;}
     .o-remove:hover{color:#fff;}
 
+    .sub-layout{max-width:1120px;margin:0 auto;padding-bottom:48px;display:flex;gap:20px;align-items:flex-start;}
+    .sub-main{flex:1;min-width:0;}
+    .sub-jump-col{width:190px;flex-shrink:0;position:sticky;top:24px;align-self:flex-start;height:max-content;}
+    .sub-jump-card{background:#fff;border-radius:20px;padding:10px;border:1px solid var(--border);display:flex;flex-direction:column;gap:3px;box-shadow:0 1px 2px rgba(0,0,0,.04);}
+    .sub-jump-label{font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px 8px;}
+    .sub-jump-btn{width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;border:none;border-radius:12px;background:transparent;color:#6b7280;font-size:13px;font-weight:500;text-align:left;cursor:pointer;transition:all .15s;}
+    .sub-jump-btn{text-decoration:none;}
+    .sub-jump-btn:hover{background:#f3f4f6;color:#111827;}
+    .sub-jump-dot{width:10px;height:10px;border-radius:9999px;border:2px solid var(--jump-color,#d1d5db);background:transparent;transition:all .15s;flex-shrink:0;}
+    .sub-jump-btn.is-active{background:var(--jump-color,#e5e7eb);color:#0d0d10;font-weight:700;}
+    .sub-jump-btn.is-active .sub-jump-dot{background:#0d0d10;border-color:#0d0d10;}
+
     /* RESPONSIVE */
     @media(min-width:640px){.act-btns{flex-direction:row!important;} .cancel-btn{width:128px!important;flex:none!important;}}
     @media(min-width:768px){.g2{grid-template-columns:repeat(2,minmax(0,1fr))!important;}}
+    @media(max-width:1023px){.sub-layout{max-width:896px;} .sub-jump-col{display:none;}}
 
     /* SECTION */
     .card{background:#fff;border-radius:16px;border:1px solid #f3f4f6;padding:24px;}
+    section[id^="section-"]{scroll-margin-top:24px;}
     .sec-icon{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
     .sec-hdr{display:flex;align-items:center;gap:8px;margin-bottom:24px;}
     .lbl{font-size:14px;font-weight:500;line-height:1;}
@@ -172,7 +186,31 @@
 
 {% block content %}
 <div class="sub-form" style="padding:32px 16px;">
-<div style="max-width:896px;margin:0 auto;padding-bottom:48px;">
+<div class="sub-layout">
+  <aside class="sub-jump-col" aria-label="Jump to sections" style="width:190px;flex-shrink:0;position:sticky;top:24px;align-self:flex-start;height:max-content;">
+    <div class="sub-jump-card" style="background:#fff;border-radius:20px;padding:10px;border:1px solid rgba(0,0,0,0.1);display:flex;flex-direction:column;gap:3px;box-shadow:0 1px 2px rgba(0,0,0,.04);">
+      <p class="sub-jump-label" style="font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px 8px;">Jump to</p>
+      <a href="#section-core" class="sub-jump-btn is-active" data-target="core" style="--jump-color:#A8F0C8;display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;text-decoration:none;color:#6b7280;">
+        <span class="sub-jump-dot" style="width:10px;height:10px;border-radius:9999px;border:2px solid var(--jump-color);background:transparent;flex-shrink:0;"></span> Core Details
+      </a>
+      <a href="#section-payment" class="sub-jump-btn" data-target="payment" style="--jump-color:#F5F07A;display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;text-decoration:none;color:#6b7280;">
+        <span class="sub-jump-dot" style="width:10px;height:10px;border-radius:9999px;border:2px solid var(--jump-color);background:transparent;flex-shrink:0;"></span> Payment &amp; Status
+      </a>
+      <a href="#section-sharing" class="sub-jump-btn" data-target="sharing" style="--jump-color:#D5B8F5;display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;text-decoration:none;color:#6b7280;">
+        <span class="sub-jump-dot" style="width:10px;height:10px;border-radius:9999px;border:2px solid var(--jump-color);background:transparent;flex-shrink:0;"></span> Sharing
+      </a>
+      <a href="#section-account" class="sub-jump-btn" data-target="account" style="--jump-color:#C8D0E0;display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;text-decoration:none;color:#6b7280;">
+        <span class="sub-jump-dot" style="width:10px;height:10px;border-radius:9999px;border:2px solid var(--jump-color);background:transparent;flex-shrink:0;"></span> Account Info
+      </a>
+      <a href="#section-notifications" class="sub-jump-btn" data-target="notifications" style="--jump-color:#FCA5A5;display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;text-decoration:none;color:#6b7280;">
+        <span class="sub-jump-dot" style="width:10px;height:10px;border-radius:9999px;border:2px solid var(--jump-color);background:transparent;flex-shrink:0;"></span> Notifications
+      </a>
+      <a href="#section-notes" class="sub-jump-btn" data-target="notes" style="--jump-color:#FCD34D;display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;text-decoration:none;color:#6b7280;">
+        <span class="sub-jump-dot" style="width:10px;height:10px;border-radius:9999px;border:2px solid var(--jump-color);background:transparent;flex-shrink:0;"></span> Notes
+      </a>
+    </div>
+  </aside>
+  <div class="sub-main">
   <form method="post" id="subscription-form" novalidate>
     {% csrf_token %}
     {% if team_context %}
@@ -210,7 +248,7 @@
   <div style="display:flex;flex-direction:column;gap:24px;">
 
     <!-- ══ SECTION 1: Core Details ══ -->
-    <section class="card">
+    <section id="section-core" class="card">
       <div class="sec-hdr">
         <div class="sec-icon" style="background:#a8f0c8;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
@@ -369,7 +407,7 @@
     </section>
 
     <!-- ══ SECTION 2: Payment & Status ══ -->
-    <section class="card">
+    <section id="section-payment" class="card">
       <div class="sec-hdr">
         <div class="sec-icon" style="background:#f5f07a;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
@@ -408,7 +446,7 @@
     </section>
 
     <!-- ══ SECTION 3: Sharing & Ownership ══ -->
-    <section class="card">
+    <section id="section-sharing" class="card">
       <div class="sec-hdr">
         <div class="sec-icon" style="background:#d5b8f5;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -454,7 +492,7 @@
     </section>
 
     <!-- ══ SECTION 4: Account Info ══ -->
-    <section class="card">
+    <section id="section-account" class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
         <div class="sec-hdr" style="margin-bottom:0;">
           <div class="sec-icon" style="background:#c8d0e0;">
@@ -489,7 +527,7 @@
     </section>
 
     <!-- ══ SECTION 5: Notifications ══ -->
-    <section class="card">
+    <section id="section-notifications" class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
         <div class="sec-hdr" style="margin-bottom:0;">
           <div class="sec-icon" style="background:#fca5a5;">
@@ -525,7 +563,7 @@
     </section>
 
     <!-- ══ SECTION 6: Notes ══ -->
-    <section class="card">
+    <section id="section-notes" class="card">
       <div class="sec-hdr">
         <div class="sec-icon" style="background:#fcd34d;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
@@ -588,6 +626,7 @@
   </form>
   {{ participant_seed|json_script:"participant-seed-data" }}
   {{ reminder_seed|json_script:"reminder-seed-data" }}
+</div>
 </div>
 </div>
 {% endblock %}

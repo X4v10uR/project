@@ -1,8 +1,13 @@
-document.addEventListener("DOMContentLoaded", function () {
+(function () {
+    function initSubscriptionForm() {
     const form = document.getElementById("subscription-form");
     if (!form) {
         return;
     }
+    if (form.dataset.subscriptionFormReady === "true") {
+        return;
+    }
+    form.dataset.subscriptionFormReady = "true";
 
     const saveButton = document.getElementById("save-subscription-btn");
     const costInput = document.getElementById("id_cost");
@@ -47,6 +52,9 @@ document.addEventListener("DOMContentLoaded", function () {
     const togglePasswordButton = document.getElementById("toggle-password-btn");
     const passwordEyeOpen = document.getElementById("password-eye-open");
     const passwordEyeClosed = document.getElementById("password-eye-closed");
+    const jumpButtons = Array.from(
+        document.querySelectorAll(".sub-jump-btn[data-target]")
+    );
 
     const participantSeed = readJsonScript("participant-seed-data", []);
     const reminderSeed = readJsonScript("reminder-seed-data", []);
@@ -103,6 +111,196 @@ document.addEventListener("DOMContentLoaded", function () {
     initializeShareIndicators();
     initializeDatePicker();
     initializeSummaryPreview();
+    initializeJumpSidebar();
+
+    function initializeJumpSidebar() {
+        if (!jumpButtons.length) {
+            return;
+        }
+
+        const sections = jumpButtons
+            .map(function (button) {
+                const target = button.dataset.target || "";
+                const section = document.getElementById("section-" + target);
+                if (!target || !section) {
+                    return null;
+                }
+                return { target: target, section: section };
+            })
+            .filter(Boolean);
+
+        if (!sections.length) {
+            return;
+        }
+
+        const jumpColumn = document.querySelector(".sub-jump-col");
+        const jumpCard = jumpColumn
+            ? jumpColumn.querySelector(".sub-jump-card")
+            : null;
+
+        function getJumpColor(button) {
+            const rawColor = (button.style.getPropertyValue("--jump-color") || "").trim();
+            return rawColor || "#E5E7EB";
+        }
+
+        jumpButtons.forEach(function (button) {
+            button.style.display = "flex";
+            button.style.alignItems = "center";
+            button.style.gap = "8px";
+            button.style.padding = "10px 12px";
+            button.style.borderRadius = "12px";
+            button.style.textDecoration = "none";
+
+            const dot = button.querySelector(".sub-jump-dot");
+            if (dot) {
+                dot.style.width = "10px";
+                dot.style.height = "10px";
+                dot.style.borderRadius = "9999px";
+                dot.style.border = "2px solid " + getJumpColor(button);
+                dot.style.background = "transparent";
+                dot.style.flexShrink = "0";
+            }
+        });
+
+        function syncSidebarDocking() {
+            if (!jumpColumn || !jumpCard) {
+                return;
+            }
+
+            const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
+            const isVisible = jumpColumn.offsetParent !== null;
+            if (!isDesktop || !isVisible) {
+                jumpCard.style.position = "";
+                jumpCard.style.top = "";
+                jumpCard.style.left = "";
+                jumpCard.style.width = "";
+                jumpCard.style.zIndex = "";
+                return;
+            }
+
+            const rect = jumpColumn.getBoundingClientRect();
+            jumpCard.style.position = "fixed";
+            jumpCard.style.top = "24px";
+            jumpCard.style.left = Math.max(rect.left, 8) + "px";
+            jumpCard.style.width = rect.width + "px";
+            jumpCard.style.zIndex = "24";
+        }
+
+        function getScrollableAncestor(element) {
+            let node = element ? element.parentElement : null;
+            while (node && node !== document.body && node !== document.documentElement) {
+                const style = window.getComputedStyle(node);
+                const overflowY = style ? style.overflowY : "";
+                const canScroll =
+                    (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") &&
+                    node.scrollHeight > node.clientHeight + 1;
+                if (canScroll) {
+                    return node;
+                }
+                node = node.parentElement;
+            }
+            return window;
+        }
+
+        const scrollContainer = getScrollableAncestor(sections[0].section);
+
+        function sectionTopRelativeToContainer(section) {
+            if (scrollContainer === window) {
+                return section.getBoundingClientRect().top;
+            }
+            const sectionRect = section.getBoundingClientRect();
+            const containerRect = scrollContainer.getBoundingClientRect();
+            return sectionRect.top - containerRect.top;
+        }
+
+        function setActive(target) {
+            jumpButtons.forEach(function (button) {
+                const isActive = (button.dataset.target || "") === target;
+                const jumpColor = getJumpColor(button);
+                button.classList.toggle(
+                    "is-active",
+                    isActive
+                );
+                button.style.background = isActive ? jumpColor : "transparent";
+                button.style.color = isActive ? "#0D0D10" : "#6B7280";
+                button.style.fontWeight = isActive ? "700" : "500";
+
+                const dot = button.querySelector(".sub-jump-dot");
+                if (!dot) {
+                    return;
+                }
+                dot.style.borderColor = isActive ? "#0D0D10" : jumpColor;
+                dot.style.background = isActive ? "#0D0D10" : "transparent";
+            });
+        }
+
+        function updateActiveFromScroll() {
+            let activeTarget = sections[0].target;
+            sections.forEach(function (entry) {
+                if (sectionTopRelativeToContainer(entry.section) <= 140) {
+                    activeTarget = entry.target;
+                }
+            });
+            setActive(activeTarget);
+        }
+
+        function jumpToSection(target) {
+            const entry = sections.find(function (item) {
+                return item.target === target;
+            });
+            if (!entry) {
+                return;
+            }
+
+            if (scrollContainer === window) {
+                const nextTop = Math.max(
+                    window.scrollY + entry.section.getBoundingClientRect().top - 20,
+                    0
+                );
+                window.scrollTo({ top: nextTop, behavior: "smooth" });
+            } else {
+                const sectionRect = entry.section.getBoundingClientRect();
+                const containerRect = scrollContainer.getBoundingClientRect();
+                const nextTop = Math.max(
+                    scrollContainer.scrollTop + sectionRect.top - containerRect.top - 20,
+                    0
+                );
+                scrollContainer.scrollTo({ top: nextTop, behavior: "smooth" });
+            }
+            setActive(target);
+        }
+
+        jumpButtons.forEach(function (button) {
+            button.addEventListener("click", function (event) {
+                event.preventDefault();
+                jumpToSection(button.dataset.target || "");
+            });
+        });
+
+        let isTicking = false;
+        function onScroll() {
+            if (isTicking) {
+                return;
+            }
+            isTicking = true;
+            window.requestAnimationFrame(function () {
+                isTicking = false;
+                updateActiveFromScroll();
+            });
+        }
+
+        (scrollContainer === window ? window : scrollContainer).addEventListener(
+            "scroll",
+            onScroll,
+            { passive: true }
+        );
+        window.addEventListener("resize", function () {
+            syncSidebarDocking();
+            onScroll();
+        });
+        syncSidebarDocking();
+        updateActiveFromScroll();
+    }
 
     function readJsonScript(scriptId, fallback) {
         const script = document.getElementById(scriptId);
@@ -1358,4 +1556,17 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         return parsed;
     }
-});
+    }
+
+    function runInit() {
+        initSubscriptionForm();
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", runInit);
+    } else {
+        runInit();
+    }
+
+    document.addEventListener("subly:content-loaded", runInit);
+})();

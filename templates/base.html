@@ -800,6 +800,12 @@
                     if (normalized.startsWith('/dashboard/')) {
                         return '{% static "dashboard/dashboard.js" %}?v=20260327-5';
                     }
+                    if (
+                        normalized === '/subscriptions/add/' ||
+                        /^\/subscriptions\/\d+\/edit\/$/.test(normalized)
+                    ) {
+                        return '{% static "subscriptions/form.js" %}';
+                    }
                     if (normalized === '/subscriptions/') {
                         return '{% static "subscriptions/list.js" %}?v=20260330-9';
                     }
