@@ -8,6 +8,7 @@
         return;
     }
     form.dataset.subscriptionFormReady = "true";
+    const formShell = document.getElementById("sub-form-shell");
 
     const saveButton = document.getElementById("save-subscription-btn");
     const costInput = document.getElementById("id_cost");
@@ -112,6 +113,32 @@
     initializeDatePicker();
     initializeSummaryPreview();
     initializeJumpSidebar();
+    syncFormShellHeight();
+
+    window.addEventListener("resize", function () {
+        syncFormShellHeight();
+    });
+
+    function syncFormShellHeight() {
+        if (!formShell) {
+            return;
+        }
+
+        const shellTop = formShell.getBoundingClientRect().top;
+        const viewportHeight =
+            window.innerHeight || document.documentElement.clientHeight || 0;
+        const bottomReserve = window.matchMedia("(max-width: 767px)").matches
+            ? 84
+            : 12;
+        const minHeight = window.matchMedia("(max-width: 767px)").matches
+            ? 300
+            : 380;
+        const nextHeight = Math.max(
+            minHeight,
+            Math.floor(viewportHeight - shellTop - bottomReserve)
+        );
+        formShell.style.height = nextHeight + "px";
+    }
 
     function initializeJumpSidebar() {
         if (!jumpButtons.length) {
@@ -180,7 +207,7 @@
 
             const rect = jumpColumn.getBoundingClientRect();
             jumpCard.style.position = "fixed";
-            jumpCard.style.top = "24px";
+            jumpCard.style.top = Math.max(Math.round(rect.top), 24) + "px";
             jumpCard.style.left = Math.max(rect.left, 8) + "px";
             jumpCard.style.width = rect.width + "px";
             jumpCard.style.zIndex = "24";
