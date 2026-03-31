@@ -1246,7 +1246,7 @@ def subscription_create(request):
                         request,
                         'Request submitted. Team owners can approve it from Pending Create Requests.',
                     )
-                    return redirect('accounts:team_detail', team_id=team_context.pk)
+                    return redirect('subscriptions:list')
 
                 with transaction.atomic():
                     subscription.save()
@@ -1266,7 +1266,7 @@ def subscription_create(request):
                     metadata={'subscription_id': subscription.pk},
                     send_email_alert=True,
                 )
-                return redirect('accounts:team_detail', team_id=team_context.pk)
+                return redirect('subscriptions:list')
 
             with transaction.atomic():
                 subscription.save()

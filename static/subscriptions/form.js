@@ -111,7 +111,7 @@
     initializeShareIndicators();
     initializeDatePicker();
     initializeSummaryPreview();
-    initializeJumpSidebar();
+    // Jump sidebar removed from template.
 
     function initializeJumpSidebar() {
         if (!jumpButtons.length) {
@@ -163,27 +163,14 @@
         });
 
         function syncSidebarDocking() {
-            if (!jumpColumn || !jumpCard) {
+            if (!jumpCard) {
                 return;
             }
-
-            const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
-            const isVisible = jumpColumn.offsetParent !== null;
-            if (!isDesktop || !isVisible) {
-                jumpCard.style.position = "";
-                jumpCard.style.top = "";
-                jumpCard.style.left = "";
-                jumpCard.style.width = "";
-                jumpCard.style.zIndex = "";
-                return;
-            }
-
-            const rect = jumpColumn.getBoundingClientRect();
-            jumpCard.style.position = "fixed";
-            jumpCard.style.top = "24px";
-            jumpCard.style.left = Math.max(rect.left, 8) + "px";
-            jumpCard.style.width = rect.width + "px";
-            jumpCard.style.zIndex = "24";
+            jumpCard.style.position = "";
+            jumpCard.style.top = "";
+            jumpCard.style.left = "";
+            jumpCard.style.width = "";
+            jumpCard.style.zIndex = "";
         }
 
         function getScrollableAncestor(element) {
