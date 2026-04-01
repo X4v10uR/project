@@ -38,7 +38,8 @@
     const displayColorInput = document.getElementById("id_display_color");
     const displayColorPicker = document.getElementById("id_display_color_picker");
     const displayColorAutoButton = document.getElementById("display-color-auto");
-    const displayColorValue = document.getElementById("display-color-value");
+    const displayColorRandomButton = document.getElementById("display-color-random");
+    const displayColorCustomButton = document.getElementById("display-color-custom");
     const displayColorSwatches = Array.from(
         document.querySelectorAll("[data-display-color-swatch]")
     );
@@ -94,6 +95,9 @@
     };
 
     let reminderOffsets = normalizeReminderOffsets(reminderSeed);
+    let displayColorMode = normalizeHexColor(displayColorInput ? displayColorInput.value : "")
+        ? "custom"
+        : "auto";
 
     initializeStatusControls();
     initializeSplitControls();
@@ -424,14 +428,21 @@
     function syncDisplayColorControls() {
         const currentColor = normalizeHexColor(displayColorInput ? displayColorInput.value : "");
 
+        if (!currentColor) {
+            displayColorMode = "auto";
+        }
+
         if (displayColorPicker) {
             displayColorPicker.value = currentColor || normalizeHexColor(displayColorPicker.value) || DEFAULT_PICKER_COLOR;
         }
         if (displayColorAutoButton) {
             displayColorAutoButton.classList.toggle("active", !currentColor);
         }
-        if (displayColorValue) {
-            displayColorValue.textContent = currentColor || "Auto";
+        if (displayColorRandomButton) {
+            displayColorRandomButton.classList.toggle("active", Boolean(currentColor) && displayColorMode === "random");
+        }
+        if (displayColorCustomButton) {
+            displayColorCustomButton.classList.toggle("active", Boolean(currentColor) && displayColorMode !== "random");
         }
         displayColorSwatches.forEach(function (button) {
             button.classList.toggle(
@@ -447,36 +458,77 @@
         }
 
         displayColorInput.value = normalizeHexColor(displayColorInput.value);
+        displayColorMode = displayColorInput.value ? "custom" : "auto";
 
         if (displayColorAutoButton) {
             displayColorAutoButton.addEventListener("click", function () {
+                displayColorMode = "auto";
                 displayColorInput.value = "";
                 syncDisplayColorControls();
                 dispatchDisplayColorChange();
             });
         }
 
-        function applyCustomColor(rawColor) {
+        function applyCustomColor(rawColor, mode) {
             const color = normalizeHexColor(rawColor);
             if (!color) {
                 return;
             }
+            displayColorMode = mode || "custom";
             displayColorInput.value = color;
             displayColorPicker.value = color;
             syncDisplayColorControls();
             dispatchDisplayColorChange();
         }
 
+        function getRandomSwatchColor() {
+            const swatchColors = displayColorSwatches
+                .map(function (button) {
+                    return normalizeHexColor(button.dataset.displayColorSwatch);
+                })
+                .filter(Boolean);
+
+            if (!swatchColors.length) {
+                return DEFAULT_PICKER_COLOR;
+            }
+
+            const currentColor = normalizeHexColor(displayColorInput.value);
+            const pool =
+                currentColor && swatchColors.length > 1
+                    ? swatchColors.filter(function (color) {
+                          return color !== currentColor;
+                      })
+                    : swatchColors;
+
+            return pool[Math.floor(Math.random() * pool.length)] || swatchColors[0];
+        }
+
+        if (displayColorRandomButton) {
+            displayColorRandomButton.addEventListener("click", function () {
+                const randomColor = getRandomSwatchColor();
+                applyCustomColor(randomColor, "random");
+            });
+        }
+
+        if (displayColorCustomButton) {
+            displayColorCustomButton.addEventListener("click", function () {
+                const currentColor = normalizeHexColor(displayColorInput.value);
+                const nextColor = currentColor || normalizeHexColor(displayColorPicker.value) || DEFAULT_PICKER_COLOR;
+                applyCustomColor(nextColor, "custom");
+                displayColorPicker.click();
+            });
+        }
+
         displayColorPicker.addEventListener("input", function () {
-            applyCustomColor(displayColorPicker.value);
+            applyCustomColor(displayColorPicker.value, "custom");
         });
         displayColorPicker.addEventListener("change", function () {
-            applyCustomColor(displayColorPicker.value);
+            applyCustomColor(displayColorPicker.value, "custom");
         });
 
         displayColorSwatches.forEach(function (button) {
             button.addEventListener("click", function () {
-                applyCustomColor(button.dataset.displayColorSwatch);
+                applyCustomColor(button.dataset.displayColorSwatch, "custom");
             });
         });
 
@@ -1354,7 +1406,7 @@
 
             if (summaryLetter) {
                 summaryLetter.textContent = service.letter;
-                summaryLetter.style.color = tone.primary;
+                summaryLetter.style.color = "#1F2937";
                 summaryLetter.classList.remove("hidden");
             }
 
