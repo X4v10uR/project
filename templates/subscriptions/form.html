@@ -89,7 +89,16 @@
       font-weight:600;
     }
     .sub-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:24px;align-items:start;}
-    .sub-main{min-width:0;}
+    .sub-main{
+      min-width:0;
+      -ms-overflow-style:none;
+      scrollbar-width:none;
+    }
+    .sub-main::-webkit-scrollbar{
+      width:0;
+      height:0;
+      display:none;
+    }
     .form-stack{display:flex;flex-direction:column;gap:24px;}
 
     .sub-jump-col{display:none;}
