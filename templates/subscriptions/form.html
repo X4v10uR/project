@@ -770,13 +770,16 @@
     @media(min-width:1280px){
       .sub-grid{grid-template-columns:240px minmax(0,1fr) 360px;}
       .sub-jump-col{
-        display:block;
+        display:flex;
         min-height:0;
+        align-items:flex-start;
       }
       .sub-jump-card{
-        position:sticky;
-        top:0;
-        max-height:100%;
+        position:relative;
+        top:auto;
+        width:100%;
+        margin-top:clamp(120px,18vh,220px);
+        max-height:calc(100% - clamp(120px,18vh,220px));
         overflow:auto;
       }
     }
