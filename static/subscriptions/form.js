@@ -146,17 +146,17 @@
         jumpButtons.forEach(function (button) {
             button.style.display = "flex";
             button.style.alignItems = "center";
-            button.style.gap = "8px";
-            button.style.padding = "10px 12px";
-            button.style.borderRadius = "12px";
+            button.style.gap = "7px";
+            button.style.padding = "8px 10px";
+            button.style.borderRadius = "10px";
             button.style.textDecoration = "none";
 
             const dot = button.querySelector(".sub-jump-dot");
             if (dot) {
-                dot.style.width = "10px";
-                dot.style.height = "10px";
+                dot.style.width = "8px";
+                dot.style.height = "8px";
                 dot.style.borderRadius = "9999px";
-                dot.style.border = "2px solid " + getJumpColor(button);
+                dot.style.border = "1.5px solid " + getJumpColor(button);
                 dot.style.background = "transparent";
                 dot.style.flexShrink = "0";
             }
