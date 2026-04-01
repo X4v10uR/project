@@ -546,6 +546,13 @@
     }
     .radio.on{border-color:var(--primary);}
     .radio.on .radio-dot{display:block;}
+    .sub-share-option{
+      position:relative;
+    }
+    .sub-share-option .native-select{
+      top:0;
+      left:0;
+    }
 
     .badge{
       display:inline-flex;
@@ -1078,12 +1085,12 @@
       </div>
       <div style="display:flex;flex-direction:column;gap:16px;">
         <div style="display:flex;gap:16px;">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
+          <label class="sub-share-option" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
             <input type="radio" name="is_shared" value="False" class="native-select" {% if not is_shared_selected %}checked{% endif %}>
             <div id="rJustMe" class="radio"><div class="radio-dot"></div></div>
             <span style="font-size:14px;font-weight:400;color:#374151;">Just me</span>
           </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
+          <label class="sub-share-option" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
             <input type="radio" name="is_shared" value="True" class="native-select" {% if is_shared_selected %}checked{% endif %}>
             <div id="rShared" class="radio"><div class="radio-dot"></div></div>
             <span style="font-size:14px;font-weight:400;color:#374151;">Shared with others</span>
