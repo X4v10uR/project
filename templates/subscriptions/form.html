@@ -188,6 +188,13 @@
       box-shadow:0 10px 18px rgba(53,37,205,.25);
       flex-shrink:0;
     }
+    .sum-icon-image{
+      width:26px;
+      height:26px;
+      object-fit:contain;
+      display:block;
+    }
+    .sum-icon-text{line-height:1;}
     .sum-amount{text-align:right;}
     .sum-amount p:first-child{
       font-size:10px;
@@ -888,19 +895,11 @@
       </div>
       <div class="g2" style="display:grid;grid-template-columns:1fr;gap:20px;">
 
-        <!-- Service Name + Icon Preview -->
+        <!-- Service Name -->
         <div class="space-8">
           <label for="id_service_name" class="lbl">Service Name</label>
-          <div style="display:flex;gap:12px;align-items:center;">
-            <input id="id_service_name" name="service_name" type="text" value="{{ service_name_value }}" maxlength="100" required class="ui-input" style="flex:1;" placeholder="e.g., Netflix, Spotify">
-            <div id="service-icon-preview" style="width:40px;height:40px;border-radius:14px;background:#f3f3f5;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .2s;">
-              <span>
-                <img id="service-icon-image" src="" alt="" class="hidden" style="width:18px;height:18px;">
-                <span id="service-icon-fallback" style="font-size:14px;color:#9ca3af;">S</span>
-              </span>
-            </div>
-          </div>
-          <p class="hint">Type a service name to see its icon preview</p>
+          <input id="id_service_name" name="service_name" type="text" value="{{ service_name_value }}" maxlength="100" required class="ui-input" placeholder="e.g., Netflix, Spotify">
+          <p class="hint">Type a service name to preview your subscription card</p>
           {% if form.service_name.errors %}<p class="field-error">{{ form.service_name.errors.0 }}</p>{% endif %}
         </div>
 
@@ -1238,7 +1237,10 @@
       <div class="sum-blob-b"></div>
       <div class="sum-inner">
         <div class="sum-top">
-          <div class="sum-icon"><span id="sumLetter">S</span></div>
+          <div class="sum-icon">
+            <img id="sumServiceIconImage" src="" alt="" class="sum-icon-image hidden">
+            <span id="sumLetter" class="sum-icon-text">S</span>
+          </div>
           <div class="sum-amount">
             <p>Total Cost</p>
             <p id="sumCost">$0.00</p>
@@ -1285,5 +1287,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'subscriptions/form.js' %}?v=20260331-3"></script>
+<script src="{% static 'subscriptions/form.js' %}?v=20260401-1"></script>
 {% endblock %}

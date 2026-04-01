@@ -35,9 +35,6 @@
     const isSharedInputs = Array.from(document.querySelectorAll('input[name="is_shared"]'));
 
     const serviceNameInput = document.getElementById("id_service_name");
-    const iconPreview = document.getElementById("service-icon-preview");
-    const iconImage = document.getElementById("service-icon-image");
-    const iconFallback = document.getElementById("service-icon-fallback");
     const displayColorInput = document.getElementById("id_display_color");
     const displayColorPicker = document.getElementById("id_display_color_picker");
     const displayColorAutoButton = document.getElementById("display-color-auto");
@@ -103,7 +100,6 @@
     initializeParticipantControls();
     initializeReminderControls();
     initializeDisplayColorPicker();
-    initializeServiceIconPreview();
     initializeStartDateInput();
     initializePasswordToggle();
     initializeSubmitValidation();
@@ -953,61 +949,6 @@
         setReminderSectionState();
     }
 
-    function initializeServiceIconPreview() {
-        if (!serviceNameInput || !iconImage || !iconFallback) {
-            return;
-        }
-
-        function updateServiceIcon() {
-            const serviceName = serviceNameInput.value.trim();
-            const previewColor = getEffectiveDisplayColor(serviceName);
-            const tone = getPreviewTone(previewColor);
-
-            if (iconPreview) {
-                iconPreview.style.backgroundColor = previewColor;
-            }
-            iconFallback.style.color = tone.primary;
-
-            if (!serviceName) {
-                if (iconPreview) {
-                    iconPreview.classList.remove("hidden");
-                }
-                iconImage.classList.add("hidden");
-                iconFallback.classList.remove("hidden");
-                iconFallback.textContent = "S";
-                return;
-            }
-
-            if (iconPreview) {
-                iconPreview.classList.remove("hidden");
-            }
-
-            iconFallback.textContent = serviceName.charAt(0).toUpperCase();
-            const iconUrl = generateIconUrl(serviceName);
-            if (!iconUrl) {
-                iconImage.classList.add("hidden");
-                iconFallback.classList.remove("hidden");
-                return;
-            }
-
-            iconImage.classList.remove("hidden");
-            iconImage.src = iconUrl;
-            iconImage.onload = function () {
-                iconFallback.classList.add("hidden");
-            };
-            iconImage.onerror = function () {
-                iconImage.classList.add("hidden");
-                iconFallback.classList.remove("hidden");
-            };
-        }
-
-        serviceNameInput.addEventListener("input", updateServiceIcon);
-        if (displayColorInput) {
-            displayColorInput.addEventListener("change", updateServiceIcon);
-        }
-        updateServiceIcon();
-    }
-
     function initializeStartDateInput() {
         if (!startDateInput) {
             return;
@@ -1353,6 +1294,7 @@
         const billingCycleInput = document.getElementById("id_billing_cycle");
         const cardInput = document.getElementById("id_card");
         const categoryInput = document.getElementById("id_category");
+        const summaryIconImage = document.getElementById("sumServiceIconImage");
         const summaryLetter = document.getElementById("sumLetter");
         const summaryName = document.getElementById("sumName");
         const summaryPlan = document.getElementById("sumPlan");
@@ -1369,6 +1311,7 @@
             AUD: "AUD ",
         };
         const shortMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        let latestSummaryIconUrl = "";
 
         function parseIso(raw) {
             if (!/^\d{4}-\d{2}-\d{2}$/.test(raw || "")) {
@@ -1412,6 +1355,40 @@
             if (summaryLetter) {
                 summaryLetter.textContent = service.letter;
                 summaryLetter.style.color = tone.primary;
+                summaryLetter.classList.remove("hidden");
+            }
+
+            if (summaryIconImage) {
+                summaryIconImage.classList.add("hidden");
+                summaryIconImage.alt = "";
+                latestSummaryIconUrl = "";
+
+                if (hasServiceName) {
+                    const iconUrl = generateIconUrl(serviceName);
+                    if (iconUrl) {
+                        latestSummaryIconUrl = iconUrl;
+                        summaryIconImage.src = iconUrl;
+                        summaryIconImage.alt = serviceName + " icon";
+                        summaryIconImage.onload = function () {
+                            if (latestSummaryIconUrl !== iconUrl) {
+                                return;
+                            }
+                            summaryIconImage.classList.remove("hidden");
+                            if (summaryLetter) {
+                                summaryLetter.classList.add("hidden");
+                            }
+                        };
+                        summaryIconImage.onerror = function () {
+                            if (latestSummaryIconUrl !== iconUrl) {
+                                return;
+                            }
+                            summaryIconImage.classList.add("hidden");
+                            if (summaryLetter) {
+                                summaryLetter.classList.remove("hidden");
+                            }
+                        };
+                    }
+                }
             }
             if (summaryName) {
                 summaryName.textContent = hasServiceName ? serviceName : "Service Name";
