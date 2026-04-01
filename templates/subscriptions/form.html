@@ -31,12 +31,13 @@
       font-size:16px;
       color:var(--on-surface);
       background:var(--surface);
-      padding:20px 16px 48px;
+      padding:10px 16px 48px;
       -webkit-font-smoothing:antialiased;
     }
     .sub-form *{outline-color:rgba(77,68,227,.35);}
     .sub-form h1,.sub-form h2,.sub-form h3{font-family:"Manrope","Inter",system-ui,sans-serif;margin:0;}
     .sub-form p{margin:0;}
+    .global-notification-shell{display:none!important;}
 
     main.app-main-shell,main.app-main-shell #app-content{overflow:visible!important;}
 
@@ -45,8 +46,8 @@
       position:sticky;
       top:0;
       z-index:30;
-      margin:0 -16px 20px;
-      padding:12px 16px;
+      margin:0 -16px 8px;
+      padding:6px 16px;
       background:rgba(247,249,251,.92);
       backdrop-filter:blur(10px);
       -webkit-backdrop-filter:blur(10px);
@@ -74,7 +75,7 @@
       flex-shrink:0;
     }
     .sub-back:hover{background:var(--surface-high);}
-    .sub-page-headline h1{font-size:1.125rem;font-weight:800;letter-spacing:-.01em;color:var(--on-surface);}
+    .sub-page-headline h1{font-size:1.5rem;font-weight:800;letter-spacing:-.015em;color:var(--on-surface);}
     .sub-page-subtitle{font-size:12px;font-weight:500;color:var(--on-surface-variant);margin-top:1px;}
     .sub-page-notice{font-size:12px;color:#475569;margin-top:4px;line-height:1.45;}
     .sub-context{font-size:12px;color:#334155;margin-top:6px;}
@@ -87,14 +88,6 @@
       font-size:11px;
       font-weight:600;
     }
-    .sub-brand{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--on-surface);}
-    .sub-brand-dot{
-      width:8px;
-      height:8px;
-      border-radius:999px;
-      background:linear-gradient(135deg,var(--primary),var(--primary-container));
-    }
-
     .sub-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:24px;align-items:start;}
     .sub-main{min-width:0;}
     .form-stack{display:flex;flex-direction:column;gap:24px;}
@@ -709,6 +702,7 @@
     @media(min-width:768px){.g2{grid-template-columns:repeat(2,minmax(0,1fr))!important;}}
     @media(min-width:1100px){
       .sub-grid{grid-template-columns:minmax(0,1fr) 360px;gap:28px;}
+      .sub-main{margin-top:-12px;}
       .sub-summary-stack{position:sticky;top:102px;}
     }
     @media(min-width:1280px){
@@ -730,10 +724,6 @@
       </a>
       <div class="sub-page-headline">
         <h1>{% if is_edit_mode %}Edit Subscription{% else %}Add Subscription{% endif %}</h1>
-        <p class="sub-page-subtitle">Track a new subscription by filling out the details below.</p>
-        <p class="sub-context">
-          Context: <span class="sub-context-chip">{{ owner_context_label }}</span>
-        </p>
         {% if team_context and not can_create_direct_subscription and not is_edit_mode %}
         <p class="sub-page-notice">
           Your submission will be sent as a pending request for team owner approval.
@@ -741,7 +731,6 @@
         {% endif %}
       </div>
     </div>
-    <div class="sub-brand"><span class="sub-brand-dot"></span><span>Subly</span></div>
   </div>
 </div>
 <div class="sub-layout">
@@ -1184,4 +1173,3 @@
 {% block extra_js %}
 <script src="{% static 'subscriptions/form.js' %}?v=20260331-3"></script>
 {% endblock %}
-
