@@ -244,7 +244,7 @@
                     window.scrollY + entry.section.getBoundingClientRect().top - 20,
                     0
                 );
-                window.scrollTo({ top: nextTop, behavior: "smooth" });
+                window.scrollTo(0, nextTop);
             } else {
                 const sectionRect = entry.section.getBoundingClientRect();
                 const containerRect = scrollContainer.getBoundingClientRect();
@@ -252,7 +252,7 @@
                     scrollContainer.scrollTop + sectionRect.top - containerRect.top - 20,
                     0
                 );
-                scrollContainer.scrollTo({ top: nextTop, behavior: "smooth" });
+                scrollContainer.scrollTop = nextTop;
             }
             setActive(target);
         }
