@@ -111,7 +111,7 @@
     initializeShareIndicators();
     initializeDatePicker();
     initializeSummaryPreview();
-    // Jump sidebar removed from template.
+    initializeJumpSidebar();
 
     function initializeJumpSidebar() {
         if (!jumpButtons.length) {
@@ -1351,12 +1351,14 @@
         const planInput = document.getElementById("id_plan_name");
         const currencyInput = document.getElementById("id_currency");
         const billingCycleInput = document.getElementById("id_billing_cycle");
+        const cardInput = document.getElementById("id_card");
         const categoryInput = document.getElementById("id_category");
         const summaryLetter = document.getElementById("sumLetter");
         const summaryName = document.getElementById("sumName");
         const summaryPlan = document.getElementById("sumPlan");
         const summaryCost = document.getElementById("sumCost");
         const summaryCycle = document.getElementById("sumCycle");
+        const summaryPay = document.getElementById("sumPay");
         const summaryTags = document.getElementById("sumTags");
         const currencyMap = {
             USD: "$",
@@ -1376,17 +1378,35 @@
             return new Date(parts[0], parts[1] - 1, parts[2]);
         }
 
+        function getSelectedCardLabel() {
+            if (!cardInput || !cardInput.value || cardInput.selectedIndex < 0) {
+                return "No card selected";
+            }
+            const selected = cardInput.options[cardInput.selectedIndex];
+            return selected ? selected.textContent.trim() : "No card selected";
+        }
+
+        function formatDateForSummary(rawDate) {
+            const parsedDate = parseIso(rawDate || "");
+            if (!parsedDate) {
+                return "";
+            }
+            return (
+                shortMonths[parsedDate.getMonth()] +
+                " " +
+                parsedDate.getDate() +
+                ", " +
+                parsedDate.getFullYear()
+            );
+        }
+
         function updateSummary() {
             const serviceName = (serviceNameInput.value || "").trim();
-            if (!serviceName) {
-                summarySection.style.display = "none";
-                return;
-            }
-
-            summarySection.style.display = "block";
+            const hasServiceName = Boolean(serviceName);
             const service = getAutoSummaryStyle(serviceName);
             const resolvedColor = getEffectiveDisplayColor(serviceName);
             const tone = getPreviewTone(resolvedColor);
+            summarySection.style.display = "block";
             summarySection.style.backgroundColor = resolvedColor;
 
             if (summaryLetter) {
@@ -1394,14 +1414,14 @@
                 summaryLetter.style.color = tone.primary;
             }
             if (summaryName) {
-                summaryName.textContent = serviceName;
+                summaryName.textContent = hasServiceName ? serviceName : "Service Name";
                 summaryName.style.color = tone.primary;
             }
 
             const plan = planInput ? (planInput.value || "").trim() : "";
             if (summaryPlan) {
-                summaryPlan.style.display = plan ? "block" : "none";
-                summaryPlan.textContent = plan;
+                summaryPlan.style.display = "block";
+                summaryPlan.textContent = plan || "Select a plan to start";
                 summaryPlan.style.color = tone.secondary;
             }
 
@@ -1410,23 +1430,24 @@
             if (summaryCost) {
                 if (rawCost && !Number.isNaN(parsedCost)) {
                     const code = currencyInput ? (currencyInput.value || "").trim().toUpperCase() || "USD" : "USD";
-                    summaryCost.style.display = "block";
                     summaryCost.textContent = (currencyMap[code] || code + " ") + parsedCost.toFixed(2);
-                    summaryCost.style.color = tone.primary;
                 } else {
-                    summaryCost.style.display = "none";
+                    summaryCost.textContent = "$0.00";
                 }
+                summaryCost.style.display = "block";
+                summaryCost.style.color = tone.primary;
             }
 
             if (summaryCycle) {
-                const cycleOption =
-                    billingCycleInput && billingCycleInput.selectedIndex >= 0
-                        ? billingCycleInput.options[billingCycleInput.selectedIndex]
-                        : null;
-                const cycleText = cycleOption && billingCycleInput.value ? cycleOption.textContent.toLowerCase() : "";
-                summaryCycle.style.display = cycleText ? "block" : "none";
-                summaryCycle.textContent = cycleText ? "/" + cycleText : "";
+                const formattedDate = formatDateForSummary(startDateInput ? startDateInput.value : "");
+                summaryCycle.style.display = "block";
+                summaryCycle.textContent = formattedDate || "Select a date";
                 summaryCycle.style.color = tone.secondary;
+            }
+
+            if (summaryPay) {
+                summaryPay.textContent = getSelectedCardLabel();
+                summaryPay.style.color = tone.secondary;
             }
 
             if (summaryTags) {
@@ -1437,18 +1458,12 @@
                 if (statusInput && statusInput.value) {
                     tags.push(statusInput.value);
                 }
-                if (startDateInput && /^\d{4}-\d{2}-\d{2}$/.test(startDateInput.value)) {
-                    const parsedDate = parseIso(startDateInput.value);
-                    if (parsedDate) {
-                        tags.push(
-                            "Since " +
-                                shortMonths[parsedDate.getMonth()] +
-                                " " +
-                                parsedDate.getDate() +
-                                ", " +
-                                parsedDate.getFullYear()
-                        );
-                    }
+                if (billingCycleInput && billingCycleInput.value && billingCycleInput.selectedIndex >= 0) {
+                    tags.push(billingCycleInput.options[billingCycleInput.selectedIndex].textContent);
+                }
+                const startDateLabel = formatDateForSummary(startDateInput ? startDateInput.value : "");
+                if (startDateLabel) {
+                    tags.push("Starts " + startDateLabel);
                 }
 
                 const sharedSelected = isSharedInputs.find(function (input) {
@@ -1464,6 +1479,9 @@
                             " " +
                             (participantCount === 1 ? "person" : "people")
                     );
+                }
+                if (!tags.length) {
+                    tags.push("Draft preview");
                 }
 
                 summaryTags.innerHTML = tags
@@ -1501,6 +1519,9 @@
 
         if (displayColorInput) {
             displayColorInput.addEventListener("change", updateSummary);
+        }
+        if (cardInput) {
+            cardInput.addEventListener("change", updateSummary);
         }
 
         isSharedInputs.forEach(function (input) {
