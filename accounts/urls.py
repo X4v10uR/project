@@ -1,6 +1,7 @@
-from django.urls import path
 from django.contrib.auth import views as auth_views
-from . import views
+from django.urls import path
+
+from . import settings_views, views
 
 app_name = 'accounts'
 
@@ -8,8 +9,8 @@ urlpatterns = [
     path('signup/', views.signup, name='signup'),
     path('login/', auth_views.LoginView.as_view(template_name='accounts/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(next_page='/accounts/login/'), name='logout'),
-    path('settings/', views.settings, name='settings'),
-    path('settings/avatar/', views.settings_avatar_update, name='settings_avatar_update'),
+    path('settings/', settings_views.account_settings, name='settings'),
+    path('settings/avatar/', settings_views.update_avatar, name='settings_avatar_update'),
     path('teams/', views.teams_overview, name='teams_overview'),
     path('teams/create/', views.team_create, name='team_create'),
     path('teams/<int:team_id>/', views.team_detail, name='team_detail'),

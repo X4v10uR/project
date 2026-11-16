@@ -17,6 +17,14 @@ A premium Subscription Management SaaS application built with Django and Tailwin
 - **Database**: SQLite (default)
 - **Email**: SMTP support with HTML templates
 
+## Project layout
+
+- `subly/` holds project settings, URL routing, and server entry points.
+- `accounts/` handles authentication, account settings, and team workflows.
+- `subscriptions/` keeps subscription workflows, card endpoints, and list presentation in `views.py`, `card_views.py`, and `list_context.py`.
+- `dashboard/` assembles dashboard data and handles in-app notifications.
+- `templates/`, `static/`, and `theme/` contain page markup, browser scripts, and the Tailwind build.
+
 ## Setup Instructions
 
 1. **Install Dependencies**

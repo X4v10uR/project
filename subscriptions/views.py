@@ -1,45 +1,27 @@
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from decimal import Decimal, InvalidOperation
-from datetime import timedelta
 import csv
-import json
+from decimal import Decimal, InvalidOperation
 
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.db.models import Count
-from django.utils import timezone
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
+
 from accounts.models import Team, TeamMembership
 from accounts.services import is_team_member, is_team_owner
-from .models import (
-    ReminderOffset,
-    Card,
-    Subscription,
-    SubscriptionParticipant,
-    TeamSubscriptionRequest,
-    Transaction,
-)
-from .notifications import create_notification, create_team_notifications
-from .forms import SubscriptionForm, CardForm
-from .services import record_due_charge_for_subscription
-from django.http import HttpResponse, JsonResponse
-from .cards_state import (
-    CARD_BRANDS,
-    CARD_THEMES,
-    apply_modal_query_state,
-    build_cards_page_state,
-    normalize_card_brand,
-    normalize_card_theme,
-    normalize_primary_cards_for_user,
-    parse_boolean,
-    set_primary_card_for_user,
-)
-from .money import monthly_equivalent
+
 from .color_utils import (
     LIGHT_SUBSCRIPTION_COLOR_PRESETS,
     normalize_subscription_display_color,
 )
+from .forms import SubscriptionForm
+from .list_context import build_subscription_list_context, filter_personal_subscriptions
+from .models import ReminderOffset, Subscription, SubscriptionParticipant, TeamSubscriptionRequest
+from .notifications import create_notification, create_team_notifications
+from .services import record_due_charge_for_subscription
+
 
 CATEGORY_SUGGESTIONS = [
     "Streaming",
@@ -55,351 +37,6 @@ CATEGORY_SUGGESTIONS = [
 ]
 
 CSV_FORMULA_PREFIXES = ('=', '+', '-', '@')
-
-CARD_COLOR_PALETTE = [
-    "#F9F871",
-    "#7BCFC0",
-    "#B5A5E7",
-    "#AFC0DE",
-    "#F4C3A8",
-    "#9ED6EA",
-    "#C3DDA6",
-    "#E7B3C6",
-    "#D8C6A5",
-    "#C7BEEA",
-]
-
-CATEGORY_COLOR_MAP = {
-    "streaming": "#B5A5E7",
-    "music": "#7BCFC0",
-    "video": "#F4C3A8",
-    "software": "#AFC0DE",
-    "utilities": "#9ED6EA",
-    "cloud": "#C7BEEA",
-    "gaming": "#E7B3C6",
-    "productivity": "#C3DDA6",
-    "education": "#F9F871",
-    "news": "#D8C6A5",
-    "fitness": "#F4C3A8",
-}
-
-ALLOWED_STATUS_FILTERS = {choice for choice, _ in Subscription.STATUS_CHOICES}
-ALLOWED_BILLING_CYCLES = {choice for choice, _ in Subscription.BILLING_CYCLE_CHOICES}
-ALLOWED_SHARED_FILTERS = {"", "true", "false"}
-ALLOWED_SORT_FIELDS = {"cost", "renewal_date", "service_name"}
-
-
-def _hex_to_rgb(value):
-    raw = (value or "").strip()
-    if not raw.startswith("#"):
-        return 0, 0, 0
-    hex_value = raw.lstrip("#")
-    if len(hex_value) == 3:
-        hex_value = "".join(ch * 2 for ch in hex_value)
-    if len(hex_value) != 6:
-        return 0, 0, 0
-    try:
-        return (
-            int(hex_value[0:2], 16),
-            int(hex_value[2:4], 16),
-            int(hex_value[4:6], 16),
-        )
-    except ValueError:
-        return 0, 0, 0
-
-
-def _is_dark_color(value):
-    r, g, b = _hex_to_rgb(value)
-    luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
-    return luminance < 0.6
-
-
-def _assign_subscription_card_meta(subscriptions):
-    today = timezone.localdate()
-    for idx, sub in enumerate(subscriptions):
-        category_key = (sub.category or "").strip().lower()
-        color = normalize_subscription_display_color(getattr(sub, "display_color", ""))
-        if not color:
-            color = CATEGORY_COLOR_MAP.get(category_key) or CARD_COLOR_PALETTE[idx % len(CARD_COLOR_PALETTE)]
-        is_dark = _is_dark_color(color)
-        sub.card_color = color
-        sub.card_text_is_light = is_dark
-        sub.card_text_class = "text-white" if is_dark else "text-slate-900"
-        sub.card_muted_class = "text-white/65" if is_dark else "text-slate-600"
-        sub.card_divider_class = "border-white/15" if is_dark else "border-slate-200"
-        sub.card_badge_class = "bg-white/15 text-white" if is_dark else "bg-slate-900/10 text-slate-700"
-        sub.card_badge_border_class = "border-white/20" if is_dark else "border-slate-200"
-
-        if sub.renewal_date:
-            sub.days_until_renewal = (sub.renewal_date - today).days
-        else:
-            sub.days_until_renewal = None
-
-        if sub.days_until_renewal is None:
-            sub.renewal_text_class = sub.card_muted_class
-        elif sub.days_until_renewal < 0:
-            sub.renewal_text_class = "text-red-300" if is_dark else "text-red-600"
-        elif sub.days_until_renewal <= 3:
-            sub.renewal_text_class = "text-yellow-300" if is_dark else "text-orange-600"
-        else:
-            sub.renewal_text_class = sub.card_text_class
-
-
-def _normalize_currency_code(raw_currency):
-    currency = (raw_currency or "USD").strip().upper()
-    return currency or "USD"
-
-
-def _format_currency_amount(amount, currency):
-    if currency == "USD":
-        return f"${amount:.2f}"
-    return f"{currency} {amount:.2f}"
-
-
-def _accumulate_monthly_spend_by_currency(subscriptions):
-    totals = {}
-    for subscription in subscriptions:
-        currency = _normalize_currency_code(subscription.currency)
-        totals[currency] = totals.get(currency, Decimal("0")) + monthly_equivalent(
-            subscription.user_cost,
-            subscription.billing_cycle,
-        )
-    return totals
-
-
-def _format_spend_display(spend_by_currency):
-    if not spend_by_currency:
-        return "$0.00"
-    if len(spend_by_currency) > 1:
-        return "Multiple currencies"
-
-    currency, amount = next(iter(spend_by_currency.items()))
-    return _format_currency_amount(amount, currency)
-
-
-def _calculate_subscription_stats(subscriptions):
-    total = len(subscriptions)
-    active = sum(1 for s in subscriptions if s.status == "active")
-    paused = sum(1 for s in subscriptions if s.status == "paused")
-    cancelled = sum(1 for s in subscriptions if s.status == "cancelled")
-    active_subscriptions = [sub for sub in subscriptions if sub.status == "active"]
-    spend_by_currency = _accumulate_monthly_spend_by_currency(active_subscriptions)
-    is_mixed_currency = len(spend_by_currency) > 1
-
-    if not spend_by_currency:
-        monthly_spend = Decimal("0")
-        monthly_spend_currency = "USD"
-    elif is_mixed_currency:
-        monthly_spend = None
-        monthly_spend_currency = "MIXED"
-    else:
-        monthly_spend_currency, monthly_spend = next(iter(spend_by_currency.items()))
-
-    return {
-        "total": total,
-        "active": active,
-        "paused": paused,
-        "cancelled": cancelled,
-        "monthly_spend": monthly_spend,
-        "monthly_spend_currency": monthly_spend_currency,
-        "monthly_spend_display": _format_spend_display(spend_by_currency),
-        "monthly_spend_is_mixed": is_mixed_currency,
-    }
-
-
-def _calculate_subscription_burn_metrics(subscriptions):
-    active_subscriptions = []
-    tracked_subscriptions = []
-    active_count = 0
-    tracked_count = 0
-
-    for subscription in subscriptions:
-        if subscription.status == "cancelled":
-            continue
-
-        tracked_subscriptions.append(subscription)
-        tracked_count += 1
-
-        if subscription.status == "active":
-            active_subscriptions.append(subscription)
-            active_count += 1
-
-    active_spend_by_currency = _accumulate_monthly_spend_by_currency(active_subscriptions)
-    tracked_spend_by_currency = _accumulate_monthly_spend_by_currency(tracked_subscriptions)
-    spend_is_mixed = len(tracked_spend_by_currency) > 1
-
-    active_share_percent = 0
-    share_basis = "count"
-    active_monthly_spend = Decimal("0")
-    tracked_monthly_spend = Decimal("0")
-    active_monthly_spend_currency = "USD"
-    tracked_monthly_spend_currency = "USD"
-
-    if not spend_is_mixed and tracked_spend_by_currency:
-        tracked_monthly_spend_currency, tracked_monthly_spend = next(
-            iter(tracked_spend_by_currency.items())
-        )
-        active_monthly_spend_currency = tracked_monthly_spend_currency
-        active_monthly_spend = active_spend_by_currency.get(
-            tracked_monthly_spend_currency, Decimal("0")
-        )
-        if tracked_monthly_spend > 0:
-            share_basis = "spend"
-            active_share_percent = int(
-                (active_monthly_spend * Decimal("100") / tracked_monthly_spend).quantize(
-                    Decimal("1")
-                )
-            )
-
-    if share_basis != "spend" and tracked_count > 0:
-        active_share_percent = int(
-            (Decimal(active_count) * Decimal("100") / Decimal(tracked_count)).quantize(
-                Decimal("1")
-            )
-        )
-
-    if spend_is_mixed:
-        active_monthly_spend = None
-        tracked_monthly_spend = None
-        active_monthly_spend_currency = "MIXED"
-        tracked_monthly_spend_currency = "MIXED"
-
-    active_share_width = active_share_percent
-    if active_share_percent > 0 and active_share_width < 12:
-        active_share_width = 12
-
-    return {
-        "active_monthly_spend": active_monthly_spend,
-        "tracked_monthly_spend": tracked_monthly_spend,
-        "active_monthly_spend_currency": active_monthly_spend_currency,
-        "tracked_monthly_spend_currency": tracked_monthly_spend_currency,
-        "active_monthly_spend_display": _format_spend_display(active_spend_by_currency),
-        "tracked_monthly_spend_display": _format_spend_display(tracked_spend_by_currency),
-        "active_count": active_count,
-        "tracked_count": tracked_count,
-        "active_share_basis": share_basis,
-        "spend_is_mixed": spend_is_mixed,
-        "active_share_percent": max(0, min(active_share_percent, 100)),
-        "active_share_width": max(0, min(active_share_width, 100)),
-    }
-
-
-def _ordinal_suffix(day):
-    if 11 <= (day % 100) <= 13:
-        return "th"
-    return {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
-
-
-def _build_subscription_drawer_payload(subscriptions):
-    subscription_ids = [sub.pk for sub in subscriptions]
-    transactions_by_subscription = {sub_id: [] for sub_id in subscription_ids}
-
-    if subscription_ids:
-        recent_transactions = (
-            Transaction.objects.filter(
-                subscription_id__in=subscription_ids,
-                source=Transaction.SOURCE_RENEWAL,
-            )
-            .only("subscription_id", "charged_for_date", "amount", "currency", "charged_at")
-            .order_by("subscription_id", "-charged_for_date", "-charged_at")
-        )
-        for transaction in recent_transactions:
-            bucket = transactions_by_subscription.get(transaction.subscription_id)
-            if bucket is None or len(bucket) >= 6:
-                continue
-            currency = _normalize_currency_code(transaction.currency)
-            bucket.append(
-                {
-                    "charged_for_date": (
-                        transaction.charged_for_date.isoformat()
-                        if transaction.charged_for_date
-                        else ""
-                    ),
-                    "charged_for_date_display": (
-                        transaction.charged_for_date.strftime("%b %d, %Y")
-                        if transaction.charged_for_date
-                        else "Unknown date"
-                    ),
-                    "amount": str(transaction.amount),
-                    "currency": currency,
-                    "amount_display": _format_currency_amount(transaction.amount, currency),
-                }
-            )
-
-    payload = {}
-    for subscription in subscriptions:
-        currency = _normalize_currency_code(subscription.currency)
-        total_cost = subscription.cost or Decimal("0")
-        user_cost = subscription.user_cost or Decimal("0")
-        participant_count = int(getattr(subscription, "participant_count", 0) or 0)
-        total_people = 1 + participant_count if subscription.is_shared else 1
-
-        share_percent = 0
-        if total_cost > 0:
-            share_percent = int(
-                (user_cost * Decimal("100") / total_cost).quantize(Decimal("1"))
-            )
-        share_percent = max(0, min(share_percent, 100))
-
-        renewal_date_display = (
-            subscription.renewal_date.strftime("%b %d, %Y")
-            if subscription.renewal_date
-            else "No renewal date"
-        )
-        billing_cycle_display = subscription.get_billing_cycle_display()
-        if subscription.renewal_date:
-            renewal_day = subscription.renewal_date.day
-            billing_cycle_detail = (
-                f"{billing_cycle_display}, {renewal_day}{_ordinal_suffix(renewal_day)}"
-            )
-        else:
-            billing_cycle_detail = billing_cycle_display
-
-        card_last4 = subscription.card.last4 if subscription.card else ""
-        card_brand = (subscription.card.brand or "").upper() if subscription.card else ""
-        icon_url = subscription.get_icon_url()
-        fallback_icon = subscription.get_fallback_icon()
-
-        payload[str(subscription.pk)] = {
-            "id": subscription.pk,
-            "service_name": subscription.service_name,
-            "plan_name": subscription.plan_name or "",
-            "category": subscription.category or "Uncategorized",
-            "billing_cycle": subscription.billing_cycle,
-            "billing_cycle_display": billing_cycle_display,
-            "billing_cycle_detail": billing_cycle_detail,
-            "status": subscription.status,
-            "status_display": subscription.get_status_display(),
-            "currency": currency,
-            "cost": str(total_cost),
-            "cost_display": _format_currency_amount(total_cost, currency),
-            "user_cost": str(user_cost),
-            "user_cost_display": _format_currency_amount(user_cost, currency),
-            "is_shared": bool(subscription.is_shared),
-            "participant_count": participant_count,
-            "total_people": total_people,
-            "share_percent": share_percent,
-            "renewal_date": (
-                subscription.renewal_date.isoformat()
-                if subscription.renewal_date
-                else ""
-            ),
-            "renewal_date_display": renewal_date_display,
-            "days_until_renewal": subscription.days_until_renewal,
-            "account_email": subscription.account_email or "",
-            "has_card": bool(subscription.card_id),
-            "card_last4": card_last4,
-            "card_brand": card_brand,
-            "icon_url": icon_url,
-            "fallback_icon": fallback_icon,
-            "history": transactions_by_subscription.get(subscription.pk, []),
-            "edit_url": reverse("subscriptions:update", args=[subscription.pk]),
-            "delete_url": reverse("subscriptions:delete", args=[subscription.pk]),
-            "status_url": reverse("subscriptions:update_status", args=[subscription.pk]),
-        }
-
-    return payload
-
 
 def _parse_participants_data(request):
     participant_names = request.POST.getlist('participant_name')
@@ -488,17 +125,6 @@ def _string_value(raw_value):
     if raw_value is None:
         return ""
     return str(raw_value)
-
-
-def _sanitize_csv_cell(raw_value):
-    if raw_value is None:
-        return ''
-
-    value = str(raw_value)
-    stripped = value.lstrip()
-    if stripped and stripped[0] in CSV_FORMULA_PREFIXES:
-        return f"'{value}"
-    return value
 
 
 def _build_participant_seed(*, subscription=None, post_data=None):
@@ -649,80 +275,6 @@ def _render_subscription_form(request, form, title, *, subscription=None, team_c
     )
 
 
-def _json_data(request):
-    if not request.body:
-        return {}
-
-    try:
-        return json.loads(request.body.decode("utf-8"))
-    except (TypeError, json.JSONDecodeError):
-        return {}
-
-
-def _cards_state_response(user, *, status=200):
-    return JsonResponse({"ok": True, "state": build_cards_page_state(user)}, status=status)
-
-
-def _cards_error_response(*, errors=None, message=None, status=400):
-    payload = {"ok": False}
-    if message:
-        payload["message"] = message
-    if errors:
-        payload["errors"] = errors
-    return JsonResponse(payload, status=status)
-
-
-def _validate_card_payload(payload):
-    nickname = (payload.get("nickname") or "").strip()
-    last4 = (payload.get("last4") or "").strip()
-    raw_brand = (payload.get("brand") or "").strip().lower()
-    raw_theme = (payload.get("theme") or "").strip().lower()
-    brand = normalize_card_brand(raw_brand)
-    theme = normalize_card_theme(raw_theme)
-    is_primary = parse_boolean(payload.get("isPrimary"))
-
-    errors = {}
-    if not nickname:
-        errors["nickname"] = "Card nickname is required."
-    elif len(nickname) > 50:
-        errors["nickname"] = "Nickname must be 50 characters or fewer."
-
-    if not last4:
-        errors["last4"] = "Last 4 digits are required."
-    elif len(last4) != 4 or not last4.isdigit():
-        errors["last4"] = "Must be exactly 4 digits."
-
-    if raw_brand not in CARD_BRANDS:
-        errors["brand"] = "Invalid card brand."
-
-    if raw_theme not in CARD_THEMES:
-        errors["theme"] = "Invalid card theme."
-
-    return {
-        "nickname": nickname,
-        "last4": last4,
-        "brand": brand,
-        "theme": theme,
-        "is_primary": is_primary,
-        "errors": errors,
-    }
-
-
-def _parse_move_card_id(user, raw_value):
-    if raw_value in (None, ""):
-        return None, None
-
-    try:
-        move_card_id = int(raw_value)
-    except (TypeError, ValueError):
-        return None, "Invalid destination card."
-
-    card = Card.objects.filter(user=user, pk=move_card_id).first()
-    if not card:
-        return None, "Destination card not found."
-    return card, None
-
-
 def _resolve_team_context(request):
     raw_team_id = request.GET.get("team")
     if request.method == "POST":
@@ -758,7 +310,7 @@ def _subscription_is_owner_editable(user, subscription):
     return subscription.user_id == user.pk
 
 
-def _get_subscription_for_access(user, pk, *, require_owner=False):
+def _get_accessible_subscription(user, pk, *, require_owner=False):
     subscription = get_object_or_404(Subscription.objects.select_related('team', 'user'), pk=pk)
     if require_owner and not _subscription_is_owner_editable(user, subscription):
         return None
@@ -768,288 +320,24 @@ def _get_subscription_for_access(user, pk, *, require_owner=False):
 
 
 @login_required
-def card_list(request):
-    normalize_primary_cards_for_user(request.user)
-    state = build_cards_page_state(request.user)
-    apply_modal_query_state(state, request.GET)
-    return render(
-        request,
-        "subscriptions/cards.html",
-        {
-            "cards_initial_state": state,
-            "legacy_title": "Cards",
-        },
-    )
-
-@login_required
-def card_create(request):
-    if request.method == "GET":
-        return redirect(f"{reverse('subscriptions:card_list')}?modal=add")
-
-    if request.method == 'POST':
-        form = CardForm(request.POST)
-        if form.is_valid():
-            card = form.save(commit=False)
-            card.user = request.user
-            card.brand = (card.brand or "").strip() or None
-            card.theme = normalize_card_theme(getattr(card, "theme", None))
-            card.is_primary = False
-            card.save()
-            normalize_primary_cards_for_user(request.user)
-            return redirect('subscriptions:card_list')
-    else:
-        form = CardForm()
-    return render(request, 'subscriptions/card_form.html', {'form': form, 'title': 'Add Card'})
-
-@login_required
-def card_update(request, pk):
-    card = get_object_or_404(Card, pk=pk, user=request.user)
-    if request.method == "GET":
-        return redirect(f"{reverse('subscriptions:card_list')}?modal=edit&card={card.pk}")
-
-    if request.method == 'POST':
-        form = CardForm(request.POST, instance=card)
-        if form.is_valid():
-            updated_card = form.save(commit=False)
-            updated_card.brand = (updated_card.brand or "").strip() or None
-            updated_card.theme = normalize_card_theme(getattr(updated_card, "theme", None))
-            updated_card.save()
-            normalize_primary_cards_for_user(request.user)
-            return redirect('subscriptions:card_list')
-    else:
-        form = CardForm(instance=card)
-    return render(request, 'subscriptions/card_form.html', {'form': form, 'title': 'Edit Card'})
-
-@login_required
-def card_delete(request, pk):
-    card = get_object_or_404(Card, pk=pk, user=request.user)
-    if request.method == "GET":
-        return redirect(f"{reverse('subscriptions:card_list')}?modal=delete&card={card.pk}")
-
-    if request.method == 'POST':
-        with transaction.atomic():
-            Subscription.objects.filter(user=request.user, card=card).update(card=None)
-            card.delete()
-            normalize_primary_cards_for_user(request.user)
-        return redirect('subscriptions:card_list')
-    return _cards_error_response(message="Method not allowed.", status=405)
-
-
-@login_required
-def cards_api_state(request):
-    if request.method != "GET":
-        return _cards_error_response(message="GET required.", status=405)
-    normalize_primary_cards_for_user(request.user)
-    return _cards_state_response(request.user)
-
-
-@login_required
-def cards_api_create(request):
-    if request.method != "POST":
-        return _cards_error_response(message="POST required.", status=405)
-
-    data = _json_data(request)
-    parsed = _validate_card_payload(data)
-    if parsed["errors"]:
-        return _cards_error_response(errors=parsed["errors"], status=400)
-
-    with transaction.atomic():
-        card = Card.objects.create(
-            user=request.user,
-            nickname=parsed["nickname"],
-            last4=parsed["last4"],
-            brand=parsed["brand"],
-            theme=parsed["theme"],
-            is_primary=False,
-        )
-
-        has_other_cards = Card.objects.filter(user=request.user).exclude(pk=card.pk).exists()
-        if parsed["is_primary"] or not has_other_cards:
-            set_primary_card_for_user(user=request.user, card=card)
-        else:
-            normalize_primary_cards_for_user(request.user)
-
-    return _cards_state_response(request.user, status=201)
-
-
-@login_required
-def cards_api_update(request, pk):
-    if request.method != "POST":
-        return _cards_error_response(message="POST required.", status=405)
-
-    card = get_object_or_404(Card, pk=pk, user=request.user)
-    data = _json_data(request)
-    parsed = _validate_card_payload(data)
-    if parsed["errors"]:
-        return _cards_error_response(errors=parsed["errors"], status=400)
-
-    with transaction.atomic():
-        was_primary = card.is_primary
-        card.nickname = parsed["nickname"]
-        card.last4 = parsed["last4"]
-        card.brand = parsed["brand"]
-        card.theme = parsed["theme"]
-        card.is_primary = False
-        card.save()
-
-        if parsed["is_primary"]:
-            set_primary_card_for_user(user=request.user, card=card)
-        elif was_primary:
-            normalize_primary_cards_for_user(request.user)
-        else:
-            normalize_primary_cards_for_user(request.user)
-
-    return _cards_state_response(request.user)
-
-
-@login_required
-def cards_api_set_primary(request, pk):
-    if request.method != "POST":
-        return _cards_error_response(message="POST required.", status=405)
-
-    card = get_object_or_404(Card, pk=pk, user=request.user)
-    with transaction.atomic():
-        set_primary_card_for_user(user=request.user, card=card)
-        normalize_primary_cards_for_user(request.user)
-    return _cards_state_response(request.user)
-
-
-@login_required
-def cards_api_delete(request, pk):
-    if request.method != "POST":
-        return _cards_error_response(message="POST required.", status=405)
-
-    card = get_object_or_404(Card, pk=pk, user=request.user)
-    data = _json_data(request)
-    move_card, move_error = _parse_move_card_id(request.user, data.get("move_to_card_id"))
-    if move_error:
-        return _cards_error_response(errors={"move_to_card_id": move_error}, status=400)
-
-    if move_card and move_card.pk == card.pk:
-        return _cards_error_response(
-            errors={"move_to_card_id": "Cannot move subscriptions to the same card."},
-            status=400,
-        )
-
-    with transaction.atomic():
-        if move_card:
-            Subscription.objects.filter(user=request.user, card=card).update(card=move_card)
-        else:
-            Subscription.objects.filter(user=request.user, card=card).update(card=None)
-
-        card.delete()
-        normalize_primary_cards_for_user(request.user)
-
-    return _cards_state_response(request.user)
-
-
-def _base_subscription_queryset(request):
-    return (
-        Subscription.objects.filter(
-            user=request.user,
-            team__isnull=True,
-        )
-        .select_related("card")
-        .annotate(participant_count=Count("participants"))
-    )
-
-
-def _build_subscription_list_state(request):
-    query = request.GET.get('q', '').strip()
-    status_filter = request.GET.get('status', '').strip().lower()
-    cycle_filter = request.GET.get('cycle', '').strip().lower()
-    shared_filter = request.GET.get('shared', '').strip().lower()
-    due_within_raw = request.GET.get('due_within', '').strip()
-    sort_by = request.GET.get('sort', 'renewal_date').strip()
-
-    if status_filter not in ALLOWED_STATUS_FILTERS:
-        status_filter = ''
-    if cycle_filter not in ALLOWED_BILLING_CYCLES:
-        cycle_filter = ''
-    if shared_filter not in ALLOWED_SHARED_FILTERS:
-        shared_filter = ''
-    if sort_by not in ALLOWED_SORT_FIELDS:
-        sort_by = 'renewal_date'
-
-    subscriptions = _base_subscription_queryset(request)
-
-    if query:
-        subscriptions = subscriptions.filter(service_name__icontains=query)
-    if status_filter:
-        subscriptions = subscriptions.filter(status=status_filter)
-    if cycle_filter:
-        subscriptions = subscriptions.filter(billing_cycle=cycle_filter)
-    if shared_filter == 'true':
-        subscriptions = subscriptions.filter(is_shared=True)
-    if shared_filter == 'false':
-        subscriptions = subscriptions.filter(is_shared=False)
-
-    due_within_days = None
-    due_within = ''
-    if due_within_raw:
-        try:
-            parsed_due_within = int(due_within_raw)
-            if 1 <= parsed_due_within <= 365:
-                due_within_days = parsed_due_within
-                due_within = str(parsed_due_within)
-        except (TypeError, ValueError):
-            due_within_days = None
-
-    if due_within_days is not None:
-        today = timezone.localdate()
-        subscriptions = subscriptions.filter(
-            renewal_date__range=[today, today + timedelta(days=due_within_days)]
-        )
-
-    subscriptions = subscriptions.order_by(sort_by)
-
-    filters = {
-        'query': query,
-        'status_filter': status_filter,
-        'cycle_filter': cycle_filter,
-        'shared_filter': shared_filter,
-        'due_within': due_within,
-        'sort_by': sort_by,
-    }
-    return subscriptions, filters
-
-
-@login_required
 def subscription_list(request):
-    subscriptions, filters = _build_subscription_list_state(request)
-    subscriptions = list(subscriptions)
-    base_subscriptions = list(_base_subscription_queryset(request))
-    _assign_subscription_card_meta(subscriptions)
-    drawer_payload = _build_subscription_drawer_payload(subscriptions)
-    stats = _calculate_subscription_stats(base_subscriptions)
-    burn_metrics = _calculate_subscription_burn_metrics(base_subscriptions)
-    filters_active = bool(
-        filters.get("query")
-        or filters.get("status_filter")
-        or filters.get("cycle_filter")
-        or filters.get("shared_filter")
-        or filters.get("due_within")
-        or filters.get("sort_by") not in ("", "renewal_date")
-    )
-    return render(
-        request,
-        'subscriptions/list.html',
-        {
-            'subscriptions': subscriptions,
-            'subscriptions_total': len(base_subscriptions),
-            'subscriptions_filtered_total': len(subscriptions),
-            'subscriptions_stats': stats,
-            'subscriptions_burn_metrics': burn_metrics,
-            'subscription_drawer_data': drawer_payload,
-            'filters_active': filters_active,
-            **filters,
-        },
-    )
+    return render(request, 'subscriptions/list.html', build_subscription_list_context(request))
+
+
+def _sanitize_csv_cell(raw_value):
+    if raw_value is None:
+        return ''
+
+    value = str(raw_value)
+    stripped = value.lstrip()
+    if stripped and stripped[0] in CSV_FORMULA_PREFIXES:
+        return f"'{value}"
+    return value
 
 
 @login_required
 def subscription_export_csv(request):
-    subscriptions, _ = _build_subscription_list_state(request)
+    subscriptions, _ = filter_personal_subscriptions(request)
     subscriptions = subscriptions.prefetch_related('participants')
 
     response = HttpResponse(content_type='text/csv')
@@ -1287,7 +575,7 @@ def subscription_create(request):
 
 @login_required
 def subscription_update(request, pk):
-    subscription = _get_subscription_for_access(request.user, pk, require_owner=True)
+    subscription = _get_accessible_subscription(request.user, pk, require_owner=True)
     if not subscription:
         messages.error(request, 'You do not have permission to edit this subscription.')
         return redirect('accounts:teams_overview')
@@ -1394,7 +682,7 @@ def subscription_update(request, pk):
 
 @login_required
 def subscription_delete(request, pk):
-    subscription = _get_subscription_for_access(request.user, pk, require_owner=True)
+    subscription = _get_accessible_subscription(request.user, pk, require_owner=True)
     if not subscription:
         messages.error(request, 'You do not have permission to delete this subscription.')
         return redirect('accounts:teams_overview')
@@ -1439,7 +727,7 @@ def delete_reminder_offset(request, pk):
 
 @login_required
 def add_reminder_offset(request, pk):
-    subscription = _get_subscription_for_access(request.user, pk, require_owner=True)
+    subscription = _get_accessible_subscription(request.user, pk, require_owner=True)
     if not subscription:
         messages.error(request, 'You do not have permission to edit this subscription.')
         return redirect('accounts:teams_overview')
@@ -1467,7 +755,7 @@ def add_reminder_offset(request, pk):
 @login_required
 def update_subscription_status(request, pk):
     """Update subscription status via AJAX"""
-    subscription = _get_subscription_for_access(request.user, pk, require_owner=True)
+    subscription = _get_accessible_subscription(request.user, pk, require_owner=True)
     if not subscription:
         return JsonResponse({'status': 'error', 'message': 'Not found'}, status=404)
 
@@ -1493,4 +781,3 @@ def update_subscription_status(request, pk):
             return redirect('subscriptions:list')
         return JsonResponse({'status': 'error', 'message': 'Invalid status'}, status=400)
     return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
-

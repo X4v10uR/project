@@ -1,5 +1,6 @@
 from django.urls import path
-from . import views
+
+from . import card_views, views
 
 app_name = 'subscriptions'
 
@@ -12,15 +13,14 @@ urlpatterns = [
     path('<int:pk>/offset/add/', views.add_reminder_offset, name='add_offset'),
     path('offset/<int:pk>/delete/', views.delete_reminder_offset, name='delete_offset'),
     path('<int:pk>/status/', views.update_subscription_status, name='update_status'),
-    
-    # Card URLs
-    path('cards/', views.card_list, name='card_list'),
-    path('cards/api/state/', views.cards_api_state, name='cards_api_state'),
-    path('cards/api/create/', views.cards_api_create, name='cards_api_create'),
-    path('cards/api/<int:pk>/update/', views.cards_api_update, name='cards_api_update'),
-    path('cards/api/<int:pk>/set-primary/', views.cards_api_set_primary, name='cards_api_set_primary'),
-    path('cards/api/<int:pk>/delete/', views.cards_api_delete, name='cards_api_delete'),
-    path('cards/add/', views.card_create, name='card_create'),
-    path('cards/<int:pk>/edit/', views.card_update, name='card_update'),
-    path('cards/<int:pk>/delete/', views.card_delete, name='card_delete'),
+
+    path('cards/', card_views.card_list, name='card_list'),
+    path('cards/api/state/', card_views.cards_api_state, name='cards_api_state'),
+    path('cards/api/create/', card_views.cards_api_create, name='cards_api_create'),
+    path('cards/api/<int:pk>/update/', card_views.cards_api_update, name='cards_api_update'),
+    path('cards/api/<int:pk>/set-primary/', card_views.cards_api_set_primary, name='cards_api_set_primary'),
+    path('cards/api/<int:pk>/delete/', card_views.cards_api_delete, name='cards_api_delete'),
+    path('cards/add/', card_views.card_create, name='card_create'),
+    path('cards/<int:pk>/edit/', card_views.card_update, name='card_update'),
+    path('cards/<int:pk>/delete/', card_views.card_delete, name='card_delete'),
 ]
