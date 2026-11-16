@@ -25,6 +25,7 @@ db.sqlite3
 db.sqlite3-*
 
 # Frontend dependencies/build artifacts
-theme/static_src/node_modules/
+node_modules/
+/subscription_manager_frontend/dist/
 
 *.log

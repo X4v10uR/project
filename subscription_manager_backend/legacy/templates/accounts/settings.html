@@ -1,0 +1,1475 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Subly{% endblock %}
+
+{% block extra_css %}
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; overflow: hidden; }
+    main.app-main-shell {
+      height: 100vh;
+      min-height: 100vh;
+      overflow: hidden;
+      padding: 12px !important;
+    }
+    @supports (height: 100dvh) {
+      main.app-main-shell {
+        height: 100dvh;
+        min-height: 100dvh;
+      }
+    }
+    :root {
+      --yellow: #EDEE45; --mint: #A8F0D4; --lavender: #D4C6F5;
+      --blue: #C0CFF5; --red: #FF4757; --dark: #0D0D10;
+      --mid: #6B6B7B; --light: #F4F4EE; --white: #FFFFFF;
+      --inputBg: #EEEEE8; --border: rgba(0,0,0,0.08);
+    }
+    input, select, textarea, button { font-family: 'Plus Jakarta Sans', sans-serif; }
+    select { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
+    textarea { resize: none; }
+    input:focus, select:focus, textarea:focus { outline: none; }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 99px; }
+
+    /* ── Inputs ── */
+    .fi { background: var(--inputBg); border: 1.5px solid transparent; border-radius: 14px; padding: 11px 16px; font-size: 14px; color: var(--dark); transition: all .15s ease; width: 100%; }
+    .fi:focus { background: #fff; }
+    .fi.fy:focus { border-color: #EDEE45; } .fi.fm:focus { border-color: #A8F0D4; }
+    .fi.fl:focus { border-color: #D4C6F5; } .fi.fb:focus { border-color: #C0CFF5; }
+    .fi.fr:focus { border-color: #FF4757; } .fi.mono { font-family: monospace; font-weight: 700; }
+    .fi.fw5 { font-weight: 500; }
+
+    .fpw { background: var(--inputBg); border: 1.5px solid transparent; border-radius: 14px; padding: 11px 46px 11px 16px; font-size: 14px; color: var(--dark); transition: all .15s ease; width: 100%; }
+    .fpw:focus { background: #fff; }
+    .fpw.fb:focus { border-color: #C0CFF5; } .fpw.fr:focus { border-color: #FF4757; }
+
+    /* ── Toggle ── */
+    .trow { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; border-radius: 16px; border: 1.5px solid transparent; transition: all .2s ease; cursor: pointer; user-select: none; background: var(--inputBg); }
+    .trow.on { background: #D4C6F522; border-color: #D4C6F5; }
+    .ttrack { width: 48px; height: 26px; border-radius: 99px; position: relative; flex-shrink: 0; transition: background .2s ease; background: #D1D1D8; }
+    .ttrack.on { background: #D4C6F5; }
+    .tthumb { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.18); transition: left .2s ease; }
+    .tthumb.on { left: calc(100% - 23px); }
+
+    /* ── Save btn ── */
+    .sbtn { border: none; border-radius: 14px; padding: 11px 22px; font-weight: 700; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all .18s ease; font-family: 'Plus Jakarta Sans', sans-serif; }
+    .sbtn:disabled { cursor: not-allowed; opacity: .6; }
+
+    /* ── Strength bars ── */
+    .sbar { flex: 1; height: 4px; border-radius: 99px; transition: background .2s ease; background: var(--inputBg); }
+
+    /* ── Jump-to nav buttons ── */
+    .jbtn { background: transparent; border: none; border-radius: 12px; padding: 9px 12px; cursor: pointer; text-align: left; transition: all .15s ease; font-size: 13px; font-weight: 500; color: #6B6B7B; display: flex; align-items: center; gap: 8px; width: 100%; font-family: 'Plus Jakarta Sans', sans-serif; }
+    .jbtn.active { font-weight: 700; color: #0D0D10; }
+    .jdot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── Sidebar nav ── */
+    .snav { width: 100%; display: flex; align-items: center; gap: 12px; padding: 0 16px; height: 46px; border-radius: 16px; border: none; cursor: pointer; font-size: 14px; transition: all .15s ease; background: transparent; color: var(--mid); font-weight: 500; font-family: 'Plus Jakarta Sans', sans-serif; }
+    .snav.active { background: var(--yellow); color: var(--dark); font-weight: 700; }
+
+    /* ── Sidebar mobile ── */
+    .sov { position: fixed; inset: 0; z-index: 20; background: rgba(13,13,16,.25); display: none; }
+    .sov.open { display: block; }
+    @media (max-width: 1023px) {
+      .swrap { position: fixed; inset: 0 auto 0 0; z-index: 30; transform: translateX(-100%); transition: transform .3s ease; }
+      .swrap.open { transform: translateX(0); }
+      .jnav-col { display: none !important; }
+    }
+    @media (min-width: 1024px) {
+      .swrap { position: static; height: 100%; }
+      .mob-btn { display: none !important; }
+      .scl-btn { display: none !important; }
+    }
+
+    /* ── Chevron icon (pure CSS) ── */
+    .chev { width: 15px; height: 15px; position: absolute; right: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--mid); }
+    .chev::after { content: ''; display: block; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); margin: 2px auto 0; }
+
+    /* ── Eye icon buttons ── */
+    .eye-btn { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--mid); background: none; border: none; cursor: pointer; display: flex; align-items: center; padding: 2px; }
+    .eye-btn svg { width: 16px; height: 16px; }
+
+    .settings-page {
+      display: flex;
+      height: calc(100vh - 24px);
+      min-height: calc(100vh - 24px);
+      overflow: hidden;
+      border-radius: 28px;
+      background: var(--light);
+      box-shadow: 0 24px 54px -42px rgba(15, 23, 42, 0.42);
+    }
+
+    @supports (height: 100dvh) {
+      .settings-page {
+        height: calc(100dvh - 24px);
+        min-height: calc(100dvh - 24px);
+      }
+    }
+
+    #mainScroll { overscroll-behavior: contain; }
+
+    .settings-notification-shell { position: relative; }
+    .settings-notification-panel { position: absolute; top: calc(100% + 10px); right: 0; width: min(94vw, 340px); max-height: 420px; overflow: hidden; border: 1px solid rgba(0,0,0,.08); border-radius: 20px; background: #fff; box-shadow: 0 24px 44px -32px rgba(15, 23, 42, .5); display: none; z-index: 12; }
+    .settings-notification-panel.is-open { display: block; }
+    .settings-notification-panel-header, .settings-notification-panel-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-bottom: 1px solid rgba(0,0,0,.06); }
+    .settings-notification-panel-footer { justify-content: flex-end; border-bottom: none; border-top: 1px solid rgba(0,0,0,.06); background: #fafaf6; }
+    .settings-notification-panel-title { font-size: 13px; font-weight: 700; color: var(--dark); }
+    .settings-notification-link, .settings-notification-read-all { border: none; background: none; padding: 0; font-size: 12px; font-weight: 600; color: var(--mid); cursor: pointer; }
+    .settings-notification-link:hover, .settings-notification-read-all:hover { color: var(--dark); }
+    .settings-notification-list { max-height: 320px; overflow-y: auto; }
+    .settings-notification-count.hidden { display: inline-flex !important; color: transparent !important; font-size: 0 !important; }
+    .settings-notification-count { min-width: 8px !important; width: auto !important; height: 8px !important; background: var(--yellow) !important; border: 2px solid var(--light) !important; top: 8px !important; right: 8px !important; padding: 0 !important; }
+    .settings-notification-count:not(.hidden) { min-width: 16px !important; height: 16px !important; padding: 0 4px !important; color: var(--dark) !important; font-size: 9px !important; font-weight: 800 !important; line-height: 12px !important; text-align: center !important; }
+
+    .profile-avatar-strip {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 4px 0 8px;
+    }
+    .profile-avatar-meta { display: flex; flex-direction: column; gap: 6px; }
+    .profile-avatar-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .avatar-bg-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+    .avatar-bg-swatch {
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      border: 1px solid rgba(0,0,0,.12);
+      cursor: pointer;
+      box-shadow: 0 0 0 2px #fff inset;
+      transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+    }
+    .avatar-bg-swatch:hover { transform: translateY(-1px); }
+    .avatar-bg-swatch.is-selected {
+      border-color: #111;
+      box-shadow: 0 0 0 1px #111, 0 0 0 3px #fff inset;
+    }
+
+    .avatar-picker-overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 140; }
+    .avatar-picker-overlay.is-open { display: flex; }
+    .avatar-picker-backdrop { position: absolute; inset: 0; background: rgba(13,13,16,.46); opacity: 0; }
+    .avatar-picker-modal { position: relative; width: min(92vw, 940px); max-height: min(84vh, 760px); border-radius: 22px; border: 1px solid rgba(0,0,0,.08); background: #fff; box-shadow: 0 24px 44px -28px rgba(15,23,42,.5); overflow: hidden; display: flex; flex-direction: column; }
+    .avatar-picker-overlay.is-open .avatar-picker-backdrop { animation: avatar-picker-backdrop-in .2s ease forwards; }
+    .avatar-picker-overlay.is-open .avatar-picker-modal { animation: avatar-picker-modal-in .24s cubic-bezier(.2,.75,.25,1) forwards; }
+    @keyframes avatar-picker-backdrop-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes avatar-picker-modal-in {
+      from { opacity: 0; transform: translateY(10px) scale(.985); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .avatar-picker-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border-bottom: 1px solid rgba(0,0,0,.06); }
+    .avatar-picker-title { font-size: 16px; font-weight: 800; color: var(--dark); }
+    .avatar-picker-close { border: 0; background: #f5f5ef; width: 34px; height: 34px; border-radius: 10px; color: var(--dark); font-size: 20px; line-height: 1; cursor: pointer; }
+    .avatar-picker-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; border-bottom: 1px solid rgba(0,0,0,.06); }
+    .avatar-picker-tabs { display: inline-flex; align-items: center; gap: 8px; }
+    .avatar-picker-tab { border: 1px solid rgba(0,0,0,.08); border-radius: 10px; background: #f6f6f1; color: var(--dark); font-size: 12px; font-weight: 700; padding: 7px 14px; cursor: pointer; }
+    .avatar-picker-tab.is-active { background: #EDEE45; border-color: #EDEE45; }
+    .avatar-picker-random { border: 0; background: #111; color: #fff; border-radius: 10px; height: 34px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .avatar-picker-filters { padding: 12px 18px; border-bottom: 1px solid rgba(0,0,0,.06); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
+    .avatar-picker-filter { display: flex; flex-direction: column; gap: 4px; }
+    .avatar-picker-filter label { font-size: 11px; font-weight: 700; color: var(--mid); }
+    .avatar-picker-filter select { width: 100%; height: 34px; border-radius: 10px; border: 1px solid rgba(0,0,0,.1); background: #f8f8f3; color: var(--dark); padding: 0 10px; font-size: 12px; font-weight: 600; }
+    .avatar-picker-body { display: grid; grid-template-columns: minmax(0, 1fr) 260px; min-height: 280px; max-height: min(50vh, 460px); }
+    .avatar-picker-grid-wrap { padding: 14px 18px; overflow-y: auto; border-right: 1px solid rgba(0,0,0,.06); }
+    .avatar-picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(66px, 1fr)); gap: 10px; }
+    .avatar-picker-item { border: 1.5px solid rgba(0,0,0,.08); border-radius: 14px; width: 100%; aspect-ratio: 1/1; overflow: hidden; background: #fafaf6; cursor: pointer; transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease; }
+    .avatar-picker-item:hover { transform: translateY(-1px); }
+    .avatar-picker-item.is-selected { border-color: #111; box-shadow: 0 0 0 2px #EDEE45 inset; }
+    .avatar-picker-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .avatar-picker-hint { margin-top: 8px; font-size: 11px; color: var(--mid); display: none; }
+    .avatar-picker-hint.is-visible { display: block; }
+    .avatar-picker-preview { padding: 12px; overflow: hidden; background: #fafaf6; display: flex; }
+    .avatar-picker-preview-card { border: 1px solid rgba(0,0,0,.08); border-radius: 16px; background: #fff; padding: 10px; display: flex; flex-direction: column; gap: 8px; min-height: 100%; width: 100%; }
+    .avatar-picker-preview-title { font-size: 12px; font-weight: 800; color: var(--dark); letter-spacing: .02em; text-transform: uppercase; }
+    .avatar-picker-preview-image-wrap { width: min(100%, 170px); margin: 0 auto; aspect-ratio: 1/1; border-radius: 14px; border: 1.5px solid rgba(0,0,0,.08); background: #f5f5ef; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .avatar-picker-preview-image-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .avatar-picker-preview-empty { font-size: 12px; color: var(--mid); line-height: 1.4; }
+    .avatar-picker-meta { display: grid; gap: 4px; }
+    .avatar-picker-meta-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 12px; line-height: 1.3; }
+    .avatar-picker-meta-label { color: var(--mid); font-weight: 700; }
+    .avatar-picker-meta-value { color: var(--dark); font-weight: 600; text-align: right; }
+    .avatar-picker-footer { padding: 12px 18px 16px; border-top: 1px solid rgba(0,0,0,.06); display: flex; justify-content: flex-end; gap: 8px; }
+    .avatar-picker-btn { border: 0; border-radius: 10px; padding: 9px 14px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .avatar-picker-btn-cancel { background: #f1f1eb; color: var(--dark); }
+    .avatar-picker-btn-apply { background: #111; color: #fff; }
+
+    @media (max-width: 767px) {
+      body { overflow-y: auto; }
+      main.app-main-shell {
+        height: auto;
+        min-height: 100vh;
+        overflow: visible;
+        padding: 12px 12px 104px !important;
+      }
+      .settings-page { height: auto; min-height: 0; border-radius: 22px; }
+      .profile-avatar-strip { padding: 4px 0 8px; }
+      .avatar-picker-modal { width: min(95vw, 940px); }
+      .avatar-picker-filters { grid-template-columns: 1fr; }
+      .avatar-picker-body { grid-template-columns: 1fr; max-height: none; }
+      .avatar-picker-grid-wrap { border-right: none; border-bottom: 1px solid rgba(0,0,0,.06); max-height: 42vh; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .avatar-picker-overlay.is-open .avatar-picker-backdrop,
+      .avatar-picker-overlay.is-open .avatar-picker-modal { animation: none; opacity: 1; transform: none; }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="settings-page" data-active-section="{{ active_settings_section }}" data-updated-form="{{ updated_form }}" data-password-mode="{{ password_mode }}" data-delete-password-required="{% if password_mode == 'change' %}true{% else %}false{% endif %}">
+  <div class="flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-hidden">
+    <!-- Top bar -->
+    <header class="flex items-center justify-between flex-shrink-0 px-6 py-4" style="background: var(--light); border-bottom: 1px solid rgba(0,0,0,.06);">
+      <div class="flex items-center gap-3">
+        <div>
+          <h1 style="font-weight: 800; font-size: 22px; color: var(--dark); line-height: 1.2;">Settings</h1>
+          <p style="font-size: 12px; color: var(--mid); font-weight: 400; margin-top: 1px;">Manage your account &amp; preferences</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 settings-notification-shell" id="global-notification-shell">
+        <button type="button" id="global-notification-toggle" class="relative flex items-center justify-center rounded-2xl" style="width: 40px; height: 40px;" aria-expanded="false" aria-controls="global-notification-panel" title="Notifications">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--dark)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          <span class="absolute rounded-full settings-notification-count hidden" id="global-notification-count">0</span>
+        </button>
+        <div class="settings-notification-panel" id="global-notification-panel">
+          <div class="settings-notification-panel-header">
+            <p class="settings-notification-panel-title">Notifications</p>
+            <button type="button" class="settings-notification-read-all" id="global-notification-read-all">Mark all read</button>
+          </div>
+          <div class="settings-notification-list" id="global-notification-list"></div>
+          <div class="settings-notification-panel-footer">
+            <a href="{% url 'dashboard:notifications_page' %}" class="settings-notification-link">View all</a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Content row: Jump-to nav (outside scroll) + scrollable main -->
+    <div class="flex-1 flex min-h-0 overflow-hidden" style="max-width: 1080px; width: 100%; margin: 0 auto;">
+
+      <!-- Jump-to nav — completely outside the scroll container -->
+      <div class="jnav-col" style="width: 180px; flex-shrink: 0; padding: 32px 0 32px 24px;">
+        <div style="background: #fff; border-radius: 20px; padding: 10px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 3px;">
+          <p style="font-size: 10px; font-weight: 700; color: var(--mid); letter-spacing: .08em; text-transform: uppercase; padding: 4px 10px 8px;">Jump to</p>
+          <button type="button" class="jbtn active" data-target="profile" style="background: #EDEE45;">
+            <span class="jdot" style="background: #0D0D10;"></span> Profile
+          </button>
+          <button type="button" class="jbtn" data-target="plan">
+            <span class="jdot" style="border: 2px solid #A8F0D4;"></span> Plan &amp; Billing
+          </button>
+          <button type="button" class="jbtn" data-target="preferences">
+            <span class="jdot" style="border: 2px solid #D4C6F5;"></span> Preferences
+          </button>
+          <button type="button" class="jbtn" data-target="password">
+            <span class="jdot" style="border: 2px solid #C0CFF5;"></span> Password
+          </button>
+          <button type="button" class="jbtn" data-target="danger">
+            <span class="jdot" style="border: 2px solid #FFB3BA;"></span> Danger Zone
+          </button>
+        </div>
+      </div>
+
+      <!-- Scrollable sections -->
+      <main id="mainScroll" class="flex-1 min-h-0 overflow-y-auto" style="padding: 32px 24px 64px;">
+
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+
+          <!-- ═══ PROFILE ═══ -->
+          <div id="section-profile" style="background: #fff; border-radius: 24px; overflow: hidden; border: 1px solid var(--border);">
+            <div style="background: #EDEE45; padding: 20px 28px 18px;">
+              <p style="font-size: 12px; font-weight: 600; color: var(--dark); opacity: .55; margin-bottom: 2px; text-transform: uppercase; letter-spacing: .06em;">Personal Information</p>
+              <h2 style="font-size: 20px; font-weight: 800; color: var(--dark); line-height: 1.2;">Profile</h2>
+            </div>
+            <form method="post" enctype="multipart/form-data" style="padding: 24px 28px;">
+              {% csrf_token %}
+              <input type="hidden" name="form_type" value="profile">
+              <input id="avatarChoiceInput" type="hidden" name="avatar_choice" value="{{ selected_avatar_choice|default_if_none:'' }}" />
+              <input id="avatarBackgroundInput" type="hidden" name="avatar_background" value="{{ selected_avatar_background|default_if_none:'' }}" />
+              <div style="display: flex; flex-direction: column; gap: 18px;">
+                {% if profile_form.non_field_errors %}
+                <div style="display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: #FF475712; border: 1.5px solid #FF475730; border-radius: 12px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF4757" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                  <p style="font-size: 13px; color: #FF4757; font-weight: 500;">{{ profile_form.non_field_errors.0 }}</p>
+                </div>
+                {% endif %}
+                <div class="profile-avatar-strip">
+                  <div style="position: relative; flex-shrink: 0;">
+                    <div id="profilePreviewFrame" style="width: 68px; height: 68px; border-radius: 20px; background: {{ selected_avatar_background_color }}; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; color: var(--dark); overflow: hidden;">
+                      <img id="profilePreviewImage" src="{{ request.user.avatar_url }}" alt="Profile photo" style="width: 100%; height: 100%; object-fit: cover;" />
+                      <span id="profilePreviewFallback" style="display: none;">{% if profile_form.first_name.value %}{{ profile_form.first_name.value|first|upper }}{% else %}{{ request.user.email|first|upper }}{% endif %}</span>
+                    </div>
+                    <button id="openAvatarPickerFab" type="button" style="position: absolute; bottom: -4px; right: -4px; width: 24px; height: 24px; border-radius: 50%; background: var(--dark); border: 2px solid #fff; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                    </button>
+                  </div>
+                  <div class="profile-avatar-meta">
+                    <p id="profilePreviewName" style="font-size: 15px; font-weight: 700; color: var(--dark);">{% if profile_form.first_name.value or profile_form.last_name.value %}{{ profile_form.first_name.value|default_if_none:'' }} {{ profile_form.last_name.value|default_if_none:'' }}{% elif profile_form.display_name.value %}{{ profile_form.display_name.value }}{% elif request.user.get_full_name %}{{ request.user.get_full_name }}{% else %}{{ request.user.email }}{% endif %}</p>
+                    <p style="font-size: 12px; color: var(--mid);">Choose from Male or Female memoji avatars</p>
+                    <div class="profile-avatar-actions">
+                      <button id="openAvatarPickerBtn" type="button" style="font-size: 12px; font-weight: 600; color: var(--dark); background: #EDEE45; border: none; border-radius: 8px; padding: 4px 12px; cursor: pointer; display: inline-flex;">Select Avatar</button>
+                      <div id="avatarBgSwatches" class="avatar-bg-swatches" aria-label="Avatar background options">
+                        {% for option in avatar_background_options %}
+                        <button
+                          type="button"
+                          class="avatar-bg-swatch{% if option.key == selected_avatar_background %} is-selected{% endif %}"
+                          data-avatar-bg="{{ option.key }}"
+                          data-avatar-bg-color="{{ option.color }}"
+                          title="{{ option.label }}"
+                          aria-label="Select {{ option.label }} background"
+                          style="background: {{ option.color }};"
+                        ></button>
+                        {% endfor %}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {% if profile_form.avatar_choice.errors %}
+                <p style="font-size: 11px; color: #FF4757; font-weight: 600; margin-top: -8px;">{{ profile_form.avatar_choice.errors.0 }}</p>
+                {% endif %}
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label for="settings-first-name" style="font-size: 13px; font-weight: 700; color: var(--dark);">First Name</label>
+                    <input id="settings-first-name" class="fi fy" name="first_name" placeholder="First name" value="{{ profile_form.first_name.value|default_if_none:'' }}" />
+                    {% if profile_form.first_name.errors %}<p style="font-size: 11px; color: #FF4757; font-weight: 600;">{{ profile_form.first_name.errors.0 }}</p>{% endif %}
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label for="settings-last-name" style="font-size: 13px; font-weight: 700; color: var(--dark);">Last Name</label>
+                    <input id="settings-last-name" class="fi fy" name="last_name" placeholder="Last name" value="{{ profile_form.last_name.value|default_if_none:'' }}" />
+                    {% if profile_form.last_name.errors %}<p style="font-size: 11px; color: #FF4757; font-weight: 600;">{{ profile_form.last_name.errors.0 }}</p>{% endif %}
+                  </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label for="settings-display-name" style="font-size: 13px; font-weight: 700; color: var(--dark);">Display Name</label>
+                  <input id="settings-display-name" class="fi fy" name="display_name" placeholder="e.g. patricia.w" value="{{ profile_form.display_name.value|default_if_none:'' }}" />
+                  <p style="font-size: 11px; color: var(--mid); margin-top: -2px;">Shown to team members across the app</p>
+                  {% if profile_form.display_name.errors %}<p style="font-size: 11px; color: #FF4757; font-weight: 600;">{{ profile_form.display_name.errors.0 }}</p>{% endif %}
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label for="settings-email" style="font-size: 13px; font-weight: 700; color: var(--dark);">Email Address</label>
+                  <input id="settings-email" class="fi fy" type="email" name="email" placeholder="email@example.com" value="{{ profile_form.email.value|default_if_none:'' }}" />
+                  {% if profile_form.email.errors %}<p style="font-size: 11px; color: #FF4757; font-weight: 600;">{{ profile_form.email.errors.0 }}</p>{% endif %}
+                  <label for="settings-email-password">Current password (when changing email)</label>
+                  <input id="settings-email-password" class="fi fy" type="password" name="current_password" autocomplete="current-password" />
+                  {% if profile_form.current_password.errors %}<p style="font-size: 11px; color: #FF4757; font-weight: 600;">{{ profile_form.current_password.errors.0 }}</p>{% endif %}
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label for="settings-bio" style="font-size: 13px; font-weight: 700; color: var(--dark);">Bio</label>
+                  <textarea id="settings-bio" class="fi fy" name="bio" rows="3" placeholder="Tell us a bit about yourself...">{{ profile_form.bio.value|default_if_none:'' }}</textarea>
+                  <p style="font-size: 11px; color: var(--mid); margin-top: -2px;">A short description about yourself</p>
+                  {% if profile_form.bio.errors %}<p style="font-size: 11px; color: #FF4757; font-weight: 600;">{{ profile_form.bio.errors.0 }}</p>{% endif %}
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label for="settings-timezone" style="font-size: 13px; font-weight: 700; color: var(--dark);">Timezone</label>
+                    <div style="position: relative;">
+                      {% with current_timezone=profile_form.timezone.value|default_if_none:'UTC' %}
+                      <select id="settings-timezone" name="timezone" class="fi fy fw5" style="padding-right: 40px; cursor: pointer;">
+                        {% for tz in timezone_choices %}
+                        <option value="{{ tz }}"{% if current_timezone == tz %} selected{% endif %}>{{ tz }}</option>
+                        {% endfor %}
+                      </select>
+                      {% endwith %}
+                      <span class="chev"></span>
+                    </div>
+                    {% if profile_form.timezone.errors %}<p style="font-size: 11px; color: #FF4757; font-weight: 600;">{{ profile_form.timezone.errors.0 }}</p>{% endif %}
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label for="settings-currency" style="font-size: 13px; font-weight: 700; color: var(--dark);">Preferred Currency</label>
+                    <input id="settings-currency" class="fi fy" name="preferred_currency" placeholder="USD" value="{{ profile_form.preferred_currency.value|default_if_none:'' }}" maxlength="3" />
+                    <p style="font-size: 11px; color: var(--mid); margin-top: -2px;">3-letter code (e.g. USD, EUR, GBP)</p>
+                    {% if profile_form.preferred_currency.errors %}<p style="font-size: 11px; color: #FF4757; font-weight: 600;">{{ profile_form.preferred_currency.errors.0 }}</p>{% endif %}
+                  </div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; padding-top: 4px;">
+                  <button id="profileSaveBtn" class="sbtn save-trigger" type="submit" data-label="Save profile" style="background: #EDEE45; color: var(--dark);">Save profile</button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <!-- ═══ PLAN & BILLING ═══ -->
+          <div id="section-plan" style="background: #fff; border-radius: 24px; overflow: hidden; border: 1px solid var(--border);">
+            <div style="background: #A8F0D4; padding: 20px 28px 18px;">
+              <p style="font-size: 12px; font-weight: 600; color: var(--dark); opacity: .55; margin-bottom: 2px; text-transform: uppercase; letter-spacing: .06em;">Subscription Tier</p>
+              <h2 style="font-size: 20px; font-weight: 800; color: var(--dark); line-height: 1.2;">Plan &amp; Billing</h2>
+            </div>
+            <form method="post" style="padding: 24px 28px;">
+              {% csrf_token %}
+              <input type="hidden" name="form_type" value="billing">
+              <div style="display: flex; flex-direction: column; gap: 18px;">
+                {% if billing_form.non_field_errors %}
+                <div style="display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: #FF475712; border: 1.5px solid #FF475730; border-radius: 12px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF4757" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                  <p style="font-size: 13px; color: #FF4757; font-weight: 500;">{{ billing_form.non_field_errors.0 }}</p>
+                </div>
+                {% endif %}
+                <div id="planBanner" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #EDEE4533; border-radius: 16px; border: 1.5px solid #EDEE45; flex-wrap: wrap;">
+                  <div id="planDot" style="width: 10px; height: 10px; border-radius: 50%; background: #EDEE45; flex-shrink: 0;"></div>
+                  <p style="font-size: 13px; color: var(--dark);">You're on the <span id="planName" style="font-weight: 800;">{{ request.user.get_subscription_plan_display }}</span> plan</p>
+                  <span id="statusPill" style="background: #2DC76D; color: #fff; font-weight: 700; font-size: 11px; padding: 3px 10px; border-radius: 99px; letter-spacing: .01em;">{{ request.user.get_plan_status_display }}</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label for="planSelect" style="font-size: 13px; font-weight: 700; color: var(--dark);">Subscription Plan</label>
+                  <div style="position: relative;">
+                    {% with current_plan=billing_form.subscription_plan.value %}
+                    <select id="planSelect" name="subscription_plan" class="fi fm fw5" style="padding-right: 40px; cursor: pointer;">
+                      {% for option_value, option_label in billing_form.subscription_plan.field.choices %}
+                      <option value="{{ option_value }}"{% if current_plan == option_value %} selected{% endif %}>{{ option_label }}</option>
+                      {% endfor %}
+                    </select>
+                    {% endwith %}
+                    <span class="chev"></span>
+                  </div>
+                  {% if billing_form.subscription_plan.errors %}<p style="font-size: 11px; color: #FF4757; font-weight: 600;">{{ billing_form.subscription_plan.errors.0 }}</p>{% endif %}
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label for="statusSelect" style="font-size: 13px; font-weight: 700; color: var(--dark);">Plan Status</label>
+                  <div style="position: relative;">
+                    {% with current_status=billing_form.plan_status.value %}
+                    <select id="statusSelect" name="plan_status" class="fi fm fw5" style="padding-right: 40px; cursor: pointer;">
+                      {% for option_value, option_label in billing_form.plan_status.field.choices %}
+                      <option value="{{ option_value }}"{% if current_status == option_value %} selected{% endif %}>{{ option_label }}</option>
+                      {% endfor %}
+                    </select>
+                    {% endwith %}
+                    <span class="chev"></span>
+                  </div>
+                  {% if billing_form.plan_status.errors %}<p style="font-size: 11px; color: #FF4757; font-weight: 600;">{{ billing_form.plan_status.errors.0 }}</p>{% endif %}
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label for="planRenewsOn" style="font-size: 13px; font-weight: 700; color: var(--dark);">Plan Renews On</label>
+                  <input id="planRenewsOn" class="fi fm fw5" type="date" name="plan_renews_on" value="{{ billing_form.plan_renews_on.value|default_if_none:''|stringformat:'s' }}" />
+                  <p style="font-size: 11px; color: var(--mid); margin-top: -2px;">The date your billing cycle resets</p>
+                  {% if billing_form.plan_renews_on.errors %}<p style="font-size: 11px; color: #FF4757; font-weight: 600;">{{ billing_form.plan_renews_on.errors.0 }}</p>{% endif %}
+                </div>
+                <div style="display: flex; justify-content: flex-end; padding-top: 4px;">
+                  <button id="billingSaveBtn" class="sbtn save-trigger" type="submit" data-label="Save plan metadata" style="background: #A8F0D4; color: var(--dark);">Save plan metadata</button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <!-- ═══ PREFERENCES ═══ -->
+          <div id="section-preferences" style="background: #fff; border-radius: 24px; overflow: hidden; border: 1px solid var(--border);">
+            <div style="background: #D4C6F5; padding: 20px 28px 18px;">
+              <p style="font-size: 12px; font-weight: 600; color: var(--dark); opacity: .55; margin-bottom: 2px; text-transform: uppercase; letter-spacing: .06em;">Notifications &amp; Opt-ins</p>
+              <h2 style="font-size: 20px; font-weight: 800; color: var(--dark); line-height: 1.2;">Preferences</h2>
+            </div>
+            <form method="post" style="padding: 24px 28px;">
+              {% csrf_token %}
+              <input type="hidden" name="form_type" value="preferences">
+              <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div class="trow{% if preferences_form.product_updates_enabled.value %} on{% endif %}" data-toggle="{% if preferences_form.product_updates_enabled.value %}true{% else %}false{% endif %}" role="switch" tabindex="0" aria-checked="{% if preferences_form.product_updates_enabled.value %}true{% else %}false{% endif %}">
+                  <input type="checkbox" name="product_updates_enabled" {% if preferences_form.product_updates_enabled.value %}checked{% endif %} style="position: absolute; opacity: 0; pointer-events: none;" />
+                  <div>
+                    <p style="font-size: 14px; font-weight: 700; color: var(--dark);">Product Updates</p>
+                    <p style="font-size: 12px; color: var(--mid); margin-top: 2px;">Emails about new features, improvements &amp; changes</p>
+                  </div>
+                  <div class="ttrack{% if preferences_form.product_updates_enabled.value %} on{% endif %}"><span class="tthumb{% if preferences_form.product_updates_enabled.value %} on{% endif %}"></span></div>
+                </div>
+                <div class="trow{% if preferences_form.marketing_emails_enabled.value %} on{% endif %}" data-toggle="{% if preferences_form.marketing_emails_enabled.value %}true{% else %}false{% endif %}" role="switch" tabindex="0" aria-checked="{% if preferences_form.marketing_emails_enabled.value %}true{% else %}false{% endif %}">
+                  <input type="checkbox" name="marketing_emails_enabled" {% if preferences_form.marketing_emails_enabled.value %}checked{% endif %} style="position: absolute; opacity: 0; pointer-events: none;" />
+                  <div>
+                    <p style="font-size: 14px; font-weight: 700; color: var(--dark);">Marketing Emails</p>
+                    <p style="font-size: 12px; color: var(--mid); margin-top: 2px;">Promotional offers, newsletters &amp; announcements</p>
+                  </div>
+                  <div class="ttrack{% if preferences_form.marketing_emails_enabled.value %} on{% endif %}"><span class="tthumb{% if preferences_form.marketing_emails_enabled.value %} on{% endif %}"></span></div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; padding-top: 8px;">
+                  <button id="preferencesSaveBtn" class="sbtn save-trigger" type="submit" data-label="Save preferences" style="background: #D4C6F5; color: var(--dark);">Save preferences</button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <!-- ═══ PASSWORD ═══ -->
+          <div id="section-password" style="background: #fff; border-radius: 24px; overflow: hidden; border: 1px solid var(--border);">
+            <div style="background: #C0CFF5; padding: 20px 28px 18px;">
+              <p style="font-size: 12px; font-weight: 600; color: var(--dark); opacity: .55; margin-bottom: 2px; text-transform: uppercase; letter-spacing: .06em;">Security</p>
+              <h2 style="font-size: 20px; font-weight: 800; color: var(--dark); line-height: 1.2;">{% if password_mode == 'set' %}Set Password{% else %}Change Password{% endif %}</h2>
+            </div>
+            <form method="post" id="passwordForm" style="padding: 24px 28px;">
+              {% csrf_token %}
+              <input type="hidden" name="form_type" value="password">
+              <div style="display: flex; flex-direction: column; gap: 16px;">
+                {% if password_mode == 'set' %}
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 13px; font-weight: 700; color: var(--dark);">Current Password</label>
+                  <div style="position: relative;">
+                    <input class="fpw fb" type="password" placeholder="Not required for invite-link accounts" disabled style="opacity: .72; cursor: not-allowed;" />
+                  </div>
+                  <p style="font-size: 11px; color: var(--mid); margin-top: -2px;">You are currently using invite-link access. Set a password to enable regular email/password login anytime.</p>
+                </div>
+                {% else %}
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label for="password-current" style="font-size: 13px; font-weight: 700; color: var(--dark);">Current Password</label>
+                  <div style="position: relative;">
+                    <input id="password-current" class="fpw fb" type="password" name="old_password" placeholder="Enter current password" />
+                    <button type="button" class="eye-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                  </div>
+                  {% if password_form.old_password.errors %}<p style="font-size: 11px; color: #FF4757; font-weight: 600;">{{ password_form.old_password.errors.0 }}</p>{% endif %}
+                </div>
+                {% endif %}
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label for="newPw" style="font-size: 13px; font-weight: 700; color: var(--dark);">New Password</label>
+                  <div style="position: relative;">
+                    <input id="newPw" class="fpw fb" type="password" name="new_password1" placeholder="At least 8 characters" />
+                    <button type="button" class="eye-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                  </div>
+                  {% if password_form.new_password1.errors %}<p style="font-size: 11px; color: #FF4757; font-weight: 600;">{{ password_form.new_password1.errors.0 }}</p>{% endif %}
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label for="confirmPw" style="font-size: 13px; font-weight: 700; color: var(--dark);">Confirm New Password</label>
+                  <div style="position: relative;">
+                    <input id="confirmPw" class="fpw fb" type="password" name="new_password2" placeholder="Repeat new password" />
+                    <button type="button" class="eye-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                  </div>
+                  {% if password_form.new_password2.errors %}<p style="font-size: 11px; color: #FF4757; font-weight: 600;">{{ password_form.new_password2.errors.0 }}</p>{% endif %}
+                </div>
+                <div id="strMeter" style="margin-top: -4px; display: none;">
+                  <div style="display: flex; gap: 5px; margin-bottom: 5px;">
+                    <div class="sbar" id="b1"></div><div class="sbar" id="b2"></div><div class="sbar" id="b3"></div><div class="sbar" id="b4"></div>
+                  </div>
+                  <p id="strLabel" style="font-size: 11px; font-weight: 600;"></p>
+                </div>
+                <div id="pwErr" style="display: {% if password_form.non_field_errors %}flex{% else %}none{% endif %}; align-items: center; gap: 8px; padding: 10px 14px; background: #FF475712; border: 1.5px solid #FF475730; border-radius: 12px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF4757" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                  <p id="pwErrMsg" style="font-size: 13px; color: #FF4757; font-weight: 500;">{% if password_form.non_field_errors %}{{ password_form.non_field_errors.0 }}{% endif %}</p>
+                </div>
+                <div style="display: flex; justify-content: flex-end; padding-top: 4px;">
+                  <button id="pwSaveBtn" class="sbtn" type="submit" style="background: #C0CFF5; color: var(--dark);">{% if password_mode == 'set' %}Set password{% else %}Change password{% endif %}</button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <!-- ═══ DANGER ZONE ═══ -->
+          <div id="section-danger" style="background: #fff; border-radius: 24px; overflow: hidden; border: 1.5px solid #FF475730;">
+            <div style="background: #FF47570F; padding: 20px 28px 18px; border-bottom: 1.5px solid #FF475720;">
+              <p style="font-size: 12px; font-weight: 600; color: #FF4757; opacity: .7; margin-bottom: 2px; text-transform: uppercase; letter-spacing: .06em;">Danger Zone</p>
+              <h2 style="font-size: 20px; font-weight: 800; color: #FF4757; line-height: 1.2;">Delete Account</h2>
+            </div>
+            <form method="post" id="deleteForm" style="padding: 24px 28px; display: flex; flex-direction: column; gap: 18px;">
+              {% csrf_token %}
+              <input type="hidden" name="form_type" value="delete_account">
+              <div style="display: flex; gap: 12px; padding: 14px 16px; background: #FF47570A; border: 1.5px solid #FF475720; border-radius: 16px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF4757" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                <div>
+                  <p style="font-size: 13px; font-weight: 700; color: #FF4757;">This action is irreversible</p>
+                  <p style="font-size: 12px; color: #6B6B7B; margin-top: 3px; line-height: 1.5;">All your subscriptions, billing history, and account data will be permanently deleted.</p>
+                </div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <label for="dEmail" style="font-size: 13px; font-weight: 700; color: var(--dark);">Confirm Email Address</label>
+                <input id="dEmail" class="fi fr" type="email" name="confirm_email" placeholder="{{ request.user.email }}" value="{{ delete_form.confirm_email.value|default_if_none:'' }}" />
+                <p style="font-size: 11px; color: var(--mid); margin-top: -2px;">Type your account email: {{ request.user.email }}</p>
+                {% if delete_form.confirm_email.errors %}<p style="font-size: 11px; color: #FF4757; font-weight: 600;">{{ delete_form.confirm_email.errors.0 }}</p>{% endif %}
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <label for="dPhrase" style="font-size: 13px; font-weight: 700; color: var(--dark);">Confirm Phrase</label>
+                <input id="dPhrase" class="fi fr mono" name="confirm_phrase" placeholder="DELETE" value="{{ delete_form.confirm_phrase.value|default_if_none:'' }}" />
+                <p style="font-size: 11px; color: var(--mid); margin-top: -2px;">Type exactly: DELETE (case-sensitive)</p>
+                {% if delete_form.confirm_phrase.errors %}<p style="font-size: 11px; color: #FF4757; font-weight: 600;">{{ delete_form.confirm_phrase.errors.0 }}</p>{% endif %}
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <label for="dPw" style="font-size: 13px; font-weight: 700; color: var(--dark);">Current Password</label>
+                <div style="position: relative;">
+                  <input id="dPw" class="fpw fr" type="password" name="current_password" placeholder="Enter your password" />
+                  <button type="button" class="eye-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                </div>
+                <p style="font-size: 11px; color: var(--mid); margin-top: -2px;">{% if delete_form.current_password.help_text %}{{ delete_form.current_password.help_text }}{% else %}Required to authenticate this action{% endif %}</p>
+                {% if delete_form.current_password.errors %}<p style="font-size: 11px; color: #FF4757; font-weight: 600;">{{ delete_form.current_password.errors.0 }}</p>{% endif %}
+              </div>
+              <div id="dErr" style="display: {% if delete_form.non_field_errors %}flex{% else %}none{% endif %}; align-items: center; gap: 8px; padding: 10px 14px; background: #FF475712; border: 1.5px solid #FF475730; border-radius: 12px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF4757" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                <p id="dErrMsg" style="font-size: 13px; color: #FF4757; font-weight: 500;">{% if delete_form.non_field_errors %}{{ delete_form.non_field_errors.0 }}{% endif %}</p>
+              </div>
+              <div style="display: flex; justify-content: flex-end; padding-top: 4px;">
+                <button id="delBtn" class="sbtn" type="submit" disabled style="background: var(--inputBg); color: var(--mid); opacity: .7; gap: 8px; cursor: not-allowed;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                  Delete account
+                </button>
+              </div>
+            </form>
+          </div>
+
+        </div>
+      </main>
+    </div>
+  </div>
+</div>
+
+<div id="avatarPickerOverlay" class="avatar-picker-overlay" aria-hidden="true">
+  <div id="avatarPickerBackdrop" class="avatar-picker-backdrop"></div>
+  <div class="avatar-picker-modal" role="dialog" aria-modal="true" aria-labelledby="avatar-picker-title">
+    <div class="avatar-picker-header">
+      <h3 id="avatar-picker-title" class="avatar-picker-title">Select Avatar</h3>
+      <button id="avatarPickerClose" type="button" class="avatar-picker-close" aria-label="Close avatar picker">&times;</button>
+    </div>
+    <div class="avatar-picker-toolbar">
+      <div class="avatar-picker-tabs">
+        <button id="avatarSectionMale" class="avatar-picker-tab is-active" type="button" data-section="male">Male</button>
+        <button id="avatarSectionFemale" class="avatar-picker-tab" type="button" data-section="female">Female</button>
+      </div>
+      <button id="avatarRandomizeBtn" class="avatar-picker-random" type="button" aria-label="Random avatar">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M16 8h.01"/><path d="M8 8h.01"/><path d="M8 16h.01"/><path d="M16 16h.01"/><path d="M12 12h.01"/></svg>
+        <span>Dice</span>
+      </button>
+    </div>
+    <div class="avatar-picker-filters">
+      <div class="avatar-picker-filter">
+        <label for="avatarFilterPerson">Person</label>
+        <select id="avatarFilterPerson">
+          <option value="">All</option>
+        </select>
+      </div>
+      <div class="avatar-picker-filter">
+        <label for="avatarFilterSkinTone">Skin Tone</label>
+        <select id="avatarFilterSkinTone">
+          <option value="">All</option>
+        </select>
+      </div>
+      <div class="avatar-picker-filter">
+        <label for="avatarFilterPosture">Posture</label>
+        <select id="avatarFilterPosture">
+          <option value="">All</option>
+        </select>
+      </div>
+      <div class="avatar-picker-filter">
+        <label for="avatarFilterMood">Mood</label>
+        <select id="avatarFilterMood">
+          <option value="">All</option>
+        </select>
+      </div>
+    </div>
+    <div class="avatar-picker-body">
+      <div class="avatar-picker-grid-wrap">
+        <div id="avatarPickerGrid" class="avatar-picker-grid"></div>
+        <p id="avatarPickerHint" class="avatar-picker-hint">No avatars match the current filters.</p>
+      </div>
+      <aside class="avatar-picker-preview" aria-live="polite">
+        <div class="avatar-picker-preview-card">
+          <p class="avatar-picker-preview-title">Avatar Preview</p>
+          <div id="avatarPickerPreviewImageWrap" class="avatar-picker-preview-image-wrap" style="background: {{ selected_avatar_background_color }};">
+            <img id="avatarPickerPreviewImage" alt="Selected avatar preview" />
+          </div>
+          <p id="avatarPickerPreviewEmpty" class="avatar-picker-preview-empty" style="display: none;">Select an avatar to preview its details.</p>
+          <div id="avatarPickerPreviewMeta" class="avatar-picker-meta">
+            <div class="avatar-picker-meta-row"><span class="avatar-picker-meta-label">Collection</span><span id="avatarPreviewCollection" class="avatar-picker-meta-value">-</span></div>
+            <div class="avatar-picker-meta-row"><span class="avatar-picker-meta-label">Person</span><span id="avatarPreviewPerson" class="avatar-picker-meta-value">-</span></div>
+            <div class="avatar-picker-meta-row"><span class="avatar-picker-meta-label">Skin Tone</span><span id="avatarPreviewSkinTone" class="avatar-picker-meta-value">-</span></div>
+            <div class="avatar-picker-meta-row"><span class="avatar-picker-meta-label">Posture</span><span id="avatarPreviewPosture" class="avatar-picker-meta-value">-</span></div>
+            <div class="avatar-picker-meta-row"><span class="avatar-picker-meta-label">Mood</span><span id="avatarPreviewMood" class="avatar-picker-meta-value">-</span></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+    <div class="avatar-picker-footer">
+      <button id="avatarPickerCancel" type="button" class="avatar-picker-btn avatar-picker-btn-cancel">Cancel</button>
+      <button id="avatarPickerApply" type="button" class="avatar-picker-btn avatar-picker-btn-apply">Apply Avatar</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+  {{ avatar_sections|json_script:"avatar-sections-data" }}
+  <script>
+    var avatarUpdateUrl = '{% url "accounts:settings_avatar_update" %}';
+    var page = document.querySelector('.settings-page');
+    var COLORS = { profile:'#EDEE45', plan:'#A8F0D4', preferences:'#D4C6F5', password:'#C0CFF5', danger:'#FFB3BA' };
+    var PLAN_COLORS = { free:'#C0CFF5', starter:'#EDEE45', pro:'#A8F0D4', business:'#D4C6F5' };
+    var STATUS_COLORS = { active:'#2DC76D', trialing:'#FF9A3C', past_due:'#FF4757', cancelled:'#6B6B7B', none:'#6B6B7B' };
+    var SECTION_IDS = ['profile','plan','preferences','password','danger'];
+    var mainScroll = document.getElementById('mainScroll');
+    var scrollSpyTarget = null;
+    var scrollSpyTicking = false;
+
+    function getScrollableAncestor(el) {
+      var node = el ? el.parentElement : null;
+      while (node && node !== document.body && node !== document.documentElement) {
+        var style = window.getComputedStyle(node);
+        var overflowY = style ? style.overflowY : '';
+        var canScrollY = (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay')
+          && node.scrollHeight > node.clientHeight + 1;
+        if (canScrollY) {
+          return node;
+        }
+        node = node.parentElement;
+      }
+      return null;
+    }
+
+    function activateNav(id) {
+      document.querySelectorAll('.jbtn').forEach(function(btn) {
+        var t = btn.getAttribute('data-target');
+        var on = t === id;
+        btn.className = on ? 'jbtn active' : 'jbtn';
+        btn.style.background = on ? COLORS[t] : 'transparent';
+        btn.style.color = on ? '#0D0D10' : '#6B6B7B';
+        btn.style.fontWeight = on ? '700' : '500';
+        var dot = btn.querySelector('.jdot');
+        if (dot) {
+          dot.style.background = on ? '#0D0D10' : 'transparent';
+          dot.style.border = on ? 'none' : '2px solid ' + COLORS[t];
+        }
+      });
+    }
+
+    function jumpTo(id, behavior) {
+      var el = document.getElementById('section-' + id);
+      if (!el) {
+        return;
+      }
+      var scrollBehavior = behavior === 'instant' ? 'auto' : (behavior || 'smooth');
+      var offset = 20;
+      var scrollContainer = getScrollableAncestor(el);
+      if (scrollContainer) {
+        var sectionRect = el.getBoundingClientRect();
+        var scrollRect = scrollContainer.getBoundingClientRect();
+        var targetTop = Math.max(scrollContainer.scrollTop + sectionRect.top - scrollRect.top - offset, 0);
+        try {
+          scrollContainer.scrollTo({ top: targetTop, behavior: scrollBehavior });
+        } catch (error) {
+          scrollContainer.scrollTop = targetTop;
+        }
+      } else {
+        var windowTop = Math.max(window.pageYOffset + el.getBoundingClientRect().top - offset, 0);
+        try {
+          window.scrollTo({ top: windowTop, behavior: scrollBehavior });
+        } catch (error) {
+          window.scrollTo(0, windowTop);
+        }
+      }
+      activateNav(id);
+    }
+
+    function getSettingsScrollContainer() {
+      var profileSection = document.getElementById('section-profile');
+      var container = getScrollableAncestor(profileSection);
+      if (!container && mainScroll && mainScroll.scrollHeight > mainScroll.clientHeight + 1) {
+        container = mainScroll;
+      }
+      return container || window;
+    }
+
+    function getSectionTopRelativeToContainer(sectionEl, container) {
+      if (!sectionEl) {
+        return Number.POSITIVE_INFINITY;
+      }
+      if (container === window) {
+        return sectionEl.getBoundingClientRect().top;
+      }
+      var sectionRect = sectionEl.getBoundingClientRect();
+      var containerRect = container.getBoundingClientRect();
+      return sectionRect.top - containerRect.top;
+    }
+
+    function updateActiveSectionFromScroll() {
+      var container = scrollSpyTarget || getSettingsScrollContainer();
+      var threshold = 140;
+      var activeId = SECTION_IDS[0];
+      SECTION_IDS.forEach(function(id) {
+        var sectionEl = document.getElementById('section-' + id);
+        if (!sectionEl) {
+          return;
+        }
+        var relativeTop = getSectionTopRelativeToContainer(sectionEl, container);
+        if (relativeTop <= threshold) {
+          activeId = id;
+        }
+      });
+      activateNav(activeId);
+    }
+
+    function handleScrollSpy() {
+      if (scrollSpyTicking) {
+        return;
+      }
+      scrollSpyTicking = true;
+      window.requestAnimationFrame(function() {
+        scrollSpyTicking = false;
+        updateActiveSectionFromScroll();
+      });
+    }
+
+    function bindScrollSpy() {
+      scrollSpyTarget = getSettingsScrollContainer();
+      if (scrollSpyTarget === window) {
+        window.addEventListener('scroll', handleScrollSpy, { passive: true });
+      } else {
+        scrollSpyTarget.addEventListener('scroll', handleScrollSpy, { passive: true });
+      }
+    }
+
+    function flashSave(btn) {
+      var orig = btn.textContent;
+      var origBg = btn.style.background;
+      btn.style.background = '#A8F0D4';
+      btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg> Saved!';
+      setTimeout(function() { btn.style.background = origBg; btn.textContent = orig; }, 2500);
+    }
+
+    function syncToggle(row) {
+      var input = row.querySelector('input[type="checkbox"]');
+      var on = !!(input && input.checked);
+      row.setAttribute('data-toggle', String(on));
+      row.setAttribute('aria-checked', on ? 'true' : 'false');
+      row.className = on ? 'trow on' : 'trow';
+      row.querySelector('.ttrack').className = on ? 'ttrack on' : 'ttrack';
+      row.querySelector('.tthumb').className = on ? 'tthumb on' : 'tthumb';
+    }
+
+    function doEye(btn) {
+      var inp = btn.parentElement.querySelector('input');
+      if (!inp || inp.disabled) return;
+      var eyeOpen = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+      var eyeOff = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>';
+      if (inp.type === 'password') { inp.type = 'text'; btn.innerHTML = eyeOff; }
+      else { inp.type = 'password'; btn.innerHTML = eyeOpen; }
+    }
+
+    function updStr() {
+      var pw = document.getElementById('newPw').value;
+      var m = document.getElementById('strMeter');
+      var l = document.getElementById('strLabel');
+      var bars = [document.getElementById('b1'),document.getElementById('b2'),document.getElementById('b3'),document.getElementById('b4')];
+      var cols = ['#FF4757','#FF9A3C','#6EE7C0','#EDEE45'];
+      var labs = ['Weak','Fair','Good','Strong'];
+      if (!pw) { m.style.display = 'none'; return; }
+      m.style.display = 'block';
+      var s = 0;
+      if (pw.length >= 8) s++;
+      if (pw.length >= 10 && /[A-Z]/.test(pw)) s++;
+      if (/[0-9]/.test(pw) && /[A-Z]/.test(pw)) s++;
+      if (/[^A-Za-z0-9]/.test(pw)) s++;
+      for (var i = 0; i < 4; i++) bars[i].style.background = i < s ? cols[s-1] : '#EEEEE8';
+      l.textContent = s > 0 ? labs[s-1] : '';
+      l.style.color = s > 0 ? cols[s-1] : '';
+    }
+
+    function updPlan() {
+      var planSelect = document.getElementById('planSelect');
+      var statusSelect = document.getElementById('statusSelect');
+      var p = planSelect.value;
+      var st = statusSelect.value;
+      var c = PLAN_COLORS[p] || '#EDEE45';
+      document.getElementById('planBanner').style.background = c + '33';
+      document.getElementById('planBanner').style.borderColor = c;
+      document.getElementById('planDot').style.background = c;
+      document.getElementById('planName').textContent = planSelect.options[planSelect.selectedIndex].text;
+      var pill = document.getElementById('statusPill');
+      pill.textContent = statusSelect.options[statusSelect.selectedIndex].text;
+      pill.style.background = STATUS_COLORS[st] || '#6B6B7B';
+    }
+
+    function updDanger() {
+      var requiresPassword = page.dataset.deletePasswordRequired === 'true';
+      var ok = document.getElementById('dEmail').value.trim().toLowerCase() === '{{ request.user.email|lower|escapejs }}'
+            && document.getElementById('dPhrase').value === 'DELETE'
+            && (!requiresPassword || document.getElementById('dPw').value.length > 0);
+      var b = document.getElementById('delBtn');
+      b.disabled = !ok;
+      b.style.background = ok ? '#FF4757' : '#EEEEE8';
+      b.style.color = ok ? '#fff' : '#6B6B7B';
+      b.style.opacity = ok ? '1' : '.7';
+      b.style.cursor = ok ? 'pointer' : 'not-allowed';
+      if (ok) {
+        document.getElementById('dErr').style.display = 'none';
+      }
+    }
+
+    var avatarSectionsDataEl = document.getElementById('avatar-sections-data');
+    var avatarSections = avatarSectionsDataEl ? JSON.parse(avatarSectionsDataEl.textContent) : { male: [], female: [] };
+    var avatarBackgroundByKey = {};
+    document.querySelectorAll('#avatarBgSwatches .avatar-bg-swatch').forEach(function(button) {
+      var key = button.getAttribute('data-avatar-bg') || '';
+      var color = button.getAttribute('data-avatar-bg-color') || '';
+      if (key && color) {
+        avatarBackgroundByKey[key] = color;
+      }
+    });
+    var defaultAvatarBackgroundKey = '{{ selected_avatar_background|escapejs }}';
+    var avatarUrlByPath = {};
+    var avatarItemByPath = {};
+    ['male', 'female'].forEach(function(section) {
+      (avatarSections[section] || []).forEach(function(item) {
+        avatarUrlByPath[item.path] = item.url;
+        avatarItemByPath[item.path] = {
+          path: item.path,
+          url: item.url,
+          person: item.person || '',
+          skin_tone: item.skin_tone || '',
+          posture: item.posture || '',
+          mood_raw: item.mood_raw || '',
+          mood_label: item.mood_label || item.mood_raw || '',
+          section: section,
+        };
+      });
+    });
+    var avatarPickerState = {
+      activeSection: 'male',
+      pendingChoice: '',
+      pendingBackground: defaultAvatarBackgroundKey,
+      filters: {
+        person: '',
+        skin_tone: '',
+        posture: '',
+        mood_raw: '',
+      },
+    };
+    var avatarPersistTimer = null;
+
+    function normalizeAvatarBackgroundKey(backgroundKey) {
+      var key = (backgroundKey || '').trim().toLowerCase();
+      if (key && avatarBackgroundByKey[key]) return key;
+      if (avatarBackgroundByKey[defaultAvatarBackgroundKey]) return defaultAvatarBackgroundKey;
+      var available = Object.keys(avatarBackgroundByKey);
+      return available.length ? available[0] : '';
+    }
+
+    function getAvatarBackgroundColor(backgroundKey) {
+      var key = normalizeAvatarBackgroundKey(backgroundKey);
+      return avatarBackgroundByKey[key] || '#D4C6F5';
+    }
+
+    function getCsrfToken() {
+      var tokenInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+      return tokenInput ? tokenInput.value : '';
+    }
+
+    function applyGlobalAvatarBackgroundColor(color) {
+      if (!color) return;
+      document.querySelectorAll('.app-tab-avatar').forEach(function(img) {
+        img.style.background = color;
+      });
+      document.querySelectorAll('.teams-member-avatar').forEach(function(img) {
+        if (img.alt === '{{ request.user.email|escapejs }}') {
+          img.style.background = color;
+        }
+      });
+      document.querySelectorAll('.dashboard-header img[alt="{{ request.user.email|escapejs }}"]').forEach(function(img) {
+        img.style.background = color;
+      });
+    }
+
+    function persistAvatarPreferences() {
+      var avatarChoiceInput = document.getElementById('avatarChoiceInput');
+      var avatarBackgroundInput = document.getElementById('avatarBackgroundInput');
+      var csrfToken = getCsrfToken();
+      if (!avatarBackgroundInput || !csrfToken) return;
+
+      var body = new URLSearchParams();
+      body.set('avatar_choice', avatarChoiceInput ? (avatarChoiceInput.value || '') : '');
+      body.set('avatar_background', avatarBackgroundInput.value || '');
+
+      fetch(avatarUpdateUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          'X-CSRFToken': csrfToken,
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: body.toString(),
+      }).then(function(response) {
+        if (!response.ok) throw new Error('Avatar update failed');
+        return response.json();
+      }).then(function(payload) {
+        if (!payload || !payload.ok) return;
+        if (avatarChoiceInput && payload.avatar_choice) {
+          avatarChoiceInput.value = payload.avatar_choice;
+        }
+        if (avatarBackgroundInput && payload.avatar_background) {
+          avatarBackgroundInput.value = payload.avatar_background;
+          avatarPickerState.pendingBackground = normalizeAvatarBackgroundKey(payload.avatar_background);
+        }
+        if (payload.avatar_url) {
+          setProfilePreviewByChoice(avatarChoiceInput ? avatarChoiceInput.value : payload.avatar_choice);
+        }
+        if (payload.avatar_background_color) {
+          setProfilePreviewBackgroundByKey(avatarPickerState.pendingBackground);
+          setAvatarPickerPreviewBackgroundByKey(avatarPickerState.pendingBackground);
+          applyGlobalAvatarBackgroundColor(payload.avatar_background_color);
+        }
+      }).catch(function() {
+        // Keep UI responsive even if network save fails; user can still Save profile manually.
+      });
+    }
+
+    function queuePersistAvatarPreferences(delayMs) {
+      if (avatarPersistTimer) {
+        clearTimeout(avatarPersistTimer);
+      }
+      avatarPersistTimer = setTimeout(function() {
+        persistAvatarPreferences();
+        avatarPersistTimer = null;
+      }, delayMs || 260);
+    }
+
+    function setProfilePreviewByChoice(path) {
+      var img = document.getElementById('profilePreviewImage');
+      var fallback = document.getElementById('profilePreviewFallback');
+      if (!img || !fallback || !path || !avatarUrlByPath[path]) return;
+      img.src = avatarUrlByPath[path];
+      img.style.display = 'block';
+      fallback.style.display = 'none';
+    }
+
+    function setProfilePreviewBackgroundByKey(backgroundKey) {
+      var frame = document.getElementById('profilePreviewFrame');
+      if (!frame) return;
+      frame.style.background = getAvatarBackgroundColor(backgroundKey);
+    }
+
+    function setAvatarPickerPreviewBackgroundByKey(backgroundKey) {
+      var wrap = document.getElementById('avatarPickerPreviewImageWrap');
+      if (!wrap) return;
+      wrap.style.background = getAvatarBackgroundColor(backgroundKey);
+    }
+
+    function syncAvatarBackgroundSwatches() {
+      var activeBackground = normalizeAvatarBackgroundKey(avatarPickerState.pendingBackground);
+      document.querySelectorAll('#avatarBgSwatches .avatar-bg-swatch').forEach(function(button) {
+        var key = button.getAttribute('data-avatar-bg') || '';
+        button.classList.toggle('is-selected', key === activeBackground);
+      });
+    }
+
+    function avatarSectionFromChoice(path) {
+      if ((path || '').indexOf('female_memoji/') === 0) return 'female';
+      return 'male';
+    }
+
+    function getActiveSectionAvatars() {
+      return avatarSections[avatarPickerState.activeSection] || [];
+    }
+
+    function getAvatarItemByPath(path) {
+      if (!path) return null;
+      return avatarItemByPath[path] || null;
+    }
+
+    function getFilteredAvatars() {
+      var filters = avatarPickerState.filters;
+      return getActiveSectionAvatars().filter(function(item) {
+        if (filters.person && item.person !== filters.person) return false;
+        if (filters.skin_tone && item.skin_tone !== filters.skin_tone) return false;
+        if (filters.posture && String(item.posture) !== String(filters.posture)) return false;
+        if (filters.mood_raw && item.mood_raw !== filters.mood_raw) return false;
+        return true;
+      });
+    }
+
+    function updateAvatarPickerHint(filteredAvatars) {
+      var hint = document.getElementById('avatarPickerHint');
+      if (!hint) return;
+      var hasResults = (filteredAvatars || getFilteredAvatars()).length > 0;
+      hint.className = hasResults ? 'avatar-picker-hint' : 'avatar-picker-hint is-visible';
+    }
+
+    function getCurrentPreviewAvatar(filteredAvatars) {
+      var pendingItem = getAvatarItemByPath(avatarPickerState.pendingChoice);
+      if (pendingItem && pendingItem.section === avatarPickerState.activeSection) {
+        return pendingItem;
+      }
+      var filtered = filteredAvatars || getFilteredAvatars();
+      if (filtered.length) {
+        return getAvatarItemByPath(filtered[0].path) || filtered[0];
+      }
+      return pendingItem;
+    }
+
+    function setPreviewMetaValue(id, value) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = value || '-';
+    }
+
+    function updateAvatarPickerPreview(filteredAvatars) {
+      var preview = getCurrentPreviewAvatar(filteredAvatars);
+      var img = document.getElementById('avatarPickerPreviewImage');
+      var empty = document.getElementById('avatarPickerPreviewEmpty');
+      var meta = document.getElementById('avatarPickerPreviewMeta');
+      if (!img || !empty || !meta) return;
+
+      if (!preview || !preview.url) {
+        img.style.display = 'none';
+        empty.style.display = 'block';
+        meta.style.display = 'none';
+        setAvatarPickerPreviewBackgroundByKey(avatarPickerState.pendingBackground);
+        setPreviewMetaValue('avatarPreviewCollection', '');
+        setPreviewMetaValue('avatarPreviewPerson', '');
+        setPreviewMetaValue('avatarPreviewSkinTone', '');
+        setPreviewMetaValue('avatarPreviewPosture', '');
+        setPreviewMetaValue('avatarPreviewMood', '');
+        return;
+      }
+
+      img.src = preview.url;
+      img.style.display = 'block';
+      empty.style.display = 'none';
+      meta.style.display = 'grid';
+      setAvatarPickerPreviewBackgroundByKey(avatarPickerState.pendingBackground);
+      var sectionName = (preview.section || avatarSectionFromChoice(preview.path)) === 'female' ? 'Female' : 'Male';
+      setPreviewMetaValue('avatarPreviewCollection', sectionName);
+      setPreviewMetaValue('avatarPreviewPerson', preview.person);
+      setPreviewMetaValue('avatarPreviewSkinTone', preview.skin_tone);
+      setPreviewMetaValue('avatarPreviewPosture', preview.posture ? String(preview.posture) : '');
+      setPreviewMetaValue('avatarPreviewMood', preview.mood_label || preview.mood_raw);
+    }
+
+    function updateAvatarGridSelectionClasses() {
+      var grid = document.getElementById('avatarPickerGrid');
+      if (!grid) return;
+      var selectedPath = avatarPickerState.pendingChoice;
+      grid.querySelectorAll('.avatar-picker-item').forEach(function(button) {
+        var path = button.getAttribute('data-avatar-path') || '';
+        button.classList.toggle('is-selected', path && path === selectedPath);
+      });
+    }
+
+    function buildUniqueSortedValues(items, key, comparator) {
+      var values = [];
+      items.forEach(function(item) {
+        var value = item[key];
+        if (value === null || value === undefined || value === '') return;
+        if (values.indexOf(value) === -1) values.push(value);
+      });
+      values.sort(comparator || undefined);
+      return values;
+    }
+
+    function populateFilterSelect(selectId, values, selectedValue, labelFn) {
+      var select = document.getElementById(selectId);
+      if (!select) return;
+      var options = ['<option value="">All</option>'];
+      values.forEach(function(value) {
+        var selected = String(value) === String(selectedValue) ? ' selected' : '';
+        var label = labelFn ? labelFn(value) : value;
+        options.push('<option value="' + String(value).replace(/"/g, '&quot;') + '"' + selected + '>' + label + '</option>');
+      });
+      select.innerHTML = options.join('');
+    }
+
+    function syncFilterOptions(resetInvalidValues) {
+      var avatars = getActiveSectionAvatars();
+      var persons = buildUniqueSortedValues(avatars, 'person');
+      var skinTones = buildUniqueSortedValues(avatars, 'skin_tone');
+      var postures = buildUniqueSortedValues(avatars, 'posture', function(a, b) { return Number(a) - Number(b); });
+      var moodLabelByRaw = {};
+      avatars.forEach(function(item) {
+        if (!item.mood_raw || moodLabelByRaw[item.mood_raw]) return;
+        moodLabelByRaw[item.mood_raw] = item.mood_label || item.mood_raw;
+      });
+      var moods = Object.keys(moodLabelByRaw).sort(function(a, b) {
+        return (moodLabelByRaw[a] || a).localeCompare(moodLabelByRaw[b] || b);
+      });
+
+      if (resetInvalidValues) {
+        if (avatarPickerState.filters.person && persons.indexOf(avatarPickerState.filters.person) === -1) {
+          avatarPickerState.filters.person = '';
+        }
+        if (avatarPickerState.filters.skin_tone && skinTones.indexOf(avatarPickerState.filters.skin_tone) === -1) {
+          avatarPickerState.filters.skin_tone = '';
+        }
+        if (avatarPickerState.filters.posture && postures.map(String).indexOf(String(avatarPickerState.filters.posture)) === -1) {
+          avatarPickerState.filters.posture = '';
+        }
+        if (avatarPickerState.filters.mood_raw && moods.indexOf(avatarPickerState.filters.mood_raw) === -1) {
+          avatarPickerState.filters.mood_raw = '';
+        }
+      }
+
+      populateFilterSelect('avatarFilterPerson', persons, avatarPickerState.filters.person);
+      populateFilterSelect('avatarFilterSkinTone', skinTones, avatarPickerState.filters.skin_tone);
+      populateFilterSelect('avatarFilterPosture', postures, avatarPickerState.filters.posture, function(value) { return String(value); });
+      populateFilterSelect('avatarFilterMood', moods, avatarPickerState.filters.mood_raw, function(value) {
+        return moodLabelByRaw[value] || value;
+      });
+    }
+
+    function renderAvatarPickerGrid() {
+      var grid = document.getElementById('avatarPickerGrid');
+      if (!grid) return;
+      var list = getFilteredAvatars();
+      var html = list.map(function(item) {
+        var selectedClass = item.path === avatarPickerState.pendingChoice ? ' is-selected' : '';
+        return '<button type="button" class="avatar-picker-item' + selectedClass + '" data-avatar-path="' + item.path + '" aria-label="Select avatar"><img src="' + item.url + '" loading="lazy" alt="Avatar"></button>';
+      }).join('');
+      grid.innerHTML = html;
+      updateAvatarPickerHint(list);
+      updateAvatarPickerPreview(list);
+    }
+
+    function bindAvatarGridEvents() {
+      var grid = document.getElementById('avatarPickerGrid');
+      if (!grid) return;
+      grid.addEventListener('click', function(event) {
+        var target = event.target;
+        if (!target || !target.closest) return;
+        var button = target.closest('.avatar-picker-item');
+        if (!button || !grid.contains(button)) return;
+        var path = button.getAttribute('data-avatar-path') || '';
+        if (!path || path === avatarPickerState.pendingChoice) return;
+        avatarPickerState.pendingChoice = path;
+        updateAvatarGridSelectionClasses();
+        updateAvatarPickerPreview();
+      });
+    }
+
+    function syncAvatarSectionButtons() {
+      ['male', 'female'].forEach(function(section) {
+        var button = document.getElementById(section === 'male' ? 'avatarSectionMale' : 'avatarSectionFemale');
+        if (!button) return;
+        button.className = section === avatarPickerState.activeSection
+          ? 'avatar-picker-tab is-active'
+          : 'avatar-picker-tab';
+      });
+    }
+
+    function setAvatarPickerSection(section) {
+      avatarPickerState.activeSection = section === 'female' ? 'female' : 'male';
+      syncAvatarSectionButtons();
+      syncFilterOptions(true);
+      renderAvatarPickerGrid();
+    }
+
+    function openAvatarPicker() {
+      var overlay = document.getElementById('avatarPickerOverlay');
+      var input = document.getElementById('avatarChoiceInput');
+      var backgroundInput = document.getElementById('avatarBackgroundInput');
+      if (!overlay || !input) return;
+      avatarPickerState.pendingChoice = input.value || '';
+      avatarPickerState.pendingBackground = normalizeAvatarBackgroundKey(backgroundInput ? backgroundInput.value : defaultAvatarBackgroundKey);
+      avatarPickerState.activeSection = avatarSectionFromChoice(avatarPickerState.pendingChoice);
+      syncAvatarSectionButtons();
+      syncAvatarBackgroundSwatches();
+      setAvatarPickerPreviewBackgroundByKey(avatarPickerState.pendingBackground);
+      syncFilterOptions(true);
+      renderAvatarPickerGrid();
+      overlay.classList.add('is-open');
+      overlay.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeAvatarPicker() {
+      var overlay = document.getElementById('avatarPickerOverlay');
+      if (!overlay) return;
+      overlay.classList.remove('is-open');
+      overlay.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    }
+
+    function randomizeAvatarChoice() {
+      var list = getFilteredAvatars();
+      if (!list.length) return;
+      var randomIndex = Math.floor(Math.random() * list.length);
+      avatarPickerState.pendingChoice = list[randomIndex].path;
+      updateAvatarGridSelectionClasses();
+      updateAvatarPickerPreview(list);
+    }
+
+    function applyAvatarChoice() {
+      var input = document.getElementById('avatarChoiceInput');
+      var backgroundInput = document.getElementById('avatarBackgroundInput');
+      if (!input) return;
+      if (avatarPickerState.pendingChoice) {
+        input.value = avatarPickerState.pendingChoice;
+        setProfilePreviewByChoice(avatarPickerState.pendingChoice);
+      }
+      if (backgroundInput) {
+        var normalizedBackground = normalizeAvatarBackgroundKey(avatarPickerState.pendingBackground);
+        backgroundInput.value = normalizedBackground;
+        setProfilePreviewBackgroundByKey(normalizedBackground);
+      }
+      persistAvatarPreferences();
+      closeAvatarPicker();
+    }
+
+    function bindAvatarFilterEvents() {
+      var map = [
+        { id: 'avatarFilterPerson', key: 'person' },
+        { id: 'avatarFilterSkinTone', key: 'skin_tone' },
+        { id: 'avatarFilterPosture', key: 'posture' },
+        { id: 'avatarFilterMood', key: 'mood_raw' },
+      ];
+
+      map.forEach(function(entry) {
+        var select = document.getElementById(entry.id);
+        if (!select) return;
+        select.addEventListener('change', function() {
+          avatarPickerState.filters[entry.key] = this.value || '';
+          renderAvatarPickerGrid();
+        });
+      });
+    }
+
+    function bindAvatarBackgroundEvents() {
+      var swatchWrap = document.getElementById('avatarBgSwatches');
+      if (!swatchWrap) return;
+      swatchWrap.addEventListener('click', function(event) {
+        var target = event.target;
+        if (!target || !target.closest) return;
+        var button = target.closest('.avatar-bg-swatch');
+        if (!button || !swatchWrap.contains(button)) return;
+        var key = button.getAttribute('data-avatar-bg') || '';
+        avatarPickerState.pendingBackground = normalizeAvatarBackgroundKey(key);
+        syncAvatarBackgroundSwatches();
+        var backgroundInput = document.getElementById('avatarBackgroundInput');
+        if (backgroundInput) {
+          backgroundInput.value = avatarPickerState.pendingBackground;
+        }
+        setProfilePreviewBackgroundByKey(avatarPickerState.pendingBackground);
+        setAvatarPickerPreviewBackgroundByKey(avatarPickerState.pendingBackground);
+        queuePersistAvatarPreferences(220);
+      });
+    }
+
+    function updateProfileMeta() {
+      var first = document.getElementById('settings-first-name');
+      var last = document.getElementById('settings-last-name');
+      var display = document.getElementById('settings-display-name');
+      var email = document.getElementById('settings-email');
+      var name = [first ? first.value.trim() : '', last ? last.value.trim() : ''].join(' ').trim() || (display ? display.value.trim() : '') || (email ? email.value.trim() : '') || '{{ request.user.email|escapejs }}';
+      document.getElementById('profilePreviewName').textContent = name;
+      var fallback = document.getElementById('profilePreviewFallback');
+      if (fallback && fallback.style.display !== 'none') {
+        fallback.textContent = name.charAt(0).toUpperCase();
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      var activeSection = page.dataset.activeSection || 'profile';
+      activateNav(activeSection);
+      updPlan();
+      updDanger();
+      updateProfileMeta();
+      var avatarChoiceInput = document.getElementById('avatarChoiceInput');
+      if (avatarChoiceInput && avatarChoiceInput.value) {
+        setProfilePreviewByChoice(avatarChoiceInput.value);
+      }
+      var avatarBackgroundInput = document.getElementById('avatarBackgroundInput');
+      setProfilePreviewBackgroundByKey(avatarBackgroundInput ? avatarBackgroundInput.value : defaultAvatarBackgroundKey);
+
+      if (activeSection && activeSection !== 'profile') {
+        setTimeout(function() { jumpTo(activeSection, 'instant'); }, 50);
+      }
+
+      document.querySelectorAll('.jbtn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          jumpTo(this.getAttribute('data-target'));
+        });
+      });
+
+      document.querySelectorAll('.save-trigger').forEach(function(btn) {
+        btn.addEventListener('click', function() { flashSave(this); });
+      });
+
+      document.querySelectorAll('.trow').forEach(function(row) {
+        syncToggle(row);
+        row.addEventListener('click', function(e) {
+          var input = row.querySelector('input[type="checkbox"]');
+          if (e.target !== input) {
+            input.checked = !input.checked;
+          }
+          syncToggle(row);
+        });
+        row.addEventListener('keydown', function(e) {
+          if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault();
+            var input = row.querySelector('input[type="checkbox"]');
+            input.checked = !input.checked;
+            syncToggle(row);
+          }
+        });
+      });
+
+      document.querySelectorAll('.eye-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) { e.preventDefault(); doEye(this); });
+      });
+
+      document.getElementById('newPw').addEventListener('input', updStr);
+      document.getElementById('planSelect').addEventListener('change', updPlan);
+      document.getElementById('statusSelect').addEventListener('change', updPlan);
+      ['dEmail','dPhrase','dPw'].forEach(function(id) {
+        document.getElementById(id).addEventListener('input', updDanger);
+      });
+      ['settings-first-name', 'settings-last-name', 'settings-display-name', 'settings-email'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('input', updateProfileMeta);
+      });
+      bindAvatarFilterEvents();
+      bindAvatarGridEvents();
+      bindAvatarBackgroundEvents();
+      ['openAvatarPickerFab', 'openAvatarPickerBtn'].forEach(function(id) {
+        var trigger = document.getElementById(id);
+        if (trigger) {
+          trigger.addEventListener('click', openAvatarPicker);
+        }
+      });
+      var avatarClose = document.getElementById('avatarPickerClose');
+      if (avatarClose) avatarClose.addEventListener('click', closeAvatarPicker);
+      var avatarBackdrop = document.getElementById('avatarPickerBackdrop');
+      if (avatarBackdrop) avatarBackdrop.addEventListener('click', closeAvatarPicker);
+      var avatarCancel = document.getElementById('avatarPickerCancel');
+      if (avatarCancel) avatarCancel.addEventListener('click', closeAvatarPicker);
+      var avatarApply = document.getElementById('avatarPickerApply');
+      if (avatarApply) avatarApply.addEventListener('click', applyAvatarChoice);
+      var avatarRandom = document.getElementById('avatarRandomizeBtn');
+      if (avatarRandom) avatarRandom.addEventListener('click', randomizeAvatarChoice);
+      var avatarSectionMale = document.getElementById('avatarSectionMale');
+      if (avatarSectionMale) {
+        avatarSectionMale.addEventListener('click', function() { setAvatarPickerSection('male'); });
+      }
+      var avatarSectionFemale = document.getElementById('avatarSectionFemale');
+      if (avatarSectionFemale) {
+        avatarSectionFemale.addEventListener('click', function() { setAvatarPickerSection('female'); });
+      }
+
+      document.getElementById('passwordForm').addEventListener('submit', function(e) {
+        var np = document.getElementById('newPw').value;
+        var cp = document.getElementById('confirmPw').value;
+        var err = document.getElementById('pwErr');
+        var msg = document.getElementById('pwErrMsg');
+        if (page.dataset.passwordMode === 'change') {
+          var current = document.getElementById('password-current');
+          if (current && !current.value) { e.preventDefault(); err.style.display = 'flex'; msg.textContent = 'Current password is required.'; return; }
+        }
+        if (np !== cp) { e.preventDefault(); err.style.display = 'flex'; msg.textContent = "Passwords don't match."; return; }
+        if (np.length < 8) { e.preventDefault(); err.style.display = 'flex'; msg.textContent = "Password must be at least 8 characters."; return; }
+        err.style.display = 'none';
+      });
+
+      document.getElementById('deleteForm').addEventListener('submit', function(e) {
+        var requiresPassword = page.dataset.deletePasswordRequired === 'true';
+        var ok = document.getElementById('dEmail').value.trim().toLowerCase() === '{{ request.user.email|lower|escapejs }}'
+              && document.getElementById('dPhrase').value === 'DELETE'
+              && (!requiresPassword || document.getElementById('dPw').value.length > 0);
+        if (!ok) {
+          e.preventDefault();
+          document.getElementById('dErr').style.display = 'flex';
+          document.getElementById('dErrMsg').textContent = 'Please fill all fields correctly.';
+        }
+      });
+
+      bindScrollSpy();
+      updateActiveSectionFromScroll();
+
+      var updatedForm = page.dataset.updatedForm;
+      var buttonMap = { profile: 'profileSaveBtn', billing: 'billingSaveBtn', preferences: 'preferencesSaveBtn', password: 'pwSaveBtn' };
+      if (updatedForm && buttonMap[updatedForm]) {
+        var updatedBtn = document.getElementById(buttonMap[updatedForm]);
+        if (updatedBtn) setTimeout(function() { flashSave(updatedBtn); }, 180);
+      }
+    });
+  </script>
+{% endblock %}

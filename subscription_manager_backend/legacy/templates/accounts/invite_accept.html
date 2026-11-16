@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Team Invite - Subly{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto bg-white border border-slate-200 rounded-2xl p-6">
+    {% if invite_status == "email_mismatch" or invite_status == "sign_in_required" %}
+    <h1 class="text-xl font-semibold text-slate-900">Sign in to accept the invitation</h1>
+    <p class="text-sm text-slate-600 mt-2">
+        Use the account for <span class="font-medium">{{ invite.email }}</span> to join {{ invite.team.name }}.
+    </p>
+    <div class="mt-4 flex flex-wrap gap-3">
+        <a class="underline" href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}">Sign in</a>
+        <a class="underline" href="{% url 'accounts:password_reset' %}">Set or reset your password</a>
+    </div>
+    {% elif invite_status == "ready" %}
+    <h1 class="text-xl font-semibold text-slate-900">Accept invitation</h1>
+    <p class="text-sm text-slate-600 mt-2">{{ invite.email }} was invited to join {{ invite.team.name }}.</p>
+    <form method="post" class="mt-4">
+        {% csrf_token %}
+        <button type="submit" class="px-3 py-2 rounded-lg bg-slate-900 text-white text-sm">Accept invitation</button>
+    </form>
+    {% elif invite_status == "expired" %}
+    <h1 class="text-xl font-semibold text-slate-900">Invite expired</h1>
+    <p class="text-sm text-slate-600 mt-2">This invitation has expired. Ask the team owner to send a new one.</p>
+    {% elif invite_status == "already_used" %}
+    <h1 class="text-xl font-semibold text-slate-900">Invite already used</h1>
+    <p class="text-sm text-slate-600 mt-2">This invitation link has already been accepted.</p>
+    {% elif invite_status == "revoked" %}
+    <h1 class="text-xl font-semibold text-slate-900">Invite revoked</h1>
+    <p class="text-sm text-slate-600 mt-2">This invitation is no longer active.</p>
+    {% else %}
+    <h1 class="text-xl font-semibold text-slate-900">Invalid invitation</h1>
+    <p class="text-sm text-slate-600 mt-2">The link is invalid or no longer available.</p>
+    {% endif %}
+</div>
+{% endblock %}

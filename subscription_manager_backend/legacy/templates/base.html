@@ -1,0 +1,1456 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" {% if user.is_authenticated %} class="app-auth-layout" {% endif %}>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}">
+    <meta name="app-layout-version" content="20260309-1">
+    <style>
+        :root {
+            --tabbar-dock-bg: rgba(255, 255, 255, 0.58);
+            --tabbar-dock-border: rgba(255, 255, 255, 0.72);
+            --tabbar-dock-shadow: 0 24px 60px rgba(15, 23, 42, 0.14);
+            --tabbar-active-1: #2a2d35;
+            --tabbar-active-2: #15171c;
+            --tabbar-accent: #e8f542;
+            --tabbar-muted: #6f7787;
+        }
+
+        html.app-auth-layout {
+            font-size: 14.4px;
+            overflow-x: hidden;
+            background: #edf1f6;
+        }
+
+        html.app-auth-layout,
+        html.app-auth-layout body {
+            max-width: 100%;
+            overflow-x: hidden !important;
+            overflow-x: clip !important;
+        }
+
+        html.app-auth-layout body {
+            position: relative;
+            background:
+                radial-gradient(circle at 15% -10%, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0) 48%),
+                linear-gradient(180deg, #f4f6fa 0%, #edf1f6 100%);
+        }
+
+        html.app-auth-layout body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background:
+                linear-gradient(120deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0) 30%),
+                radial-gradient(circle at 92% 88%, rgba(226, 232, 240, 0.36), rgba(226, 232, 240, 0) 40%);
+            z-index: -1;
+        }
+
+        html.app-auth-layout body main {
+            overflow-x: hidden !important;
+        }
+
+        .public-nav {
+            position: sticky;
+            top: 0;
+            z-index: 70;
+            padding: 14px 16px;
+            background: rgba(245, 246, 250, 0.88);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+        }
+
+        .public-nav-inner {
+            width: min(1100px, 100%);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .public-brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            color: #111827;
+            text-decoration: none;
+            letter-spacing: -0.02em;
+        }
+
+        .public-brand-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            background: #e8f542;
+            color: #111827;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+        }
+
+        .public-nav-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .public-nav-link,
+        .public-nav-cta {
+            border-radius: 999px;
+            padding: 8px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 160ms ease;
+        }
+
+        .public-nav-link {
+            color: #475569;
+            border: 1px solid rgba(148, 163, 184, 0.32);
+            background: #ffffff;
+        }
+
+        .public-nav-link:hover {
+            color: #1f2937;
+            border-color: rgba(100, 116, 139, 0.45);
+        }
+
+        .public-nav-cta {
+            color: #111827;
+            border: 1px solid #d7df3c;
+            background: #e8f542;
+        }
+
+        .public-nav-cta:hover {
+            filter: brightness(0.97);
+        }
+
+        .app-main-shell {
+            min-height: 100vh;
+            padding: 12px 12px 124px;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
+        body.route-teams .app-main-shell {
+            padding-bottom: 22px;
+        }
+
+        .app-tabbar-wrap {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 30px;
+            display: flex;
+            justify-content: center;
+            pointer-events: none;
+            z-index: 75;
+            transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1), opacity 360ms ease;
+            will-change: transform, opacity;
+        }
+
+        .app-tabbar-wrap.is-collapsed {
+            transform: translateY(112px);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .app-tabbar {
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            background: var(--tabbar-dock-bg);
+            border: 1px solid var(--tabbar-dock-border);
+            border-radius: 40px;
+            box-shadow: var(--tabbar-dock-shadow);
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            max-width: calc(100% - 28px);
+            animation: tabbarAppear 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+            transform-origin: center bottom;
+            transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 260ms ease;
+            perspective: 900px;
+        }
+
+        .app-tabbar-wrap.is-hover-pop .app-tabbar {
+            animation: tabbarHoverPop 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+
+        .app-tabbar-wrap:not(.is-collapsed) .app-tabbar:hover {
+            box-shadow: 0 28px 64px rgba(15, 23, 42, 0.2);
+        }
+
+        .app-tab {
+            --dock-scale: 1;
+            --dock-lift: 0px;
+            --collapse-shift: 0px;
+            --collapse-scale: 1;
+            border: 0;
+            background: transparent;
+            padding: 0;
+            cursor: pointer;
+            color: var(--tabbar-muted);
+            border-radius: 32px;
+            text-decoration: none;
+            transform-origin: center bottom;
+            transform: translateX(var(--collapse-shift)) translateY(var(--dock-lift)) scale(calc(var(--dock-scale) * var(--collapse-scale)));
+            transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), color 240ms ease;
+            position: relative;
+        }
+
+        .app-tabbar-wrap.is-collapsing .app-tab {
+            --collapse-scale: 0.92;
+            --dock-lift: 0px;
+            transition-duration: 320ms;
+            transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .app-tabbar-wrap.is-collapsing .app-tab-pill {
+            max-width: 52px !important;
+            padding: 0 12px !important;
+            gap: 0 !important;
+        }
+
+        .app-tabbar-wrap.is-collapsing .app-tab-label {
+            opacity: 0 !important;
+            transform: translateX(-8px) !important;
+        }
+
+        .app-tabbar.is-dock-active .app-tab {
+            will-change: transform;
+        }
+
+        .app-tab:focus-visible {
+            outline: none;
+        }
+
+        .app-tab-pill {
+            display: flex;
+            align-items: center;
+            height: 52px;
+            padding: 0 12px;
+            border-radius: 32px;
+            gap: 0;
+            max-width: 52px;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .app-tab:not(.is-active):not(.active):hover .app-tab-pill {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .app-tab:hover .app-tab-pill,
+        .app-tab:focus-visible .app-tab-pill {
+            max-width: 200px;
+            padding: 0 16px 0 12px;
+            gap: 8px;
+        }
+
+        .app-tab.is-active .app-tab-pill,
+        .app-tab.active .app-tab-pill {
+            background: rgba(23, 25, 30, 0.95);
+            color: #ffffff;
+            max-width: 220px;
+            padding: 0 20px 0 14px;
+            gap: 10px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .app-tab:focus-visible .app-tab-pill {
+            box-shadow: 0 0 0 4px rgba(232, 245, 66, 0.25);
+        }
+
+        .app-tab-icon {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+            position: relative;
+            overflow: visible;
+        }
+
+        .app-tab-icon svg {
+            width: 22px;
+            height: 22px;
+            display: block;
+            stroke: currentColor;
+        }
+
+        .app-tab-notification-count {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            min-width: 16px;
+            height: 16px;
+            border-radius: 9999px;
+            padding: 0 4px;
+            background: #dc2626;
+            color: #ffffff;
+            font-size: 10px;
+            line-height: 16px;
+            text-align: center;
+            font-weight: 700;
+            border: 1px solid rgba(255, 255, 255, 0.92);
+            box-shadow: 0 8px 14px -10px rgba(15, 23, 42, 0.8);
+            pointer-events: none;
+        }
+
+        .app-tab.is-active .app-tab-icon,
+        .app-tab.active .app-tab-icon {
+            color: var(--tabbar-accent);
+        }
+
+        .app-tab-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            object-fit: cover;
+            display: block;
+            border: 1.5px solid transparent;
+            transition: border-color 0.3s ease;
+        }
+
+        .app-tab-avatar-fallback {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #e8f542;
+            color: #15171c;
+            font-size: 12px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1.5px solid transparent;
+            transition: border-color 0.3s ease;
+        }
+
+        .app-tab.is-active .app-tab-avatar,
+        .app-tab.active .app-tab-avatar,
+        .app-tab.is-active .app-tab-avatar-fallback,
+        .app-tab.active .app-tab-avatar-fallback {
+            border-color: var(--tabbar-accent);
+        }
+
+        .app-tab-label-wrap {
+            overflow: hidden;
+            min-width: 0;
+        }
+
+        .app-tab-label {
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0;
+            transform: translateX(-10px);
+            color: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .app-tab.is-active .app-tab-label,
+        .app-tab.active .app-tab-label {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .app-tab:hover .app-tab-label,
+        .app-tab:focus-visible .app-tab-label {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .app-tab-dot {
+            display: none;
+        }
+
+        .app-tabbar-loader {
+            position: fixed;
+            left: 50%;
+            bottom: 94px;
+            transform: translateX(-50%) translateY(8px);
+            opacity: 0;
+            pointer-events: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.75);
+            background: rgba(17, 25, 40, 0.84);
+            color: #eef2ff;
+            font-size: 12px;
+            line-height: 1;
+            letter-spacing: 0.02em;
+            transition: opacity 160ms ease, transform 160ms ease;
+            z-index: 76;
+        }
+
+        .app-tabbar-loader.htmx-request {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .app-tabbar-loader-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--tabbar-accent);
+            box-shadow: 0 0 0 rgba(232, 245, 66, 0.65);
+            animation: tabbarPulse 1s ease-in-out infinite;
+        }
+
+        .app-tabbar-reveal {
+            position: fixed;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%) translateY(12px);
+            width: 46px;
+            height: 46px;
+            border: 1px solid rgba(255, 255, 255, 0.78);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.88);
+            box-shadow: 0 20px 34px -30px rgba(15, 23, 42, 0.8);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 180ms ease, transform 180ms ease;
+            z-index: 77;
+            cursor: pointer;
+        }
+
+        .app-tabbar-reveal.is-visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateX(-50%) translateY(0) scale(1.16);
+        }
+
+        .app-tabbar-reveal-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            display: block;
+            border: 1.5px solid rgba(255, 255, 255, 0.92);
+        }
+
+        .app-tabbar-reveal-avatar-fallback {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1.5px solid rgba(255, 255, 255, 0.92);
+            color: #111827;
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .app-tab-logout-form {
+            margin: 0;
+        }
+
+        .app-tab-button {
+            border: 0;
+            background: transparent;
+            padding: 0;
+            font: inherit;
+            color: inherit;
+        }
+
+        @keyframes tabbarAppear {
+            from {
+                transform: translateY(100px) scale(0.9);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes tabbarPulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(232, 245, 66, 0.65);
+            }
+
+            50% {
+                box-shadow: 0 0 0 8px rgba(232, 245, 66, 0);
+            }
+        }
+
+        @keyframes tabbarHoverPop {
+            0% {
+                transform: translateY(6px) scale(0.96);
+            }
+
+            65% {
+                transform: translateY(-2px) scale(1.02);
+            }
+
+            100% {
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .app-tab {
+                transform: none;
+                transition: color 240ms ease;
+            }
+
+            .app-tabbar-wrap.is-hover-pop .app-tabbar,
+            .app-tabbar-wrap:not(.is-collapsed) .app-tabbar:hover {
+                animation: none;
+                transform: none;
+            }
+        }
+
+        .global-notification-shell {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 80;
+        }
+
+        .global-notification-button {
+            position: relative;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 0.875rem;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            background: rgba(255, 255, 255, 0.95);
+            color: rgb(51 65 85);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 12px 24px -22px rgba(15, 23, 42, 0.55);
+        }
+
+        .global-notification-count {
+            position: absolute;
+            top: -0.35rem;
+            right: -0.35rem;
+            min-width: 1.1rem;
+            height: 1.1rem;
+            border-radius: 9999px;
+            background: #dc2626;
+            color: #fff;
+            font-size: 10px;
+            line-height: 1.1rem;
+            text-align: center;
+            padding: 0 0.2rem;
+        }
+
+        .global-notification-panel {
+            position: absolute;
+            top: calc(100% + 0.5rem);
+            right: 0;
+            width: min(94vw, 24rem);
+            max-height: 26rem;
+            overflow: hidden;
+            border-radius: 1rem;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            background: #fff;
+            box-shadow: 0 28px 52px -34px rgba(15, 23, 42, 0.65);
+            display: none;
+        }
+
+        .global-notification-panel.is-open {
+            display: block;
+        }
+
+        @media (min-width: 768px) {
+            .app-main-shell {
+                padding: 16px 18px 132px;
+            }
+
+            body.route-teams .app-main-shell {
+                padding-bottom: 24px;
+            }
+        }
+
+        @media (min-width: 1280px) {
+            .app-main-shell {
+                padding: 18px 24px 138px;
+            }
+
+            body.route-teams .app-main-shell {
+                padding-bottom: 26px;
+            }
+        }
+
+        @media (max-width: 760px) {
+            .app-tabbar {
+                width: calc(100% - 16px);
+                justify-content: space-between;
+                gap: 4px;
+                padding: 7px;
+            }
+
+            .app-tabbar-wrap {
+                bottom: 16px;
+            }
+
+            .app-tab-pill {
+                height: 48px;
+            }
+
+            .app-tab.is-active .app-tab-pill,
+            .app-tab.active .app-tab-pill {
+                padding-right: 14px;
+            }
+
+            .app-tab-label {
+                font-size: 14px;
+            }
+
+            .app-tabbar-loader {
+                bottom: 80px;
+            }
+
+            .app-tabbar-reveal {
+                bottom: 16px;
+            }
+        }
+    </style>
+    <title>{% block title %}Subly{% endblock %}</title>
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body class="min-h-screen bg-[#f5f6fa] text-slate-900">
+    {% include 'components/navbar.html' %}
+
+    {% if user.is_authenticated and not hide_global_notifications %}
+    <div class="global-notification-shell" id="global-notification-shell">
+        <button type="button" class="global-notification-button" id="global-notification-toggle" aria-expanded="false"
+            aria-controls="global-notification-panel" title="Notifications">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9">
+                </path>
+            </svg>
+            <span class="global-notification-count hidden" id="global-notification-count">0</span>
+        </button>
+        <div class="global-notification-panel" id="global-notification-panel">
+            <div class="p-3 border-b border-slate-200 flex items-center justify-between gap-2">
+                <p class="font-semibold text-sm text-slate-800">Notifications</p>
+                <button type="button" id="global-notification-read-all"
+                    class="text-xs text-slate-600 hover:text-slate-900">
+                    Mark all read
+                </button>
+            </div>
+            <div id="global-notification-list" class="max-h-80 overflow-y-auto"></div>
+            <div class="p-2 border-t border-slate-100 bg-slate-50 text-right">
+                <a href="{% url 'dashboard:notifications_page' %}"
+                    class="text-xs text-slate-700 hover:text-slate-900">View all</a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <main{% if user.is_authenticated %} class="app-main-shell" {% else %} class="min-h-screen" {% endif %}>
+        <div id="app-content">
+            {% if messages and not suppress_base_messages %}
+            <div class="max-w-5xl mx-auto mb-3 space-y-2">
+                {% for message in messages %}
+                <div class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">{{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% block content %}{% endblock %}
+        </div>
+        </main>
+
+        {% if user.is_authenticated %}
+        <div id="tabbar-loading" class="app-tabbar-loader" aria-live="polite" aria-atomic="true">
+            <span class="app-tabbar-loader-dot" aria-hidden="true"></span>
+            <span>Loading</span>
+        </div>
+        <button id="tabbar-reveal-toggle" class="app-tabbar-reveal" type="button" aria-label="Show navigation bar"
+            title="Show navigation">
+            {% if request.user.avatar_url %}
+            <img
+                class="app-tabbar-reveal-avatar"
+                src="{{ request.user.avatar_url }}"
+                alt="{{ request.user.email }}"
+                style="background: {{ request.user.avatar_background_color }};"
+            />
+            {% else %}
+            <span
+                class="app-tabbar-reveal-avatar-fallback"
+                style="background: {{ request.user.avatar_background_color }};"
+                aria-hidden="true"
+            >
+                {% if request.user.first_name %}{{ request.user.first_name|slice:":1"|upper }}{% else %}{{ request.user.email|default:"U"|slice:":1"|upper }}{% endif %}
+            </span>
+            {% endif %}
+        </button>
+        {% endif %}
+
+        <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+        {% if user.is_authenticated %}
+        <script>
+            window.SUBLY_RUNTIME = window.SUBLY_RUNTIME || {};
+            window.SUBLY_RUNTIME.notificationsWsEnabled = {{ notifications_ws_enabled|yesno:"true,false" }};
+        </script>
+        <script>
+            (function () {
+                function normalizePath(path) {
+                    if (!path) {
+                        return '/';
+                    }
+                    return path.endsWith('/') ? path : path + '/';
+                }
+
+                function getActiveTabKey(urlString) {
+                    var parsed;
+                    try {
+                        parsed = new URL(urlString, window.location.origin);
+                    } catch (error) {
+                        parsed = window.location;
+                    }
+
+                    var path = normalizePath(parsed.pathname || '/');
+                    var sortValue = new URLSearchParams(parsed.search || '').get('sort');
+
+                    if (path.startsWith('/accounts/settings/')) {
+                        return 'profile';
+                    }
+                    if (path.startsWith('/dashboard/notifications/')) {
+                        return 'notifications';
+                    }
+                    if (path.startsWith('/dashboard/balance-stats')) {
+                        return 'stats';
+                    }
+                    if (path.startsWith('/dashboard/')) {
+                        return 'dashboard';
+                    }
+                    if (path.startsWith('/subscriptions/cards/')) {
+                        return 'cards';
+                    }
+                    if (path.startsWith('/accounts/teams/')) {
+                        return 'teams';
+                    }
+                    if (path.startsWith('/subscriptions/') && sortValue === 'renewal_date') {
+                        return 'history';
+                    }
+                    if (path.startsWith('/subscriptions/')) {
+                        return 'subscriptions';
+                    }
+                    return '';
+                }
+
+                function syncTabbarActiveState() {
+                    var activeKey = getActiveTabKey(window.location.href);
+                    document.querySelectorAll('.app-tabbar .app-tab[data-tab-key]').forEach(function (tab) {
+                        var isActive = tab.dataset.tabKey === activeKey;
+                        tab.classList.toggle('is-active', isActive);
+                        tab.classList.toggle('active', isActive);
+                        if (isActive) {
+                            tab.setAttribute('aria-current', 'page');
+                        } else {
+                            tab.removeAttribute('aria-current');
+                        }
+                    });
+                }
+
+                function applyRouteLayout(path) {
+                    var normalized = normalizePath(path);
+                    var isTeamsRoute = normalized.startsWith('/accounts/teams/');
+                    var isDashboardRoute = normalized.startsWith('/dashboard/');
+                    var isDashboardHomeRoute = normalized === '/dashboard/' || normalized === '/dashboard';
+                    document.body.classList.toggle('route-teams', isTeamsRoute);
+                    document.body.classList.toggle('route-dashboard', isDashboardRoute);
+                    document.body.classList.toggle('route-dashboard-home', isDashboardHomeRoute);
+                }
+
+                function dispatchContentLoaded() {
+                    document.dispatchEvent(new CustomEvent('subly:content-loaded'));
+                }
+
+                var showTabbarControl = function () { };
+
+                function scriptForPath(path) {
+                    var normalized = normalizePath(path);
+                    if (normalized.startsWith('/dashboard/')) {
+                        return '{% static "dashboard/dashboard.js" %}?v=20260327-5';
+                    }
+                    if (
+                        normalized === '/subscriptions/add/' ||
+                        /^\/subscriptions\/\d+\/edit\/$/.test(normalized)
+                    ) {
+                        return '{% static "subscriptions/form.js" %}';
+                    }
+                    if (normalized === '/subscriptions/') {
+                        return '{% static "subscriptions/list.js" %}?v=20260330-9';
+                    }
+                    if (normalized.startsWith('/subscriptions/cards/')) {
+                        return '{% static "subscriptions/cards.js" %}';
+                    }
+                    if (normalized.startsWith('/accounts/teams/')) {
+                        return '{% static "accounts/teams_module.js" %}?v=20260309-1';
+                    }
+                    return null;
+                }
+
+                function stylesForPath(path) {
+                    var normalized = normalizePath(path);
+                    if (normalized.startsWith('/dashboard/')) {
+                        return [
+                            '{% static "dashboard/dashboard.css" %}?v=20260331-2'
+                        ];
+                    }
+                    if (normalized === '/subscriptions/') {
+                        return [
+                            '{% static "subscriptions/list.css" %}?v=20260330-5'
+                        ];
+                    }
+                    if (normalized.startsWith('/subscriptions/cards/')) {
+                        return [
+                            'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap',
+                            '{% static "subscriptions/cards.css" %}?v=20260309-1'
+                        ];
+                    }
+                    if (normalized.startsWith('/accounts/teams/')) {
+                        return [
+                            'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
+                            '{% static "accounts/teams_module.css" %}?v=20260309-1'
+                        ];
+                    }
+                    return [];
+                }
+
+                function loadScriptOnce(src) {
+                    return new Promise(function (resolve, reject) {
+                        if (!src) {
+                            resolve();
+                            return;
+                        }
+
+                        window.SUBLY_RUNTIME = window.SUBLY_RUNTIME || {};
+                        window.SUBLY_RUNTIME.loadedScripts = window.SUBLY_RUNTIME.loadedScripts || {};
+                        var loadedScripts = window.SUBLY_RUNTIME.loadedScripts;
+
+                        if (loadedScripts[src] === 'loaded') {
+                            resolve();
+                            return;
+                        }
+
+                        var existing = document.querySelector('script[src="' + src + '"]');
+                        if (existing) {
+                            if (existing.dataset.sublyManaged === '1') {
+                                if (existing.dataset.sublyLoadState === 'loaded') {
+                                    loadedScripts[src] = 'loaded';
+                                    resolve();
+                                    return;
+                                }
+
+                                if (existing.dataset.sublyLoadState === 'loading') {
+                                    existing.addEventListener('load', resolve, { once: true });
+                                    existing.addEventListener('error', reject, { once: true });
+                                    return;
+                                }
+
+                                existing.remove();
+                                delete loadedScripts[src];
+                            } else {
+                                loadedScripts[src] = 'loaded';
+                                resolve();
+                                return;
+                            }
+                        }
+
+                        if (loadedScripts[src] && loadedScripts[src].node) {
+                            loadedScripts[src].node.addEventListener('load', resolve, { once: true });
+                            loadedScripts[src].node.addEventListener('error', reject, { once: true });
+                            return;
+                        }
+
+                        var script = document.createElement('script');
+                        script.src = src;
+                        script.async = false;
+                        script.dataset.sublyManaged = '1';
+                        script.dataset.sublyLoadState = 'loading';
+                        script.onload = function () {
+                            script.dataset.sublyLoadState = 'loaded';
+                            loadedScripts[src] = 'loaded';
+                            resolve();
+                        };
+                        script.onerror = function () {
+                            script.dataset.sublyLoadState = 'error';
+                            loadedScripts[src] = 'error';
+                            reject(new Error('Failed to load script: ' + src));
+                        };
+
+                        loadedScripts[src] = { node: script };
+                        document.body.appendChild(script);
+                    });
+                }
+
+                function loadStyleOnce(href) {
+                    return new Promise(function (resolve, reject) {
+                        if (!href) {
+                            resolve();
+                            return;
+                        }
+
+                        window.SUBLY_RUNTIME = window.SUBLY_RUNTIME || {};
+                        window.SUBLY_RUNTIME.loadedStyles = window.SUBLY_RUNTIME.loadedStyles || {};
+                        var loadedStyles = window.SUBLY_RUNTIME.loadedStyles;
+
+                        if (loadedStyles[href] === 'loaded') {
+                            resolve();
+                            return;
+                        }
+
+                        var existing = document.querySelector('link[rel="stylesheet"][href="' + href + '"]');
+                        if (existing) {
+                            if (existing.dataset.sublyManaged === '1') {
+                                if (existing.dataset.sublyLoadState === 'loaded') {
+                                    loadedStyles[href] = 'loaded';
+                                    resolve();
+                                    return;
+                                }
+
+                                if (existing.dataset.sublyLoadState === 'loading') {
+                                    existing.addEventListener('load', resolve, { once: true });
+                                    existing.addEventListener('error', reject, { once: true });
+                                    return;
+                                }
+
+                                existing.remove();
+                                delete loadedStyles[href];
+                            } else {
+                                loadedStyles[href] = 'loaded';
+                                resolve();
+                                return;
+                            }
+                        }
+
+                        if (loadedStyles[href] && loadedStyles[href].node) {
+                            loadedStyles[href].node.addEventListener('load', resolve, { once: true });
+                            loadedStyles[href].node.addEventListener('error', reject, { once: true });
+                            return;
+                        }
+
+                        var link = document.createElement('link');
+                        link.rel = 'stylesheet';
+                        link.href = href;
+                        link.dataset.sublyManaged = '1';
+                        link.dataset.sublyLoadState = 'loading';
+                        link.onload = function () {
+                            link.dataset.sublyLoadState = 'loaded';
+                            loadedStyles[href] = 'loaded';
+                            resolve();
+                        };
+                        link.onerror = function () {
+                            link.dataset.sublyLoadState = 'error';
+                            loadedStyles[href] = 'error';
+                            reject(new Error('Failed to load stylesheet: ' + href));
+                        };
+
+                        loadedStyles[href] = { node: link };
+                        document.head.appendChild(link);
+                    });
+                }
+
+                function pruneManagedStyles(activeHrefs) {
+                    window.SUBLY_RUNTIME = window.SUBLY_RUNTIME || {};
+                    window.SUBLY_RUNTIME.loadedStyles = window.SUBLY_RUNTIME.loadedStyles || {};
+                    var loadedStyles = window.SUBLY_RUNTIME.loadedStyles;
+                    var activeMap = {};
+
+                    (activeHrefs || []).forEach(function (href) {
+                        activeMap[href] = true;
+                    });
+
+                    document.querySelectorAll('link[rel="stylesheet"][data-subly-managed="1"]').forEach(function (link) {
+                        var href = link.getAttribute('href');
+                        if (activeMap[href]) {
+                            return;
+                        }
+                        link.remove();
+                        delete loadedStyles[href];
+                    });
+                }
+
+                function prepareCurrentView() {
+                    applyRouteLayout(window.location.pathname);
+                    var activeStyleHrefs = stylesForPath(window.location.pathname);
+                    var stylePromises = activeStyleHrefs.map(loadStyleOnce);
+                    return Promise.all(stylePromises)
+                        .catch(function () { })
+                        .then(function () {
+                            pruneManagedStyles(activeStyleHrefs);
+                            return loadScriptOnce(scriptForPath(window.location.pathname));
+                        })
+                        .catch(function () { })
+                        .finally(function () {
+                            showTabbarControl();
+                            syncTabbarActiveState();
+                            dispatchContentLoaded();
+                        });
+                }
+
+                function init() {
+                    var tabbar = document.querySelector('.app-tabbar');
+                    if (!tabbar) {
+                        dispatchContentLoaded();
+                        return;
+                    }
+
+                    var tabbarWrap = document.querySelector('.app-tabbar-wrap');
+                    var revealButton = document.getElementById('tabbar-reveal-toggle');
+                    var pointerInsideDock = false;
+                    var hoverPopTimer = null;
+                    var collapseTimer = null;
+                    var collapsePhaseTimer = null;
+                    var hoverStateSyncTimer = null;
+                    var lastPointerPosition = null;
+                    var collapseBlockedUntil = 0;
+                    var hoverGraceUntil = 0;
+                    var hoverGraceRect = null;
+                    var collapseDelayMs = 600;
+                    var collapseGatherDurationMs = 320;
+                    var transitioningFromReveal = false;
+
+                    function clearHoverPopTimer() {
+                        if (hoverPopTimer !== null) {
+                            window.clearTimeout(hoverPopTimer);
+                            hoverPopTimer = null;
+                        }
+                    }
+
+                    function clearCollapseTimer() {
+                        if (collapseTimer !== null) {
+                            window.clearTimeout(collapseTimer);
+                            collapseTimer = null;
+                        }
+                    }
+
+                    function clearCollapsePhaseTimer() {
+                        if (collapsePhaseTimer !== null) {
+                            window.clearTimeout(collapsePhaseTimer);
+                            collapsePhaseTimer = null;
+                        }
+                    }
+
+                    function clearHoverStateSyncTimer() {
+                        if (hoverStateSyncTimer !== null) {
+                            window.clearTimeout(hoverStateSyncTimer);
+                            hoverStateSyncTimer = null;
+                        }
+                    }
+
+                    function updatePointerPosition(event) {
+                        if (!event) {
+                            return;
+                        }
+                        lastPointerPosition = { x: event.clientX, y: event.clientY };
+                    }
+
+                    function blockCollapseFor(ms) {
+                        var duration = Number(ms) || 0;
+                        if (duration <= 0) {
+                            return;
+                        }
+                        var until = Date.now() + duration;
+                        if (until > collapseBlockedUntil) {
+                            collapseBlockedUntil = until;
+                        }
+                    }
+
+                    function isCollapseBlocked() {
+                        return Date.now() < collapseBlockedUntil;
+                    }
+
+                    function setHoverGrace(rect, ms) {
+                        if (!rect) {
+                            return;
+                        }
+                        hoverGraceRect = {
+                            left: rect.left,
+                            right: rect.right,
+                            top: rect.top,
+                            bottom: rect.bottom
+                        };
+                        hoverGraceUntil = Date.now() + (Number(ms) || 0);
+                    }
+
+                    function isHoverGraceActive() {
+                        if (!hoverGraceRect || !lastPointerPosition) {
+                            return false;
+                        }
+                        if (Date.now() >= hoverGraceUntil) {
+                            hoverGraceRect = null;
+                            return false;
+                        }
+                        return isPointerWithinRect(lastPointerPosition, hoverGraceRect, 32);
+                    }
+
+                    function isPointerWithinRect(point, rect, padding) {
+                        if (!point || !rect) {
+                            return false;
+                        }
+                        var pad = padding || 0;
+                        return point.x >= rect.left - pad
+                            && point.x <= rect.right + pad
+                            && point.y >= rect.top - pad
+                            && point.y <= rect.bottom + pad;
+                    }
+
+                    function isPointerWithinDockBounds() {
+                        if (!lastPointerPosition) {
+                            return false;
+                        }
+                        var padding = 28;
+                        if (tabbar && isPointerWithinRect(lastPointerPosition, tabbar.getBoundingClientRect(), padding)) {
+                            return true;
+                        }
+                        if (revealButton && isPointerWithinRect(lastPointerPosition, revealButton.getBoundingClientRect(), padding)) {
+                            return true;
+                        }
+                        return false;
+                    }
+
+                    document.addEventListener('mousemove', updatePointerPosition, { passive: true });
+
+                    function triggerHoverPop() {
+                        if (!tabbarWrap) {
+                            return;
+                        }
+                        clearHoverPopTimer();
+                        tabbarWrap.classList.remove('is-hover-pop');
+                        void tabbarWrap.offsetWidth;
+                        tabbarWrap.classList.add('is-hover-pop');
+                        hoverPopTimer = window.setTimeout(function () {
+                            tabbarWrap.classList.remove('is-hover-pop');
+                            hoverPopTimer = null;
+                        }, 320);
+                    }
+
+                    var dockItems = Array.from(tabbar.querySelectorAll('.app-tab'));
+                    var dockInfluencePx = 140;
+                    var dockMaxScale = 1.28;
+                    var prefersReducedMotion = window.matchMedia
+                        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+                    function resetDockMagnification() {
+                        tabbar.classList.remove('is-dock-active');
+                        dockItems.forEach(function (item) {
+                            item.style.setProperty('--dock-scale', '1');
+                            item.style.setProperty('--dock-lift', '0px');
+                        });
+                    }
+
+                    function clearCollapseShifts() {
+                        dockItems.forEach(function (item) {
+                            item.style.removeProperty('--collapse-shift');
+                            item.style.removeProperty('--collapse-scale');
+                        });
+                    }
+
+                    function updateCollapseShiftsToCenter() {
+                        if (!dockItems.length) {
+                            return;
+                        }
+                        var barRect = tabbar.getBoundingClientRect();
+                        var barCenterX = barRect.left + (barRect.width / 2);
+                        dockItems.forEach(function (item) {
+                            var itemRect = item.getBoundingClientRect();
+                            var itemCenterX = itemRect.left + (itemRect.width / 2);
+                            var shift = barCenterX - itemCenterX;
+                            item.style.setProperty('--collapse-shift', shift.toFixed(2) + 'px');
+                        });
+                    }
+
+                    function applyDockMagnification(clientX) {
+                        if (prefersReducedMotion || !dockItems.length) {
+                            return;
+                        }
+
+                        var barRect = tabbar.getBoundingClientRect();
+                        if (clientX < barRect.left || clientX > barRect.right) {
+                            resetDockMagnification();
+                            return;
+                        }
+
+                        tabbar.classList.add('is-dock-active');
+                        dockItems.forEach(function (item) {
+                            var itemRect = item.getBoundingClientRect();
+                            var centerX = itemRect.left + (itemRect.width / 2);
+                            var distance = Math.abs(clientX - centerX);
+                            var proximity = Math.max(0, 1 - (distance / dockInfluencePx));
+                            var easedProximity = proximity * proximity;
+                            var scale = 1 + ((dockMaxScale - 1) * easedProximity);
+                            var lift = -1 * (scale - 1) * 10;
+                            item.style.setProperty('--dock-scale', scale.toFixed(3));
+                            item.style.setProperty('--dock-lift', lift.toFixed(2) + 'px');
+                        });
+                    }
+
+                    function hideTabbar() {
+                        if (!tabbarWrap || !revealButton) {
+                            return;
+                        }
+                        if (tabbarWrap.classList.contains('is-collapsed')) {
+                            revealButton.classList.add('is-visible');
+                            return;
+                        }
+                        if (tabbarWrap.classList.contains('is-collapsing')) {
+                            return;
+                        }
+                        clearHoverStateSyncTimer();
+                        clearCollapseTimer();
+                        clearCollapsePhaseTimer();
+                        resetDockMagnification();
+                        if (prefersReducedMotion) {
+                            tabbarWrap.classList.remove('is-collapsing');
+                            tabbarWrap.classList.add('is-collapsed');
+                            revealButton.classList.add('is-visible');
+                            clearCollapseShifts();
+                            return;
+                        }
+
+                        updateCollapseShiftsToCenter();
+                        tabbarWrap.classList.add('is-collapsing');
+                        collapsePhaseTimer = window.setTimeout(function () {
+                            collapsePhaseTimer = null;
+                            tabbarWrap.classList.add('is-collapsed');
+                            revealButton.classList.add('is-visible');
+                        }, collapseGatherDurationMs);
+                    }
+
+                    function showTabbar() {
+                        if (!tabbarWrap || !revealButton) {
+                            return;
+                        }
+                        blockCollapseFor(800);
+                        clearHoverStateSyncTimer();
+                        clearCollapseTimer();
+                        clearCollapsePhaseTimer();
+                        tabbarWrap.classList.remove('is-collapsed');
+                        tabbarWrap.classList.remove('is-collapsing');
+                        clearCollapseShifts();
+                        revealButton.classList.remove('is-visible');
+                        hoverStateSyncTimer = window.setTimeout(function () {
+                            hoverStateSyncTimer = null;
+                            if (transitioningFromReveal) {
+                                transitioningFromReveal = false;
+                                if (isPointerWithinDockBounds()) {
+                                    pointerInsideDock = true;
+                                    return;
+                                }
+                            }
+                            if (isPointerHoveringDockZone()) {
+                                pointerInsideDock = true;
+                                return;
+                            }
+                            if (isFocusWithinDock()) {
+                                return;
+                            }
+                            pointerInsideDock = false;
+                            scheduleCollapse();
+                        }, 500);
+                    }
+
+                    function isFocusWithinDock() {
+                        return tabbar.contains(document.activeElement) || revealButton.contains(document.activeElement);
+                    }
+
+                    function isPointerHoveringDockZone() {
+                        if (tabbar.matches(':hover') || revealButton.matches(':hover')) {
+                            return true;
+                        }
+                        if (isHoverGraceActive()) {
+                            return true;
+                        }
+                        if (isPointerWithinDockBounds()) {
+                            return true;
+                        }
+                        return dockItems.some(function (item) {
+                            return item.matches(':hover');
+                        });
+                    }
+
+                    function collapseIfIdle() {
+                        if (!tabbarWrap || !revealButton) {
+                            return;
+                        }
+                        if (isCollapseBlocked()) {
+                            scheduleCollapse();
+                            return;
+                        }
+                        if (isPointerHoveringDockZone()) {
+                            pointerInsideDock = true;
+                            return;
+                        }
+                        if (pointerInsideDock) {
+                            return;
+                        }
+                        if (isFocusWithinDock()) {
+                            return;
+                        }
+                        hideTabbar();
+                    }
+
+                    function scheduleCollapse() {
+                        clearCollapseTimer();
+                        var delay = collapseDelayMs;
+                        if (isCollapseBlocked()) {
+                            delay = Math.max(delay, collapseBlockedUntil - Date.now());
+                        }
+                        collapseTimer = window.setTimeout(function () {
+                            collapseIfIdle();
+                        }, delay);
+                    }
+
+                    showTabbarControl = function () {
+                        showTabbar();
+                    };
+
+                    if (revealButton) {
+                        revealButton.addEventListener('click', function () {
+                            showTabbar();
+                        });
+                        revealButton.addEventListener('mouseenter', function (event) {
+                            updatePointerPosition(event);
+                            setHoverGrace(revealButton.getBoundingClientRect(), 520);
+                            pointerInsideDock = true;
+                            transitioningFromReveal = true;
+                            triggerHoverPop();
+                            showTabbar();
+                            applyDockMagnification(event.clientX);
+                        });
+                        revealButton.addEventListener('mousemove', updatePointerPosition);
+                        revealButton.addEventListener('mouseleave', function () {
+                            if (transitioningFromReveal) {
+                                return;
+                            }
+                            pointerInsideDock = false;
+                            scheduleCollapse();
+                        });
+                        revealButton.addEventListener('focusin', function () {
+                            showTabbar();
+                        });
+                        revealButton.addEventListener('focusout', function () {
+                            window.setTimeout(collapseIfIdle, 0);
+                        });
+                    }
+
+                    tabbar.addEventListener('mouseenter', function (event) {
+                        updatePointerPosition(event);
+                        setHoverGrace(tabbar.getBoundingClientRect(), 520);
+                        pointerInsideDock = true;
+                        transitioningFromReveal = false;
+                        clearCollapseTimer();
+                        showTabbar();
+                        applyDockMagnification(event.clientX);
+                    });
+                    tabbar.addEventListener('mousemove', function (event) {
+                        updatePointerPosition(event);
+                        transitioningFromReveal = false;
+                        applyDockMagnification(event.clientX);
+                    });
+                    tabbar.addEventListener('mouseleave', function (event) {
+                        updatePointerPosition(event);
+                        pointerInsideDock = false;
+                        transitioningFromReveal = false;
+                        resetDockMagnification();
+                        window.setTimeout(function () {
+                            if (isPointerWithinDockBounds()) {
+                                pointerInsideDock = true;
+                                return;
+                            }
+                            scheduleCollapse();
+                        }, 50);
+                    });
+                    tabbar.addEventListener('focusin', showTabbar);
+                    tabbar.addEventListener('focusout', function () {
+                        resetDockMagnification();
+                        window.setTimeout(function () {
+                            collapseIfIdle();
+                        }, 0);
+                    });
+                    tabbar.addEventListener('touchstart', showTabbar);
+                    tabbar.addEventListener('click', showTabbar);
+
+                    tabbar.addEventListener('click', function (event) {
+                        var tab = event.target.closest('a.app-tab[data-tab-key]');
+                        if (!tab || tab.dataset.fullReload === 'true') {
+                            return;
+                        }
+                        tabbar.querySelectorAll('.app-tab[data-tab-key]').forEach(function (node) {
+                            node.classList.remove('is-active', 'active');
+                            node.removeAttribute('aria-current');
+                        });
+                        tab.classList.add('is-active', 'active');
+                        tab.setAttribute('aria-current', 'page');
+                        showTabbar();
+                    });
+
+                    if (!window.htmx) {
+                        prepareCurrentView();
+                        return;
+                    }
+
+                    document.body.addEventListener('htmx:beforeRequest', function (event) {
+                        if (!event.target.closest('.app-tabbar')) {
+                            return;
+                        }
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        showTabbar();
+                    });
+
+                    document.body.addEventListener('htmx:afterSwap', function (event) {
+                        if (!event.detail.target || event.detail.target.id !== 'app-content') {
+                            return;
+                        }
+                        prepareCurrentView();
+                    });
+
+                    document.body.addEventListener('htmx:historyRestore', function () {
+                        prepareCurrentView();
+                    });
+
+                    hideTabbar();
+                    prepareCurrentView();
+                }
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', init);
+                } else {
+                    init();
+                }
+            })();
+        </script>
+        <script src="{% static 'dashboard/notifications.js' %}?v=20260309-1"></script>
+        {% endif %}
+        {% block extra_js %}{% endblock %}
+</body>
+
+</html>
