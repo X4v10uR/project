@@ -2,12 +2,7 @@ from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 import colorsys
 import hashlib
-import re
-import sys
-from functools import lru_cache
-from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urlparse
-from urllib.request import Request, urlopen
+from urllib.parse import urlencode
 
 from django.urls import reverse
 from django.utils import timezone
@@ -28,37 +23,6 @@ from .constants import (
 
 
 VALID_DASHBOARD_SCOPES = {'personal', 'teams'}
-HEX_COLOR_TOKEN_PATTERN = re.compile(r'#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b')
-RGB_COLOR_TOKEN_PATTERN = re.compile(r'rgba?\(([^)]+)\)', re.IGNORECASE)
-NAMED_COLOR_TOKEN_PATTERN = re.compile(
-    r'\b(?:black|white|red|green|blue|yellow|orange|purple|pink|brown|gray|grey)\b',
-    re.IGNORECASE,
-)
-ICON_BRAND_DOMINANT_COLORS = {
-    'netflix': '#e50914',
-    'spotify': '#1db954',
-    'apple': '#000000',
-    'apple-tv': '#000000',
-    'youtube': '#ff0000',
-    'disney-plus': '#113ccf',
-    'paramount-plus': '#0064ff',
-    'adobe': '#ff0000',
-    'amazon-prime-video': '#00a8e1',
-}
-NAMED_COLOR_HEX = {
-    'black': '#000000',
-    'white': '#ffffff',
-    'red': '#ff0000',
-    'green': '#008000',
-    'blue': '#0000ff',
-    'yellow': '#ffff00',
-    'orange': '#ffa500',
-    'purple': '#800080',
-    'pink': '#ffc0cb',
-    'brown': '#a52a2a',
-    'gray': '#808080',
-    'grey': '#808080',
-}
 
 
 def _quantize_money(value):
@@ -291,152 +255,6 @@ def _hex_to_rgb(color):
 
 def _rgb_to_hex(r, g, b):
     return f'#{max(0, min(255, int(round(r)))):02x}{max(0, min(255, int(round(g)))):02x}{max(0, min(255, int(round(b)))):02x}'
-
-
-def _named_color_to_hex(token):
-    normalized = (token or '').strip().lower()
-    return NAMED_COLOR_HEX.get(normalized, '')
-
-
-def _normalize_color_token(token):
-    value = (token or '').strip().lower()
-    if not value or value in {'none', 'transparent', 'currentcolor', 'inherit'}:
-        return ''
-
-    if value.startswith('#'):
-        rgb = _hex_to_rgb(value)
-        if not rgb:
-            return ''
-        return _rgb_to_hex(*rgb)
-
-    rgb_match = RGB_COLOR_TOKEN_PATTERN.fullmatch(value)
-    if rgb_match:
-        parts = [part.strip() for part in rgb_match.group(1).split(',')]
-        if len(parts) < 3:
-            return ''
-
-        channels = []
-        for part in parts[:3]:
-            if part.endswith('%'):
-                try:
-                    percent = float(part[:-1])
-                except ValueError:
-                    return ''
-                channels.append(max(0, min(255, round((percent / 100.0) * 255))))
-                continue
-            try:
-                channels.append(max(0, min(255, round(float(part)))))
-            except ValueError:
-                return ''
-
-        return _rgb_to_hex(*channels)
-
-    return _named_color_to_hex(value)
-
-
-def _extract_svg_dominant_color(svg_markup):
-    if not svg_markup:
-        return ''
-
-    color_count = {}
-
-    for match in HEX_COLOR_TOKEN_PATTERN.finditer(svg_markup):
-        color = _normalize_color_token(match.group(0))
-        if color:
-            color_count[color] = color_count.get(color, 0) + 1
-
-    for match in RGB_COLOR_TOKEN_PATTERN.finditer(svg_markup):
-        color = _normalize_color_token(match.group(0))
-        if color:
-            color_count[color] = color_count.get(color, 0) + 1
-
-    for match in NAMED_COLOR_TOKEN_PATTERN.finditer(svg_markup):
-        color = _normalize_color_token(match.group(0))
-        if color:
-            color_count[color] = color_count.get(color, 0) + 1
-
-    if not color_count:
-        return ''
-
-    ranked = sorted(color_count.items(), key=lambda item: item[1], reverse=True)
-
-    vibrant = []
-    neutral = []
-    for color, count in ranked:
-        rgb = _hex_to_rgb(color)
-        if not rgb:
-            continue
-
-        red, green, blue = [channel / 255.0 for channel in rgb]
-        hue, lightness, saturation = colorsys.rgb_to_hls(red, green, blue)
-
-        if lightness > 0.96:
-            continue
-
-        if saturation >= 0.2 and 0.12 <= lightness <= 0.88:
-            vibrant.append((color, count))
-        else:
-            neutral.append((color, count))
-
-    if vibrant:
-        return vibrant[0][0]
-    if neutral:
-        return neutral[0][0]
-    return ranked[0][0]
-
-
-def _is_test_runtime():
-    return any(argument == 'test' for argument in sys.argv[1:])
-
-
-@lru_cache(maxsize=256)
-def _dominant_icon_color(icon_url):
-    if not icon_url:
-        return ''
-
-    parsed = urlparse(icon_url)
-    if parsed.scheme not in {'http', 'https'}:
-        return ''
-
-    slug = parsed.path.rsplit('/', 1)[-1].split('.', 1)[0].lower()
-    mapped = ICON_BRAND_DOMINANT_COLORS.get(slug)
-    if mapped:
-        return mapped
-
-    if _is_test_runtime():
-        return ''
-
-    request = Request(icon_url, headers={'User-Agent': 'SublyDashboard/1.0'})
-    try:
-        with urlopen(request, timeout=0.45) as response:
-            raw_content = response.read(120000)
-    except (HTTPError, URLError, TimeoutError, OSError):
-        return ''
-
-    svg_markup = raw_content.decode('utf-8', errors='ignore')
-    return _extract_svg_dominant_color(svg_markup)
-
-
-def _soften_color_for_card(color):
-    rgb = _hex_to_rgb(color)
-    if not rgb:
-        return ''
-
-    red, green, blue = [channel / 255.0 for channel in rgb]
-    hue, lightness, saturation = colorsys.rgb_to_hls(red, green, blue)
-
-    if saturation < 0.08:
-        adjusted_saturation = 0.08
-        adjusted_lightness = 0.68 if lightness >= 0.6 else 0.6
-    else:
-        # Keep the original hue but mute saturation/lightness so cards stay calm.
-        adjusted_saturation = max(0.24, min(0.52, saturation * 0.68))
-        adjusted_lightness = max(0.56, min(0.64, lightness + 0.14))
-
-    softened_red, softened_green, softened_blue = colorsys.hls_to_rgb(
-        hue, adjusted_lightness, adjusted_saturation
-    )
-    return _rgb_to_hex(softened_red * 255, softened_green * 255, softened_blue * 255)
 
 
 def _ensure_distinct_color(candidate, seed_text, used_colors):

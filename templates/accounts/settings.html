@@ -947,9 +947,6 @@
       document.querySelectorAll('.app-tab-avatar').forEach(function(img) {
         img.style.background = color;
       });
-      document.querySelectorAll('.app-sidebar-user-avatar img').forEach(function(img) {
-        img.style.background = color;
-      });
       document.querySelectorAll('.teams-member-avatar').forEach(function(img) {
         if (img.alt === '{{ request.user.email|escapejs }}') {
           img.style.background = color;

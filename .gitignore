@@ -19,8 +19,10 @@ staticfiles/
 # Local environment and database files
 .env
 .env.*
+!.env.example
 env.txt
 db.sqlite3
+db.sqlite3-*
 
 # Frontend dependencies/build artifacts
 theme/static_src/node_modules/

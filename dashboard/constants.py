@@ -1,5 +1,4 @@
 SERVICE_COLOR_PREFERENCES = {
-    # Palette aligned to NEW_UI/dashboard.png.
     'spotify': '#7BCFC0',
     'netflix': '#B5A5E7',
     'apple tv': '#E7E964',

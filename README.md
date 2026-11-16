@@ -24,27 +24,22 @@ A premium Subscription Management SaaS application built with Django and Tailwin
    pip install -r requirements.txt
    ```
 
-2. **Install Tailwind Assets**
+2. **Configure your local environment**
+
+   Copy `.env.example` to `.env`. Run the commands below and paste their outputs into `SECRET_KEY` and `ACCOUNT_PASSWORD_ENCRYPTION_KEY`, respectively. The sample config uses SQLite and prints email to the console. See [notification setup](NOTIFICATION_SETUP.md) for SMTP configuration.
+
    ```bash
-   python manage.py tailwind install
-   python manage.py tailwind build
+   python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
    ```
 
-3. **Configure Environment**
-   Update `.env` file with your email settings:
-   ```env
-   # For Gmail SMTP (Production)
-   EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-   EMAIL_HOST=smtp.gmail.com
-   EMAIL_PORT=587
-   EMAIL_USE_TLS=True
-   EMAIL_HOST_USER=your-email@gmail.com
-   EMAIL_HOST_PASSWORD=your-gmail-app-password
-   DEFAULT_FROM_EMAIL=your-email@gmail.com
-   ACCOUNT_PASSWORD_ENCRYPTION_KEY=your-generated-fernet-key
-   
-   # For Testing (Console Output)
-   EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+3. **Build Tailwind assets**
+
+   Run these commands when changing templates or styles. A compiled stylesheet is included for local startup.
+
+   ```bash
+   npm --prefix theme/static_src ci
+   npm --prefix theme/static_src run build
    ```
 
 4. **Run Migrations**
@@ -52,7 +47,7 @@ A premium Subscription Management SaaS application built with Django and Tailwin
    python manage.py migrate
    ```
 
-5. **Seed Demo Data** (Optional but recommended)
+5. **Seed demo data** (optional for local development)
    ```bash
    python seed_demo.py
    ```
@@ -172,6 +167,3 @@ python scheduler.py --time-based
 - **Gmail issues**: Ensure app password (not regular password) is used
 
 For detailed email setup instructions, see `NOTIFICATION_SETUP.md`.
-
-
-line 811 of base.html for controlling the hide of bottom navigation

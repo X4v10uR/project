@@ -1073,7 +1073,7 @@ class TeamInviteFlowTest(TestCase):
 
         self.assertRedirects(
             response,
-            reverse('accounts:team_detail', args=[self.team.pk]),
+            reverse('subscriptions:list'),
             fetch_redirect_response=False,
         )
         self.assertFalse(
