@@ -2,6 +2,7 @@ import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
+import { useAuth } from '../accounts/auth'
 import {
   buttonClass, ErrorBanner, Field, inputClass, panelClass, primaryClass, showError,
   subscriptionApi, subscriptionPath, type Card, type Subscription,
@@ -28,12 +29,13 @@ function localDate() {
 
 function SubscriptionEditor({ options, subscription }: { options: Options; subscription: Subscription | null }) {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [shared, setShared] = useState(subscription?.is_shared ?? false)
   const [split, setSplit] = useState(subscription?.split_type ?? 'equal')
   const [color, setColor] = useState(subscription?.display_color ?? '')
   const [remindersEnabled, setRemindersEnabled] = useState(subscription?.reminders_enabled ?? true)
   const [offsets, setOffsets] = useState<number[]>(subscription?.reminder_offsets ?? [])
-  const [offsetInput, setOffsetInput] = useState('3')
+  const [offsetInput, setOffsetInput] = useState(String(options.default_reminder_offset))
   const [participants, setParticipants] = useState(() => (subscription?.participants ?? []).map((person, id) => ({ id, name: person.name, share: person.share_amount ?? '' })))
   const [nextParticipantId, setNextParticipantId] = useState(participants.length)
   const [error, setError] = useState('')
@@ -41,6 +43,8 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
   const teamId = subscription?.team ?? options.team?.id
   const pending = !subscription && options.team && !options.team.can_create
   const backPath = teamId ? `/accounts/teams/${teamId}/` : subscriptionPath
+  const preferredCurrency = user?.preferred_currency ?? ''
+  const currency = subscription?.currency ?? (/^[A-Za-z]{3}$/.test(preferredCurrency) ? preferredCurrency : 'USD')
 
   function addParticipant() {
     setParticipants((people) => [...people, { id: nextParticipantId, name: '', share: '' }])
@@ -97,7 +101,7 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
         </div>
         <button disabled={saving} className={primaryClass}>{saving ? 'Saving…' : pending ? 'Submit request' : 'Save subscription'}</button>
       </div>
-      {pending && <p className="rounded-xl bg-indigo-50 p-3 text-sm text-indigo-800">A team owner must approve your subscription request.</p>}
+      {pending && <p className="rounded-xl bg-indigo-50 p-3 text-sm text-indigo-800">A team owner must approve your subscription request. A payment card and password can be added after approval.</p>}
       <ErrorBanner message={error} />
 
       <section className={`${panelClass} grid gap-4`}>
@@ -123,17 +127,17 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
         <h2 className="text-lg font-bold">Billing</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Cost"><input name="cost" className={inputClass} type="number" required min="0" step="0.01" defaultValue={subscription?.cost} placeholder="0.00" /></Field>
-          <Field label="Currency code"><input name="currency" className={inputClass} maxLength={3} pattern="[A-Za-z]{3}" required defaultValue={subscription?.currency ?? 'USD'} /></Field>
+          <Field label="Currency code"><input name="currency" className={inputClass} maxLength={3} pattern="[A-Za-z]{3}" required defaultValue={currency} /></Field>
           <Field label="Billing cycle"><select className={inputClass} name="billing_cycle" defaultValue={subscription?.billing_cycle ?? options.prefill.billing_cycle ?? 'monthly'}>{options.cycles.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
           <Field label="Start date"><input type="date" name="start_date" className={inputClass} required defaultValue={subscription?.start_date ?? localDate()} /></Field>
           <Field label="Renewal time"><input type="time" name="renewal_time" className={inputClass} defaultValue={subscription?.renewal_time?.slice(0, 5) ?? '15:00'} /></Field>
-          <Field label="Payment card">
+          {!pending && <Field label="Payment card">
             <select name="card" className={inputClass} defaultValue={subscription?.card ?? ''}>
               <option value="">No card</option>
               {options.cards.map((card) => <option key={card.id} value={card.id}>{card.nickname} · {card.last4}</option>)}
               {subscription?.card && !options.cards.some((card) => Number(card.id) === subscription.card) && <option value={subscription.card}>{subscription.card_nickname} · Assigned by team owner</option>}
             </select>
-          </Field>
+          </Field>}
         </div>
       </section>
 
@@ -194,9 +198,10 @@ export function SubscriptionFormPage() {
   const { id } = useParams<{ id: string }>()
   const [query] = useSearchParams()
   const [loaded, setLoaded] = useState<{ key: string; options: Options; subscription: Subscription | null } | null>(null)
-  const [error, setError] = useState('')
+  const [failure, setFailure] = useState<{ key: string; message: string } | null>(null)
   const queryString = query.toString()
   const requestKey = `${id ?? 'new'}:${queryString}`
+  const error = failure?.key === requestKey ? failure.message : ''
 
   useEffect(() => {
     const controller = new AbortController()
@@ -205,12 +210,17 @@ export function SubscriptionFormPage() {
       try {
         const subscription = id ? await api<Subscription>(`${subscriptionApi}${id}/`, init) : null
         const params = new URLSearchParams(queryString)
-        if (subscription?.team) params.set('team', String(subscription.team))
+        if (subscription) {
+          if (subscription.team) params.set('team', String(subscription.team))
+          else params.delete('team')
+        }
         const options = await api<Options>(`${subscriptionApi}options/?${params}`, init)
-        setLoaded({ key: requestKey, options, subscription })
-        setError('')
+        if (!controller.signal.aborted) {
+          setLoaded({ key: requestKey, options, subscription })
+          setFailure(null)
+        }
       } catch (error) {
-        if (!controller.signal.aborted) setError(showError(error))
+        if (!controller.signal.aborted) setFailure({ key: requestKey, message: showError(error) })
       }
     }
     void load()

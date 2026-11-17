@@ -57,6 +57,8 @@ Open [Subly](http://127.0.0.1:5173). If Django is listening on a different addre
 - From the backend folder, run `.\.venv\Scripts\python.exe manage.py check`, `.\.venv\Scripts\python.exe manage.py test`, and `node --test legacy/tests_js/dashboard_js.test.cjs`.
 - From the frontend folder, run `npm run build` for TypeScript checks and a production bundle in `dist/`.
 
+GitHub Actions runs both sets of checks on pushes and pull requests.
+
 For production routing and deployment, see the [frontend README](subscription_manager_frontend/README.md) and the [backend README](subscription_manager_backend/README.md).
 
 ## Notifications

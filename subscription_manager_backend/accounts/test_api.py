@@ -3,9 +3,12 @@ from urllib.parse import urlsplit
 from django.core import mail
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APIClient
 
-from .models import TeamMembership, User
+from subscriptions.models import Subscription, Transaction
+
+from .models import Team, TeamMembership, User
 from .services import create_team_invite
 from .team_workflows import create_team
 
@@ -14,6 +17,64 @@ class AccountAPITest(TestCase):
     def setUp(self):
         self.client = APIClient(enforce_csrf_checks=True)
         self.session_url = reverse('accounts_api:session')
+
+    def test_account_deletion_keeps_shared_team_with_remaining_owner(self):
+        password = ' StrongPassword42! '
+        creator = User.objects.create_user(email='creator@example.com', password=password)
+        other = User.objects.create_user(email='other-owner@example.com')
+        team = create_team(name='Shared team', user=creator)
+        membership = TeamMembership.objects.create(team=team, user=other, role=TeamMembership.ROLE_MEMBER)
+        empty_team = create_team(name='Solo team', user=creator)
+        subscription = Subscription.objects.create(
+            user=creator, team=team, service_name='Team plan', category='Software',
+            billing_cycle='monthly', cost='10.00', start_date=timezone.localdate(),
+        )
+        charge = Transaction.objects.create(
+            user=creator, subscription=subscription, service_name_snapshot='Team plan',
+            amount='10.00', currency='USD', charged_for_date=timezone.localdate(),
+        )
+        self.client.force_login(creator)
+        self.client.get(self.session_url)
+        endpoint = reverse('accounts_api:settings_section', args=['delete'])
+        confirmation = {'confirm_email': creator.email, 'confirm_phrase': 'DELETE', 'current_password': password}
+
+        def delete_account():
+            return self.client.post(
+                endpoint, confirmation, format='json', HTTP_X_CSRFTOKEN=self.client.cookies['csrftoken'].value,
+            )
+
+        blocked = delete_account()
+        self.assertEqual(blocked.status_code, 409, blocked.content)
+        self.assertIn(team.name, blocked.json()['detail'])
+        self.assertTrue(User.objects.filter(pk=creator.pk).exists())
+        self.assertTrue(Team.objects.filter(pk=empty_team.pk).exists())
+
+        membership.role = TeamMembership.ROLE_OWNER
+        membership.save(update_fields=['role'])
+        deleted = delete_account()
+        self.assertEqual(deleted.status_code, 204, deleted.content)
+        self.assertFalse(User.objects.filter(pk=creator.pk).exists())
+        self.assertFalse(Team.objects.filter(pk=empty_team.pk).exists())
+        team.refresh_from_db()
+        subscription.refresh_from_db()
+        charge.refresh_from_db()
+        self.assertIsNone(team.created_by_id)
+        self.assertEqual(subscription.user_id, other.pk)
+        self.assertEqual(charge.user_id, other.pk)
+        self.assertEqual(list(team.memberships.values_list('user_id', flat=True)), [other.pk])
+
+    def test_invalid_timezone_path_and_non_ascii_currency_return_field_errors(self):
+        user = User.objects.create_user(email='preferences@example.com')
+        self.client.force_login(user)
+        self.client.get(self.session_url)
+        response = self.client.post(
+            reverse('accounts_api:settings_section', args=['profile']),
+            {'email': user.email, 'timezone': '../UTC', 'preferred_currency': 'ÉUR'},
+            format='json', HTTP_X_CSRFTOKEN=self.client.cookies['csrftoken'].value,
+        )
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertIn('timezone', response.json())
+        self.assertIn('preferred_currency', response.json())
 
     def test_signup_requires_csrf_and_returns_authenticated_session(self):
         url = reverse('accounts_api:signup')

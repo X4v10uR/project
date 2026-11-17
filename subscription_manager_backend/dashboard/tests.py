@@ -2,6 +2,7 @@ import json
 from datetime import timedelta
 from decimal import Decimal
 from urllib.parse import urlparse
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from asgiref.sync import async_to_sync
@@ -9,6 +10,7 @@ from channels.db import database_sync_to_async
 from channels.layers import get_channel_layer
 from channels.testing import WebsocketCommunicator
 from django.conf import settings
+from django.db import transaction
 from django.test import TestCase, Client, TransactionTestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -16,9 +18,39 @@ from django.utils import timezone
 from accounts.models import Team, TeamMembership
 from dashboard.services import _days_left_text
 from subscriptions.models import InAppNotification, Subscription
+from subscriptions.notifications import create_notification
 from dashboard.models import BalanceAdjustment
 
 User = get_user_model()
+
+
+class NotificationDeliveryTest(TestCase):
+    @patch('subscriptions.notifications._send_notification_email')
+    @patch('subscriptions.notifications.push_created')
+    def test_notification_delivery_waits_for_commit(self, push, email):
+        user = User.objects.create_user(email='delivery@example.com')
+        with self.captureOnCommitCallbacks(execute=True):
+            notification = create_notification(
+                recipient=user, event_type='test.created', title='Committed event', send_email_alert=True,
+            )
+            push.assert_not_called()
+            email.assert_not_called()
+        push.assert_called_once_with(notification)
+        email.assert_called_once_with(notification)
+
+    @patch('subscriptions.notifications._send_notification_email')
+    @patch('subscriptions.notifications.push_created')
+    def test_rolled_back_notification_is_never_delivered(self, push, email):
+        user = User.objects.create_user(email='rollback@example.com')
+        with self.captureOnCommitCallbacks(execute=True):
+            with self.assertRaises(ValueError), transaction.atomic():
+                create_notification(
+                    recipient=user, event_type='test.created', title='Rolled back event', send_email_alert=True,
+                )
+                raise ValueError('Cancel the operation')
+        self.assertFalse(InAppNotification.objects.filter(recipient=user).exists())
+        push.assert_not_called()
+        email.assert_not_called()
 
 
 @override_settings(
@@ -625,6 +657,20 @@ class DashboardViewTest(TestCase):
         self.assertEqual(payload['dashboard_scope'], 'teams')
         self.assertEqual(payload['balance_base_display'], '$80.00')
         self.assertEqual(payload['balance_adjustment_display'], '+$20.00')
+
+        dashboard = reverse('dashboard:home')
+        self.assertEqual(self.client.get(dashboard).context['balance_display'], '$20.00')
+        self.assertEqual(self.client.get(dashboard, {'scope': 'teams'}).context['balance_display'], '$100.00')
+
+        personal = self.client.post(
+            reverse('dashboard:adjust_balance'),
+            data=json.dumps({'target_balance': '35.00'}),
+            content_type='application/json',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(personal.status_code, 200, personal.content)
+        self.assertEqual(self.client.get(dashboard).context['balance_display'], '$35.00')
+        self.assertEqual(self.client.get(dashboard, {'scope': 'teams'}).context['balance_display'], '$100.00')
 
 
 class LandingPageTest(TestCase):

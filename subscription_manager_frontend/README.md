@@ -1,6 +1,6 @@
 # Subly Frontend
 
-React, TypeScript, Tailwind CSS, and Vite frontend for [project_backend](https://github.com/X4v10uR/project_backend).
+React, TypeScript, Tailwind CSS, and Vite frontend for [subscription_manager_backend](../subscription_manager_backend/).
 
 ## Run locally
 

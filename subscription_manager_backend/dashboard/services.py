@@ -19,7 +19,7 @@ from .models import BalanceAdjustment
 from .service_colors import build_service_color_map, service_background_style
 
 
-VALID_DASHBOARD_SCOPES = {'personal', 'teams'}
+VALID_DASHBOARD_SCOPES = set(BalanceAdjustment.Scope.values)
 
 
 def _quantize_money(value):
@@ -144,10 +144,10 @@ def _usd_monthly_spend_for_scope(user, scope='personal'):
     return _quantize_money(total)
 
 
-def _build_balance_snapshot(user, monthly_spend_by_currency):
+def _build_balance_snapshot(user, monthly_spend_by_currency, scope):
     base_balance = _quantize_money(monthly_spend_by_currency.get('USD', Decimal('0.00')))
     adjustment_amount = _quantize_money(
-        BalanceAdjustment.objects.filter(user=user)
+        BalanceAdjustment.objects.filter(user=user, scope=scope)
         .values_list('amount', flat=True)
         .first()
         or Decimal('0.00')
@@ -169,12 +169,9 @@ def set_user_balance_target(user, target_balance, scope='personal'):
     target_balance = _quantize_money(target_balance)
     adjustment_amount = _quantize_money(target_balance - base_balance)
 
-    adjustment_record, _ = BalanceAdjustment.objects.get_or_create(
-        user=user,
-        defaults={'amount': Decimal('0.00')},
+    BalanceAdjustment.objects.update_or_create(
+        user=user, scope=normalized_scope, defaults={'amount': adjustment_amount},
     )
-    adjustment_record.amount = adjustment_amount
-    adjustment_record.save(update_fields=['amount', 'updated_at'])
 
     return {
         'balance_display': _format_money(target_balance, 'USD'),
@@ -472,7 +469,7 @@ def build_dashboard_view_model(user, today=None, scope='personal'):
     next_renewal_date = effective_renewal_date(next_renewal, today) if next_renewal else None
     chip_date = next_renewal_date.strftime('%m/%d') if next_renewal_date else '--/--'
     balance_trend = _build_balance_trend_points(transactions, today, window_days=30)
-    balance_snapshot = _build_balance_snapshot(user, monthly_spend_by_currency)
+    balance_snapshot = _build_balance_snapshot(user, monthly_spend_by_currency, scope)
     omitted_currencies = balance_trend['omitted_currencies']
     if omitted_currencies:
         omitted_text = ', '.join(omitted_currencies)

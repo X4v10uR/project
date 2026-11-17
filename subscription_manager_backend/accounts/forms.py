@@ -93,7 +93,7 @@ class ProfileSettingsForm(forms.ModelForm):
         tz = (self.cleaned_data.get('timezone') or 'UTC').strip()
         try:
             ZoneInfo(tz)
-        except ZoneInfoNotFoundError as exc:
+        except (ValueError, ZoneInfoNotFoundError) as exc:
             raise forms.ValidationError('Enter a valid IANA timezone (e.g. UTC, Europe/London).') from exc
         return tz
 
@@ -101,7 +101,7 @@ class ProfileSettingsForm(forms.ModelForm):
         currency = (self.cleaned_data.get('preferred_currency') or '').strip().upper()
         if not currency:
             return 'USD'
-        if len(currency) != 3 or not currency.isalpha():
+        if len(currency) != 3 or not currency.isascii() or not currency.isalpha():
             raise forms.ValidationError('Use a 3-letter currency code (e.g. USD, EUR).')
         return currency
 
@@ -137,6 +137,7 @@ class AccountDeletionForm(forms.Form):
     confirm_phrase = forms.CharField(help_text='Type DELETE to confirm account deletion.')
     current_password = forms.CharField(
         required=False,
+        strip=False,
         widget=forms.PasswordInput(render_value=False),
     )
 

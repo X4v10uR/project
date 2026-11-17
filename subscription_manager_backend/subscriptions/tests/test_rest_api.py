@@ -85,6 +85,13 @@ class SubscriptionApiTest(TestCase):
         self.assertEqual([person['share_amount'] for person in item['participants']], ['3.33', '3.33'])
         self.assertEqual(Subscription.objects.get(pk=item['id']).get_account_password(), password)
 
+    def test_new_subscription_uses_account_currency_when_omitted(self):
+        self.user.preferred_currency = 'EUR'
+        self.user.save(update_fields=['preferred_currency'])
+        response = self.client.post(self.collection, self.payload, content_type='application/json')
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(response.json()['currency'], 'EUR')
+
     def test_invalid_values_return_bad_request_without_saving_subscription(self):
         for field, value in (
             ('cost', '-0.01'), ('currency', '=11'), ('start_date', '9999-12-31'),

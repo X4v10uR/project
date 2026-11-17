@@ -272,6 +272,22 @@ class BillingServiceTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(email='billing@example.com', password='password')
 
+    def test_future_subscription_records_its_first_charge_on_the_start_date(self):
+        today = timezone.localdate()
+        start = today + timedelta(days=5)
+        subscription = Subscription.objects.create(
+            user=self.user, service_name='Scheduled plan', category='Software',
+            billing_cycle='monthly', cost=Decimal('8.00'), start_date=start,
+        )
+
+        self.assertEqual(subscription.renewal_date, start)
+        self.assertEqual(BillingService.record_renewal_charges(target_date=start - timedelta(days=1))['created'], 0)
+        self.assertEqual(BillingService.record_renewal_charges(target_date=start)['created'], 1)
+        self.assertEqual(BillingService.record_renewal_charges(target_date=start)['created'], 0)
+        self.assertEqual(subscription.transactions.get().charged_for_date, start)
+        subscription.refresh_from_db()
+        self.assertEqual(subscription.renewal_date, start + relativedelta(months=1))
+
     def test_month_end_billing_keeps_the_original_day_after_short_month(self):
         start = timezone.localdate().replace(year=2025, month=1, day=31)
         february = start.replace(month=2, day=28)

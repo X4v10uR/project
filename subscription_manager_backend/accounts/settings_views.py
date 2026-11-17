@@ -24,6 +24,7 @@ from .forms import (
     PreferencesSettingsForm,
     ProfileSettingsForm,
 )
+from .team_workflows import TeamActionError, delete_user_account
 
 
 SETTINGS_SECTION_MAP = {
@@ -79,11 +80,14 @@ def account_settings(request):
         if form_type == 'delete_account':
             delete_form = AccountDeletionForm(request.POST, user=request.user)
             if delete_form.is_valid():
-                user = request.user
-                logout(request)
-                user.delete()
-                messages.success(request, 'Your account has been deleted.')
-                return redirect('landing')
+                try:
+                    delete_user_account(request.user)
+                except TeamActionError as error:
+                    delete_form.add_error(None, str(error))
+                else:
+                    logout(request)
+                    messages.success(request, 'Your account has been deleted.')
+                    return redirect('landing')
 
     updated = request.GET.get('updated', '')
     active_settings_section = SETTINGS_SECTION_MAP.get(updated, active_settings_section)

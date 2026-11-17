@@ -168,7 +168,7 @@ class SettingsSectionView(AccountView):
             update_session_auth_hash(request, user)
         elif section == 'delete':
             validated(AccountDeletionForm(data, user=user))
-            user.delete()
+            flows.delete_user_account(user)
             logout(request)
             return Response(status=204)
         else:

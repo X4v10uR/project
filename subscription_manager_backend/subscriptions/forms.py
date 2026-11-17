@@ -1,7 +1,9 @@
 import re
+from datetime import date, timedelta
 
 from django import forms
 from django.db.models import Q
+from django.utils import timezone
 
 from .color_utils import normalize_subscription_display_color
 from .models import Card, Subscription
@@ -134,7 +136,11 @@ class SubscriptionForm(forms.ModelForm):
     def clean_start_date(self):
         start_date = self.cleaned_data["start_date"]
         cycle = self.cleaned_data.get("billing_cycle")
-        if cycle and Subscription(start_date=start_date, billing_cycle=cycle).calculate_renewal_date() is None:
+        if start_date == date.max or (
+            cycle and Subscription(start_date=start_date, billing_cycle=cycle).calculate_renewal_date(
+                today=max(timezone.localdate(), start_date + timedelta(days=1)),
+            ) is None
+        ):
             raise forms.ValidationError("Enter a date that allows the next renewal to be scheduled.")
         return start_date
 

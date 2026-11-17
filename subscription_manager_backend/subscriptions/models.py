@@ -212,15 +212,15 @@ class Subscription(models.Model):
             return None
 
         today = today or timezone.localdate()
+        if start >= today:
+            return start
         try:
             if self.billing_cycle == 'weekly':
-                weeks = 1 if start > today else ((today - start).days + 6) // 7
+                weeks = ((today - start).days + 6) // 7
                 return start + relativedelta(weeks=weeks)
             period = {'monthly': 1, 'yearly': 12}.get(self.billing_cycle)
             if not period:
                 return start
-            if start > today:
-                return start + relativedelta(months=period)
             elapsed = (today.year - start.year) * 12 + today.month - start.month
             months = elapsed // period * period
             renewal = start + relativedelta(months=months)

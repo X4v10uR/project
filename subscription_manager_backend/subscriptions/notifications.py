@@ -1,4 +1,5 @@
 import logging
+from functools import partial
 
 from asgiref.sync import async_to_sync
 try:
@@ -8,6 +9,7 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency fallback
         return None
 from django.conf import settings
 from django.core.mail import send_mail
+from django.db import transaction
 from django.template.loader import render_to_string
 
 from .models import InAppNotification
@@ -103,6 +105,15 @@ def _send_notification_email(notification):
     )
 
 
+def _deliver_notification(notification, *, send_email_alert):
+    push_created(notification)
+    if send_email_alert:
+        try:
+            _send_notification_email(notification)
+        except Exception:
+            logger.exception("Failed to send event notification email")
+
+
 def create_notification(
     *,
     recipient,
@@ -127,12 +138,10 @@ def create_notification(
         link_url=link_url or "",
         metadata=metadata or {},
     )
-    push_created(notification)
-    if send_email_alert:
-        try:
-            _send_notification_email(notification)
-        except Exception:
-            logger.exception("Failed to send event notification email")
+    transaction.on_commit(
+        partial(_deliver_notification, notification, send_email_alert=send_email_alert),
+        using=notification._state.db,
+    )
     return notification
 
 

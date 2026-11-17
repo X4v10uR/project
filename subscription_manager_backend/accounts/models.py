@@ -111,7 +111,9 @@ class Team(models.Model):
     name = models.CharField(max_length=120)
     created_by = models.ForeignKey(
         'accounts.User',
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name='owned_teams',
     )
     created_at = models.DateTimeField(auto_now_add=True)

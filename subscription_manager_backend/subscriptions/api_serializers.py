@@ -68,7 +68,10 @@ def subscription_form(data, *, user, instance=None):
 
     if instance is None:
         fields.setdefault('reminders_enabled', True)
-        fields.setdefault('currency', 'USD')
+        preferred_currency = user.preferred_currency
+        if len(preferred_currency) != 3 or not preferred_currency.isascii() or not preferred_currency.isalpha():
+            preferred_currency = 'USD'
+        fields.setdefault('currency', preferred_currency)
         fields.setdefault('status', 'active')
         fields.setdefault('split_type', 'equal')
     form = SubscriptionForm(fields, instance=instance, user=user)

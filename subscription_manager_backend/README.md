@@ -1,6 +1,6 @@
 # Subly Backend
 
-Django and Django REST Framework API for Subly. This repository contains the database migrations, admin, renewal jobs, and avatar assets. The React app lives in [project_frontend](https://github.com/X4v10uR/project_frontend).
+Django and Django REST Framework API for Subly. This folder contains the database migrations, admin, renewal jobs, and avatar assets. The React app lives in [subscription_manager_frontend](../subscription_manager_frontend/).
 
 ## Run locally on Windows
 
@@ -42,3 +42,7 @@ The original Django page assets and browser scripts are in `legacy/`. Run their 
 Set `SITE_URL` to the public frontend URL so invitations and renewal emails link to it. Serve the API, media, WebSockets, admin, and Django static assets where the frontend can reach them on the same origin. Run `python manage.py collectstatic --noinput` to collect Django assets, including the avatar SVGs.
 
 Set `REDIS_URL` for live notifications across multiple processes or from scheduled jobs. See the [notification setup](NOTIFICATION_SETUP.md) for email and scheduling.
+
+Run `python manage.py migrate` after upgrading. Existing balance adjustments remain in Personal; Teams keeps its own adjustment. Future subscriptions schedule their first charge on their start date. The migration preserves any first charge already recorded.
+
+Before deleting an account that is a team's last owner, add another owner or delete that team. Teams with another owner retain their subscriptions and charge history when an account is deleted.

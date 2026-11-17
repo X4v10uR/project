@@ -4,13 +4,13 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from django.contrib.auth.hashers import make_password
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 
-from subscriptions.models import ReminderOffset, Subscription, SubscriptionParticipant, TeamSubscriptionRequest
+from subscriptions.models import ReminderOffset, Subscription, SubscriptionParticipant, TeamSubscriptionRequest, Transaction
 from subscriptions.money import monthly_equivalent
 from subscriptions.notifications import create_notification, create_team_notifications
 from subscriptions.services import record_due_charge_for_subscription
@@ -351,6 +351,34 @@ def delete_team(*, team, actor):
     subscription_count = team.subscriptions.count()
     team.delete()
     return f'Team "{team_name}" deleted. Removed {subscription_count} team subscription(s).'
+
+
+@transaction.atomic
+def delete_user_account(user):
+    member_team_ids = TeamMembership.objects.filter(user=user).values('team_id')
+    subscription_team_ids = Subscription.objects.filter(user=user, team__isnull=False).values('team_id')
+    teams = Team.objects.select_for_update().filter(
+        Q(created_by=user) | Q(pk__in=member_team_ids) | Q(pk__in=subscription_team_ids),
+    ).order_by('pk')
+    empty_team_ids = []
+    for team in teams:
+        remaining = team.memberships.exclude(user=user)
+        next_owner_id = remaining.filter(role=TeamMembership.ROLE_OWNER).order_by('pk').values_list(
+            'user_id', flat=True,
+        ).first()
+        if next_owner_id is not None:
+            Subscription.objects.filter(team=team, user=user).update(user_id=next_owner_id)
+            Transaction.objects.filter(subscription__team=team, user=user).update(user_id=next_owner_id)
+            continue
+        if remaining.exists():
+            raise TeamActionError(
+                f'Add another owner to {team.name} or delete the team before deleting your account.',
+                status_code=409,
+            )
+        empty_team_ids.append(team.pk)
+
+    Team.objects.filter(pk__in=empty_team_ids).delete()
+    user.delete()
 
 
 @transaction.atomic
