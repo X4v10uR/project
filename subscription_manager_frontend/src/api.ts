@@ -3,7 +3,7 @@ function csrfToken() {
   return cookie ? decodeURIComponent(cookie.slice('csrftoken='.length)) : undefined
 }
 
-function errorMessage(data: unknown, fallback: string): string {
+export function errorMessage(data: unknown, fallback: string): string {
   if (typeof data === 'string') return data.trim() || fallback
   if (Array.isArray(data)) return data.map((item) => errorMessage(item, '')).filter(Boolean).join(' ') || fallback
   if (data && typeof data === 'object') {
@@ -11,14 +11,12 @@ function errorMessage(data: unknown, fallback: string): string {
     if (typeof fields.detail === 'string') return fields.detail
     if (typeof fields.error === 'string') return fields.error
     if (typeof fields.message === 'string') return fields.message
-    for (const [name, value] of Object.entries(fields)) {
+    const messages = Object.entries(fields).map(([name, value]) => {
       const message = errorMessage(value, '')
-      if (message) {
-        return ['errors', 'non_field_errors', '__all__'].includes(name)
-          ? message
-          : `${name.replaceAll('_', ' ')}: ${message}`
-      }
-    }
+      if (!message || ['errors', 'non_field_errors', '__all__'].includes(name)) return message
+      return `${name.replaceAll('_', ' ')}: ${message}`
+    })
+    return messages.filter(Boolean).join(' ') || fallback
   }
   return fallback
 }

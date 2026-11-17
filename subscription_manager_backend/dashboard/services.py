@@ -22,6 +22,12 @@ from .service_colors import build_service_color_map, service_background_style
 VALID_DASHBOARD_SCOPES = set(BalanceAdjustment.Scope.values)
 
 
+def charges_for_scope(user, scope):
+    if scope == 'teams':
+        return Transaction.objects.filter(team__memberships__user=user)
+    return Transaction.objects.filter(user=user, team__isnull=True)
+
+
 def _quantize_money(value):
     return value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
@@ -358,7 +364,7 @@ def _build_transaction_item(transaction, index, service_color_map):
         'bg_class': '',
         'swatch_style': service_background_style(transaction.service_name_snapshot, service_color_map),
         'title': transaction.service_name_snapshot,
-        'timestamp': timezone.localtime(transaction.charged_at).strftime('%b %d, %I:%M %p'),
+        'timestamp': transaction.charged_for_date.strftime('%b %d, %Y'),
         'amount': f"-{_format_money(transaction.amount, transaction.currency)}",
     }
 
@@ -369,7 +375,7 @@ def build_dashboard_view_model(user, today=None, scope='personal'):
     scope = _normalize_dashboard_scope(scope)
 
     user_subs, scope = _subscriptions_for_scope(user, scope)
-    transactions = Transaction.objects.filter(user=user, subscription__in=user_subs)
+    transactions = charges_for_scope(user, scope)
 
     if scope == 'teams':
         view_all_url = reverse('accounts:teams_overview')
@@ -430,8 +436,7 @@ def build_dashboard_view_model(user, today=None, scope='personal'):
 
     recent_transactions_qs = list(
         transactions
-        .select_related('subscription')
-        .order_by('-charged_at')[:2]
+        .order_by('-charged_for_date', '-pk')[:2]
     )
     service_color_map = build_service_color_map(active_subs, recent_transactions_qs)
 

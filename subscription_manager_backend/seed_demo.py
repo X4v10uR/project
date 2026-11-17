@@ -29,7 +29,8 @@ def seed_data():
         print(f"Updated demo user password: {DEMO_EMAIL}")
 
     # Reset subscriptions so this script is deterministic every run.
-    Subscription.objects.filter(user=user).delete()
+    Transaction.objects.filter(user=user, team__isnull=True).delete()
+    Subscription.objects.filter(user=user, team__isnull=True).delete()
     print("Cleared existing demo subscriptions and related transactions.")
 
     today = date.today()

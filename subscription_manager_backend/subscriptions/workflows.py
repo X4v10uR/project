@@ -1,15 +1,17 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.urls import reverse
+from django.utils import timezone
 
 from accounts.models import TeamMembership
 from accounts.services import is_team_owner
 
 from .models import ReminderOffset, SubscriptionParticipant, TeamSubscriptionRequest
 from .notifications import create_notification, create_team_notifications
-from .services import record_due_charge_for_subscription
+from .services import catch_up_charges, record_due_charge_for_subscription
 
 
 def sync_reminder_offsets(subscription, reminder_offsets):
@@ -22,7 +24,7 @@ def sync_reminder_offsets(subscription, reminder_offsets):
     ])
 
 
-def _prepare_participants(subscription, participants):
+def prepare_participants(subscription, participants):
     if not subscription.is_shared:
         subscription.user_cost = subscription.cost
         return []
@@ -92,12 +94,14 @@ def _submit_team_request(subscription, actor, participants, reminder_offsets):
 
 def save_subscription(subscription, *, actor, participants, reminder_offsets):
     creating = subscription.pk is None
-    participants_to_create = _prepare_participants(subscription, participants)
+    participants_to_create = prepare_participants(subscription, participants)
     team = subscription.team
     if creating and team and not is_team_owner(actor, team):
         return _submit_team_request(subscription, actor, participants_to_create, reminder_offsets)
 
     with transaction.atomic():
+        if not creating:
+            catch_up_charges(subscription.pk, timezone.localdate() - timedelta(days=1))
         subscription.save()
         if not creating:
             subscription.participants.all().delete()
@@ -125,7 +129,9 @@ def save_subscription(subscription, *, actor, participants, reminder_offsets):
     return None
 
 
+@transaction.atomic
 def remove_subscription(subscription, *, actor):
+    catch_up_charges(subscription.pk, timezone.localdate() - timedelta(days=1))
     team = subscription.team
     service_name = subscription.service_name
     subscription.delete()
@@ -142,7 +148,9 @@ def remove_subscription(subscription, *, actor):
         )
 
 
+@transaction.atomic
 def change_subscription_status(subscription, *, actor, status):
+    catch_up_charges(subscription.pk, timezone.localdate() - timedelta(days=1))
     subscription.status = status
     subscription.save(update_fields=['status', 'renewal_date', 'updated_at'])
     if subscription.team_id:

@@ -238,7 +238,7 @@ class Subscription(models.Model):
             existing_subscription = (
                 type(self)
                 .objects.filter(pk=self.pk)
-                .only("start_date", "billing_cycle", "renewal_date")
+                .only("start_date", "billing_cycle", "renewal_date", "status")
                 .first()
             )
 
@@ -249,7 +249,8 @@ class Subscription(models.Model):
             and existing_subscription.billing_cycle == self.billing_cycle
             and existing_subscription.renewal_date
             and calculated_renewal_date
-            and existing_subscription.renewal_date > calculated_renewal_date
+            and (existing_subscription.renewal_date > calculated_renewal_date
+                 or existing_subscription.status == self.status == 'active')
         ):
             calculated_renewal_date = existing_subscription.renewal_date
 
@@ -455,13 +456,14 @@ class InAppNotification(models.Model):
 class NotificationLog(models.Model):
     """Track sent notifications to avoid duplicates"""
     subscription = models.ForeignKey(Subscription, on_delete=models.CASCADE, related_name='notifications')
+    recipient = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.CASCADE)
     notification_type = models.CharField(max_length=50, default='renewal_reminder')
     sent_at = models.DateTimeField(auto_now_add=True)
     renewal_date = models.DateField()  # The renewal date this notification was for
     days_before = models.IntegerField(default=3) # The offset used for this notification
     
     class Meta:
-        unique_together = ['subscription', 'notification_type', 'renewal_date', 'days_before']
+        unique_together = ['subscription', 'notification_type', 'renewal_date', 'days_before', 'recipient']
         ordering = ['-sent_at']
     
     def __str__(self):
@@ -481,9 +483,11 @@ class Transaction(models.Model):
     )
     subscription = models.ForeignKey(
         Subscription,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
         related_name="transactions",
     )
+    team = models.ForeignKey('accounts.Team', on_delete=models.CASCADE, null=True, blank=True, related_name='charges')
     service_name_snapshot = models.CharField(max_length=100)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(max_length=3, default="USD")
@@ -497,12 +501,21 @@ class Transaction(models.Model):
 
     class Meta:
         ordering = ["-charged_at"]
+        indexes = [
+            models.Index(fields=['user', '-charged_for_date', '-id'], name='charge_user_day_idx'),
+            models.Index(fields=['team', '-charged_for_date', '-id'], name='charge_team_day_idx'),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=["subscription", "charged_for_date", "source"],
                 name="uniq_transaction_subscription_date_source",
             )
         ]
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and self.subscription_id and not self.team_id:
+            self.team_id = self.subscription.team_id
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return (

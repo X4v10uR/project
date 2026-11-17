@@ -5,6 +5,7 @@ from . import api_views
 app_name = 'dashboard_api'
 
 urlpatterns = [
+    path('history/', api_views.charge_history, name='history'),
     path('', api_views.dashboard_data, name='home'),
     path('balance/adjust/', api_views.adjust_balance, name='adjust_balance'),
     path('notifications/', api_views.notifications, name='notifications'),

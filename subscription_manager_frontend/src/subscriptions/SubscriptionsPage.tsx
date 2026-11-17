@@ -1,6 +1,6 @@
 import { Download, Plus, Search } from 'lucide-react'
 import { type FormEvent, useEffect, useState } from 'react'
-import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import {
   billingCycles, buttonClass, currencyAmount, dangerClass, displayCycle, displayDate, ErrorBanner,
@@ -154,19 +154,39 @@ function Detail({ subscription, details, onClose, onUpdated, initiallyDeleting }
 export function SubscriptionsPage() {
   const [query, setQuery] = useSearchParams()
   const location = useLocation()
-  const [portfolio, setPortfolio] = useState<Portfolio | null>(null)
-  const [error, setError] = useState('')
+  const navigate = useNavigate()
+  const [result, setResult] = useState<{ filters: string; portfolio?: Portfolio; error?: string }>()
   const [revision, setRevision] = useState(0)
-  const [selectedId, setSelectedId] = useState(Number(query.get('subscription')) || null)
-  const queryString = query.toString()
+  const selectedId = Number(query.get('subscription'))
+  const filters = new URLSearchParams(query)
+  filters.delete('subscription')
+  filters.delete('action')
+  const queryString = filters.toString()
+  const portfolio = result?.filters === queryString ? result.portfolio : undefined
+  const error = result?.filters === queryString ? result.error : undefined
 
   useEffect(() => {
     const controller = new AbortController()
     api<Portfolio>(`${subscriptionApi}?${queryString}`, { signal: controller.signal })
-      .then((data) => { setPortfolio(data); setError('') })
-      .catch((error) => { if (!controller.signal.aborted) setError(showError(error)) })
+      .then((data) => {
+        if (!controller.signal.aborted) setResult({ filters: queryString, portfolio: data })
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) setResult({ filters: queryString, error: showError(error) })
+      })
     return () => controller.abort()
   }, [queryString, revision])
+
+  function openSubscription(id: number) {
+    const params = new URLSearchParams(filters)
+    params.set('subscription', String(id))
+    setQuery(params, { state: { ...location.state, openedFromList: true } })
+  }
+
+  function closeSubscription() {
+    if (location.state?.openedFromList) navigate(-1)
+    else setQuery(filters, { replace: true, state: location.state })
+  }
 
   function filter(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -185,10 +205,16 @@ export function SubscriptionsPage() {
         <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">Subscriptions</h1>
         <div className="flex flex-wrap gap-2">
           <a className={`${buttonClass} gap-2`} href={`${subscriptionApi}export/csv/?${queryString}`}><Download size={16} /> Export CSV</a>
+          <Link className={buttonClass} to={`${subscriptionPath}import/`}>Import CSV</Link>
           <Link className={`${primaryClass} gap-2`} to={`${subscriptionPath}add/`}><Plus size={18} /> Add subscription</Link>
         </div>
       </header>
-      <ErrorBanner message={error} />
+      {error && (
+        <div className="grid justify-items-start gap-2">
+          <ErrorBanner message={error} />
+          <button className={buttonClass} onClick={() => setRevision((value) => value + 1)}>Try again</button>
+        </div>
+      )}
       {typeof location.state?.notice === 'string' && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">{location.state.notice}</p>}
       {portfolio && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Subscription summary">
@@ -219,7 +245,7 @@ export function SubscriptionsPage() {
           {portfolio.subscriptions.length ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {portfolio.subscriptions.map((subscription) => (
-                <SubscriptionCard key={subscription.id} subscription={subscription} details={portfolio.details[subscription.id]} onSelect={() => setSelectedId(subscription.id)} />
+                <SubscriptionCard key={subscription.id} subscription={subscription} details={portfolio.details[subscription.id]} onSelect={() => openSubscription(subscription.id)} />
               ))}
             </div>
           ) : (
@@ -240,7 +266,7 @@ export function SubscriptionsPage() {
           )}
         </>
       )}
-      {selected && portfolio?.details[selected.id] && <Detail key={selected.id} subscription={selected} details={portfolio.details[selected.id]} initiallyDeleting={query.get('action') === 'delete'} onClose={() => setSelectedId(null)} onUpdated={() => setRevision((value) => value + 1)} />}
+      {selected && portfolio?.details[selected.id] && <Detail key={selected.id} subscription={selected} details={portfolio.details[selected.id]} initiallyDeleting={query.get('action') === 'delete'} onClose={closeSubscription} onUpdated={() => setRevision((value) => value + 1)} />}
     </section>
   )
 }

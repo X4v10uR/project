@@ -1,4 +1,5 @@
 import csv
+import json
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
@@ -316,7 +317,7 @@ def _sanitize_csv_cell(raw_value):
 
     value = str(raw_value)
     stripped = value.lstrip()
-    if stripped and stripped[0] in CSV_FORMULA_PREFIXES:
+    if value.startswith("'") or stripped.startswith(CSV_FORMULA_PREFIXES):
         return f"'{value}"
     return value
 
@@ -328,7 +329,7 @@ def subscription_export_csv(request):
 
 def build_subscription_csv(request):
     subscriptions, _ = filter_personal_subscriptions(request)
-    subscriptions = subscriptions.prefetch_related('participants')
+    subscriptions = subscriptions.prefetch_related('participants', 'offsets')
 
     response = HttpResponse(content_type='text/csv')
     response['Cache-Control'] = 'no-store'
@@ -354,6 +355,7 @@ def build_subscription_csv(request):
             'Renewal Date',
             'Renewal Time',
             'Notes',
+            'Split Type', 'Participant Shares', 'Reminders Enabled', 'Reminder Offsets', 'Display Color',
         ]
     )
 
@@ -382,6 +384,12 @@ def build_subscription_csv(request):
                 if subscription.renewal_time
                 else '',
                 _sanitize_csv_cell(subscription.notes or ''),
+                subscription.split_type,
+                json.dumps([{'name': person.name, 'share': str(person.share_amount or 0)}
+                            for person in subscription.participants.all()]),
+                'Yes' if subscription.reminders_enabled else 'No',
+                ','.join(str(offset.days_before) for offset in subscription.offsets.all()),
+                subscription.display_color,
             ]
         )
 

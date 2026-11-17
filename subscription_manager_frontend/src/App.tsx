@@ -9,10 +9,13 @@ import {
   TeamsPage, useAuth,
 } from './accounts'
 import { NotificationBell, NotificationsPage, NotificationsProvider } from './dashboard/notifications'
+import { HistoryPage } from './dashboard/HistoryPage'
+import { ImportPage } from './subscriptions/ImportPage'
 import { BalanceStatsPage, DashboardPage } from './dashboard/pages'
 import { CardsPage } from './subscriptions/CardsPage'
 import { SubscriptionFormPage } from './subscriptions/SubscriptionFormPage'
 import { SubscriptionsPage } from './subscriptions/SubscriptionsPage'
+import { MissingPage } from './MissingPage'
 
 function Brand() {
   return (
@@ -102,7 +105,7 @@ function RequireAuth() {
 
 function AppLayout() {
   const { user, logout } = useAuth()
-  const { pathname, search } = useLocation()
+  const { pathname } = useLocation()
   const navigate = useNavigate()
   const [signingOut, setSigningOut] = useState(false)
   const [error, setError] = useState('')
@@ -110,15 +113,14 @@ function AppLayout() {
   if (!user) return null
 
   const path = pathname.endsWith('/') ? pathname : `${pathname}/`
-  const history = path === '/subscriptions/' && new URLSearchParams(search).get('sort') === 'renewal_date'
   const inCards = path.startsWith('/subscriptions/cards/')
   const tabs = [
     { label: 'Dashboard', to: '/dashboard/', active: path === '/dashboard/', icon: LayoutGrid },
     { label: 'Stats', to: '/dashboard/balance-stats/', active: path === '/dashboard/balance-stats/', icon: ChartNoAxesCombined },
-    { label: 'Subscriptions', to: '/subscriptions/', active: path.startsWith('/subscriptions/') && !history && !inCards, icon: List },
+    { label: 'Subscriptions', to: '/subscriptions/', active: path.startsWith('/subscriptions/') && !inCards, icon: List },
     { label: 'Cards', to: '/subscriptions/cards/', active: inCards, icon: CreditCard },
     { label: 'Teams', to: '/accounts/teams/', active: path.startsWith('/accounts/teams/'), icon: UsersRound },
-    { label: 'History', to: '/subscriptions/?sort=renewal_date', active: history, icon: ReceiptText },
+    { label: 'History', to: '/dashboard/history/', active: path === '/dashboard/history/', icon: ReceiptText },
   ]
 
   async function signOut() {
@@ -170,19 +172,6 @@ function AppLayout() {
   )
 }
 
-function MissingPage() {
-  const { user } = useAuth()
-  return (
-    <section className="mx-auto max-w-xl px-5 py-24 text-center">
-      <h1 className="text-4xl font-semibold tracking-tight">Page not found</h1>
-      <p className="mb-6 mt-3 text-slate-600">Check the address or return to Subly.</p>
-      <Link className="primary-link" to={user ? '/dashboard/' : '/'}>
-        {user ? 'Open dashboard' : 'Back to home'}
-      </Link>
-    </section>
-  )
-}
-
 function CardRoute({ action }: { action: 'add' | 'edit' | 'delete' }) {
   const { id } = useParams()
   const params = new URLSearchParams({ modal: action })
@@ -203,15 +192,16 @@ export function App() {
         <Route path="accounts/login/" element={<LoginPage />} />
         <Route path="accounts/signup/" element={<SignupPage />} />
         <Route path="accounts/invites/accept/:token/" element={<InviteAcceptPage />} />
-        <Route path="*" element={<MissingPage />} />
       </Route>
       <Route element={<RequireAuth />}>
         <Route element={<AppLayout />}>
           <Route path="dashboard/" element={<DashboardPage />} />
+          <Route path="dashboard/history/" element={<HistoryPage />} />
           <Route path="dashboard/balance-stats/" element={<BalanceStatsPage />} />
           <Route path="dashboard/notifications/" element={<NotificationsPage />} />
           <Route path="subscriptions/" element={<SubscriptionsPage />} />
           <Route path="subscriptions/add/" element={<SubscriptionFormPage />} />
+          <Route path="subscriptions/import/" element={<ImportPage />} />
           <Route path="subscriptions/:id/edit/" element={<SubscriptionFormPage />} />
           <Route path="subscriptions/cards/" element={<CardsPage />} />
           <Route path="subscriptions/cards/add/" element={<CardRoute action="add" />} />
@@ -223,6 +213,7 @@ export function App() {
           <Route path="accounts/teams/:teamId/" element={<TeamDetailPage />} />
         </Route>
       </Route>
+      <Route path="*" element={<MissingPage />} />
     </Routes>
   )
 }

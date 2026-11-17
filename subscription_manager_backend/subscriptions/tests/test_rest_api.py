@@ -1,4 +1,5 @@
 import csv
+from datetime import timedelta
 from io import StringIO
 from decimal import Decimal
 
@@ -9,7 +10,7 @@ from django.utils import timezone
 
 from accounts.models import Team, TeamMembership
 
-from subscriptions.models import Card, Subscription, TeamSubscriptionRequest
+from subscriptions.models import Card, Subscription, TeamSubscriptionRequest, Transaction
 
 
 @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
@@ -62,6 +63,29 @@ class SubscriptionApiTest(TestCase):
         self.assertEqual(self.client.delete(detail).status_code, 204)
         self.assertFalse(Subscription.objects.filter(pk=created['id']).exists())
 
+    def test_history_keeps_the_six_latest_charges_for_each_subscription(self):
+        today = timezone.localdate()
+        subscriptions = [
+            Subscription.objects.create(
+                user=self.user, service_name=name, cost='18.00', billing_cycle='monthly', start_date=today,
+            )
+            for name in ('Movies', 'Music')
+        ]
+        dates = [today - timedelta(days=offset) for offset in range(9)]
+        Transaction.objects.bulk_create([
+            Transaction(user=self.user, subscription=sub, charged_for_date=day, amount=sub.cost)
+            for sub in subscriptions for day in dates
+        ])
+        portfolio = self.client.get(self.collection).json()
+        for sub in subscriptions:
+            history = portfolio['details'][str(sub.pk)]['history']
+            self.assertEqual([entry['charged_for_date'] for entry in history], [day.isoformat() for day in dates[:6]])
+
+        filtered = self.client.get(self.collection, {'q': 'Movies'}).json()
+        self.assertEqual(list(filtered['details']), [str(subscriptions[0].pk)])
+        self.assertEqual(filtered['stats'], portfolio['stats'])
+        self.assertEqual(filtered['burn_metrics'], portfolio['burn_metrics'])
+
     def test_team_member_submits_request_without_saving_credentials(self):
         owner = get_user_model().objects.create_user(email='owner@example.com', password='example-password')
         team = Team.objects.create(name='API team', created_by=owner)
@@ -111,6 +135,19 @@ class SubscriptionApiTest(TestCase):
         result = self.client.get(reverse('subscriptions_api:export'))
         exported = next(csv.DictReader(StringIO(result.content.decode())))
         self.assertEqual(exported['Currency'], "'=11")
+
+    def test_csv_accept_header_downloads_attachment_and_requires_a_session(self):
+        url = reverse('subscriptions_api:export')
+        response = self.client.get(url, HTTP_ACCEPT='text/csv')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response['Content-Disposition'].startswith('attachment;'))
+        self.assertIn('Service Name', next(csv.reader(StringIO(response.content.decode()))))
+
+        self.client.logout()
+        response = self.client.get(url, HTTP_ACCEPT='text/csv')
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response['Content-Type'].split(';')[0], 'text/csv')
+        self.assertIn('detail', next(csv.reader(StringIO(response.content.decode()))))
 
     def test_card_state_does_not_expose_team_subscriptions_after_removal(self):
         owner = get_user_model().objects.create_user(email='owner@example.com')

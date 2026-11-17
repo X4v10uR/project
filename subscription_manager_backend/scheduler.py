@@ -4,7 +4,7 @@ Subscription Renewal Notification Scheduler
 
 This script can be run as a cron job to automatically send renewal notifications.
 It supports time-based filtering to send notifications at the exact time subscriptions end.
-It also records renewal charge transactions for subscriptions due on the current date.
+It also records renewal charge transactions for subscriptions due through the current date.
 
 Example cron jobs:
 # Run every hour to check for time-specific notifications
@@ -74,7 +74,7 @@ def main():
         target_time = None
         if args.time_based:
             # Use current time for filtering
-            target_time = timezone.localtime().time()
+            target_time = timezone.localtime()
             logger.info(f"Using time-based filtering: {target_time.strftime('%I:%M %p')}")
         
         # First, record renewal charges for subscriptions due today.

@@ -1,7 +1,5 @@
 from django.core.management.base import BaseCommand, CommandError
-from datetime import timedelta, time
-from django.utils import timezone
-from subscriptions.models import NotificationLog
+from datetime import time
 from subscriptions.services import NotificationService
 import logging
 
@@ -43,12 +41,7 @@ class Command(BaseCommand):
             except ValueError as exc:
                 raise CommandError(f"Invalid time format: {target_time_str}. Use HH:MM format (e.g., 15:00).") from exc
         
-        target_date = None
-        if days_before is not None:
-            target_date = timezone.localdate() + timedelta(days=days_before)
-            self.stdout.write(f"Looking for subscriptions renewing on {target_date}")
-        else:
-            self.stdout.write("Looking for subscriptions with reminder offsets due today")
+        self.stdout.write("Checking reminder dates in each recipient's time zone.")
 
         if target_time:
             self.stdout.write(f"Filtering by renewal time around {target_time.strftime('%I:%M %p')}")
@@ -60,11 +53,7 @@ class Command(BaseCommand):
         )
         
         if not subscriptions_to_notify:
-            if target_date is not None:
-                message = f"No subscriptions found renewing on {target_date}"
-            else:
-                message = "No subscriptions found with reminder offsets due today"
-
+            message = "No subscriptions found with matching reminders"
             if target_time:
                 message += f" at {target_time.strftime('%I:%M %p')}"
             self.stdout.write(self.style.SUCCESS(message))
@@ -75,21 +64,6 @@ class Command(BaseCommand):
         error_count = 0
         
         for subscription, offset in subscriptions_to_notify:
-            # Check if we've already sent a notification for this renewal
-            notification_exists = NotificationLog.objects.filter(
-                subscription=subscription,
-                notification_type='renewal_reminder',
-                renewal_date=subscription.renewal_date,
-                days_before=offset
-            ).exists()
-            
-            if notification_exists:
-                self.stdout.write(
-                    f"Skipping {subscription.service_name} for {subscription.user.email} - already notified (offset: {offset})"
-                )
-                skipped_count += 1
-                continue
-            
             try:
                 if dry_run:
                     renewal_time_str = ""
@@ -128,10 +102,7 @@ class Command(BaseCommand):
         
         # Summary
         self.stdout.write("\n" + "="*50)
-        if target_date is not None:
-            self.stdout.write(f"Summary for {target_date}:")
-        else:
-            self.stdout.write("Summary for reminder offsets due today:")
+        self.stdout.write("Summary for scheduled reminders:")
 
         if target_time:
             self.stdout.write(f"Time filter: {target_time.strftime('%I:%M %p')}")

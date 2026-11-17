@@ -5,7 +5,7 @@ This guide explains how to set up and use the subscription renewal notification 
 ## 🎯 Features
 
 - **Automatic Email Notifications**: Users receive emails 3 days before subscription renewals
-- **Time-Based Notifications**: Notifications sent at the exact time subscriptions end (e.g., Netflix ends at 9 AM → notification at 9 AM, 3 days before)
+- The hourly job uses each recipient’s profile time zone and sends reminders within an hour after the chosen renewal time.
 - **Beautiful HTML Emails**: Professional-looking emails with service icons and branding
 - **Duplicate Prevention**: System tracks sent notifications to avoid spam
 - **Flexible Scheduling**: Can be run manually or scheduled as a cron job/task
@@ -126,12 +126,12 @@ python manage.py send_renewal_notifications
 ### User Experience:
 1. **User creates subscription**: "Netflix Premium" ending on Jan 30th at 9:00 AM
 2. **System schedules notification**: Jan 27th at 9:00 AM (3 days before)
-3. **User receives email**: Exactly 3 days before at the same time
+3. The user receives the reminder on the first hourly run after 9 AM in their profile time zone that day.
 
 ### Technical Implementation:
 - **Renewal Time Field**: Optional time field in subscription form (defaults to 3:00 PM)
-- **Time Window**: System uses 1-hour window around target time for flexibility
-- **Filtering**: `--time` parameter filters subscriptions by renewal time
+- The hourly job checks the preceding hour across local midnight and daylight-saving changes. Each team member has their own delivery record. Existing subscription-wide delivery records suppress repeats after upgrading.
+- The `--time` parameter simulates a scheduler run at that server time. Daily mode sends reminders due on each recipient’s local date whenever the job runs.
 - **Fallback**: Subscriptions without specific time use default (3:00 PM)
 
 ### Example Scenarios:
@@ -243,11 +243,10 @@ python scheduler.py --time-based
 Potential improvements you could add:
 
 1. **Multiple Reminders**: Send at 7 days, 3 days, and 1 day with different times
-2. **User Time Zones**: Support different time zones for users
 3. **Smart Scheduling**: Learn from user behavior to optimize notification times
 4. **Snooze Feature**: Allow users to delay notifications
 5. **Custom Time Preferences**: Let users set preferred notification times per service
 
 ---
 
-**Note**: The time-based notification system ensures users get reminders at the exact moment their subscriptions are ending, providing maximum relevance and usefulness!
+Run the time-based job at least hourly. Billing also recovers missed charges from each active subscription’s stored next renewal through the run date. Repeating the job preserves one charge per scheduled date.

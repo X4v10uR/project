@@ -33,6 +33,7 @@ type ActiveSubscription = ServiceCard & {
 };
 type Transaction = { id: number; title: string; timestamp: string; amount: string; swatch_style: string };
 type Dashboard = Balance & {
+  monthly_spend_by_currency: Record<string, string>;
   greeting_name: string;
   balance_chip_date: string;
   upcoming_count: number;
@@ -160,9 +161,16 @@ function BalanceEditor({ data, scope, onUpdate }: { data: Dashboard; scope: Scop
   return (
     <section aria-labelledby="dashboard-balance-heading" className="rounded-3xl bg-linear-to-br from-[#303036] to-[#19191c] p-5 text-white shadow-lg sm:p-8">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-medium text-slate-300" id="dashboard-balance-heading">Your balance</h2>
+        <h2 className="text-sm font-medium text-slate-300" id="dashboard-balance-heading">Monthly recurring spend</h2>
         {data.balance_chip_date !== '--/--' && <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-100">Next bill {data.balance_chip_date}</span>}
       </div>
+      <ul className="mb-5 flex flex-wrap gap-x-6 gap-y-2 text-3xl font-bold">
+        {Object.entries(data.monthly_spend_by_currency).sort(([a], [b]) => a.localeCompare(b)).map(([code, amount]) => (
+          <li key={code}>{code} {Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</li>
+        ))}
+      </ul>
+      {!Object.keys(data.monthly_spend_by_currency).length && <p className="mb-4">No active recurring spend.</p>}
+      <h3 className="mb-1 text-sm font-semibold text-slate-300">Adjusted USD balance</h3>
       {editing ? (
         <form className="flex flex-wrap items-center gap-3" onSubmit={submit} onKeyDown={(event) => { if (event.key === 'Escape' && !saving) cancel(); }}>
           <label className="flex items-center gap-1 rounded-xl border border-white/30 px-2 py-1 text-2xl font-bold">
@@ -174,7 +182,7 @@ function BalanceEditor({ data, scope, onUpdate }: { data: Dashboard; scope: Scop
         </form>
       ) : (
         <div className="flex flex-wrap items-center gap-3">
-          <p className="break-all text-4xl font-bold tracking-tight sm:text-5xl">{data.balance_display}</p>
+          <p className="text-xl font-semibold">{data.balance_display}</p>
           <button aria-label="Edit balance" className="flex size-9 items-center justify-center rounded-full border border-white/20 bg-white/10 hover:bg-white/20" onClick={() => {
             setStatus('');
             setTarget(data.balance_adjusted_amount.toFixed(2));
@@ -182,7 +190,7 @@ function BalanceEditor({ data, scope, onUpdate }: { data: Dashboard; scope: Scop
           }} type="button"><Pencil aria-hidden="true" className="size-4" /></button>
         </div>
       )}
-      <p className="mt-3 text-xs text-slate-300">Base {data.balance_base_display} · Adjustment {data.balance_adjustment_display}</p>
+      <p className="mt-3 text-xs text-slate-300">USD recurring spend {data.balance_base_display} · Manual adjustment {data.balance_adjustment_display}</p>
       {status && <p className="mt-2 text-sm text-emerald-200" role="status">{status}</p>}
       {error && <p className="mt-2 text-sm text-red-200" role="alert">{error}</p>}
     </section>

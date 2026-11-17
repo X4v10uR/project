@@ -1,10 +1,14 @@
+import csv
+from io import StringIO
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db.models import prefetch_related_objects
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers, status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, renderer_classes
 from rest_framework.exceptions import NotFound
+from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
 
 from accounts.models import TeamMembership
@@ -134,6 +138,19 @@ def subscription_options(request):
     })
 
 
+class CSVStatusRenderer(BaseRenderer):
+    """Render DRF errors and metadata for clients requesting the CSV attachment."""
+
+    media_type = 'text/csv'
+    format = 'csv'
+
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        output = StringIO()
+        csv.writer(output).writerows((data.keys(), data.values()))
+        return output.getvalue()
+
+
 @api_view(['GET'])
+@renderer_classes([JSONRenderer, CSVStatusRenderer])
 def subscription_export(request):
     return build_subscription_csv(request)

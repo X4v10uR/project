@@ -1,9 +1,12 @@
 import logging
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
+from collections import defaultdict
+from copy import copy
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.conf import settings
 from django.core.mail import send_mail
-from django.db import IntegrityError, transaction
+from django.db import transaction
 from django.db.models import Q
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -21,104 +24,115 @@ def effective_renewal_date(subscription, today):
     return subscription.calculate_renewal_date(today=today)
 
 
+def _next_renewal(subscription, day):
+    if day == date.max:
+        return None
+    return subscription.calculate_renewal_date(today=day + timedelta(days=1))
+
+
+def _record_charge(subscription, day):
+    return Transaction.objects.get_or_create(
+        subscription=subscription, charged_for_date=day, source=Transaction.SOURCE_RENEWAL,
+        defaults={
+            'user_id': subscription.user_id, 'team_id': subscription.team_id,
+            'service_name_snapshot': subscription.service_name, 'currency': subscription.currency,
+            'amount': subscription.user_cost if subscription.is_shared else subscription.cost,
+        },
+    )
+
+
 @transaction.atomic
 def record_due_charge_for_subscription(subscription, charge_date=None):
-    """
-    Record a renewal charge for a single subscription when it is due today.
-    Returns (transaction, created).
-    """
+    """Record today's charge when creating a subscription."""
     if not subscription or not subscription.pk:
         return None, False
-
-    charge_date = charge_date or timezone.localdate()
+    day = charge_date or timezone.localdate()
     current = Subscription.objects.select_for_update().filter(pk=subscription.pk, status='active').first()
-    if current is None or effective_renewal_date(current, charge_date) != charge_date:
+    if current is None or effective_renewal_date(current, day) != day:
         return None, False
-
-    amount = current.user_cost if current.is_shared else current.cost
-    transaction_defaults = {
-        'user_id': current.user_id,
-        'service_name_snapshot': current.service_name,
-        'amount': amount,
-        'currency': current.currency,
-    }
-
-    transaction_record, created = Transaction.objects.get_or_create(
-        subscription=subscription,
-        charged_for_date=charge_date,
-        source=Transaction.SOURCE_RENEWAL,
-        defaults=transaction_defaults,
-    )
-    next_renewal = current.calculate_renewal_date(today=charge_date + timedelta(days=1)) if charge_date < date.max else None
-    Subscription.objects.filter(pk=current.pk).update(renewal_date=next_renewal)
-    subscription.renewal_date = next_renewal
-    return transaction_record, created
+    result = _record_charge(current, day)
+    subscription.renewal_date = _next_renewal(current, day)
+    Subscription.objects.filter(pk=current.pk).update(renewal_date=subscription.renewal_date)
+    return result
 
 
-def _time_in_window(candidate_time, window_start, window_end):
-    if window_start <= window_end:
-        return window_start <= candidate_time <= window_end
-
-    return candidate_time >= window_start or candidate_time <= window_end
+@transaction.atomic
+def catch_up_charges(subscription_id, through, *, dry_run=False):
+    """Advance the stored billing cursor only after every due charge is recorded."""
+    sub = Subscription.objects.select_for_update().filter(pk=subscription_id, status='active').first()
+    if sub is None:
+        return 0, 0
+    # A missing legacy cursor has no reliable unbilled start date.
+    day = sub.renewal_date or sub.calculate_renewal_date(today=through)
+    created = existing = 0
+    while day and day <= through:
+        if dry_run:
+            new = not Transaction.objects.filter(subscription=sub, charged_for_date=day, source='renewal').exists()
+        else:
+            _, new = _record_charge(sub, day)
+        if new:
+            created += 1
+        else:
+            existing += 1
+        following = _next_renewal(sub, day)
+        if following is not None and following <= day:
+            raise ValueError('Invalid billing cycle.')
+        day = following
+    if not dry_run and (created or existing):
+        Subscription.objects.filter(pk=sub.pk).update(renewal_date=day)
+    return created, existing
 
 
 class BillingService:
-    """Service for recording renewal charges into transaction history."""
-
     @staticmethod
     def get_due_renewals(target_date=None):
-        charge_date = target_date or timezone.localdate()
-        candidate_subs = Subscription.objects.filter(status='active').filter(
-            Q(renewal_date__isnull=True) | Q(renewal_date__lte=charge_date)
+        through = target_date or timezone.localdate()
+        return Subscription.objects.filter(status='active').filter(
+            Q(renewal_date__isnull=True) | Q(renewal_date__lte=through)
         )
-        return [
-            subscription for subscription in candidate_subs
-            if effective_renewal_date(subscription, charge_date) == charge_date
-        ]
 
     @staticmethod
     def record_renewal_charges(target_date=None, dry_run=False):
-        charge_date = target_date or timezone.localdate()
-        due_subscriptions = BillingService.get_due_renewals(target_date=charge_date)
-
-        results = {
-            'date': charge_date,
-            'total': len(due_subscriptions),
-            'created': 0,
-            'existing': 0,
-            'errors': 0,
-        }
-
-        for subscription in due_subscriptions:
-            if dry_run:
-                exists = Transaction.objects.filter(
-                    subscription=subscription,
-                    charged_for_date=charge_date,
-                    source=Transaction.SOURCE_RENEWAL,
-                ).exists()
-                if exists:
-                    results['existing'] += 1
-                else:
-                    results['created'] += 1
-                continue
-
+        through = target_date or timezone.localdate()
+        results = {'date': through, 'total': 0, 'created': 0, 'existing': 0, 'errors': 0}
+        ids = BillingService.get_due_renewals(through).values_list('pk', flat=True)
+        for subscription_id in list(ids):
             try:
-                _, created = record_due_charge_for_subscription(
-                    subscription,
-                    charge_date=charge_date,
-                )
-                if created:
-                    results['created'] += 1
-                else:
-                    results['existing'] += 1
+                created, existing = catch_up_charges(subscription_id, through, dry_run=dry_run)
+                results['created'] += created
+                results['existing'] += existing
+                results['total'] += created + existing
             except Exception:
-                logger.exception(
-                    "Failed to record renewal charge for subscription=%s",
-                    subscription.pk,
-                )
+                logger.exception('Failed to record charges for subscription=%s', subscription_id)
                 results['errors'] += 1
-
         return results
+
+
+def _recipients(subscription):
+    if subscription.team_id:
+        return [member.user for member in subscription.team.memberships.all()]
+    return [subscription.user]
+
+
+def _user_zone(user):
+    try:
+        return ZoneInfo(user.timezone)
+    except (ZoneInfoNotFoundError, ValueError):
+        return ZoneInfo('UTC')
+
+
+def _reminder_days(user, renewal_time, instant, timed):
+    zone = _user_zone(user)
+    today = instant.astimezone(zone).date()
+    if not timed:
+        return [today]
+    hour = timedelta(hours=1)
+    days = {today, (instant - hour).astimezone(zone).date()}
+    # Compare real instants across midnight and daylight-saving transitions.
+    return [
+        day for day in sorted(days)
+        if timedelta(0) <= instant - datetime.combine(day, renewal_time or time(15), zone).astimezone(UTC) < hour
+    ]
 
 
 class NotificationService:
@@ -128,43 +142,33 @@ class NotificationService:
     def send_renewal_reminder(subscription, days_before=3):
         """Send a renewal reminder email for a subscription."""
         try:
-            recipients = []
+            due_members = getattr(subscription, '_due_recipients', None)
             if subscription.team_id:
-                recipients = [
-                    membership.user
-                    for membership in subscription.team.memberships.select_related('user').all()
-                ]
+                members = subscription.team.memberships.select_related('user')
+                if due_members is not None:
+                    members = members.filter(user_id__in=[user.pk for user in due_members])
+                recipients = [member.user for member in members]
             else:
                 recipients = [subscription.user]
-            recipient_emails = [user.email for user in recipients if user and user.email]
-            if not recipient_emails:
+            if not subscription.reminders_enabled or not recipients:
                 return False
-
-            # Check if reminders are enabled for this subscription
-            if not subscription.reminders_enabled:
-                logger.info(
-                    "Reminders disabled for %s (User: %s)",
-                    subscription.service_name,
-                    subscription.user.email,
-                )
+            key = dict(subscription=subscription, notification_type='renewal_reminder',
+                       renewal_date=subscription.renewal_date, days_before=days_before)
+            pending = []
+            reservations = []
+            with transaction.atomic():
+                # Rows written before per-recipient delivery covered the entire subscription.
+                if NotificationLog.objects.filter(**key, recipient__isnull=True).exists():
+                    return False
+                for user in sorted(recipients, key=lambda user: user.pk):
+                    if user.email:
+                        log, created = NotificationLog.objects.get_or_create(**key, recipient=user)
+                        if created:
+                            pending.append(user)
+                            reservations.append(log.pk)
+            if not pending:
                 return False
-
-            try:
-                with transaction.atomic():
-                    notification_log = NotificationLog.objects.create(
-                        subscription=subscription,
-                        notification_type='renewal_reminder',
-                        renewal_date=subscription.renewal_date,
-                        days_before=days_before,
-                    )
-            except IntegrityError:
-                logger.info(
-                    "Notification already reserved for %s at %s days offset to %s",
-                    subscription.service_name,
-                    days_before,
-                    ", ".join(recipient_emails),
-                )
-                return False
+            recipient_emails = [user.email for user in pending]
 
             context = {
                 'user': {'first_name': '', 'email': 'there'},
@@ -182,10 +186,10 @@ class NotificationService:
                     fail_silently=False,
                 )
             except Exception:
-                NotificationLog.objects.filter(pk=notification_log.pk).delete()
+                NotificationLog.objects.filter(pk__in=reservations).delete()
                 raise
             if not delivered:
-                NotificationLog.objects.filter(pk=notification_log.pk).delete()
+                NotificationLog.objects.filter(pk__in=reservations).delete()
                 return False
 
             if subscription.team_id:
@@ -193,7 +197,7 @@ class NotificationService:
             else:
                 link_url = reverse('subscriptions:update', args=[subscription.pk])
 
-            for recipient in recipients:
+            for recipient in pending:
                 create_notification(
                     recipient=recipient,
                     team=subscription.team,
@@ -219,74 +223,38 @@ class NotificationService:
             raise
 
     @staticmethod
-    def get_subscriptions_due_for_notification(target_time=None, days_before=None):
-        """Get subscriptions and offsets that need renewal notifications today."""
-        today = timezone.localdate()
-        if days_before is not None and days_before > 0:
-            horizon_days = days_before
-        else:
-            horizon_days = max(30, settings.NOTIFICATION_DAYS_BEFORE)
-        horizon_date = today + timedelta(days=horizon_days)
-
-        # Subscriptions with reminders enabled
-        candidate_subs = Subscription.objects.filter(
-            status='active',
-            reminders_enabled=True,
-        ).filter(
-            Q(renewal_date__isnull=True) | Q(renewal_date__lte=horizon_date)
-        ).select_related('user').prefetch_related('offsets')
-
-        due_notifications = []
-
-        for subscription in candidate_subs:
-            renewal_date = effective_renewal_date(subscription, today)
-            if not renewal_date:
-                continue
-            subscription.renewal_date = renewal_date
-
-            # Calculate days until renewal
-            days_until = (renewal_date - today).days
-
-            custom_offsets = {offset.days_before for offset in subscription.offsets.all()}
-            matched_offset = None
-
-            if custom_offsets:
-                if days_until in custom_offsets:
-                    matched_offset = days_until
-            elif days_until == settings.NOTIFICATION_DAYS_BEFORE:
-                matched_offset = settings.NOTIFICATION_DAYS_BEFORE
-
-            if matched_offset is None:
-                continue
-
-            if days_before is not None and matched_offset != days_before:
-                continue
-
-            due_notifications.append((subscription, matched_offset))
-
-        # Filter by time if provided
-        if target_time:
-            time_window_start = (
-                datetime.combine(today, target_time) - timedelta(hours=1)
-            ).time()
-            time_window_end = (
-                datetime.combine(today, target_time) + timedelta(hours=1)
-            ).time()
-
-            due_notifications = [
-                (subscription, offset)
-                for subscription, offset in due_notifications
-                if (
-                    subscription.renewal_time is None
-                    or _time_in_window(
-                        subscription.renewal_time,
-                        time_window_start,
-                        time_window_end,
-                    )
-                )
-            ]
-
-        return due_notifications
+    def get_subscriptions_due_for_notification(target_time=None, days_before=None, *, now=None):
+        """Select reminders using each recipient's local calendar date and renewal time."""
+        instant = now or timezone.now()
+        if isinstance(target_time, datetime):
+            instant = target_time
+        elif target_time is not None:
+            instant = datetime.combine(timezone.localdate(instant), target_time, timezone.get_current_timezone())
+        instant = instant.astimezone(UTC)
+        horizon = days_before if days_before is not None else max(30, settings.NOTIFICATION_DAYS_BEFORE)
+        # Billing can already have advanced the cursor while a recipient west of UTC
+        # is still on their reminder day. Match the calendar schedule independently.
+        subscriptions = Subscription.objects.filter(
+            status='active', reminders_enabled=True, start_date__lte=instant.date() + timedelta(days=horizon + 1),
+        ).select_related('user', 'team').prefetch_related('offsets', 'team__memberships__user')
+        due = []
+        for sub in subscriptions:
+            offsets = {row.days_before for row in sub.offsets.all()} or {settings.NOTIFICATION_DAYS_BEFORE}
+            if days_before is not None:
+                offsets &= {days_before}
+            groups = defaultdict(list)
+            for user in _recipients(sub):
+                for local_day in _reminder_days(user, sub.renewal_time, instant, target_time is not None):
+                    for offset in offsets:
+                        renewal = local_day + timedelta(days=offset)
+                        if sub.calculate_renewal_date(today=renewal) == renewal:
+                            groups[renewal, offset].append(user)
+            for (renewal, offset), recipients in groups.items():
+                scheduled_sub = copy(sub)
+                scheduled_sub.renewal_date = renewal
+                scheduled_sub._due_recipients = recipients
+                due.append((scheduled_sub, offset))
+        return due
 
     @staticmethod
     def send_batch_notifications(target_time=None, dry_run=False, days_before=None):

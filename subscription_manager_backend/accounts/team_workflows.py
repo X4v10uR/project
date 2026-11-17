@@ -357,8 +357,9 @@ def delete_team(*, team, actor):
 def delete_user_account(user):
     member_team_ids = TeamMembership.objects.filter(user=user).values('team_id')
     subscription_team_ids = Subscription.objects.filter(user=user, team__isnull=False).values('team_id')
+    charge_team_ids = Transaction.objects.filter(user=user, team__isnull=False).values('team_id')
     teams = Team.objects.select_for_update().filter(
-        Q(created_by=user) | Q(pk__in=member_team_ids) | Q(pk__in=subscription_team_ids),
+        Q(created_by=user) | Q(pk__in=member_team_ids) | Q(pk__in=subscription_team_ids) | Q(pk__in=charge_team_ids),
     ).order_by('pk')
     empty_team_ids = []
     for team in teams:
@@ -368,7 +369,7 @@ def delete_user_account(user):
         ).first()
         if next_owner_id is not None:
             Subscription.objects.filter(team=team, user=user).update(user_id=next_owner_id)
-            Transaction.objects.filter(subscription__team=team, user=user).update(user_id=next_owner_id)
+            Transaction.objects.filter(team=team, user=user).update(user_id=next_owner_id)
             continue
         if remaining.exists():
             raise TeamActionError(

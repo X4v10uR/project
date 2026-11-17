@@ -1,7 +1,8 @@
 from datetime import timedelta
 from decimal import Decimal
 
-from django.db.models import Count
+from django.db.models import Count, F, Window
+from django.db.models.functions import RowNumber
 from django.urls import reverse
 from django.utils import timezone
 
@@ -44,14 +45,7 @@ ALLOWED_SORT_FIELDS = {"cost", "renewal_date", "service_name"}
 
 
 def _personal_subscription_queryset(request):
-    return (
-        Subscription.objects.filter(
-            user=request.user,
-            team__isnull=True,
-        )
-        .select_related("card")
-        .annotate(participant_count=Count("participants"))
-    )
+    return Subscription.objects.filter(user=request.user, team__isnull=True)
 
 
 def filter_personal_subscriptions(request):
@@ -101,7 +95,7 @@ def filter_personal_subscriptions(request):
             renewal_date__range=[today, today + timedelta(days=due_within_days)]
         )
 
-    subscriptions = subscriptions.order_by(sort_by)
+    subscriptions = subscriptions.order_by(sort_by, 'pk')
 
     filters = {
         'query': query,
@@ -116,20 +110,20 @@ def filter_personal_subscriptions(request):
 
 def build_subscription_list_context(request):
     subscriptions, filters = filter_personal_subscriptions(request)
-    subscriptions = list(subscriptions)
-    base_subscriptions = list(_personal_subscription_queryset(request))
+    subscriptions = list(subscriptions.select_related('card').annotate(participant_count=Count('participants')))
+    has_filters = any(
+        filters[key] for key in ('query', 'status_filter', 'cycle_filter', 'shared_filter', 'due_within')
+    )
+    base_subscriptions = subscriptions
+    if has_filters:
+        base_subscriptions = list(_personal_subscription_queryset(request).order_by().only(
+            'status', 'user_cost', 'currency', 'billing_cycle',
+        ))
     _apply_subscription_card_metadata(subscriptions)
     drawer_payload = _build_subscription_drawer_data(subscriptions)
     stats = _calculate_subscription_stats(base_subscriptions)
     burn_metrics = _calculate_burn_rate_metrics(base_subscriptions)
-    filters_active = bool(
-        filters.get("query")
-        or filters.get("status_filter")
-        or filters.get("cycle_filter")
-        or filters.get("shared_filter")
-        or filters.get("due_within")
-        or filters.get("sort_by") not in ("", "renewal_date")
-    )
+    filters_active = has_filters or filters['sort_by'] != 'renewal_date'
     return {
         'subscriptions': subscriptions,
         'subscriptions_total': len(base_subscriptions),
@@ -359,15 +353,18 @@ def _build_subscription_drawer_data(subscriptions):
                 subscription_id__in=subscription_ids,
                 source=Transaction.SOURCE_RENEWAL,
             )
-            .only("subscription_id", "charged_for_date", "amount", "currency", "charged_at")
-            .order_by("subscription_id", "-charged_for_date", "-charged_at")
+            .alias(history_position=Window(
+                expression=RowNumber(),
+                partition_by=[F("subscription_id")],
+                order_by=F("charged_for_date").desc(),
+            ))
+            .filter(history_position__lte=6)
+            .only("subscription_id", "charged_for_date", "amount", "currency")
+            .order_by("subscription_id", "-charged_for_date")
         )
         for transaction in recent_transactions:
-            bucket = transactions_by_subscription.get(transaction.subscription_id)
-            if bucket is None or len(bucket) >= 6:
-                continue
             currency = _normalize_currency_code(transaction.currency)
-            bucket.append(
+            transactions_by_subscription[transaction.subscription_id].append(
                 {
                     "charged_for_date": (
                         transaction.charged_for_date.isoformat()

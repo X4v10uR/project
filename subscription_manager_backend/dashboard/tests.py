@@ -383,6 +383,23 @@ class DashboardViewTest(TestCase):
         adjustment = BalanceAdjustment.objects.get(user=self.user)
         self.assertEqual(adjustment.amount, Decimal('15.50'))
 
+    def test_balance_api_validates_scope_before_updating(self):
+        url = reverse('dashboard_api:adjust_balance')
+        for path, payload in (
+            (url, {'scope': 'team', 'target_balance': '50'}),
+            (url + '?scope=unknown', {'target_balance': '50'}),
+        ):
+            with self.subTest(path=path):
+                response = self.client.post(path, payload, content_type='application/json')
+                self.assertEqual(response.status_code, 400)
+                self.assertIn('scope', response.json())
+        self.assertFalse(BalanceAdjustment.objects.filter(user=self.user).exists())
+
+        response = self.client.post(url + '?scope=TEAMS', {'target_balance': '50'}, content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['dashboard_scope'], 'teams')
+        self.assertEqual(BalanceAdjustment.objects.get(user=self.user).scope, 'teams')
+
     def test_adjust_balance_endpoint_rejects_invalid_amount(self):
         response = self.client.post(
             reverse('dashboard:adjust_balance'),

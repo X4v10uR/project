@@ -299,16 +299,17 @@ class BillingServiceTest(TestCase):
         Subscription.objects.filter(pk=subscription.pk).update(renewal_date=start)
 
         preview = BillingService.record_renewal_charges(target_date=february, dry_run=True)
-        self.assertEqual(preview['created'], 1)
+        self.assertEqual(preview['created'], 2)
         subscription.refresh_from_db()
         self.assertEqual(subscription.renewal_date, start)
         self.assertFalse(Transaction.objects.exists())
 
-        self.assertEqual(BillingService.record_renewal_charges(target_date=february)['created'], 1)
+        self.assertEqual(BillingService.record_renewal_charges(target_date=february)['created'], 2)
         subscription.refresh_from_db()
         self.assertEqual(subscription.renewal_date, march)
         self.assertEqual(BillingService.record_renewal_charges(target_date=february)['created'], 0)
-        self.assertEqual(Transaction.objects.filter(subscription=subscription).count(), 1)
+        self.assertCountEqual(subscription.transactions.values_list('charged_for_date', flat=True), [start, february])
+
     def test_records_transaction_for_due_subscription(self):
         today = timezone.localdate()
         sub = Subscription.objects.create(
