@@ -74,7 +74,7 @@ def mark_verified(request, user):
 def require_recent(request):
     stamp = request.session.get('reauthenticated_at', 0)
     if not 0 <= time.time() - stamp <= 300:
-        raise PermissionDenied('Verify your current password in Security before revealing credentials.')
+        raise PermissionDenied('Verify your current Subly password before this sensitive action.')
 
 
 class SecurityMiddleware:

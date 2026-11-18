@@ -6,7 +6,7 @@ import { api } from '../api'
 import { currencyAmount } from '../subscriptions/shared'
 import { ErrorMessage, Field, fieldClass, formData, messageFrom, panelClass, primaryClass, secondaryClass, StatusMessage } from './Controls'
 
-export type Role = 'owner' | 'member'
+export type Role = 'owner' | 'member' | 'viewer' | 'accountant'
 
 export type TeamSubscription = {
   id: number

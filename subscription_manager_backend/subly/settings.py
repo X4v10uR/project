@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'accounts',
     'subscriptions',
     'dashboard',
+    'finance',
 ]
 
 REST_FRAMEWORK = {
@@ -148,6 +149,7 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / env('MEDIA_ROOT', default='media')
+PRIVATE_MEDIA_ROOT = BASE_DIR / env('PRIVATE_MEDIA_ROOT', default='private_media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -168,6 +170,17 @@ EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@subly.com')
 ACCOUNT_PASSWORD_ENCRYPTION_KEY = env('ACCOUNT_PASSWORD_ENCRYPTION_KEY', default='')
 ACCOUNT_PASSWORD_LEGACY_FALLBACK = env.bool('ACCOUNT_PASSWORD_LEGACY_FALLBACK', default=True)
+PLAID_CLIENT_ID = env('PLAID_CLIENT_ID', default='')
+PLAID_SECRET = env('PLAID_SECRET', default='')
+PLAID_ENV = env('PLAID_ENV', default='sandbox')
+PLAID_COUNTRY_CODES = env.list('PLAID_COUNTRY_CODES', default=['US'])
+GMAIL_CLIENT_ID = env('GMAIL_CLIENT_ID', default='')
+GMAIL_CLIENT_SECRET = env('GMAIL_CLIENT_SECRET', default='')
+GMAIL_REDIRECT_URI = env('GMAIL_REDIRECT_URI', default='http://127.0.0.1:5173/api/finance/connections/gmail/callback/')
+VAPID_PUBLIC_KEY = env('VAPID_PUBLIC_KEY', default='')
+VAPID_PRIVATE_KEY = env('VAPID_PRIVATE_KEY', default='')
+VAPID_SUBJECT = env('VAPID_SUBJECT', default='mailto:admin@example.com')
+TESSERACT_CMD = env('TESSERACT_CMD', default='')
 
 # Notification Settings
 NOTIFICATION_DAYS_BEFORE = env.int('NOTIFICATION_DAYS_BEFORE', default=3)

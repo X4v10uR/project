@@ -215,6 +215,9 @@ class NotificationService:
             if not pending:
                 return False
             recipient_emails = [user.email for user in pending]
+            from finance.delivery import immediate_email
+            immediate_recipients = [user for user in pending if immediate_email(user)]
+            recipient_emails = [user.email for user in immediate_recipients]
 
             context = {
                 'user': {'first_name': '', 'email': 'there'},
@@ -223,7 +226,7 @@ class NotificationService:
                 'site_url': getattr(settings, 'SITE_URL', 'http://localhost:8000'),
             }
             try:
-                delivered = send_mail(
+                delivered = not recipient_emails or send_mail(
                     subject=render_to_string('emails/renewal_reminder_subject.txt', context).strip(),
                     message=render_to_string('emails/renewal_reminder.txt', context),
                     from_email=settings.DEFAULT_FROM_EMAIL,
@@ -261,6 +264,7 @@ class NotificationService:
                             'days_before': days_before,
                             'renewal_date': subscription.renewal_date.isoformat() if subscription.renewal_date else None,
                         },
+                        send_email_alert=recipient not in immediate_recipients,
                     )
 
             logger.info(

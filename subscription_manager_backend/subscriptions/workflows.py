@@ -109,6 +109,20 @@ def _submit_team_request(subscription, actor, participants, reminder_offsets):
 
 def save_subscription(subscription, *, actor, participants, reminder_offsets):
     creating = subscription.pk is None
+    from finance.permissions import team_permission, log_activity
+    from finance.backup import SUB_FIELDS
+    if subscription.team_id and not is_team_owner(actor, subscription.team):
+        membership = TeamMembership.objects.filter(user=actor, team=subscription.team).first()
+        if not creating or not membership or membership.role != 'member':
+            raise ValidationError('Your team role does not allow subscription changes or requests.')
+    before = {}
+    before_participants = []
+    before_offsets = []
+    if not creating:
+        previous_values = type(subscription).objects.get(pk=subscription.pk)
+        before = {field: str(getattr(previous_values, field)) for field in SUB_FIELDS}
+        before_participants = [{'name': p.name, 'share': str(p.share_amount), 'member_id': p.member_id} for p in previous_values.participants.all()]
+        before_offsets = list(previous_values.offsets.values_list('days_before', flat=True))
     participants_to_create = prepare_participants(subscription, participants)
     team = subscription.team
     if creating and team and not is_team_owner(actor, team):
@@ -134,6 +148,17 @@ def save_subscription(subscription, *, actor, participants, reminder_offsets):
         sync_reminder_offsets(subscription, reminder_offsets)
         if creating:
             record_due_charge_for_subscription(subscription)
+        changes = {field: {'before': before.get(field), 'after': str(getattr(subscription, field))} for field in SUB_FIELDS if before.get(field) != str(getattr(subscription, field))}
+        # Credential values are never part of the change log.
+        for field in ('notes', 'cancellation_notes'):
+            if field in changes:
+                changes[field] = {'changed': True}
+        after_participants = [{'name': p.name, 'share': str(p.share_amount), 'member_id': p.member_id} for p in participants_to_create]
+        if before_participants != after_participants:
+            changes['participants'] = {'before': before_participants, 'after': after_participants}
+        if sorted(before_offsets) != sorted(reminder_offsets):
+            changes['reminder_offsets'] = {'before': before_offsets, 'after': reminder_offsets}
+        log_activity(actor, subscription, 'subscription.created' if creating else 'subscription.updated', changes)
 
     if team:
         if creating:
@@ -156,6 +181,8 @@ def save_subscription(subscription, *, actor, participants, reminder_offsets):
 
 @transaction.atomic
 def remove_subscription(subscription, *, actor):
+    from finance.permissions import log_activity
+    log_activity(actor, subscription, 'subscription.deleted')
     catch_up_charges(subscription.pk, timezone.localdate() - timedelta(days=1))
     team = subscription.team
     service_name = subscription.service_name
@@ -175,6 +202,8 @@ def remove_subscription(subscription, *, actor):
 
 @transaction.atomic
 def change_subscription_status(subscription, *, actor, status):
+    from finance.permissions import log_activity
+    before_status = subscription.status
     catch_up_charges(subscription.pk, timezone.localdate() - timedelta(days=1))
     if status == 'active':
         if subscription.status == 'paused':
@@ -184,6 +213,7 @@ def change_subscription_status(subscription, *, actor, status):
             subscription.cancellation_state = 'none'
     subscription.status = status
     subscription.save(update_fields=['status', 'renewal_date', 'updated_at', 'pause_from', 'resume_on', 'cancellation_state'])
+    log_activity(actor, subscription, 'subscription.status.changed', {'status': {'before': before_status, 'after': status}})
     if subscription.team_id:
         create_team_notifications(
             team=subscription.team,

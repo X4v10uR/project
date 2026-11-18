@@ -12,6 +12,7 @@ venv/
 
 # Media uploads
 media/
+private_media/
 
 # Static files (if collected)
 staticfiles/
@@ -27,5 +28,7 @@ db.sqlite3-*
 # Frontend dependencies/build artifacts
 node_modules/
 /subscription_manager_frontend/dist/
+/subscription_manager_frontend/test-results/
+/subscription_manager_frontend/playwright-report/
 
 *.log

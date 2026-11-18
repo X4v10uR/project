@@ -174,6 +174,9 @@ def invite_accept(request, token):
 @login_required
 @never_cache
 def team_subscription_password(request, team_id, subscription_id):
+    from finance.permissions import team_permission
+    if not team_permission(request.user, team_id, 'credentials'):
+        return JsonResponse({'ok': False, 'message': 'Your team role cannot reveal credentials.'}, status=403)
     if request.method != 'POST':
         return JsonResponse({'ok': False, 'message': 'POST required.'}, status=405)
     team = flows.get_team_or_404_for_user(request.user, team_id)

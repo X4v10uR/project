@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Camera, CreditCard, KeyRound, SlidersHorizontal, Trash2, UserRound } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { AvatarPicker, type SavedAvatar } from './AvatarPicker'
 import { SecuritySettings } from './SecuritySettings'
@@ -125,6 +125,7 @@ export function SettingsPage() {
         </nav>
         <section aria-labelledby="settings-section" className={panelClass}>
           <h2 id="settings-section" className="mb-5 text-xl font-bold">{active?.title}</h2>
+          <div className="mb-4 flex flex-wrap gap-3"><Link className={secondaryClass} to="/planning/alerts/">Notification preferences</Link><Link className={secondaryClass} to="/planning/connections/">Connected accounts</Link><Link className={secondaryClass} to="/planning/data/">Backup & restore</Link></div>
           <div className="grid gap-3">
             <ErrorMessage message={error} />
             <StatusMessage message={notice} />

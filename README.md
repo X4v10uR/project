@@ -95,7 +95,7 @@ In **Settings → Security**, verify your current password to set up optional au
 
 Stored provider credentials require recent password verification, hide after one minute in the frontend, and are never included in normal subscription responses or CSV exports. The security activity list records sign-ins, password/email changes, MFA changes, recovery-code use, and credential updates/reveals. MFA secrets use the configured account-password encryption key; recovery codes are stored as hashes. Retain that encryption key when upgrading. Install the updated requirements and run migrations before starting the app.
 
-Automatic receipt/invoice capture and bank transaction matching remain outside this release.
+Planning now includes connected-account discovery, private receipts, combined currency totals, detailed budgets, charge reports, live calendar subscriptions, notification preferences, portable backups, and subscription activity. Teams support Viewer and Accountant roles and separate Member credential access. See [finance setup](subscription_manager_backend/FINANCE_SETUP.md) for Plaid/Gmail credentials, optional image OCR, browser push, scheduling, and archive behavior.
 
 ## Notification delivery
 

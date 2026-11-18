@@ -18,6 +18,10 @@ import { SubscriptionsPage } from './subscriptions/SubscriptionsPage'
 import { MissingPage } from './MissingPage'
 import { InsightsPage, RenewalCalendarPage, ReviewInboxPage, SettlementsPage } from './subscriptions/PlanningPages'
 import { QuickAddPage } from './subscriptions/QuickAddPage'
+import { ActivityPage, BudgetsPage, ReceiptsPage, ReportsPage } from './finance/FinancePages'
+import { ConnectionsPage } from './finance/ConnectionsPage'
+import { NotificationSettingsPage } from './finance/NotificationSettings'
+import { DataPage } from './finance/DataPage'
 
 function Brand() {
   return (
@@ -209,6 +213,13 @@ export function App() {
           <Route path="planning/calendar/" element={<RenewalCalendarPage />} />
           <Route path="planning/review/" element={<ReviewInboxPage />} />
           <Route path="planning/settlements/" element={<SettlementsPage />} />
+          <Route path="planning/budgets/" element={<BudgetsPage />} />
+          <Route path="planning/receipts/" element={<ReceiptsPage />} />
+          <Route path="planning/reports/" element={<ReportsPage />} />
+          <Route path="planning/connections/" element={<ConnectionsPage />} />
+          <Route path="planning/alerts/" element={<NotificationSettingsPage />} />
+          <Route path="planning/data/" element={<DataPage />} />
+          <Route path="planning/activity/" element={<ActivityPage />} />
           <Route path="subscriptions/import/" element={<ImportPage />} />
           <Route path="subscriptions/:id/edit/" element={<SubscriptionFormPage />} />
           <Route path="subscriptions/cards/" element={<CardsPage />} />

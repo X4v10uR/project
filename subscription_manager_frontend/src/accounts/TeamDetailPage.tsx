@@ -14,6 +14,7 @@ type Member = {
   user_id: number
   email: string
   role: Role
+  can_view_credentials: boolean
   avatar_url: string
   avatar_background_color: string
 }
@@ -29,6 +30,7 @@ type Team = {
   id: number
   name: string
   role: Role
+  can_view_credentials: boolean
   accent_color: string
   subscriptions: TeamSubscription[]
   members: Member[]
@@ -54,11 +56,11 @@ function SubscriptionCard({ subscription, team }: { subscription: TeamSubscripti
         <div className="flex flex-wrap items-center justify-between gap-2">
           <dt className="font-semibold">Password</dt>
           <dd className="flex flex-wrap items-center gap-2 text-zinc-700">
-            {subscription.has_password ? (
+            {subscription.has_password && team.can_view_credentials ? (
               <>
                 <CredentialReveal url={`/api/accounts/teams/${team.id}/subscriptions/${subscription.id}/password/`} />
               </>
-            ) : 'Not set'}
+            ) : subscription.has_password ? 'Restricted by team permissions' : 'Not set'}
           </dd>
         </div>
       </dl>
@@ -94,7 +96,7 @@ export function TeamDetailPage() {
     return () => { active = false }
   }, [endpoint, incomingNotice])
 
-  async function action(path: string, method: 'POST' | 'DELETE', success: string, options?: {
+  async function action(path: string, method: 'POST' | 'DELETE' | 'PATCH', success: string, options?: {
     data?: Record<string, FormDataEntryValue>
     returnToTeams?: boolean
     resetForm?: HTMLFormElement
@@ -145,7 +147,7 @@ export function TeamDetailPage() {
             <span className="grid size-12 shrink-0 place-items-center rounded-xl" style={{ backgroundColor: team.accent_color }}><UsersRound size={22} aria-hidden /></span>
             <h1 className="break-words text-3xl font-bold tracking-tight">{team.name}</h1>
           </div>
-          <Link className={primaryClass} to={'/subscriptions/add/?team=' + team.id}><Plus size={18} aria-hidden />{isOwner ? 'Add subscription' : 'Create request'}</Link>
+          {(isOwner || team.role === 'member') && <Link className={primaryClass} to={'/subscriptions/add/?team=' + team.id}><Plus size={18} aria-hidden />{isOwner ? 'Add subscription' : 'Create request'}</Link>}
         </header>
         <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="grid gap-5">
@@ -185,15 +187,17 @@ export function TeamDetailPage() {
           <aside className="grid gap-4">
             <section className={panelClass}>
               <h2 className="mb-4 text-lg font-bold">Members <span className="ml-1 rounded-full bg-zinc-100 px-2 py-1 text-xs">{team.members.length}</span></h2>
+              <p className="mb-3 text-xs text-zinc-500">Viewers read subscriptions. Accountants manage payments, receipts and budgets. Members can request subscriptions; owners manage the team.</p>
               <ul className="grid gap-3">
                 {team.members.map((member) => (
-                  <li key={member.id} className="flex items-center gap-2">
+                  <li key={member.id} className="flex flex-wrap items-center gap-2">
                     <span className="grid size-9 shrink-0 place-items-center rounded-lg" style={{ backgroundColor: member.avatar_background_color }}>
                       {member.avatar_url ? <img src={member.avatar_url} alt="" className="size-full rounded-lg object-contain" /> : <UsersRound size={17} aria-hidden />}
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="break-all text-sm font-semibold">{member.email}</p>
                       <p className="text-xs text-zinc-600 capitalize">{member.role}{member.user_id === user?.id && ' · You'}</p>
+                      {isOwner && <form key={member.role + String(member.can_view_credentials)} className="mt-2 grid gap-2" onSubmit={event => { event.preventDefault(); const fields = formData(event.currentTarget); void action(endpoint + 'members/' + member.id + '/', 'PATCH', 'Permissions updated.', { data: { role: fields.role, can_view_credentials: fields.can_view_credentials ? 'true' : 'false' } }) }}><label className="text-xs">Role for {member.email}<select name="role" className={fieldClass} defaultValue={member.role}><option value="owner">Owner</option><option value="member">Member</option><option value="viewer">Viewer</option><option value="accountant">Accountant</option></select></label><label className="flex items-center gap-2 text-xs"><input name="can_view_credentials" type="checkbox" defaultChecked={member.can_view_credentials && member.role === 'member'} />Allow stored credentials for Member role</label><button className={secondaryClass} disabled={saving}>Save permissions</button></form>}
                     </div>
                     {isOwner && member.role !== 'owner' && member.user_id !== user?.id && (
                       <button className="shrink-0 rounded px-1 text-xs font-semibold text-red-700 hover:underline disabled:opacity-50" type="button" disabled={saving} onClick={() => {
@@ -211,7 +215,7 @@ export function TeamDetailPage() {
                 <h2 className="mb-3 text-lg font-bold">Invite member</h2>
                 <form className="grid gap-3" onSubmit={onInvite}>
                   <Field label="Email"><input name="email" type="email" placeholder="member@example.com" required className={fieldClass} /></Field>
-                  <Field label="Role"><select name="role" className={fieldClass} defaultValue="member"><option value="member">Member</option><option value="owner">Owner</option></select></Field>
+                  <Field label="Role"><select name="role" className={fieldClass} defaultValue="member"><option value="member">Member</option><option value="owner">Owner</option><option value="viewer">Viewer</option><option value="accountant">Accountant</option></select></Field>
                   <button className={primaryClass} disabled={saving}>Send invite</button>
                 </form>
               </section>

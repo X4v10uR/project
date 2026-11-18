@@ -148,9 +148,13 @@ class Team(models.Model):
 class TeamMembership(models.Model):
     ROLE_OWNER = 'owner'
     ROLE_MEMBER = 'member'
+    ROLE_VIEWER = 'viewer'
+    ROLE_ACCOUNTANT = 'accountant'
     ROLE_CHOICES = [
         (ROLE_OWNER, 'Owner'),
         (ROLE_MEMBER, 'Member'),
+        (ROLE_VIEWER, 'Viewer'),
+        (ROLE_ACCOUNTANT, 'Accountant'),
     ]
 
     team = models.ForeignKey(
@@ -164,6 +168,7 @@ class TeamMembership(models.Model):
         related_name='team_memberships',
     )
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_MEMBER)
+    can_view_credentials = models.BooleanField(default=True)
     invited_by = models.ForeignKey(
         'accounts.User',
         on_delete=models.SET_NULL,

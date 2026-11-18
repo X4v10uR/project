@@ -90,6 +90,11 @@ def main():
 
         if not args.dry_run:
             check_budgets()
+            from django.core.management import call_command
+            try:
+                call_command('sync_finance')
+            except Exception:
+                logger.exception('Finance sync needs attention; renewal processing will continue.')
 
         # Then send notifications based on per-subscription offsets.
         results = NotificationService.send_batch_notifications(

@@ -105,6 +105,7 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
       </div>
       {pending && <p className="rounded-xl bg-indigo-50 p-3 text-sm text-indigo-800">A team owner must approve your subscription request. A payment card and password can be added after approval.</p>}
       <ErrorBanner message={error} />
+      {subscription && <div className="mb-4 flex flex-wrap gap-3"><Link className={buttonClass} to={`/planning/receipts/?subscription=${subscription.id}`}>Receipts & invoices</Link><Link className={buttonClass} to={`/planning/activity/?subscription=${subscription.id}`}>Change history</Link></div>}
 
       {!subscription && <Link className="text-sm font-semibold text-indigo-700 underline" to={`/subscriptions/quick-add/${teamId ? `?team=${teamId}` : ''}`}>Only need the essentials? Use quick add</Link>}
       <section className={`${panelClass} grid gap-4`}>

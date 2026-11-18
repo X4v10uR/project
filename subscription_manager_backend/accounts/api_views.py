@@ -122,6 +122,9 @@ class SignupView(PublicAccountView):
 
 class LogoutView(PublicAccountView):
     def post(self, request):
+        if request.user.is_authenticated:
+            from finance.models import PushSubscription
+            PushSubscription.objects.filter(user=request.user, session_key=request.session.session_key).delete()
         logout(request)
         return Response(status=204)
 
@@ -277,6 +280,7 @@ class TeamDetailView(AccountView):
             'id': team.pk,
             'name': team.name,
             'role': data['membership'].role,
+            'can_view_credentials': data['membership'].role == 'owner' or (data['membership'].role == 'member' and data['membership'].can_view_credentials),
             'accent_color': data['team_accent_color'],
             'subscriptions': [team_subscription(sub) for sub in data['team_subscriptions']],
             'members': [
@@ -285,6 +289,7 @@ class TeamDetailView(AccountView):
                     'user_id': member.user_id,
                     'email': member.user.email,
                     'role': member.role,
+                    'can_view_credentials': member.can_view_credentials,
                     'avatar_url': member.user.avatar_url,
                     'avatar_background_color': member.user.avatar_background_color,
                 }
@@ -307,6 +312,33 @@ class TeamDetailView(AccountView):
 
 
 class TeamMemberView(AccountView):
+    def patch(self, request, team_id, membership_id):
+        from django.db import transaction
+        from django.shortcuts import get_object_or_404
+        from .models import TeamMembership
+        from finance.permissions import require_team
+        from finance.models import Activity
+        require_team(request.user, team_id, 'manage')
+        data = payload(request)
+        from rest_framework import serializers
+        role = serializers.ChoiceField(choices=TeamMembership.ROLE_CHOICES).run_validation(data.get('role'))
+        credentials = serializers.BooleanField().run_validation(data.get('can_view_credentials', False))
+        with transaction.atomic():
+            # Serialize owner changes with other member edits on this team.
+            from .models import Team
+            Team.objects.select_for_update().get(pk=team_id)
+            require_team(request.user, team_id, 'manage')
+            member = get_object_or_404(TeamMembership, team_id=team_id, pk=membership_id)
+            if member.role == 'owner' and role != 'owner' and TeamMembership.objects.filter(team_id=team_id, role='owner').count() == 1:
+                raise ValidationError('Keep at least one team owner.')
+            old = member.role
+            member.role = role
+            member.can_view_credentials = credentials if role == 'member' else role == 'owner'
+            member.save(update_fields=['role', 'can_view_credentials'])
+            Activity.objects.create(owner=request.user, user=request.user, team_id=team_id, action='member.permissions.changed',
+                changes={'member': member.user.email, 'role': {'before': old, 'after': role}, 'can_view_credentials': member.can_view_credentials})
+        return Response({'role': member.role, 'can_view_credentials': member.can_view_credentials})
+
     def delete(self, request, team_id, membership_id):
         team = flows.get_team_or_404_for_user(request.user, team_id)
         message = flows.remove_team_member(team=team, membership_id=membership_id, actor=request.user)
@@ -332,6 +364,8 @@ class TeamInviteView(AccountView):
 class TeamSubscriptionPasswordView(AccountView):
     def post(self, request, team_id, subscription_id):
         team = flows.get_team_or_404_for_user(request.user, team_id)
+        from finance.permissions import require_team
+        require_team(request.user, team_id, 'credentials')
         require_recent(request)
         password = flows.reveal_team_subscription_password(team=team, subscription_id=subscription_id)
         audit(request.user, 'credentials.revealed', f'Subscription {subscription_id}')

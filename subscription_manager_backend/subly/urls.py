@@ -28,6 +28,7 @@ urlpatterns = [
     path('api/accounts/', include('accounts.api_urls')),
     path('api/subscriptions/', include('subscriptions.api_urls')),
     path('api/dashboard/', include('dashboard.api_urls')),
+    path('api/finance/', include('finance.urls')),
     path('accounts/', include('accounts.urls')),
     path('subscriptions/', include('subscriptions.urls')),
     path('dashboard/balance-stats/', dashboard_views.balance_stats_page, name='balance_stats'),

@@ -90,7 +90,7 @@ export function HistoryPage() {
 
   return (
     <section className="mx-auto grid max-w-5xl gap-5 px-4 py-6 sm:px-6">
-      <h1 className="text-3xl font-bold tracking-tight">Charge history</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-3xl font-bold tracking-tight">Charge history</h1><Link className={buttonClass} to={`/planning/reports/?${query}`}>Export charge history</Link></div>
       <form key={query} className={`${panelClass} grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-5`} onSubmit={filter}>
         <Field label="Scope"><select className={inputClass} name="scope" defaultValue={params.get('scope') || 'personal'}><option value="personal">Personal</option><option value="teams">My teams</option></select></Field>
         <Field label="Service"><input className={inputClass} name="service" type="search" maxLength={100} defaultValue={params.get('service') || ''} /></Field>
@@ -114,7 +114,7 @@ export function HistoryPage() {
             <thead className="border-b text-slate-600"><tr><th className="p-2">Date</th><th className="p-2">Service</th><th className="p-2">Source</th><th className="p-2 text-right">Your amount</th><th className="p-2">Payment status</th></tr></thead>
             <tbody className="divide-y divide-slate-100">{current.data.results.map((charge) => <tr key={charge.id}>
               <td className="p-2"><time dateTime={charge.date}>{displayDate(charge.date)}</time></td>
-              <td className="p-2 font-semibold">{charge.service}{charge.team && <span className="block text-xs font-normal">{charge.team}</span>}</td>
+              <td className="p-2 font-semibold">{charge.service}{charge.team && <span className="block text-xs font-normal">{charge.team}</span>}<Link className="mt-1 block text-xs font-medium text-indigo-700 underline" to={`/planning/receipts/?charge=${charge.id}`}>Receipts</Link></td>
               <td className="p-2">Scheduled renewal</td>
               <td className="whitespace-nowrap p-2 text-right font-semibold">{currencyAmount(charge.amount, charge.currency)} <small>{charge.currency}</small></td>
               <td className="p-2"><ChargeControls charge={charge} reload={() => setRetry((value) => value + 1)} /></td>

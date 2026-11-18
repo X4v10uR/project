@@ -9,3 +9,7 @@ cryptography>=46.0.1
 pyotp>=2.9,<3
 channels==4.1.0
 channels-redis==4.2.0
+requests>=2.32,<3
+pypdf>=6,<7
+reportlab>=4.4,<5
+pywebpush>=2.0,<3

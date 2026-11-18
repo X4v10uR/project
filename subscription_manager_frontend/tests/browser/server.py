@@ -13,10 +13,12 @@ with TemporaryDirectory(prefix='subly-browser-') as directory:
     os.environ.update(
         DJANGO_SETTINGS_MODULE='subly.settings', SECRET_KEY='isolated-browser-test-key',
         DATABASE_URL=f'sqlite:///{Path(directory).as_posix()}/browser.sqlite3',
-        MEDIA_ROOT=directory, DEBUG='False', ALLOWED_HOSTS='127.0.0.1,localhost',
+        MEDIA_ROOT=directory, PRIVATE_MEDIA_ROOT=str(Path(directory) / 'private'), DEBUG='False', ALLOWED_HOSTS='127.0.0.1,localhost',
         SITE_URL='http://127.0.0.1:14183', EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
         REDIS_URL='', CSRF_COOKIE_SECURE='False', SESSION_COOKIE_SECURE='False',
         SECURE_SSL_REDIRECT='False', ACCOUNT_PASSWORD_ENCRYPTION_KEY='',
+        PLAID_CLIENT_ID='', PLAID_SECRET='', GMAIL_CLIENT_ID='', GMAIL_CLIENT_SECRET='',
+        VAPID_PUBLIC_KEY='', VAPID_PRIVATE_KEY='', TESSERACT_CMD='',
     )
     import django
     django.setup()

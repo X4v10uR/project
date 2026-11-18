@@ -164,6 +164,7 @@ test('quick add, schedule a price change, review duplicates, and export the cale
   await page.getByRole('checkbox', { name: 'Select Spotify' }).check()
   await expect(page.getByText('Monthly commitment reduced by: $12.00')).toBeVisible()
   await page.getByRole('button', { name: 'Pause selected', exact: true }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Paused tracking for 1 subscription.' })).toBeVisible()
   await page.goto('/subscriptions/')
   await page.getByRole('button', { name: /Spotify/ }).click()
   await expect(page.getByRole('dialog', { name: 'Spotify' }).getByRole('combobox', { name: 'Status' })).toHaveValue('paused')

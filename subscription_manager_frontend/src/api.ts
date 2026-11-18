@@ -49,3 +49,15 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   }
   return data as T
 }
+
+export async function downloadFile(path: string, filename: string, init?: RequestInit) {
+  const headers = new Headers(init?.headers)
+  const token = csrfToken()
+  if (token) headers.set('X-CSRFToken', token)
+  const response = await fetch(path, { credentials: 'same-origin', ...init, headers })
+  if (!response.ok) throw new ApiError(response.status, await response.json().catch(() => ({})))
+  const url = URL.createObjectURL(await response.blob())
+  const link = document.createElement('a')
+  link.href = url; link.download = filename; link.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}

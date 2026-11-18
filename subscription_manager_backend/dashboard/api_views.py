@@ -44,7 +44,7 @@ def charge_history(request):
     query.is_valid(raise_exception=True)
     filters = query.validated_data
     charges = charges_for_scope(request.user, filters['scope']).select_related('team').prefetch_related('shares')
-    owned_teams = set(request.user.team_memberships.filter(role=TeamMembership.ROLE_OWNER).values_list('team_id', flat=True))
+    owned_teams = set(request.user.team_memberships.filter(role__in=['owner', 'accountant']).values_list('team_id', flat=True))
     if filters.get('service'):
         charges = charges.filter(service_name_snapshot__icontains=filters['service'])
     if filters.get('start'):
@@ -74,7 +74,7 @@ def charge_history(request):
 def editable_charges(user):
     return Transaction.objects.filter(
         Q(user=user, team__isnull=True) |
-        Q(team__memberships__user=user, team__memberships__role=TeamMembership.ROLE_OWNER)
+        Q(team__memberships__user=user, team__memberships__role__in=['owner', 'accountant'])
     )
 
 
@@ -89,6 +89,9 @@ def charge_payment(request, pk):
     data.is_valid(raise_exception=True)
     charge.payment_status = data.validated_data['payment_status']
     charge.save(update_fields=['payment_status'])
+    if charge.subscription_id:
+        from finance.permissions import log_activity
+        log_activity(request.user, charge.subscription, 'payment.status.changed', {'charge': charge.pk, 'status': charge.payment_status})
     return Response({'payment_status': charge.payment_status})
 
 
@@ -110,6 +113,9 @@ def historical_share(request, pk):
     share, created = charge.shares.get_or_create(name=name, defaults={'amount': amount})
     if share.amount != amount:
         raise serializers.ValidationError({'name': 'A different share is already recorded for this name.'})
+    if created and charge.subscription_id:
+        from finance.permissions import log_activity
+        log_activity(request.user, charge.subscription, 'share.historical.added', {'name': name, 'amount': str(amount)})
     return Response({'id': share.pk}, status=201 if created else 200)
 
 
@@ -127,6 +133,9 @@ def charge_share(request, pk, share_id):
         raise serializers.ValidationError('This share has repayment records. Manage it under Settlements.')
     share.reimbursed = data.validated_data['reimbursed']
     share.save(update_fields=['reimbursed'])
+    if share.charge.subscription_id:
+        from finance.permissions import log_activity
+        log_activity(request.user, share.charge.subscription, 'share.reimbursement.changed', {'share': share.pk, 'reimbursed': share.reimbursed})
     return Response({'reimbursed': share.reimbursed})
 
 
@@ -205,7 +214,8 @@ def adjust_balance(request):
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def notifications(request):
-    recent = InAppNotification.objects.filter(recipient=request.user).select_related('team')[:50]
+    from django.db.models.functions import Coalesce
+    recent = InAppNotification.objects.filter(recipient=request.user).exclude(notificationdelivery__snoozed_until__gt=timezone.now()).annotate(latest=Coalesce('last_reminded_at', 'created_at')).order_by('-latest', '-pk').select_related('team')[:50]
     return Response({
         'notifications': [serialize_notification(notification) for notification in recent],
         'unread_count': notification_unread_count(request.user),

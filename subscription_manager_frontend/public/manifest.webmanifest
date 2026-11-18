@@ -1,0 +1,10 @@
+{
+  "name": "Subly Subscription Manager",
+  "short_name": "Subly",
+  "start_url": "/dashboard/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#edf1f6",
+  "theme_color": "#edf1f6",
+  "icons": [{ "src": "/subly-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 def notification_unread_count(user):
-    return InAppNotification.objects.filter(recipient=user, is_read=False).count()
+    from django.utils import timezone
+    return InAppNotification.objects.filter(recipient=user, is_read=False).exclude(notificationdelivery__snoozed_until__gt=timezone.now()).count()
 
 
 def serialize_notification(notification):
@@ -29,7 +30,7 @@ def serialize_notification(notification):
         "body": notification.body,
         "link_url": notification.link_url,
         "is_read": notification.is_read,
-        "created_at": notification.created_at.isoformat(),
+        "created_at": (notification.last_reminded_at or notification.created_at).isoformat(),
         "team": notification.team.name if notification.team_id else None,
         "subscription_id": notification.subscription_id,
     }
@@ -107,11 +108,8 @@ def _send_notification_email(notification):
 
 def _deliver_notification(notification, *, send_email_alert):
     push_created(notification)
-    if send_email_alert:
-        try:
-            _send_notification_email(notification)
-        except Exception:
-            logger.exception("Failed to send event notification email")
+    from finance.delivery import route_notification
+    route_notification(notification, send_email_alert)
 
 
 def create_notification(

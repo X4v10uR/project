@@ -1,0 +1,28 @@
+from django.urls import path
+from . import views, connections, delivery, backup
+
+urlpatterns = [
+    path('receipts/', views.receipts),
+    path('receipts/<int:pk>/', views.receipt_detail),
+    path('receipts/<int:pk>/file/', views.receipt_detail, {'download': True}),
+    path('budgets/', views.budgets),
+    path('budgets/<int:pk>/', views.budget_detail),
+    path('conversion/', views.conversion),
+    path('reports/', views.report),
+    path('calendar/feeds/', views.feeds),
+    path('calendar/<str:token>.ics', views.feed_calendar),
+    path('activity/', views.activity),
+    path('notifications/preferences/', delivery.preferences),
+    path('notifications/push/', delivery.push_subscriptions),
+    path('notifications/<int:pk>/snooze/', delivery.snooze),
+    path('backup/export/', backup.backup_export),
+    path('backup/restore/', backup.backup_restore),
+    path('connections/', connections.connections),
+    path('connections/<int:pk>/', connections.connection_detail),
+    path('connections/plaid/link/', connections.plaid_link),
+    path('connections/plaid/exchange/', connections.plaid_exchange),
+    path('connections/gmail/start/', connections.gmail_start),
+    path('connections/gmail/callback/', connections.gmail_callback),
+    path('discoveries/', connections.discoveries),
+    path('discoveries/<int:pk>/', connections.discovery_action),
+]

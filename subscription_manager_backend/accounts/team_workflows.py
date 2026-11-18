@@ -280,6 +280,8 @@ def create_subscription_from_request_payload(team_request, reviewer):
             ReminderOffset.objects.get_or_create(subscription=subscription, days_before=days)
 
     record_due_charge_for_subscription(subscription)
+    from finance.permissions import log_activity
+    log_activity(reviewer, subscription, 'subscription.request.approved', {'request_id': team_request.pk})
 
     team_request.status = TeamSubscriptionRequest.STATUS_APPROVED
     team_request.reviewed_by = reviewer

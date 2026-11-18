@@ -219,6 +219,8 @@ def review_action(request):
             sub.last_reviewed_on = timezone.localdate()
             sub.usage_rating = fields.get('usage_rating', sub.usage_rating)
             sub.save(update_fields=['last_reviewed_on', 'usage_rating'])
+            from finance.permissions import log_activity
+            log_activity(request.user, sub, 'subscription.reviewed', {'usage_rating': sub.usage_rating})
     return Response({'updated': len(subs)})
 
 
@@ -242,6 +244,8 @@ def price_changes(request, pk):
         if fields['effective_on'] < timezone.localdate() or (last and fields['effective_on'] <= last.effective_on):
             raise serializers.ValidationError('Choose today or a later date after the last recorded price change.')
         PriceChange.objects.create(subscription=sub, previous_cost=sub.regular_price_on(fields['effective_on']), **fields)
+        from finance.permissions import log_activity
+        log_activity(request.user, sub, 'subscription.price.scheduled', {'cost': str(fields['cost']), 'effective_on': str(fields['effective_on'])})
     return Response({'changes': [{'id': c.pk, 'previous_cost': amount(c.previous_cost), 'cost': amount(c.cost), 'effective_on': c.effective_on} for c in sub.price_changes.all()]}, status=201 if request.method == 'POST' else 200)
 
 
@@ -255,7 +259,7 @@ def settlements(request):
         charges = charges.filter(team__memberships__user=request.user)
     shares = ChargeShare.objects.filter(charge__in=charges).select_related('charge__user', 'charge__team', 'member').prefetch_related('repayments')
     groups = {}
-    owners = set(request.user.team_memberships.filter(role='owner').values_list('team_id', flat=True))
+    owners = set(request.user.team_memberships.filter(role__in=['owner', 'accountant']).values_list('team_id', flat=True))
     for share in shares:
         charge = share.charge
         key = (charge.team_id, charge.user_id, share.member_id or share.name.strip().casefold(), charge.currency)
@@ -291,4 +295,7 @@ def repay(request, pk):
     share.repaid_amount += value
     share.reimbursed = share.repaid_amount == share.amount
     share.save(update_fields=['repaid_amount', 'reimbursed'])
+    if share.charge.subscription_id:
+        from finance.permissions import log_activity
+        log_activity(request.user, share.charge.subscription, 'repayment.recorded', {'share': share.pk, 'amount': str(value)})
     return Response({'outstanding': amount(share.amount - share.repaid_amount)}, status=201)

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Bell } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
+import { SnoozeButton } from '../finance/NotificationSettings';
 
 const endpoint = '/api/dashboard/notifications/';
 const pagePath = '/dashboard/notifications/';
@@ -229,6 +230,7 @@ export function NotificationsPage() {
     <section className="mx-auto w-[calc(100%-2rem)] max-w-4xl rounded-3xl border border-slate-200 bg-white p-5 sm:p-7">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Notifications</h1>
+        <Link className="text-sm font-semibold text-indigo-700 underline" to="/planning/alerts/">Notification preferences</Link>
         <button className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50" disabled={saving || !data?.unread_count} onClick={() => void markRead()} type="button">
           Mark all as read
         </button>
@@ -247,6 +249,7 @@ export function NotificationsPage() {
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-sm font-semibold text-emerald-800">
               {item.link_url && <Link className="hover:underline" to={item.link_url}>Open</Link>}
               {!item.is_read && <button className="hover:underline disabled:opacity-50" disabled={saving} onClick={() => void markRead(item.id)} type="button">Mark as read</button>}
+              {!item.is_read && <SnoozeButton id={item.id} onSnooze={() => void refresh()} />}
             </div>
           </article>
         ))}

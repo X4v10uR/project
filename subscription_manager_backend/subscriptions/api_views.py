@@ -70,6 +70,8 @@ def _write_subscription(request, instance=None):
         return Response({'request_id': pending.pk, 'team': team.pk}, status=status.HTTP_202_ACCEPTED)
     if request.data.get('account_password'):
         audit(request.user, 'credentials.updated', f'Subscription {subscription.pk}')
+        from finance.permissions import log_activity
+        log_activity(request.user, subscription, 'credentials.updated')
     subscription.refresh_from_db()
     return Response(
         SubscriptionSerializer(subscription).data,
