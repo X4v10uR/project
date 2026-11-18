@@ -3,6 +3,7 @@ import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../accounts/auth'
+import { PriceChanges, UsageReview } from './PriceChanges'
 import {
   buttonClass, ErrorBanner, Field, inputClass, panelClass, primaryClass, showError,
   subscriptionApi, subscriptionPath, type Card, type Subscription,
@@ -17,6 +18,7 @@ interface Options {
   colors: string[]
   prefill: Partial<Pick<Subscription, 'service_name' | 'category' | 'billing_cycle' | 'plan_name'>>
   team: { id: number; name: string; can_create: boolean } | null
+  members: { user_id: number; email: string }[]
 }
 
 function localDate() {
@@ -36,7 +38,7 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
   const [remindersEnabled, setRemindersEnabled] = useState(subscription?.reminders_enabled ?? true)
   const [offsets, setOffsets] = useState<number[]>(subscription?.reminder_offsets ?? [])
   const [offsetInput, setOffsetInput] = useState(String(options.default_reminder_offset))
-  const [participants, setParticipants] = useState(() => (subscription?.participants ?? []).map((person, id) => ({ id, name: person.name, share: person.share_amount ?? '' })))
+  const [participants, setParticipants] = useState(() => (subscription?.participants ?? []).map((person, id) => ({ id, name: person.name, share: person.share_amount ?? '', member_id: person.member_id ?? null as number | null })))
   const [nextParticipantId, setNextParticipantId] = useState(participants.length)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -47,7 +49,7 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
   const currency = subscription?.currency ?? (/^[A-Za-z]{3}$/.test(preferredCurrency) ? preferredCurrency : 'USD')
 
   function addParticipant() {
-    setParticipants((people) => [...people, { id: nextParticipantId, name: '', share: '' }])
+    setParticipants((people) => [...people, { id: nextParticipantId, name: '', share: '', member_id: null }])
     setNextParticipantId((id) => id + 1)
   }
 
@@ -75,7 +77,7 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
       split_type: split,
       reminders_enabled: remindersEnabled,
       reminder_offsets: offsets,
-      participants: shared ? participants.map(({ name, share }) => ({ name, share: split === 'custom' ? share || '0' : '0' })) : [],
+      participants: shared ? participants.map(({ name, share, member_id }) => ({ name, member_id, share: split === 'custom' ? share || '0' : '0' })) : [],
     }
 
     try {
@@ -104,6 +106,7 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
       {pending && <p className="rounded-xl bg-indigo-50 p-3 text-sm text-indigo-800">A team owner must approve your subscription request. A payment card and password can be added after approval.</p>}
       <ErrorBanner message={error} />
 
+      {!subscription && <Link className="text-sm font-semibold text-indigo-700 underline" to={`/subscriptions/quick-add/${teamId ? `?team=${teamId}` : ''}`}>Only need the essentials? Use quick add</Link>}
       <section className={`${panelClass} grid gap-4`}>
         <h2 className="text-lg font-bold">Subscription details</h2>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -130,6 +133,8 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
           <Field label="Currency code"><input name="currency" className={inputClass} maxLength={3} pattern="[A-Za-z]{3}" required defaultValue={currency} /></Field>
           <Field label="Billing cycle"><select className={inputClass} name="billing_cycle" defaultValue={subscription?.billing_cycle ?? options.prefill.billing_cycle ?? 'monthly'}>{options.cycles.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
           <Field label="Start date"><input type="date" name="start_date" className={inputClass} required defaultValue={subscription?.start_date ?? localDate()} /></Field>
+          <Field label="Trial ends (first paid date)"><input type="date" name="trial_end_date" className={inputClass} defaultValue={subscription?.trial_end_date ?? ''} /></Field>
+          <Field label="Cancel by"><input type="date" name="cancel_by_date" className={inputClass} defaultValue={subscription?.cancel_by_date ?? ''} /></Field>
           <Field label="Renewal time"><input type="time" name="renewal_time" className={inputClass} defaultValue={subscription?.renewal_time?.slice(0, 5) ?? '15:00'} /></Field>
           {!pending && <Field label="Payment card">
             <select name="card" className={inputClass} defaultValue={subscription?.card ?? ''}>
@@ -141,8 +146,10 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
         </div>
       </section>
 
-      <section className={`${panelClass} grid gap-4`}>
-        <h2 className="text-lg font-bold">Sharing</h2>
+      <details className={panelClass} open={Boolean(subscription?.pause_from || subscription?.introductory_until)}><summary className="cursor-pointer text-lg font-bold">Introductory price and scheduled pause</summary><div className="mt-4 grid gap-4 sm:grid-cols-2"><Field label="Introductory full price"><input className={inputClass} name="introductory_cost" type="number" min="0" step="0.01" defaultValue={subscription?.introductory_cost ?? ''} /></Field><Field label="Regular price starts on"><input className={inputClass} name="introductory_until" type="date" defaultValue={subscription?.introductory_until ?? ''} /></Field><Field label="Pause from"><input className={inputClass} name="pause_from" type="date" defaultValue={subscription?.pause_from ?? ''} /></Field><Field label="Resume on"><input className={inputClass} name="resume_on" type="date" defaultValue={subscription?.resume_on ?? ''} /></Field></div><p className="mt-3 text-sm text-slate-500">Paused periods skip scheduled charges. The original billing cadence resumes on or after the resume date. Arrange pauses with the provider.</p></details>
+      <details className={panelClass} open={Boolean(subscription?.cancellation_state && subscription.cancellation_state !== 'none')}><summary className="cursor-pointer text-lg font-bold">Cancellation workflow</summary><p className="mt-3 text-sm text-slate-600">Use your provider’s cancellation page, then track your request and confirmation here. Billing continues until confirmation.</p><div className="mt-4 grid gap-4 sm:grid-cols-2"><Field label="Provider cancellation link"><input className={inputClass} name="cancellation_url" type="url" placeholder="https://…" defaultValue={subscription?.cancellation_url ?? ''} /></Field><Field label="Cancellation progress"><select className={inputClass} name="cancellation_state" defaultValue={subscription?.cancellation_state ?? 'none'}><option value="none">Not requested</option><option value="requested">Requested — awaiting confirmation</option><option value="confirmed">Confirmed — stop tracking charges</option></select></Field><Field label="Access continues until"><input className={inputClass} name="access_until" type="date" defaultValue={subscription?.access_until ?? ''} /></Field></div><div className="mt-4"><Field label="Confirmation notes"><textarea className={inputClass} name="cancellation_notes" rows={3} defaultValue={subscription?.cancellation_notes ?? ''} /></Field></div>{subscription?.cancellation_url && <a className={`${buttonClass} mt-3`} href={subscription.cancellation_url} target="_blank" rel="noreferrer">Open provider cancellation page ↗</a>}</details>
+      <details className={panelClass} open={shared}>
+        <summary className="cursor-pointer text-lg font-bold">Sharing (optional)</summary><div className="mt-4 grid gap-4">
         <label className="flex gap-3 text-sm font-medium"><input type="checkbox" className="size-4 accent-indigo-600" checked={shared} onChange={(event) => { setShared(event.target.checked); if (event.target.checked && participants.length === 0) addParticipant() }} /> Split the cost with others</label>
         {shared && (
           <>
@@ -151,6 +158,7 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
               {participants.map((participant, index) => (
                 <div className="flex items-end gap-2" key={participant.id}>
                   <div className="min-w-0 flex-1"><Field label={`Participant ${index + 1}`}><input className={inputClass} value={participant.name} required maxLength={100} onChange={(event) => updateParticipant(participant.id, 'name', event.target.value)} /></Field></div>
+                  {teamId && <div className="min-w-0 flex-1"><Field label="Team member"><select className={inputClass} value={participant.member_id ?? ''} onChange={event => { const member = options.members.find(m => m.user_id === Number(event.target.value)); setParticipants(people => people.map(p => p.id === participant.id ? { ...p, member_id: member?.user_id ?? null, name: member?.email ?? p.name } : p)) }}><option value="">External participant</option>{options.members.filter(m => m.user_id !== user?.id).map(member => <option key={member.user_id} value={member.user_id}>{member.email}</option>)}</select></Field></div>}
                   {split === 'custom' && <div className="w-20 sm:w-28"><Field label="Share"><input className={inputClass} type="number" min="0" step="0.01" value={participant.share} onChange={(event) => updateParticipant(participant.id, 'share', event.target.value)} /></Field></div>}
                   <button type="button" className={buttonClass} aria-label={`Remove participant ${index + 1}`} onClick={() => setParticipants((people) => people.filter((person) => person.id !== participant.id))}><Trash2 size={16} /></button>
                 </div>
@@ -159,33 +167,31 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
             <button type="button" className={`${buttonClass} w-fit gap-2`} onClick={addParticipant}><Plus size={16} /> Add participant</button>
           </>
         )}
-      </section>
+      </div></details>
 
-      <section className={`${panelClass} grid gap-4`}>
-        <h2 className="text-lg font-bold">Renewal reminders</h2>
-        <label className="flex gap-3 text-sm font-medium"><input type="checkbox" className="size-4 accent-indigo-600" checked={remindersEnabled} onChange={(event) => setRemindersEnabled(event.target.checked)} /> Enable renewal reminders</label>
+      <details className={panelClass}><summary className="cursor-pointer text-lg font-bold">Renewal and deadline reminders (optional)</summary><div className="mt-4 grid gap-4">
+        <label className="flex gap-3 text-sm font-medium"><input type="checkbox" className="size-4 accent-indigo-600" checked={remindersEnabled} onChange={(event) => setRemindersEnabled(event.target.checked)} /> Remind me before renewals and cancellation deadlines</label>
         {remindersEnabled && (
           <>
             <div className="flex flex-wrap items-end gap-2">
-              <Field label="Days before renewal"><input className={inputClass} type="number" value={offsetInput} onChange={(event) => setOffsetInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addOffset() } }} /></Field>
+              <Field label="Days before renewal or deadline"><input className={inputClass} type="number" value={offsetInput} onChange={(event) => setOffsetInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addOffset() } }} /></Field>
               <button type="button" className={buttonClass} onClick={addOffset} disabled={!Number.isInteger(Number(offsetInput)) || Number(offsetInput) < 1 || Number(offsetInput) > 30 || offsets.includes(Number(offsetInput))}>Add reminder</button>
             </div>
             <div className="flex flex-wrap gap-2">
               {[...offsets].sort((a, b) => a - b).map((days) => <button type="button" key={days} className="rounded-full bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-800 hover:bg-indigo-100" aria-label={`Remove ${days}-day reminder`} onClick={() => setOffsets((current) => current.filter((day) => day !== days))}>{days} {days === 1 ? 'day' : 'days'} before ×</button>)}
-              {offsets.length === 0 && <p className="text-sm text-slate-600">Default reminder {options.default_reminder_offset} {options.default_reminder_offset === 1 ? 'day' : 'days'} before renewal.</p>}
+              {offsets.length === 0 && <p className="text-sm text-slate-600">Default reminder {options.default_reminder_offset} {options.default_reminder_offset === 1 ? 'day' : 'days'} before each renewal or deadline.</p>}
             </div>
           </>
         )}
-      </section>
+      </div></details>
 
-      <section className={`${panelClass} grid gap-4`}>
-        <h2 className="text-lg font-bold">Account and notes</h2>
+      <details className={panelClass}><summary className="cursor-pointer text-lg font-bold">Account and notes (optional)</summary><div className="mt-4 grid gap-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Account email"><input type="email" autoComplete="off" name="account_email" className={inputClass} maxLength={255} defaultValue={subscription?.account_email ?? ''} /></Field>
           {!pending && <Field label="Account password"><input type="password" autoComplete="new-password" name="account_password" className={inputClass} placeholder={subscription?.has_password ? 'Leave blank to keep current password' : ''} /></Field>}
         </div>
         <Field label="Notes"><textarea name="notes" className={inputClass} rows={3} defaultValue={subscription?.notes ?? ''} /></Field>
-      </section>
+      </div></details>
       <div className="flex flex-wrap justify-end gap-2">
         <Link className={buttonClass} to={backPath}>Cancel</Link>
         <button disabled={saving} className={primaryClass}>{saving ? 'Saving…' : pending ? 'Submit request' : 'Save subscription'}</button>
@@ -231,7 +237,7 @@ export function SubscriptionFormPage() {
     <section className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:py-8">
       <ErrorBanner message={error} />
       {!error && loaded?.key !== requestKey && <p role="status" className="text-sm text-slate-600">Loading subscription form…</p>}
-      {loaded?.key === requestKey && <SubscriptionEditor key={requestKey} options={loaded.options} subscription={loaded.subscription} />}
+      {loaded?.key === requestKey && <><SubscriptionEditor key={requestKey} options={loaded.options} subscription={loaded.subscription} />{loaded.subscription && <><PriceChanges id={loaded.subscription.id} currency={loaded.subscription.currency} /><UsageReview id={loaded.subscription.id} initialRating={loaded.subscription.usage_rating} lastReviewed={loaded.subscription.last_reviewed_on} /></>}</>}
     </section>
   )
 }

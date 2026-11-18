@@ -8,7 +8,7 @@ type Row = {
   cost?: string; currency?: string; cycle?: string; start?: string
 }
 type Preview = { rows: Row[]; imported: number }
-const template = 'Service Name,Plan Name,Category,Billing Cycle,Currency,Total Cost,Start Date\r\nMusic,Individual,Music,monthly,USD,9.99,2026-01-31\r\n'
+const template = 'Service Name,Plan Name,Category,Billing Cycle,Currency,Total Cost,Start Date,Trial End Date,Cancel By Date\r\nMusic,Individual,Music,monthly,USD,9.99,2026-01-31,,\r\n'
 
 export function ImportPage() {
   const navigate = useNavigate()

@@ -42,6 +42,9 @@ TIMEZONE_CHOICES = tuple(sorted(available_timezones()))
 def account_settings(request):
     profile_form = ProfileSettingsForm(instance=request.user)
     billing_form = BillingSettingsForm(instance=request.user)
+    billing_form.initial.update(subscription_plan='free', plan_status='active', plan_renews_on=None)
+    for field in billing_form.fields.values():
+        field.disabled = True
     preferences_form = PreferencesSettingsForm(instance=request.user)
     delete_form = AccountDeletionForm(user=request.user)
     password_form_class = PasswordChangeForm if request.user.has_usable_password() else SetPasswordForm
@@ -59,10 +62,7 @@ def account_settings(request):
                 return redirect(f"{reverse('accounts:settings')}?updated=profile")
 
         if form_type == 'billing':
-            billing_form = BillingSettingsForm(request.POST, instance=request.user)
-            if billing_form.is_valid():
-                billing_form.save()
-                return redirect(f"{reverse('accounts:settings')}?updated=billing")
+            return JsonResponse({'detail': 'Subly is free. Plan details are read-only.'}, status=403)
 
         if form_type == 'preferences':
             preferences_form = PreferencesSettingsForm(request.POST, instance=request.user)

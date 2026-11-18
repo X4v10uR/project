@@ -355,7 +355,8 @@ def build_subscription_csv(request):
             'Renewal Date',
             'Renewal Time',
             'Notes',
-            'Split Type', 'Participant Shares', 'Reminders Enabled', 'Reminder Offsets', 'Display Color',
+            'Split Type', 'Participant Shares', 'Reminders Enabled', 'Reminder Offsets', 'Display Color', 'Trial End Date', 'Cancel By Date',
+            'Cancellation Url', 'Cancellation State', 'Cancellation Notes', 'Access Until', 'Pause From', 'Resume On', 'Introductory Cost', 'Introductory Until',
         ]
     )
 
@@ -389,7 +390,10 @@ def build_subscription_csv(request):
                             for person in subscription.participants.all()]),
                 'Yes' if subscription.reminders_enabled else 'No',
                 ','.join(str(offset.days_before) for offset in subscription.offsets.all()),
-                subscription.display_color,
+                subscription.display_color, subscription.trial_end_date or '', subscription.cancel_by_date or '',
+                _sanitize_csv_cell(subscription.cancellation_url), subscription.cancellation_state,
+                _sanitize_csv_cell(subscription.cancellation_notes), subscription.access_until or '', subscription.pause_from or '', subscription.resume_on or '',
+                str(subscription.introductory_cost) if subscription.introductory_cost is not None else '', subscription.introductory_until or '',
             ]
         )
 

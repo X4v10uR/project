@@ -16,6 +16,8 @@ import { CardsPage } from './subscriptions/CardsPage'
 import { SubscriptionFormPage } from './subscriptions/SubscriptionFormPage'
 import { SubscriptionsPage } from './subscriptions/SubscriptionsPage'
 import { MissingPage } from './MissingPage'
+import { InsightsPage, RenewalCalendarPage, ReviewInboxPage, SettlementsPage } from './subscriptions/PlanningPages'
+import { QuickAddPage } from './subscriptions/QuickAddPage'
 
 function Brand() {
   return (
@@ -121,6 +123,7 @@ function AppLayout() {
     { label: 'Cards', to: '/subscriptions/cards/', active: inCards, icon: CreditCard },
     { label: 'Teams', to: '/accounts/teams/', active: path.startsWith('/accounts/teams/'), icon: UsersRound },
     { label: 'History', to: '/dashboard/history/', active: path === '/dashboard/history/', icon: ReceiptText },
+    { label: 'Planning', to: '/planning/insights/', active: path.startsWith('/planning/'), icon: ChartNoAxesCombined },
   ]
 
   async function signOut() {
@@ -201,6 +204,11 @@ export function App() {
           <Route path="dashboard/notifications/" element={<NotificationsPage />} />
           <Route path="subscriptions/" element={<SubscriptionsPage />} />
           <Route path="subscriptions/add/" element={<SubscriptionFormPage />} />
+          <Route path="subscriptions/quick-add/" element={<QuickAddPage />} />
+          <Route path="planning/insights/" element={<InsightsPage />} />
+          <Route path="planning/calendar/" element={<RenewalCalendarPage />} />
+          <Route path="planning/review/" element={<ReviewInboxPage />} />
+          <Route path="planning/settlements/" element={<SettlementsPage />} />
           <Route path="subscriptions/import/" element={<ImportPage />} />
           <Route path="subscriptions/:id/edit/" element={<SubscriptionFormPage />} />
           <Route path="subscriptions/cards/" element={<CardsPage />} />

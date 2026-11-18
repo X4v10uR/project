@@ -6,6 +6,10 @@ app_name = 'dashboard_api'
 
 urlpatterns = [
     path('history/', api_views.charge_history, name='history'),
+    path('history/<int:pk>/payment/', api_views.charge_payment, name='payment'),
+    path('history/<int:pk>/shares/', api_views.historical_share, name='historical_share'),
+    path('history/<int:pk>/shares/<int:share_id>/', api_views.charge_share, name='share'),
+    path('budget/', api_views.budget, name='budget'),
     path('', api_views.dashboard_data, name='home'),
     path('balance/adjust/', api_views.adjust_balance, name='adjust_balance'),
     path('notifications/', api_views.notifications, name='notifications'),

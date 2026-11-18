@@ -31,6 +31,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'subly.settings')
 django.setup()
 
+from dashboard.budgets import check_budgets
 from subscriptions.services import BillingService, NotificationService  # noqa: E402
 
 # Configure logging
@@ -57,7 +58,7 @@ def main():
         '--days-before',
         type=int,
         default=None,
-        help='Optional offset filter in days. If omitted, sends all due offsets for today.'
+        help='Optional offset filter in days. If omitted, recovers the latest due offset for each upcoming event.'
     )
     parser.add_argument(
         '--dry-run',
@@ -86,6 +87,9 @@ def main():
         logger.info(f"  Transactions created: {billing_results['created']}")
         logger.info(f"  Existing transactions: {billing_results['existing']}")
         logger.info(f"  Billing errors: {billing_results['errors']}")
+
+        if not args.dry_run:
+            check_budgets()
 
         # Then send notifications based on per-subscription offsets.
         results = NotificationService.send_batch_notifications(

@@ -145,7 +145,7 @@ class SettingsViewTest(TestCase):
         self.assertIn('mood_raw', male_sample)
         self.assertIn('mood_label', male_sample)
         self.assertTrue(response.context['avatar_background_options'])
-        self.assertContains(response, 'Save plan metadata')
+        self.assertContains(response, 'plan details are read-only')
         self.assertContains(response, 'Save preferences')
         self.assertContains(response, 'Change password')
         self.assertContains(response, 'Delete account')
@@ -340,7 +340,7 @@ class SettingsViewTest(TestCase):
         self.assertIn('male_memoji', avatar_url)
         self.assertNotIn('/media/', avatar_url)
 
-    def test_billing_settings_post_updates_plan_fields(self):
+    def test_billing_settings_post_cannot_promote_plan(self):
         self.client.force_login(self.user)
         response = self.client.post(
             reverse('accounts:settings'),
@@ -352,13 +352,11 @@ class SettingsViewTest(TestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 302)
-        self.assertIn('?updated=billing', response.url)
+        self.assertEqual(response.status_code, 403)
 
         self.user.refresh_from_db()
-        self.assertEqual(self.user.subscription_plan, User.PLAN_PRO)
-        self.assertEqual(self.user.plan_status, User.PLAN_STATUS_ACTIVE)
-        self.assertEqual(self.user.plan_renews_on.isoformat(), '2030-01-15')
+        self.assertEqual(self.user.subscription_plan, User.PLAN_FREE)
+        self.assertIsNone(self.user.plan_renews_on)
 
     def test_preferences_settings_post_updates_flags(self):
         self.user.product_updates_enabled = False
@@ -896,6 +894,9 @@ class TeamInviteFlowTest(TestCase):
 
     def test_team_owner_can_fetch_team_subscription_password(self):
         self.client.force_login(self.owner)
+        session = self.client.session
+        session['reauthenticated_at'] = timezone.now().timestamp()
+        session.save()
 
         response = self.client.post(
             reverse(
@@ -911,6 +912,9 @@ class TeamInviteFlowTest(TestCase):
 
     def test_non_owner_can_fetch_team_subscription_password(self):
         self.client.force_login(self.member)
+        session = self.client.session
+        session['reauthenticated_at'] = timezone.now().timestamp()
+        session.save()
         TeamMembership.objects.create(team=self.team, user=self.member, role=TeamMembership.ROLE_MEMBER)
 
         response = self.client.post(

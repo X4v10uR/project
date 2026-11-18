@@ -5,6 +5,25 @@ import hashlib
 
 from .avatar_utils import build_user_avatar_url, get_avatar_background_color
 
+
+class AccountSecurity(models.Model):
+    user = models.OneToOneField('User', on_delete=models.CASCADE, related_name='security')
+    encrypted_secret = models.CharField(max_length=512, blank=True)
+    enabled = models.BooleanField(default=False)
+    recovery_hashes = models.JSONField(default=list)
+    last_used_step = models.BigIntegerField(default=-1)
+    revision = models.CharField(max_length=64, blank=True)
+
+
+class SecurityEvent(models.Model):
+    user = models.ForeignKey('User', on_delete=models.CASCADE, related_name='security_events')
+    action = models.CharField(max_length=100)
+    detail = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-pk']
+
 class UserManager(BaseUserManager):
     def get_by_natural_key(self, username):
         try:

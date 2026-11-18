@@ -20,7 +20,8 @@ from .workflows import prepare_participants, save_subscription
 MAX_ROWS = 500
 REQUIRED = {'service_name', 'total_cost', 'billing_cycle', 'start_date'}
 FORM_FIELDS = ('service_name', 'plan_name', 'category', 'billing_cycle', 'currency', 'status',
-               'start_date', 'renewal_time', 'display_color', 'notes', 'account_email', 'split_type')
+               'start_date', 'trial_end_date', 'cancel_by_date', 'renewal_time', 'display_color', 'notes', 'account_email', 'split_type',
+               'cancellation_url', 'cancellation_state', 'cancellation_notes', 'access_until', 'pause_from', 'resume_on', 'introductory_cost', 'introductory_until')
 
 
 def read_rows(upload):

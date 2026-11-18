@@ -179,6 +179,8 @@ def team_subscription_password(request, team_id, subscription_id):
     team = flows.get_team_or_404_for_user(request.user, team_id)
     try:
         password = flows.reveal_team_subscription_password(team=team, subscription_id=subscription_id)
+        from .security import audit
+        audit(request.user, 'credentials.revealed', f'Subscription {subscription_id}')
     except flows.TeamActionError as error:
         return JsonResponse({'ok': False, 'message': str(error)}, status=error.status_code)
     return JsonResponse({'ok': True, 'password': password})

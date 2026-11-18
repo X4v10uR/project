@@ -13,7 +13,7 @@ class Command(BaseCommand):
             '--days-before',
             type=int,
             default=None,
-            help='Optional offset filter in days (for example: 3, 7). If omitted, sends all due offsets for today.'
+            help='Optional offset filter in days (for example: 3, 7). If omitted, recovers the latest due offset for each upcoming event.'
         )
         parser.add_argument(
             '--dry-run',
@@ -23,7 +23,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--time',
             type=str,
-            help='Target time for notifications (HH:MM format, e.g., 15:00). Only sends notifications for subscriptions with matching renewal times.'
+            help='Target time for notifications (HH:MM format, e.g., 15:00). Checks reminders due by that time in the recipient’s time zone.'
         )
 
     def handle(self, *args, **options):
@@ -44,7 +44,7 @@ class Command(BaseCommand):
         self.stdout.write("Checking reminder dates in each recipient's time zone.")
 
         if target_time:
-            self.stdout.write(f"Filtering by renewal time around {target_time.strftime('%I:%M %p')}")
+            self.stdout.write(f"Checking reminders due by {target_time.strftime('%I:%M %p')}")
         
         # Find active subscriptions that renew on the target date
         subscriptions_to_notify = NotificationService.get_subscriptions_due_for_notification(
@@ -72,7 +72,7 @@ class Command(BaseCommand):
                     
                     self.stdout.write(
                         f"[DRY RUN] Would send notification for {subscription.service_name} "
-                        f"to {subscription.user.email} (renews {subscription.renewal_date}{renewal_time_str}, offset: {offset})"
+                        f"to {subscription.user.email} (event on {subscription.renewal_date}{renewal_time_str}, offset: {offset})"
                     )
                     sent_count += 1
                 else:
@@ -87,7 +87,7 @@ class Command(BaseCommand):
                     self.stdout.write(
                         self.style.SUCCESS(
                             f"Sent notification for {subscription.service_name} "
-                            f"to {subscription.user.email} (renews {subscription.renewal_date}{renewal_time_str}, offset: {offset})"
+                            f"to {subscription.user.email} (event on {subscription.renewal_date}{renewal_time_str}, offset: {offset})"
                         )
                     )
             except Exception as e:

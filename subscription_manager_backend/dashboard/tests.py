@@ -171,7 +171,7 @@ class DashboardViewTest(TestCase):
                 category='Streaming',
                 billing_cycle='monthly',
                 cost=Decimal('10.00'),
-                start_date=timezone.localdate(),
+                start_date=timezone.localdate() + timedelta(days=5),
                 status='active',
             )
 
@@ -246,7 +246,7 @@ class DashboardViewTest(TestCase):
             billing_cycle='monthly',
             cost=Decimal('10.00'),
             currency='USD',
-            start_date=timezone.localdate(),
+            start_date=timezone.localdate() + timedelta(days=5),
             status='active',
         )
         Subscription.objects.create(
@@ -256,7 +256,7 @@ class DashboardViewTest(TestCase):
             billing_cycle='monthly',
             cost=Decimal('20.00'),
             currency='USD',
-            start_date=timezone.localdate(),
+            start_date=timezone.localdate() + timedelta(days=5),
             status='paused',
         )
         Subscription.objects.create(
@@ -266,7 +266,7 @@ class DashboardViewTest(TestCase):
             billing_cycle='monthly',
             cost=Decimal('30.00'),
             currency='USD',
-            start_date=timezone.localdate(),
+            start_date=timezone.localdate() + timedelta(days=5),
             status='cancelled',
         )
 

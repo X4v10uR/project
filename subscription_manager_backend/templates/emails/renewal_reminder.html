@@ -12,8 +12,7 @@
         <!-- Header -->
         <div>
             <span>🔔</span>
-            <h1>Subscription Renewal Reminder</h1>
-            <p>Your subscription is renewing soon</p>
+            <h1>{{ event_label }}</h1>
         </div>
 
         <!-- Content -->
@@ -24,9 +23,7 @@
 
             <div>
                 <div>
-                    ⏰ Your <strong>{{ subscription.service_name }}</strong> subscription will renew in <strong>{{
-                        days_before }}
-                        day{{ days_before|pluralize }}</strong>
+                    {{ event_label }} for <strong>{{ subscription.service_name }}</strong> on {{ subscription.renewal_date|date:"F j, Y" }}.
                 </div>
             </div>
 
@@ -55,7 +52,7 @@
                         <div>{{ subscription.billing_cycle|title }}</div>
                     </div>
                     <div>
-                        <div>Renewal Date</div>
+                        <div>Date</div>
                         <div>
                             {{ subscription.renewal_date|date:"F d, Y" }}
                             {% if subscription.renewal_time %}

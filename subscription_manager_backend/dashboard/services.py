@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from subscriptions.models import Subscription, Transaction
 from subscriptions.money import monthly_equivalent
-from subscriptions.services import effective_renewal_date
+from subscriptions.services import effective_renewal_date, renewals_between
 
 from .constants import (
     CARD_THEME_ROTATION,
@@ -79,10 +79,10 @@ def _subscriptions_for_scope(user, scope):
         )
     else:
         queryset = Subscription.objects.filter(user=user, team__isnull=True).select_related('card')
-    return queryset, normalized_scope
+    return queryset.prefetch_related('price_changes', 'participants'), normalized_scope
 
 
-def _build_balance_trend_points(transactions, today, window_days=30):
+def _build_balance_trend_points(transactions, today, window_days=30, currency=None):
     window_days = max(2, int(window_days or 30))
     start_date = today - timedelta(days=window_days - 1)
     totals_by_currency_and_date = {}
@@ -92,13 +92,15 @@ def _build_balance_trend_points(transactions, today, window_days=30):
         'charged_for_date', 'amount', 'currency'
     )
     for transaction in recent_transactions:
-        currency = (transaction.currency or 'USD').upper()
-        available_currencies.add(currency)
-        currency_totals = totals_by_currency_and_date.setdefault(currency, {})
+        code = (transaction.currency or 'USD').upper()
+        available_currencies.add(code)
+        currency_totals = totals_by_currency_and_date.setdefault(code, {})
         running_total = currency_totals.get(transaction.charged_for_date, Decimal('0.00'))
         currency_totals[transaction.charged_for_date] = running_total + transaction.amount
 
-    if not available_currencies:
+    if currency:
+        selected_currency = currency
+    elif not available_currencies:
         selected_currency = 'USD'
     elif 'USD' in available_currencies:
         selected_currency = 'USD'
@@ -139,50 +141,45 @@ def _monthly_spend_by_currency(active_subscriptions):
     return totals
 
 
-def _usd_monthly_spend_for_scope(user, scope='personal'):
-    total = Decimal('0.00')
-    subscriptions_queryset, _ = _subscriptions_for_scope(user, scope)
-    active_subs = subscriptions_queryset.filter(status='active')
-    for subscription in active_subs:
-        if (subscription.currency or 'USD').upper() != 'USD':
-            continue
-        total += _monthly_cost(subscription)
-    return _quantize_money(total)
+def monthly_spend_for_scope(user, scope, currency):
+    subscriptions, _ = _subscriptions_for_scope(user, scope)
+    costs = subscriptions.filter(status='active', currency__iexact=currency)
+    return _quantize_money(sum((_monthly_cost(sub) for sub in costs), Decimal('0')))
 
 
-def _build_balance_snapshot(user, monthly_spend_by_currency, scope):
-    base_balance = _quantize_money(monthly_spend_by_currency.get('USD', Decimal('0.00')))
+def _build_balance_snapshot(user, monthly_spend_by_currency, scope, currency='USD'):
+    base_balance = _quantize_money(monthly_spend_by_currency.get(currency, Decimal('0.00')))
     adjustment_amount = _quantize_money(
-        BalanceAdjustment.objects.filter(user=user, scope=scope)
+        BalanceAdjustment.objects.filter(user=user, scope=scope, currency=currency)
         .values_list('amount', flat=True)
         .first()
         or Decimal('0.00')
     )
     adjusted_balance = _quantize_money(base_balance + adjustment_amount)
     return {
-        'display': _format_money(adjusted_balance, 'USD'),
-        'base_display': _format_money(base_balance, 'USD'),
-        'adjustment_display': _format_signed_money(adjustment_amount, 'USD'),
+        'display': _format_money(adjusted_balance, currency),
+        'base_display': _format_money(base_balance, currency),
+        'adjustment_display': _format_signed_money(adjustment_amount, currency),
         'adjustment_amount': float(adjustment_amount),
         'adjusted_amount': float(adjusted_balance),
         'base_amount': float(base_balance),
     }
 
 
-def set_user_balance_target(user, target_balance, scope='personal'):
+def set_user_balance_target(user, target_balance, scope='personal', currency='USD'):
     normalized_scope = _normalize_dashboard_scope(scope)
-    base_balance = _usd_monthly_spend_for_scope(user, scope=normalized_scope)
+    base_balance = monthly_spend_for_scope(user, normalized_scope, currency)
     target_balance = _quantize_money(target_balance)
     adjustment_amount = _quantize_money(target_balance - base_balance)
 
     BalanceAdjustment.objects.update_or_create(
-        user=user, scope=normalized_scope, defaults={'amount': adjustment_amount},
+        user=user, scope=normalized_scope, currency=currency, defaults={'amount': adjustment_amount},
     )
 
     return {
-        'balance_display': _format_money(target_balance, 'USD'),
-        'balance_base_display': _format_money(base_balance, 'USD'),
-        'balance_adjustment_display': _format_signed_money(adjustment_amount, 'USD'),
+        'balance_display': _format_money(target_balance, currency),
+        'balance_base_display': _format_money(base_balance, currency),
+        'balance_adjustment_display': _format_signed_money(adjustment_amount, currency),
         'balance_adjustment_amount': float(adjustment_amount),
         'balance_adjusted_amount': float(target_balance),
         'balance_base_amount': float(base_balance),
@@ -191,7 +188,9 @@ def set_user_balance_target(user, target_balance, scope='personal'):
 
 
 def _monthly_cost(subscription):
-    cost = subscription.user_cost if subscription.is_shared else subscription.cost
+    if subscription.status == 'active' and not subscription.bills_on(timezone.localdate()):
+        return Decimal('0')
+    cost = subscription.share_on(timezone.localdate())
     return monthly_equivalent(cost, subscription.billing_cycle)
 
 
@@ -242,10 +241,10 @@ def _subscription_destination_url(subscription):
     return reverse('subscriptions:update', args=[subscription.pk])
 
 
-def _build_upcoming_item(subscription, index, today, service_color_map):
-    effective_cost = subscription.user_cost if subscription.is_shared else subscription.cost
-    renewal_date = effective_renewal_date(subscription, today)
+def _build_upcoming_item(subscription, renewal_date, today, service_color_map):
+    effective_cost = subscription.share_on(renewal_date)
     return {
+        'date': renewal_date.isoformat(),
         'id': subscription.pk,
         'is_placeholder': False,
         'bg_class': '',
@@ -317,6 +316,9 @@ def _build_subscription_placeholder(index):
 def _duration_label(subscription):
     mapping = {
         'weekly': '1 week',
+        'quarterly': '3 months',
+        'halfyearly': '6 months',
+        'fourweekly': '28 days',
         'monthly': '1 month',
         'yearly': '1 year',
     }
@@ -324,7 +326,7 @@ def _duration_label(subscription):
 
 
 def _build_active_item(subscription, index, service_color_map):
-    effective_cost = subscription.user_cost if subscription.is_shared else subscription.cost
+    effective_cost = subscription.share_on(timezone.localdate())
     card_last4 = subscription.card.last4 if subscription.card else None
     return {
         'id': subscription.pk,
@@ -369,9 +371,9 @@ def _build_transaction_item(transaction, index, service_color_map):
     }
 
 
-def build_dashboard_view_model(user, today=None, scope='personal'):
+def build_dashboard_view_model(user, today=None, scope='personal', selected_currency=None):
     today = today or timezone.localdate()
-    next_30_days = today + timedelta(days=30)
+    window_end = today + timedelta(days=29)
     scope = _normalize_dashboard_scope(scope)
 
     user_subs, scope = _subscriptions_for_scope(user, scope)
@@ -395,19 +397,19 @@ def build_dashboard_view_model(user, today=None, scope='personal'):
     paused_subs_list = list(paused_subs)
     cancelled_subs_list = list(cancelled_subs)
     shared_subs = active_subs_qs.filter(is_shared=True)
-    upcoming_renewals = []
-    for sub in active_subs:
-        renewal_date = effective_renewal_date(sub, today)
-        if renewal_date and today <= renewal_date <= next_30_days:
-            upcoming_renewals.append(sub)
+    occurrences = sorted(
+        ((day, sub) for sub in active_subs + paused_subs_list for day in renewals_between(sub, today, window_end)),
+        key=lambda event: (event[0], event[1].service_name.lower(), event[1].pk),
+    )
+    upcoming_renewals = [sub for _, sub in occurrences]
 
     monthly_spend_by_currency = _monthly_spend_by_currency(active_subs)
     paused_spend_by_currency = _monthly_spend_by_currency(paused_subs_list)
     cancelled_spend_by_currency = _monthly_spend_by_currency(cancelled_subs_list)
     upcoming_total_by_currency = {}
-    for sub in upcoming_renewals:
+    for day, sub in occurrences:
         currency = (sub.currency or 'USD').upper()
-        charge_amount = sub.user_cost if sub.is_shared else sub.cost
+        charge_amount = sub.share_on(day)
         upcoming_total_by_currency[currency] = (
             upcoming_total_by_currency.get(currency, Decimal('0.00')) + charge_amount
         )
@@ -441,8 +443,8 @@ def build_dashboard_view_model(user, today=None, scope='personal'):
     service_color_map = build_service_color_map(active_subs, recent_transactions_qs)
 
     upcoming_items = [
-        _build_upcoming_item(sub, index, today, service_color_map)
-        for index, sub in enumerate(upcoming_renewals)
+        _build_upcoming_item(sub, day, today, service_color_map)
+        for day, sub in occurrences
     ]
     subscription_panel_items = [
         _build_subscription_panel_item(sub, index, service_color_map)
@@ -473,8 +475,14 @@ def build_dashboard_view_model(user, today=None, scope='personal'):
     next_renewal = upcoming_renewals[0] if upcoming_renewals else None
     next_renewal_date = effective_renewal_date(next_renewal, today) if next_renewal else None
     chip_date = next_renewal_date.strftime('%m/%d') if next_renewal_date else '--/--'
-    balance_trend = _build_balance_trend_points(transactions, today, window_days=30)
-    balance_snapshot = _build_balance_snapshot(user, monthly_spend_by_currency, scope)
+    balance_trend = _build_balance_trend_points(transactions, today, window_days=30, currency=selected_currency)
+    balance_currency = selected_currency or 'USD'
+    adjustments = BalanceAdjustment.objects.filter(user=user, scope=scope)
+    monthly_limit = adjustments.filter(currency=balance_currency).values_list('monthly_limit', flat=True).first()
+    balance_snapshot = _build_balance_snapshot(user, monthly_spend_by_currency, scope, balance_currency)
+    currencies = set(monthly_spend_by_currency) | set(adjustments.values_list('currency', flat=True))
+    currencies.update(transactions.order_by().values_list('currency', flat=True).distinct())
+    currencies.update([balance_currency, user.preferred_currency or 'USD', 'USD'])
     omitted_currencies = balance_trend['omitted_currencies']
     if omitted_currencies:
         omitted_text = ', '.join(omitted_currencies)
@@ -490,6 +498,10 @@ def build_dashboard_view_model(user, today=None, scope='personal'):
         'upcoming_view_all_url': view_all_url,
         'subscriptions_view_all_url': reverse('accounts:teams_overview') if scope == 'teams' else reverse('subscriptions:list'),
         'dashboard_scope': scope,
+        'currency_options': sorted(currencies),
+        'balance_currency': balance_currency,
+        'monthly_limit': str(monthly_limit) if monthly_limit is not None else None,
+        'over_budget': monthly_limit is not None and _quantize_money(monthly_spend_by_currency.get(balance_currency, Decimal('0'))) > monthly_limit,
         # Main balance block
         'balance_display': balance_snapshot['display'],
         'balance_base_display': balance_snapshot['base_display'],

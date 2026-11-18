@@ -79,6 +79,7 @@ function AuthForm({ signup = false }: { signup?: boolean }) {
           <label htmlFor="auth-password">Password</label>
           <PasswordInput id="auth-password" name={signup ? 'password1' : 'password'} autocomplete={signup ? 'new-password' : 'current-password'} />
         </div>
+        {!signup && <Field label="Authenticator or recovery code (if enabled)"><input name="otp" autoComplete="one-time-code" className={fieldClass} /></Field>}
         {signup && (
           <div className="grid gap-1.5 text-sm font-semibold text-zinc-800">
             <label htmlFor="auth-confirm-password">Confirm password</label>

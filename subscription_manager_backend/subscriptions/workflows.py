@@ -30,6 +30,10 @@ def prepare_participants(subscription, participants):
         return []
     if not participants:
         raise ValidationError('Please add at least one participant for shared subscriptions.')
+    member_ids = [person.get('member_id') for person in participants if person.get('member_id')]
+    allowed = set(TeamMembership.objects.filter(team_id=subscription.team_id).exclude(user_id=subscription.user_id).values_list('user_id', flat=True)) if subscription.team_id else set()
+    if len(member_ids) != len(set(member_ids)) or not set(member_ids) <= allowed:
+        raise ValidationError('Choose each participant from the current team once, excluding the payer.')
 
     if subscription.split_type == 'equal':
         cents, remainder = divmod(int(subscription.cost * 100), len(participants) + 1)
@@ -43,9 +47,13 @@ def prepare_participants(subscription, participants):
         subscription.user_cost = subscription.cost - sum(shares, Decimal('0'))
         if subscription.user_cost < 0:
             raise ValidationError('The sum of participant shares exceeds the total cost.')
+        if subscription.introductory_cost is not None and sum(shares, Decimal('0')) > subscription.introductory_cost:
+            raise ValidationError('Fixed participant shares exceed the introductory price. Use an equal split or lower the shares.')
+        if subscription.pk and subscription.price_changes.filter(effective_on__gte=timezone.localdate(), cost__lt=sum(shares, Decimal('0'))).exists():
+            raise ValidationError('Fixed participant shares exceed a scheduled future price. Lower the shares first.')
 
     return [
-        SubscriptionParticipant(subscription=subscription, name=participant['name'], share_amount=share)
+        SubscriptionParticipant(subscription=subscription, name=participant['name'], share_amount=share, member_id=participant.get('member_id'))
         for participant, share in zip(participants, shares)
     ]
 
@@ -64,6 +72,8 @@ def _submit_team_request(subscription, actor, participants, reminder_offsets):
         'split_type': subscription.split_type,
         'currency': subscription.currency,
         'start_date': subscription.start_date.isoformat(),
+        'trial_end_date': subscription.trial_end_date.isoformat() if subscription.trial_end_date else None,
+        'cancel_by_date': subscription.cancel_by_date.isoformat() if subscription.cancel_by_date else None,
         'renewal_time': subscription.renewal_time.isoformat() if subscription.renewal_time else '',
         'status': subscription.status,
         'reminders_enabled': bool(subscription.reminders_enabled),
@@ -75,6 +85,11 @@ def _submit_team_request(subscription, actor, participants, reminder_offsets):
         ],
         'reminder_offsets': reminder_offsets,
     }
+    for field in ('pause_from', 'resume_on', 'introductory_cost', 'introductory_until', 'cancellation_url', 'cancellation_state', 'cancellation_notes', 'access_until'):
+        value = getattr(subscription, field)
+        payload[field] = str(value) if value is not None else None
+    for item, participant in zip(payload['participants'], participants):
+        item['member_id'] = participant.member_id
     team_request = TeamSubscriptionRequest.objects.create(team=team, requested_by=actor, payload=payload)
     owners = team.memberships.select_related('user').filter(role=TeamMembership.ROLE_OWNER).exclude(user=actor)
     for owner in owners:
@@ -102,7 +117,17 @@ def save_subscription(subscription, *, actor, participants, reminder_offsets):
     with transaction.atomic():
         if not creating:
             catch_up_charges(subscription.pk, timezone.localdate() - timedelta(days=1))
+            from .models import PriceChange, Subscription
+            previous = Subscription.objects.get(pk=subscription.pk)
+            if previous.regular_price_on(timezone.localdate()) != subscription.cost:
+                today = timezone.localdate()
+                existing_change = previous.price_changes.filter(effective_on=today).first()
+                PriceChange.objects.update_or_create(subscription=subscription, effective_on=today,
+                    defaults={'previous_cost': existing_change.previous_cost if existing_change else previous.regular_price_on(today), 'cost': subscription.cost})
         subscription.save()
+        if subscription.cancellation_state == 'confirmed' and subscription.status != 'cancelled':
+            subscription.status = 'cancelled'
+            subscription.save(update_fields=['status', 'updated_at'])
         if not creating:
             subscription.participants.all().delete()
         SubscriptionParticipant.objects.bulk_create(participants_to_create)
@@ -151,8 +176,14 @@ def remove_subscription(subscription, *, actor):
 @transaction.atomic
 def change_subscription_status(subscription, *, actor, status):
     catch_up_charges(subscription.pk, timezone.localdate() - timedelta(days=1))
+    if status == 'active':
+        if subscription.status == 'paused':
+            subscription.pause_from = None
+            subscription.resume_on = None
+        if subscription.status == 'cancelled':
+            subscription.cancellation_state = 'none'
     subscription.status = status
-    subscription.save(update_fields=['status', 'renewal_date', 'updated_at'])
+    subscription.save(update_fields=['status', 'renewal_date', 'updated_at', 'pause_from', 'resume_on', 'cancellation_state'])
     if subscription.team_id:
         create_team_notifications(
             team=subscription.team,

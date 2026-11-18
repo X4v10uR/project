@@ -418,7 +418,7 @@
                   <label for="planSelect" style="font-size: 13px; font-weight: 700; color: var(--dark);">Subscription Plan</label>
                   <div style="position: relative;">
                     {% with current_plan=billing_form.subscription_plan.value %}
-                    <select id="planSelect" name="subscription_plan" class="fi fm fw5" style="padding-right: 40px; cursor: pointer;">
+                    <select disabled id="planSelect" name="subscription_plan" class="fi fm fw5" style="padding-right: 40px;">
                       {% for option_value, option_label in billing_form.subscription_plan.field.choices %}
                       <option value="{{ option_value }}"{% if current_plan == option_value %} selected{% endif %}>{{ option_label }}</option>
                       {% endfor %}
@@ -432,7 +432,7 @@
                   <label for="statusSelect" style="font-size: 13px; font-weight: 700; color: var(--dark);">Plan Status</label>
                   <div style="position: relative;">
                     {% with current_status=billing_form.plan_status.value %}
-                    <select id="statusSelect" name="plan_status" class="fi fm fw5" style="padding-right: 40px; cursor: pointer;">
+                    <select disabled id="statusSelect" name="plan_status" class="fi fm fw5" style="padding-right: 40px;">
                       {% for option_value, option_label in billing_form.plan_status.field.choices %}
                       <option value="{{ option_value }}"{% if current_status == option_value %} selected{% endif %}>{{ option_label }}</option>
                       {% endfor %}
@@ -444,12 +444,12 @@
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 6px;">
                   <label for="planRenewsOn" style="font-size: 13px; font-weight: 700; color: var(--dark);">Plan Renews On</label>
-                  <input id="planRenewsOn" class="fi fm fw5" type="date" name="plan_renews_on" value="{{ billing_form.plan_renews_on.value|default_if_none:''|stringformat:'s' }}" />
+                  <input disabled id="planRenewsOn" class="fi fm fw5" type="date" name="plan_renews_on" value="" />
                   <p style="font-size: 11px; color: var(--mid); margin-top: -2px;">The date your billing cycle resets</p>
                   {% if billing_form.plan_renews_on.errors %}<p style="font-size: 11px; color: #FF4757; font-weight: 600;">{{ billing_form.plan_renews_on.errors.0 }}</p>{% endif %}
                 </div>
                 <div style="display: flex; justify-content: flex-end; padding-top: 4px;">
-                  <button id="billingSaveBtn" class="sbtn save-trigger" type="submit" data-label="Save plan metadata" style="background: #A8F0D4; color: var(--dark);">Save plan metadata</button>
+                  <p>Subly is free. All current features are included; plan details are read-only.</p>
                 </div>
               </div>
             </form>

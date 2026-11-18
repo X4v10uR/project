@@ -220,6 +220,7 @@
         if (billingCycleValue === 'weekly') {
             return '/week';
         }
+        if (billingCycleValue === 'quarterly') return '/quarter';
         if (billingCycleValue === 'yearly') {
             return '/year';
         }

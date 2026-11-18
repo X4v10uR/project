@@ -4,6 +4,7 @@ import { Camera, CreditCard, KeyRound, SlidersHorizontal, Trash2, UserRound } fr
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { AvatarPicker, type SavedAvatar } from './AvatarPicker'
+import { SecuritySettings } from './SecuritySettings'
 import { type AccountUser, useAuth } from './auth'
 import { dangerClass, ErrorMessage, Field, fieldClass, formData, messageFrom, panelClass, primaryClass, secondaryClass, StatusMessage } from './Controls'
 
@@ -12,6 +13,7 @@ const sections = [
   { id: 'billing', title: 'Plan & billing', icon: CreditCard },
   { id: 'preferences', title: 'Preferences', icon: SlidersHorizontal },
   { id: 'password', title: 'Password', icon: KeyRound },
+  { id: 'security', title: 'Security', icon: KeyRound },
   { id: 'delete', title: 'Delete account', icon: Trash2 },
 ] as const
 
@@ -128,7 +130,8 @@ export function SettingsPage() {
             <StatusMessage message={notice} />
             {!settings && !error && <p role="status" className="text-sm text-zinc-600">Loading settings…</p>}
           </div>
-          {settings && (
+          {settings && section === 'security' && <SecuritySettings />}
+          {settings && section !== 'security' && (
             <form key={section + version} onSubmit={save} className="mt-4 grid gap-4">
               {section === 'profile' && <>
                 <div className="mb-2 flex items-center gap-4">
@@ -157,19 +160,7 @@ export function SettingsPage() {
                 <Field label="Bio"><textarea className={fieldClass} name="bio" rows={3} defaultValue={settings.profile.bio} maxLength={280} /></Field>
               </>}
               {section === 'billing' && <>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Subscription plan">
-                    <select name="subscription_plan" className={fieldClass} defaultValue={settings.billing.subscription_plan}>
-                      {settings.plans.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                    </select>
-                  </Field>
-                  <Field label="Plan status">
-                    <select name="plan_status" className={fieldClass} defaultValue={settings.billing.plan_status}>
-                      {settings.plan_statuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                    </select>
-                  </Field>
-                </div>
-                <Field label="Renewal date"><input type="date" className={fieldClass + ' sm:max-w-60'} name="plan_renews_on" defaultValue={settings.billing.plan_renews_on ?? ''} /></Field>
+                <div className="rounded-xl border border-lime-200 bg-lime-50 p-5"><h3 className="text-xl font-bold">Subly Free</h3><p className="mt-2 text-sm text-zinc-700">All current tracking, planning, and team features are included. Subly does not charge you, and there is no plan renewal date.</p></div>
               </>}
               {section === 'preferences' && <>
                 <label className="flex items-center gap-3 rounded-xl border border-zinc-200 p-4 text-sm font-semibold">
@@ -198,11 +189,11 @@ export function SettingsPage() {
                   <Field label="Current password"><input required name="current_password" type="password" autoComplete="current-password" className={fieldClass} /></Field>
                 )}
               </>}
-              <div className="flex justify-end border-t border-zinc-100 pt-4">
+              {section !== 'billing' && <div className="flex justify-end border-t border-zinc-100 pt-4">
                 <button disabled={saving} className={section === 'delete' ? dangerClass : primaryClass}>
                   {section === 'delete' ? 'Delete account' : section === 'password' ? 'Save password' : 'Save changes'}
                 </button>
-              </div>
+              </div>}
             </form>
           )}
         </section>

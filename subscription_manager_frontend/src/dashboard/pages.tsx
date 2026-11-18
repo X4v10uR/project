@@ -24,7 +24,7 @@ type ServiceCard = {
   edit_url: string;
   amount: string;
 };
-type UpcomingBill = ServiceCard & { service_name: string; days_left_text: string };
+type UpcomingBill = ServiceCard & { date: string; service_name: string; days_left_text: string };
 type ActiveSubscription = ServiceCard & {
   title: string;
   duration_label: string;
@@ -33,6 +33,10 @@ type ActiveSubscription = ServiceCard & {
 };
 type Transaction = { id: number; title: string; timestamp: string; amount: string; swatch_style: string };
 type Dashboard = Balance & {
+  balance_currency: string;
+  currency_options: string[];
+  monthly_limit: string | null;
+  over_budget: boolean;
   monthly_spend_by_currency: Record<string, string>;
   greeting_name: string;
   balance_chip_date: string;
@@ -61,44 +65,91 @@ const dashboardPath = '/dashboard/';
 const statsPath = '/dashboard/balance-stats/';
 const panelClass = 'rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6';
 
-function scopeQuery(scope: Scope) {
-  return scope === 'teams' ? '?scope=teams' : '';
-}
-
 function useDashboard() {
   const [params] = useSearchParams();
-  const scope: Scope = params.get('scope')?.toLowerCase() === 'teams' ? 'teams' : 'personal';
-  const [loaded, setLoaded] = useState<{ scope: Scope; data?: Dashboard; error?: string }>();
+  const { user } = useAuth();
+  const scope: Scope = params.get('scope') === 'teams' ? 'teams' : 'personal';
+  const currency = params.get('currency') || user?.preferred_currency || 'USD';
+  const query = new URLSearchParams({ scope, currency }).toString();
+  const [loaded, setLoaded] = useState<{ query: string; data?: Dashboard; error?: string }>();
   const [request, setRequest] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoaded(undefined);
-    api<Dashboard>(`/api/dashboard/${scopeQuery(scope)}`, { signal: controller.signal })
+    api<Dashboard>(`/api/dashboard/?${query}`, { signal: controller.signal })
       .then((data) => {
-        if (!controller.signal.aborted) setLoaded({ scope, data });
+        if (!controller.signal.aborted) setLoaded({ query, data });
       })
       .catch((error: unknown) => {
-        if (!controller.signal.aborted) {
-          setLoaded({ scope, error: error instanceof Error ? error.message : 'Could not load your dashboard.' });
-        }
+        if (!controller.signal.aborted) setLoaded({ query, error: error instanceof Error ? error.message : 'Could not load your dashboard.' });
       });
     return () => controller.abort();
-  }, [scope, request]);
+  }, [query, request]);
 
   function updateBalance(balance: Balance) {
-    setLoaded((current) => (
-      current?.scope === scope && current.data ? { scope, data: { ...current.data, ...balance } } : current
-    ));
+    setLoaded((current) => current?.query === query && current.data
+      ? { query, data: { ...current.data, ...balance } } : current);
   }
 
   return {
-    scope,
-    data: loaded?.scope === scope ? loaded.data : undefined,
-    error: loaded?.scope === scope ? loaded.error : undefined,
+    scope, query,
+    data: loaded?.query === query ? loaded.data : undefined,
+    error: loaded?.query === query ? loaded.error : undefined,
     updateBalance,
     retry: () => setRequest((count) => count + 1),
   };
+}
+
+function CurrencyPicker({ data }: { data: Dashboard }) {
+  const [params, setParams] = useSearchParams();
+  function select(code: string) {
+    const next = new URLSearchParams(params);
+    next.set('currency', code);
+    setParams(next);
+  }
+  return (
+    <label className="inline-flex items-center gap-2 text-sm font-semibold">Dashboard currency
+      <select className="rounded-lg border p-2" value={data.balance_currency} onChange={(event) => select(event.target.value)}>
+        {data.currency_options.map((code) => <option key={code}>{code}</option>)}
+      </select>
+    </label>
+  );
+}
+
+function BudgetEditor({ data, scope, reload }: { data: Dashboard; scope: Scope; reload: () => void }) {
+  const [limit, setLimit] = useState(data.monthly_limit ?? '');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    setMessage('');
+    try {
+      await api('/api/dashboard/budget/', {
+        method: 'PUT', body: JSON.stringify({ scope, currency: data.balance_currency, monthly_limit: limit || null }),
+      });
+      reload();
+      setMessage(limit ? 'Budget saved.' : 'Budget removed.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not save budget.');
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <section className={panelClass}>
+      <h2 className="text-lg font-bold">Monthly budget</h2>
+      <p className="my-2 text-sm">Get an alert when monthly recurring spend exceeds your limit.</p>
+      {data.over_budget && <p role="alert" className="mb-2 font-semibold text-red-700">Monthly spend exceeds your {data.balance_currency} {data.monthly_limit} limit.</p>}
+      <form onSubmit={save} className="flex flex-wrap items-end gap-3">
+        <label className="grid gap-1 text-sm font-semibold">Spending limit ({data.balance_currency})
+          <input className="rounded-lg border p-2" type="number" min="0" max="9999999999.99" step="0.01" placeholder="No limit" value={limit} onChange={(event) => setLimit(event.target.value)} />
+        </label>
+        <button className="secondary-link" disabled={saving}>{saving ? 'Saving…' : 'Save budget'}</button>
+      </form>
+      {message && <p role="status" className="mt-2 text-sm">{message}</p>}
+    </section>
+  );
 }
 
 function LoadStatus({ error, retry }: { error?: string; retry: () => void }) {
@@ -111,6 +162,12 @@ function LoadStatus({ error, retry }: { error?: string; retry: () => void }) {
 }
 
 function ScopePicker({ scope, path }: { scope: Scope; path: string }) {
+  const [params] = useSearchParams();
+  function destination(item: Scope) {
+    const next = new URLSearchParams(params);
+    next.set('scope', item);
+    return `${path}?${next}`;
+  }
   return (
     <nav aria-label="Dashboard scope" className="inline-flex rounded-full border border-slate-200 bg-white p-1">
       {(['personal', 'teams'] as const).map((item) => (
@@ -118,7 +175,7 @@ function ScopePicker({ scope, path }: { scope: Scope; path: string }) {
           aria-current={scope === item ? 'page' : undefined}
           className={`rounded-full px-4 py-1.5 text-sm font-semibold ${scope === item ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
           key={item}
-          to={`${path}${scopeQuery(item)}`}
+          to={destination(item)}
         >
           {item === 'personal' ? 'Personal' : 'Teams'}
         </Link>
@@ -141,7 +198,7 @@ function BalanceEditor({ data, scope, onUpdate }: { data: Dashboard; scope: Scop
     try {
       const balance = await api<Balance>('/api/dashboard/balance/adjust/', {
         method: 'POST',
-        body: JSON.stringify({ target_balance: target, scope }),
+        body: JSON.stringify({ target_balance: target, scope, currency: data.balance_currency }),
       });
       onUpdate(balance);
       setEditing(false);
@@ -170,12 +227,12 @@ function BalanceEditor({ data, scope, onUpdate }: { data: Dashboard; scope: Scop
         ))}
       </ul>
       {!Object.keys(data.monthly_spend_by_currency).length && <p className="mb-4">No active recurring spend.</p>}
-      <h3 className="mb-1 text-sm font-semibold text-slate-300">Adjusted USD balance</h3>
+      <h3 className="mb-1 text-sm font-semibold text-slate-300">Subscription funding target ({data.balance_currency})</h3>
       {editing ? (
         <form className="flex flex-wrap items-center gap-3" onSubmit={submit} onKeyDown={(event) => { if (event.key === 'Escape' && !saving) cancel(); }}>
           <label className="flex items-center gap-1 rounded-xl border border-white/30 px-2 py-1 text-2xl font-bold">
-            $
-            <input aria-label="New balance in US dollars" autoFocus className="w-40 bg-transparent outline-none" disabled={saving} inputMode="decimal" max="1000000" min="-1000000" onChange={(event) => setTarget(event.target.value)} required step="0.01" type="number" value={target} />
+            {data.balance_currency}
+            <input aria-label={`New balance in ${data.balance_currency}`} autoFocus className="w-40 bg-transparent outline-none" disabled={saving} inputMode="decimal" max="1000000" min="-1000000" onChange={(event) => setTarget(event.target.value)} required step="0.01" type="number" value={target} />
           </label>
           <button className="primary-link disabled:opacity-60" disabled={saving} type="submit">{saving ? 'Saving…' : 'Save'}</button>
           <button className="rounded-full border border-white/30 px-4 py-2 text-sm font-semibold hover:bg-white/10 disabled:opacity-60" disabled={saving} onClick={cancel} type="button">Cancel</button>
@@ -190,7 +247,7 @@ function BalanceEditor({ data, scope, onUpdate }: { data: Dashboard; scope: Scop
           }} type="button"><Pencil aria-hidden="true" className="size-4" /></button>
         </div>
       )}
-      <p className="mt-3 text-xs text-slate-300">USD recurring spend {data.balance_base_display} · Manual adjustment {data.balance_adjustment_display}</p>
+      <p className="mt-3 text-xs text-slate-300">A monthly funding goal based on your recurring commitment plus a reserve of {data.balance_adjustment_display}. Set this to the amount you want to put aside for subscriptions.</p>
       {status && <p className="mt-2 text-sm text-emerald-200" role="status">{status}</p>}
       {error && <p className="mt-2 text-sm text-red-200" role="alert">{error}</p>}
     </section>
@@ -223,14 +280,14 @@ function UpcomingBills({ data }: { data: Dashboard }) {
       {bills.length ? (
         <div className="grid auto-cols-[12rem] grid-flow-col gap-3 overflow-x-auto pb-2 sm:auto-cols-[minmax(12rem,1fr)]">
           {bills.map((bill) => (
-            <Link className="overflow-hidden rounded-2xl border border-slate-200 bg-white hover:border-slate-400" key={bill.id} to={bill.edit_url}>
+            <Link className="overflow-hidden rounded-2xl border border-slate-200 bg-white hover:border-slate-400" key={bill.id + '-' + bill.date} to={bill.edit_url}>
               <div className="h-2 bg-slate-300" style={{ backgroundColor: cardBackground(bill.bg_style) }} />
               <div className="flex items-center gap-3 p-3">
                 <ServiceIcon url={bill.icon_url} fallback={bill.icon_fallback} />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-slate-800" title={bill.service_name}>{bill.service_name}</p>
                   <p className="text-base font-bold text-slate-900">{bill.amount}</p>
-                  <p className="text-xs text-slate-600">{bill.days_left_text}</p>
+                  <p className="text-xs text-slate-600">{bill.date} · {bill.days_left_text}</p>
                 </div>
               </div>
             </Link>
@@ -304,7 +361,7 @@ function RecentTransactions({ transactions }: { transactions: Transaction[] }) {
 
 export function DashboardPage() {
   const { user } = useAuth();
-  const { data, error, retry, scope, updateBalance } = useDashboard();
+  const { data, error, retry, scope, query, updateBalance } = useDashboard();
   return (
     <div className="mx-auto max-w-7xl space-y-5 px-4 pt-3 sm:px-5">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -314,15 +371,19 @@ export function DashboardPage() {
         </div>
         <Link className="primary-link" to={createPath}><Plus aria-hidden="true" className="size-4" /> Create Subscription</Link>
       </header>
-      <ScopePicker path={dashboardPath} scope={scope} />
+      <nav className="flex flex-wrap gap-2" aria-label="Planning shortcuts"><Link className="secondary-link" to="/subscriptions/quick-add/">Quick add</Link><Link className="secondary-link" to={`/planning/insights/?scope=${scope}`}>Spending insights</Link><Link className="secondary-link" to={`/planning/calendar/?scope=${scope}`}>Renewal calendar</Link><Link className="secondary-link" to={`/planning/review/?scope=${scope}`}>Review inbox</Link></nav>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <ScopePicker path={dashboardPath} scope={scope} />{data && <CurrencyPicker data={data} />}
+      </div>
       {data ? (
         <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
           <div className="min-w-0 space-y-5">
-            <BalanceEditor data={data} key={scope} onUpdate={updateBalance} scope={scope} />
+            <BalanceEditor data={data} key={query} onUpdate={updateBalance} scope={scope} />
+            <BudgetEditor data={data} key={query + '-budget'} scope={scope} reload={retry} />
             <UpcomingBills data={data} />
             <section className={`${panelClass} flex flex-wrap items-center justify-between gap-3`}>
               <h2 className="text-lg font-bold text-slate-900">Balance &amp; Stats</h2>
-              <Link className="secondary-link" to={`${statsPath}${scopeQuery(scope)}`}>Open stats</Link>
+              <Link className="secondary-link" to={`${statsPath}?${query}`}>Open stats</Link>
             </section>
           </div>
           <div className="min-w-0 space-y-5">
@@ -344,7 +405,7 @@ function ChargeTrend({ data }: { data: Dashboard }) {
       <h2 className="mb-3 text-lg font-bold text-slate-900">Charges over the last 30 days</h2>
       {data.balance_trend_has_activity ? (
         <>
-          <p className="mb-3 text-sm text-slate-700">Total charged <strong>{formatCharge(points.reduce((total, value) => total + value, 0))}</strong></p>
+          <p className="mb-3 text-sm text-slate-700">Total scheduled <strong>{formatCharge(points.reduce((total, value) => total + value, 0))}</strong></p>
           <div aria-hidden="true" className="flex h-28 items-end gap-0.5 border-b border-slate-200 sm:gap-1">
             {points.map((value, index) => (
               <div className="min-h-px flex-1 rounded-t bg-emerald-600 hover:bg-emerald-800" key={index} style={{ height: `${Math.max(0, value / peak) * 100}%` }} title={formatCharge(value)} />
@@ -353,15 +414,15 @@ function ChargeTrend({ data }: { data: Dashboard }) {
           <div className="mt-2 flex justify-between text-xs text-slate-600"><span>{data.balance_trend_start_label}</span><span>{data.balance_trend_end_label}</span></div>
           {data.balance_trend_note && <p className="mt-3 text-sm text-slate-600">{data.balance_trend_note}</p>}
         </>
-      ) : <p className="text-sm text-slate-600">No charges in this period.</p>}
+      ) : <p className="text-sm text-slate-600">No scheduled {currency} charges in this period.</p>}
     </section>
   );
 }
 
 export function BalanceStatsPage() {
-  const { data, error, retry, scope } = useDashboard();
+  const { data, error, retry, scope, query } = useDashboard();
   const metrics = data ? [
-    ['Total upcoming bill balance', data.stats_upcoming_bill_balance_display],
+    ['Scheduled over the next 30 days', data.stats_upcoming_bill_balance_display],
     ['Total subscriptions balance', data.stats_total_subscriptions_balance_display],
     ['Total active', data.stats_total_active],
     ['Total paused', data.stats_total_paused],
@@ -371,9 +432,11 @@ export function BalanceStatsPage() {
     <div className="mx-auto max-w-5xl space-y-5 px-4 pt-3 sm:px-5">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Balance &amp; Stats</h1>
-        <Link className="secondary-link" to={`${dashboardPath}${scopeQuery(scope)}`}>Back to Dashboard</Link>
+        <Link className="secondary-link" to={`${dashboardPath}?${query}`}>Back to Dashboard</Link>
       </header>
-      <ScopePicker path={statsPath} scope={scope} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <ScopePicker path={statsPath} scope={scope} />{data && <CurrencyPicker data={data} />}
+      </div>
       {data ? (
         <>
           <section className={panelClass}>

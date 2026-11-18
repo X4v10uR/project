@@ -162,7 +162,7 @@ def teams_overview_data(user):
     for sub in team_subscriptions:
         if sub.status == 'active':
             currency = (sub.currency or 'USD').upper()
-            amount = monthly_equivalent(sub.user_cost if sub.is_shared else sub.cost, sub.billing_cycle)
+            amount = monthly_equivalent(sub.share_on(timezone.localdate()), sub.billing_cycle) if sub.bills_on(timezone.localdate()) else Decimal('0')
             monthly_spend_by_currency[currency] = monthly_spend_by_currency.get(currency, Decimal('0')) + amount
     monthly_spend_by_currency = {
         currency: amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
@@ -235,6 +235,8 @@ def create_subscription_from_request_payload(team_request, reviewer):
         split_type=payload.get('split_type', 'equal'),
         currency=payload.get('currency', 'USD'),
         start_date=start_date,
+        trial_end_date=date.fromisoformat(payload['trial_end_date']) if payload.get('trial_end_date') else None,
+        cancel_by_date=date.fromisoformat(payload['cancel_by_date']) if payload.get('cancel_by_date') else None,
         renewal_time=renewal_time,
         status=payload.get('status', 'active'),
         reminders_enabled=bool(payload.get('reminders_enabled', True)),
@@ -244,6 +246,12 @@ def create_subscription_from_request_payload(team_request, reviewer):
         account_password=None,
         card=None,
     )
+    for field in ('pause_from', 'resume_on', 'introductory_until', 'access_until'):
+        setattr(subscription, field, date.fromisoformat(payload[field]) if payload.get(field) else None)
+    for field in ('introductory_cost', 'cancellation_url', 'cancellation_state', 'cancellation_notes'):
+        if payload.get(field) is not None:
+            setattr(subscription, field, payload[field])
+    subscription.save()
 
     participants = payload.get('participants') or []
     to_create = []
@@ -256,6 +264,7 @@ def create_subscription_from_request_payload(team_request, reviewer):
                 subscription=subscription,
                 name=name,
                 share_amount=participant.get('share_amount') or None,
+                member_id=participant.get('member_id') if TeamMembership.objects.filter(team=team_request.team, user_id=participant.get('member_id')).exists() else None,
             )
         )
     if to_create:

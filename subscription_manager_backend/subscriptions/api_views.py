@@ -13,6 +13,7 @@ from rest_framework.response import Response
 
 from accounts.models import TeamMembership
 from accounts.services import is_team_owner
+from accounts.security import audit, require_recent
 
 from .api_serializers import SubscriptionInput, SubscriptionSerializer, SubscriptionStatusInput, subscription_form
 from .cards_state import build_card_options
@@ -67,6 +68,8 @@ def _write_subscription(request, instance=None):
         raise serializers.ValidationError({'participants': exc.messages}) from exc
     if pending:
         return Response({'request_id': pending.pk, 'team': team.pk}, status=status.HTTP_202_ACCEPTED)
+    if request.data.get('account_password'):
+        audit(request.user, 'credentials.updated', f'Subscription {subscription.pk}')
     subscription.refresh_from_db()
     return Response(
         SubscriptionSerializer(subscription).data,
@@ -116,9 +119,11 @@ def subscription_status(request, pk):
 @api_view(['POST'])
 def subscription_password(request, pk):
     subscription = _subscription_for(request.user, pk)
+    require_recent(request)
     password = subscription.get_account_password()
     if password is None:
         raise NotFound('Password unavailable.')
+    audit(request.user, 'credentials.revealed', f'Subscription {pk}')
     return Response({'password': password}, headers={'Cache-Control': 'no-store'})
 
 
@@ -135,6 +140,7 @@ def subscription_options(request):
         'colors': LIGHT_SUBSCRIPTION_COLOR_PRESETS,
         'prefill': _build_subscription_prefill(request.query_params),
         'team': {'id': team.pk, 'name': team.name, 'can_create': is_team_owner(request.user, team)} if team else None,
+        'members': [{'user_id': member.user_id, 'email': member.user.email} for member in team.memberships.select_related('user')] if team else [],
     })
 
 

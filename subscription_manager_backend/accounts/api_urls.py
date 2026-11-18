@@ -1,10 +1,12 @@
 from django.urls import path
 
 from . import api_views as views
+from .security import security_settings
 
 app_name = 'accounts_api'
 
 urlpatterns = [
+    path('security/', security_settings, name='security'),
     path('session/', views.SessionView.as_view(), name='session'),
     path('login/', views.LoginView.as_view(), name='login'),
     path('signup/', views.SignupView.as_view(), name='signup'),

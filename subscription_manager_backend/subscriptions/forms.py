@@ -61,6 +61,10 @@ class SubscriptionForm(forms.ModelForm):
             'cost',
             'currency',
             'start_date',
+            'trial_end_date',
+            'cancel_by_date',
+            'cancellation_url', 'cancellation_state', 'cancellation_notes', 'access_until',
+            'pause_from', 'resume_on', 'introductory_cost', 'introductory_until',
             'renewal_time',
             'status',
             'reminders_enabled',
@@ -90,6 +94,13 @@ class SubscriptionForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
 
         self.fields['account_password'].strip = False
+        self.fields['cancellation_state'].required = False
+        if self.is_bound and self.instance.pk:
+            self.data = self.data.copy()
+            for field in ('cancellation_url', 'cancellation_state', 'cancellation_notes', 'access_until', 'pause_from', 'resume_on', 'introductory_cost', 'introductory_until'):
+                if field not in self.data:
+                    value = getattr(self.instance, field)
+                    self.data[field] = value if value is not None else ''
         if self.user:
             available_cards = Q(user=self.user)
             if self.instance.pk and self.instance.team_id and self.instance.card_id:
@@ -101,8 +112,7 @@ class SubscriptionForm(forms.ModelForm):
                 field.widget.attrs.update({'class': INPUT_CLASSES})
 
         self.fields['renewal_time'].help_text = (
-            'Setting the time defines the exact time subscription is ending. '
-            'Notifications will be sent at this time 3 days before renewal.'
+            'Reminders become due at this time in each recipient’s time zone.'
         )
 
     def clean_account_email(self):
@@ -143,6 +153,26 @@ class SubscriptionForm(forms.ModelForm):
         ):
             raise forms.ValidationError("Enter a date that allows the next renewal to be scheduled.")
         return start_date
+
+    def clean(self):
+        data = super().clean()
+        data['cancellation_state'] = data.get('cancellation_state') or 'none'
+        for field in ('introductory_cost',):
+            if data.get(field) is not None and data[field] < 0:
+                self.add_error(field, 'Enter a nonnegative amount.')
+        if (data.get('introductory_cost') is None) != (data.get('introductory_until') is None):
+            self.add_error('introductory_until', 'Set both the introductory price and its end date.')
+        if data.get('pause_from') and data.get('resume_on') and data['resume_on'] <= data['pause_from']:
+            self.add_error('resume_on', 'Resume must be after the pause date.')
+        if data.get('cancellation_url') and not data['cancellation_url'].startswith(('https://', 'http://')):
+            self.add_error('cancellation_url', 'Use an http or https address.')
+        start, trial = data.get('start_date'), data.get('trial_end_date')
+        if start and trial and trial < start:
+            self.add_error('trial_end_date', 'The first paid date must be on or after the start date.')
+        elif trial and (trial == date.max or Subscription(start_date=trial, billing_cycle=data.get('billing_cycle'))
+                        .calculate_renewal_date(today=trial + timedelta(days=1)) is None):
+            self.add_error('trial_end_date', 'Choose a date that allows the next renewal.')
+        return data
 
     def clean_account_password(self):
         account_password = self.cleaned_data.get('account_password')

@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from datetime import time
+from decimal import Decimal
 from dateutil.relativedelta import relativedelta
 from django.core.validators import MinLengthValidator, RegexValidator
 from django.core.exceptions import ImproperlyConfigured
@@ -114,6 +115,9 @@ class Subscription(models.Model):
     BILLING_CYCLE_CHOICES = [
         ('weekly', 'Weekly'),
         ('monthly', 'Monthly'),
+        ('quarterly', 'Quarterly'),
+        ('halfyearly', 'Every six months'),
+        ('fourweekly', 'Every 28 days'),
         ('yearly', 'Yearly'),
     ]
     
@@ -157,6 +161,18 @@ class Subscription(models.Model):
     )
     currency = models.CharField(max_length=3, default='USD')
     start_date = models.DateField()
+    trial_end_date = models.DateField(null=True, blank=True)
+    cancel_by_date = models.DateField(null=True, blank=True)
+    cancellation_url = models.URLField(blank=True)
+    cancellation_state = models.CharField(max_length=12, choices=[('none', 'Not requested'), ('requested', 'Requested'), ('confirmed', 'Confirmed')], default='none')
+    cancellation_notes = models.TextField(blank=True)
+    access_until = models.DateField(null=True, blank=True)
+    pause_from = models.DateField(null=True, blank=True)
+    resume_on = models.DateField(null=True, blank=True)
+    introductory_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    introductory_until = models.DateField(null=True, blank=True)
+    last_reviewed_on = models.DateField(null=True, blank=True)
+    usage_rating = models.CharField(max_length=10, choices=[('', 'Not checked'), ('often', 'Often'), ('sometimes', 'Sometimes'), ('rarely', 'Rarely'), ('never', 'Never')], blank=True)
     renewal_date = models.DateField(null=True, blank=True)
     renewal_time = models.TimeField(
         null=True, 
@@ -207,7 +223,7 @@ class Subscription(models.Model):
 
     def calculate_renewal_date(self, today=None):
         """Calculate the next upcoming renewal date relative to today."""
-        start = self.start_date
+        start = self.trial_end_date or self.start_date
         if not start:
             return None
 
@@ -215,10 +231,11 @@ class Subscription(models.Model):
         if start >= today:
             return start
         try:
-            if self.billing_cycle == 'weekly':
-                weeks = ((today - start).days + 6) // 7
-                return start + relativedelta(weeks=weeks)
-            period = {'monthly': 1, 'yearly': 12}.get(self.billing_cycle)
+            if self.billing_cycle in ('weekly', 'fourweekly'):
+                days = 7 if self.billing_cycle == 'weekly' else 28
+                periods = ((today - start).days + days - 1) // days
+                return start + relativedelta(days=periods * days)
+            period = {'monthly': 1, 'quarterly': 3, 'halfyearly': 6, 'yearly': 12}.get(self.billing_cycle)
             if not period:
                 return start
             elapsed = (today.year - start.year) * 12 + today.month - start.month
@@ -231,6 +248,38 @@ class Subscription(models.Model):
             # Some legacy records may have a start date near the calendar limit.
             return None
 
+    def bills_on(self, day):
+        if self.status == 'cancelled' or self.cancellation_state == 'confirmed':
+            return False
+        if self.status == 'paused' and (not self.resume_on or day < self.resume_on):
+            return False
+        return not (self.pause_from and day >= self.pause_from and (not self.resume_on or day < self.resume_on))
+
+    def regular_price_on(self, day):
+        changes = sorted(self.price_changes.all(), key=lambda change: (change.effective_on, change.pk))
+        price = changes[0].previous_cost if changes else self.cost
+        for change in changes:
+            if change.effective_on <= day:
+                price = change.cost
+        return price
+
+    def price_on(self, day):
+        price = self.regular_price_on(day)
+        if self.introductory_cost is not None and self.introductory_until and day < self.introductory_until:
+            price = self.introductory_cost
+        return price
+
+    def share_on(self, day):
+        price = self.price_on(day)
+        if not self.is_shared:
+            return price
+        if not self.participants.exists():
+            return (price * self.user_cost / self.cost).quantize(Decimal('0.01')) if self.cost else self.user_cost
+        if self.split_type == 'equal':
+            cents, remainder = divmod(int(price * 100), self.participants.count() + 1)
+            return Decimal(cents + bool(remainder)).scaleb(-2)
+        return max(Decimal('0'), price - sum((p.share_amount or Decimal('0') for p in self.participants.all()), Decimal('0')))
+
     def save(self, *args, **kwargs):
         # Always ensure renewal_date is synced with start_date and cycle
         existing_subscription = None
@@ -238,7 +287,7 @@ class Subscription(models.Model):
             existing_subscription = (
                 type(self)
                 .objects.filter(pk=self.pk)
-                .only("start_date", "billing_cycle", "renewal_date", "status")
+                .only("start_date", "trial_end_date", "billing_cycle", "renewal_date", "status")
                 .first()
             )
 
@@ -246,6 +295,7 @@ class Subscription(models.Model):
         if (
             existing_subscription
             and existing_subscription.start_date == self.start_date
+            and existing_subscription.trial_end_date == self.trial_end_date
             and existing_subscription.billing_cycle == self.billing_cycle
             and existing_subscription.renewal_date
             and calculated_renewal_date
@@ -459,6 +509,7 @@ class NotificationLog(models.Model):
     recipient = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.CASCADE)
     notification_type = models.CharField(max_length=50, default='renewal_reminder')
     sent_at = models.DateTimeField(auto_now_add=True)
+    delivery_claim = models.UUIDField(null=True, editable=False)
     renewal_date = models.DateField()  # The renewal date this notification was for
     days_before = models.IntegerField(default=3) # The offset used for this notification
     
@@ -471,6 +522,15 @@ class NotificationLog(models.Model):
 
 
 class Transaction(models.Model):
+    class PaymentStatus(models.TextChoices):
+        SCHEDULED = 'scheduled', 'Scheduled'
+        PAID = 'paid', 'Paid'
+        FAILED = 'failed', 'Failed'
+        REFUNDED = 'refunded', 'Refunded'
+
+    shares_captured = models.BooleanField(default=False)
+    payment_status = models.CharField(max_length=10, choices=PaymentStatus.choices, default=PaymentStatus.SCHEDULED)
+
     SOURCE_RENEWAL = "renewal"
     SOURCE_CHOICES = [
         (SOURCE_RENEWAL, "Renewal Charge"),
@@ -524,11 +584,41 @@ class Transaction(models.Model):
         )
 
 
+class ChargeShare(models.Model):
+    charge = models.ForeignKey(Transaction, on_delete=models.CASCADE, related_name='shares')
+    name = models.CharField(max_length=100)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    reimbursed = models.BooleanField(default=False)
+    member = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+    repaid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+
 class SubscriptionParticipant(models.Model):
     """External participants for shared subscriptions"""
     subscription = models.ForeignKey(Subscription, on_delete=models.CASCADE, related_name='participants')
     name = models.CharField(max_length=100)
     share_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    member = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
     
     def __str__(self):
         return f"{self.name} ({self.subscription.service_name})"
+
+
+class PriceChange(models.Model):
+    subscription = models.ForeignKey(Subscription, on_delete=models.CASCADE, related_name='price_changes')
+    previous_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    cost = models.DecimalField(max_digits=10, decimal_places=2)
+    effective_on = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['effective_on', 'pk']
+        constraints = [models.UniqueConstraint(fields=['subscription', 'effective_on'], name='unique_subscription_price_date')]
+
+
+class Repayment(models.Model):
+    share = models.ForeignKey(ChargeShare, on_delete=models.CASCADE, related_name='repayments')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    note = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)

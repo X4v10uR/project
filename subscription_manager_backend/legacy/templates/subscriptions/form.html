@@ -991,6 +991,12 @@
               <div id="calDays" class="cal-grid"></div>
             </div>
           </div>
+          <label for="id_trial_end_date">Trial ends (first paid date)</label>
+          <input type="date" id="id_trial_end_date" name="trial_end_date" value="{{ form.trial_end_date.value|date:'Y-m-d'|default:form.trial_end_date.value|default:'' }}" class="native-select">
+          {{ form.trial_end_date.errors }}
+          <label for="id_cancel_by_date">Cancel by</label>
+          <input type="date" id="id_cancel_by_date" name="cancel_by_date" value="{{ form.cancel_by_date.value|date:'Y-m-d'|default:form.cancel_by_date.value|default:'' }}" class="native-select">
+          {{ form.cancel_by_date.errors }}
           {% if form.start_date.errors %}<p class="field-error">{{ form.start_date.errors.0 }}</p>{% endif %}
         </div>
 

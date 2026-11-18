@@ -110,15 +110,13 @@ def filter_personal_subscriptions(request):
 
 def build_subscription_list_context(request):
     subscriptions, filters = filter_personal_subscriptions(request)
-    subscriptions = list(subscriptions.select_related('card').annotate(participant_count=Count('participants')))
+    subscriptions = list(subscriptions.select_related('card').prefetch_related('price_changes', 'participants').annotate(participant_count=Count('participants')))
     has_filters = any(
         filters[key] for key in ('query', 'status_filter', 'cycle_filter', 'shared_filter', 'due_within')
     )
     base_subscriptions = subscriptions
     if has_filters:
-        base_subscriptions = list(_personal_subscription_queryset(request).order_by().only(
-            'status', 'user_cost', 'currency', 'billing_cycle',
-        ))
+        base_subscriptions = list(_personal_subscription_queryset(request).order_by().prefetch_related('price_changes', 'participants'))
     _apply_subscription_card_metadata(subscriptions)
     drawer_payload = _build_subscription_drawer_data(subscriptions)
     stats = _calculate_subscription_stats(base_subscriptions)
@@ -212,7 +210,7 @@ def _accumulate_monthly_spend_by_currency(subscriptions):
     for subscription in subscriptions:
         currency = _normalize_currency_code(subscription.currency)
         totals[currency] = totals.get(currency, Decimal("0")) + monthly_equivalent(
-            subscription.user_cost,
+            Decimal('0') if subscription.status == 'active' and not subscription.bills_on(timezone.localdate()) else subscription.share_on(timezone.localdate()),
             subscription.billing_cycle,
         )
     return totals
@@ -359,7 +357,7 @@ def _build_subscription_drawer_data(subscriptions):
                 order_by=F("charged_for_date").desc(),
             ))
             .filter(history_position__lte=6)
-            .only("subscription_id", "charged_for_date", "amount", "currency")
+            .only("subscription_id", "charged_for_date", "amount", "currency", "payment_status")
             .order_by("subscription_id", "-charged_for_date")
         )
         for transaction in recent_transactions:
@@ -379,6 +377,7 @@ def _build_subscription_drawer_data(subscriptions):
                     "amount": str(transaction.amount),
                     "currency": currency,
                     "amount_display": _format_currency_amount(transaction.amount, currency),
+                    "payment_status": transaction.get_payment_status_display(),
                 }
             )
 

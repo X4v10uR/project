@@ -4,6 +4,7 @@ from zoneinfo import available_timezones
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, SetPasswordForm
 from django.utils.decorators import method_decorator
+from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.exceptions import ValidationError
@@ -31,6 +32,7 @@ from .forms import (
 )
 from .models import User
 from .services import resolve_invite, send_team_invite_email
+from .security import audit, mark_verified, require_recent, verify_factor, throttle
 
 
 TIMEZONES = tuple(sorted(available_timezones()))
@@ -97,12 +99,16 @@ class SessionView(PublicAccountView):
 class LoginView(PublicAccountView):
     def post(self, request):
         data = payload(request)
+        throttle('login:' + (request.META.get('REMOTE_ADDR') or 'unknown'))
         form = validated(AuthenticationForm(request, data={
             'username': data.get('email'),
             'password': data.get('password'),
         }))
         user = form.get_user()
+        verify_factor(user, data.get('otp'))
         login(request, user)
+        mark_verified(request, user)
+        audit(user, 'login.succeeded')
         return Response({'user': account_user(user)})
 
 
@@ -137,9 +143,9 @@ class SettingsView(AccountView):
                 'avatar_background': user.avatar_background,
             },
             'billing': {
-                'subscription_plan': user.subscription_plan,
-                'plan_status': user.plan_status,
-                'plan_renews_on': user.plan_renews_on,
+                'subscription_plan': 'free',
+                'plan_status': 'active',
+                'plan_renews_on': None,
             },
             'preferences': {
                 'product_updates_enabled': user.product_updates_enabled,
@@ -155,17 +161,24 @@ class SettingsSectionView(AccountView):
     def post(self, request, section):
         data = payload(request)
         user = request.user
+        if section == 'billing':
+            return Response({'detail': 'Subly is free. Plan details are managed by the service.'}, status=403)
         form_class = {
             'profile': ProfileSettingsForm,
             'billing': BillingSettingsForm,
             'preferences': PreferencesSettingsForm,
         }.get(section)
         if form_class:
+            previous_email = user.email
             validated(form_class(data, instance=user)).save()
+            if user.email != previous_email:
+                audit(user, 'email.changed')
         elif section == 'password':
             password_form = PasswordChangeForm if user.has_usable_password() else SetPasswordForm
             user = validated(password_form(user, data)).save()
             update_session_auth_hash(request, user)
+            request.session.pop('reauthenticated_at', None)
+            audit(user, 'password.changed')
         elif section == 'delete':
             validated(AccountDeletionForm(data, user=user))
             flows.delete_user_account(user)
@@ -212,8 +225,10 @@ def team_subscription(subscription):
         'service_name': subscription.service_name,
         'category': subscription.category,
         'currency': subscription.currency,
-        'cost': str(subscription.cost),
+        'cost': str(subscription.price_on(timezone.localdate())),
         'billing_cycle': subscription.billing_cycle,
+        'trial_end_date': subscription.trial_end_date,
+        'cancel_by_date': subscription.cancel_by_date,
         'status': subscription.status,
         'icon': subscription.get_fallback_icon(),
         'account_email': subscription.account_email,
@@ -317,7 +332,9 @@ class TeamInviteView(AccountView):
 class TeamSubscriptionPasswordView(AccountView):
     def post(self, request, team_id, subscription_id):
         team = flows.get_team_or_404_for_user(request.user, team_id)
+        require_recent(request)
         password = flows.reveal_team_subscription_password(team=team, subscription_id=subscription_id)
+        audit(request.user, 'credentials.revealed', f'Subscription {subscription_id}')
         return Response({'password': password}, headers={'Cache-Control': 'no-store'})
 
 

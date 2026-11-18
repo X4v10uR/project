@@ -16,6 +16,8 @@ export type TeamSubscription = {
   currency: string
   cost: string
   billing_cycle: string
+  trial_end_date: string | null
+  cancel_by_date: string | null
   status: string
   icon: string
   account_email: string | null

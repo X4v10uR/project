@@ -4,8 +4,8 @@ This guide explains how to set up and use the subscription renewal notification 
 
 ## 🎯 Features
 
-- **Automatic Email Notifications**: Users receive emails 3 days before subscription renewals
-- The hourly job uses each recipient’s profile time zone and sends reminders within an hour after the chosen renewal time.
+- Renewals, first paid dates and cancel-by deadlines use the reminder offsets on each subscription. The default is three days.
+- The hourly job uses each recipient’s profile time zone. After downtime it sends the most recent due reminder for each upcoming event on the next successful run.
 - **Beautiful HTML Emails**: Professional-looking emails with service icons and branding
 - **Duplicate Prevention**: System tracks sent notifications to avoid spam
 - **Flexible Scheduling**: Can be run manually or scheduled as a cron job/task
@@ -126,12 +126,12 @@ python manage.py send_renewal_notifications
 ### User Experience:
 1. **User creates subscription**: "Netflix Premium" ending on Jan 30th at 9:00 AM
 2. **System schedules notification**: Jan 27th at 9:00 AM (3 days before)
-3. The user receives the reminder on the first hourly run after 9 AM in their profile time zone that day.
+3. The user receives the reminder on the first successful hourly run after that local time, while the renewal is still upcoming.
 
 ### Technical Implementation:
 - **Renewal Time Field**: Optional time field in subscription form (defaults to 3:00 PM)
-- The hourly job checks the preceding hour across local midnight and daylight-saving changes. Each team member has their own delivery record. Existing subscription-wide delivery records suppress repeats after upgrading.
-- The `--time` parameter simulates a scheduler run at that server time. Daily mode sends reminders due on each recipient’s local date whenever the job runs.
+- The hourly job checks each upcoming event against its local reminder time, including across midnight and daylight-saving changes. Catch-up ends when the event time passes. Each team member has their own delivery record. Existing subscription-wide delivery records suppress repeats after upgrading.
+- The `--time` parameter simulates a scheduler run at that server time. Daily mode uses the recipient’s local calendar day for eligibility and skips events whose time has passed.
 - **Fallback**: Subscriptions without specific time use default (3:00 PM)
 
 ### Example Scenarios:
@@ -235,18 +235,16 @@ python scheduler.py --time-based
 
 1. **Email Credentials**: Store email passwords securely in environment variables
 2. **Rate Limiting**: The system sends emails in batches to avoid spam filters
-3. **Time Precision**: 1-hour window prevents issues with exact timing
+3. **Delivery recovery**: An interrupted worker’s unconfirmed email reservation expires. A later run can retry while the event is still upcoming.
 4. **Data Privacy**: Only necessary subscription data is included in emails
 
 ## 📈 Future Enhancements
 
 Potential improvements you could add:
 
-1. **Multiple Reminders**: Send at 7 days, 3 days, and 1 day with different times
 3. **Smart Scheduling**: Learn from user behavior to optimize notification times
 4. **Snooze Feature**: Allow users to delay notifications
-5. **Custom Time Preferences**: Let users set preferred notification times per service
 
 ---
 
-Run the time-based job at least hourly. Billing also recovers missed charges from each active subscription’s stored next renewal through the run date. Repeating the job preserves one charge per scheduled date.
+Run the time-based job hourly. It also rechecks configured spending caps. Billing also recovers missed charges from each active subscription’s stored next renewal through the run date. Repeating the job preserves one charge per scheduled date.

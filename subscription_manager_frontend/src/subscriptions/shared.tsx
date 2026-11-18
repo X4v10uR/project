@@ -9,7 +9,7 @@ export const dangerClass = 'inline-flex items-center justify-center rounded-xl b
 export const panelClass = 'rounded-2xl border border-slate-200 bg-white p-5 shadow-sm'
 
 export const subscriptionStatuses = [['active', 'Active'], ['paused', 'Paused'], ['cancelled', 'Cancelled']]
-export const billingCycles = [['weekly', 'Weekly'], ['monthly', 'Monthly'], ['yearly', 'Yearly']]
+export const billingCycles = [['weekly', 'Weekly'], ['monthly', 'Monthly'], ['quarterly', 'Quarterly'], ['halfyearly', 'Every six months'], ['fourweekly', 'Every 28 days'], ['yearly', 'Yearly']]
 
 export interface Card {
   id: string
@@ -30,8 +30,22 @@ export interface Subscription {
   billing_cycle: string
   cost: string
   user_cost: string
+  current_cost: string
+  current_user_cost: string
   currency: string
   start_date: string
+  trial_end_date: string | null
+  cancel_by_date: string | null
+  cancellation_url: string
+  cancellation_state: string
+  cancellation_notes: string
+  access_until: string | null
+  pause_from: string | null
+  resume_on: string | null
+  introductory_cost: string | null
+  introductory_until: string | null
+  last_reviewed_on: string | null
+  usage_rating: string
   renewal_date: string | null
   renewal_time: string | null
   status: string
@@ -44,7 +58,7 @@ export interface Subscription {
   split_type: string
   account_email: string | null
   has_password: boolean
-  participants: { name: string; share_amount: string | null }[]
+  participants: { name: string; share_amount: string | null; member_id: number | null }[]
   icon_url: string
   fallback_icon: string
 }
@@ -57,6 +71,7 @@ export interface SubscriptionDetails {
   card_last4: string
   card_brand: string
   history: {
+    payment_status: string
     charged_for_date: string
     charged_for_date_display: string
     amount_display: string

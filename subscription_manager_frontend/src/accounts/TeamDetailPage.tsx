@@ -3,6 +3,8 @@ import type { FormEvent } from 'react'
 import { ArrowLeft, Plus, UsersRound } from 'lucide-react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
+import { CredentialReveal } from './SecuritySettings'
+import { displayDate } from '../subscriptions/shared'
 import { useAuth } from './auth'
 import { dangerClass, ErrorMessage, Field, fieldClass, formData, messageFrom, panelClass, primaryClass, secondaryClass, StatusMessage } from './Controls'
 import { type Role, type TeamSubscription, TeamStatus } from './TeamPages'
@@ -34,26 +36,6 @@ type Team = {
 }
 
 function SubscriptionCard({ subscription, team }: { subscription: TeamSubscription; team: Team }) {
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  async function togglePassword() {
-    setError('')
-    if (password) {
-      setPassword('')
-      return
-    }
-    setLoading(true)
-    try {
-      const reply = await api<{ password: string }>('/api/accounts/teams/' + team.id + '/subscriptions/' + subscription.id + '/password/', { method: 'POST' })
-      setPassword(reply.password)
-    } catch (failure) {
-      setError(messageFrom(failure))
-    } finally {
-      setLoading(false)
-    }
-  }
 
   return (
     <article className="grid gap-3 rounded-xl border border-zinc-200 p-4">
@@ -66,20 +48,20 @@ function SubscriptionCard({ subscription, team }: { subscription: TeamSubscripti
         <TeamStatus status={subscription.status} />
       </div>
       <dl className="grid gap-3 rounded-xl bg-zinc-50 p-3 text-sm">
+        {subscription.trial_end_date && <div><dt className="font-semibold">First paid date</dt><dd>{displayDate(subscription.trial_end_date)}</dd></div>}
+        {subscription.cancel_by_date && <div><dt className="font-semibold">Cancel by</dt><dd>{displayDate(subscription.cancel_by_date)}</dd></div>}
         <div className="flex flex-wrap items-center justify-between gap-2"><dt className="font-semibold">Login email</dt><dd className="break-all text-zinc-700">{subscription.account_email || 'Not set'}</dd></div>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <dt className="font-semibold">Password</dt>
           <dd className="flex flex-wrap items-center gap-2 text-zinc-700">
             {subscription.has_password ? (
               <>
-                <span className="max-w-full break-all">{password || '••••••••'}</span>
-                <button type="button" className="font-semibold underline underline-offset-3 disabled:opacity-50" aria-expanded={Boolean(password)} disabled={loading} onClick={() => void togglePassword()}>{password ? 'Hide' : 'Reveal'}</button>
+                <CredentialReveal url={`/api/accounts/teams/${team.id}/subscriptions/${subscription.id}/password/`} />
               </>
             ) : 'Not set'}
           </dd>
         </div>
       </dl>
-      <ErrorMessage message={error} />
       {team.role === 'owner' && <Link className="justify-self-start text-sm font-semibold underline underline-offset-3" to={'/subscriptions/' + subscription.id + '/edit/'}>Edit subscription</Link>}
     </article>
   )

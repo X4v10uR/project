@@ -1,10 +1,61 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import { buttonClass, currencyAmount, displayDate, ErrorBanner, Field, inputClass, panelClass, showError } from '../subscriptions/shared'
 
-type Charge = { id: number; service: string; date: string; amount: string; currency: string; source: 'renewal'; team: string | null }
-type History = { results: Charge[]; count: number; totals_by_currency: Record<string, string>; previous: string | null; next: string | null }
+const paymentLabels = { scheduled: 'Scheduled', paid: 'Paid', failed: 'Failed', refunded: 'Refunded' } as const
+type Payment = keyof typeof paymentLabels
+type Share = { id: number; name: string; amount: string; reimbursed: boolean; has_repayments: boolean }
+type Charge = { shares_captured: boolean; payment_status: Payment; shares: Share[]; can_edit: boolean; id: number; service: string; date: string; amount: string; currency: string; source: 'renewal'; team: string | null }
+type History = { results: Charge[]; count: number; totals_by_currency: Record<string, string>; paid_by_currency: Record<string, string>; previous: string | null; next: string | null }
+
+function ChargeControls({ charge, reload }: { charge: Charge; reload: () => void }) {
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [shareChanges, setShareChanges] = useState<Record<number, boolean>>({})
+  useEffect(() => setShareChanges({}), [charge.shares])
+  async function update(endpoint: string, body: Record<string, unknown>, method = 'PATCH') {
+    setSaving(true)
+    setError('')
+    try {
+      await api(`/api/dashboard/history/${charge.id}/${endpoint}/`, { method, body: JSON.stringify(body) })
+      reload()
+      return true
+    } catch (failure) {
+      setError(showError(failure))
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }
+  return <div className="grid min-w-32 gap-2">
+    {charge.can_edit ? <select aria-label={`Payment status for ${charge.service}`} className={inputClass}
+      value={charge.payment_status} disabled={saving} onChange={(event) => void update('payment', { payment_status: event.target.value })}>
+      {Object.entries(paymentLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+    </select> : <span>{paymentLabels[charge.payment_status]}</span>}
+    {charge.shares.length > 0 && <details><summary className="cursor-pointer">Reimbursements</summary>
+      {charge.shares.map((share) => <label key={share.id} className="mt-2 flex items-center gap-2">
+        <input type="checkbox" checked={shareChanges[share.id] ?? share.reimbursed} disabled={saving || !charge.can_edit || share.has_repayments}
+          onChange={(event) => { const reimbursed = event.target.checked; setShareChanges(changes => ({ ...changes, [share.id]: reimbursed })); void update(`shares/${share.id}`, { reimbursed }).then(saved => { if (!saved) setShareChanges(changes => { const next = { ...changes }; delete next[share.id]; return next }) }) }} />
+        {share.name} · {currencyAmount(share.amount, charge.currency)} reimbursed
+      </label>)}
+    </details>}
+    {charge.shares.length > 0 && <Link className="text-sm font-semibold text-indigo-700 underline" to={`/planning/settlements/?scope=${charge.team ? 'teams' : 'personal'}`}>Manage repayments</Link>}
+    {!charge.shares_captured && charge.can_edit && <details>
+      <summary className="cursor-pointer">Add historical share</summary>
+      <form className="mt-2 grid gap-2" onSubmit={(event) => {
+        event.preventDefault()
+        const fields = Object.fromEntries(new FormData(event.currentTarget))
+        void update('shares', fields, 'POST')
+      }}>
+        <Field label="Participant name"><input className={inputClass} name="name" required maxLength={100} /></Field>
+        <Field label={`Share (${charge.currency})`}><input className={inputClass} name="amount" type="number" step="0.01" min="0.01" required /></Field>
+        <button className={buttonClass} disabled={saving}>Add share</button>
+      </form>
+    </details>}
+    <ErrorBanner message={error} />
+  </div>
+}
 
 export function HistoryPage() {
   const [params, setParams] = useSearchParams()
@@ -57,14 +108,16 @@ export function HistoryPage() {
               <li key={code}>{code} {total}</li>
             ))}
           </ul>
+          {Object.keys(current.data.paid_by_currency).length > 0 && <p className="mb-3 text-sm font-semibold">Confirmed paid · {Object.entries(current.data.paid_by_currency).map(([code, value]) => currencyAmount(value, code)).join(' + ')}</p>}
           <p className="pb-3 text-sm text-slate-600">Charges are recorded from subscription schedules. Dates refer to the scheduled renewal.</p>
           <div className="overflow-x-auto"><table className="w-full text-left text-sm">
-            <thead className="border-b text-slate-600"><tr><th className="p-2">Date</th><th className="p-2">Service</th><th className="p-2">Source</th><th className="p-2 text-right">Amount</th></tr></thead>
+            <thead className="border-b text-slate-600"><tr><th className="p-2">Date</th><th className="p-2">Service</th><th className="p-2">Source</th><th className="p-2 text-right">Your amount</th><th className="p-2">Payment status</th></tr></thead>
             <tbody className="divide-y divide-slate-100">{current.data.results.map((charge) => <tr key={charge.id}>
               <td className="p-2"><time dateTime={charge.date}>{displayDate(charge.date)}</time></td>
               <td className="p-2 font-semibold">{charge.service}{charge.team && <span className="block text-xs font-normal">{charge.team}</span>}</td>
               <td className="p-2">Scheduled renewal</td>
               <td className="whitespace-nowrap p-2 text-right font-semibold">{currencyAmount(charge.amount, charge.currency)} <small>{charge.currency}</small></td>
+              <td className="p-2"><ChargeControls charge={charge} reload={() => setRetry((value) => value + 1)} /></td>
             </tr>)}</tbody>
           </table></div>
           {(current.data.previous || current.data.next) && <nav aria-label="History pages" className="mt-4 flex items-center justify-between gap-3">

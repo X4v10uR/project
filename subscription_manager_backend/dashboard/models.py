@@ -13,12 +13,15 @@ class BalanceAdjustment(models.Model):
         related_name='balance_adjustments',
     )
     scope = models.CharField(max_length=8, choices=Scope.choices, default=Scope.PERSONAL)
+    currency = models.CharField(max_length=3, default='USD')
+    monthly_limit = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    over_budget = models.BooleanField(default=False)
     amount = models.DecimalField(max_digits=20, decimal_places=2, default='0.00')
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-updated_at']
-        constraints = [models.UniqueConstraint(fields=['user', 'scope'], name='unique_balance_scope_per_user')]
+        constraints = [models.UniqueConstraint(fields=['user', 'scope', 'currency'], name='unique_balance_scope_currency')]
 
     def __str__(self):
         return f"{self.user.email} {self.scope} adjustment {self.amount}"

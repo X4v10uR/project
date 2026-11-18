@@ -2,6 +2,7 @@ import { Download, Plus, Search } from 'lucide-react'
 import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
+import { CredentialReveal } from '../accounts/SecuritySettings'
 import {
   billingCycles, buttonClass, currencyAmount, dangerClass, displayCycle, displayDate, ErrorBanner,
   Field, inputClass, Modal, panelClass, primaryClass, showError, subscriptionApi, subscriptionPath,
@@ -55,7 +56,7 @@ function SubscriptionCard({ subscription, details, onSelect }: { subscription: S
       <span className="mt-4 text-lg font-bold">{subscription.service_name}</span>
       <span className="text-sm font-medium opacity-85">{subscription.plan_name || subscription.category}</span>
       <span className="mt-4 flex w-full flex-wrap items-end justify-between gap-x-4 gap-y-1">
-        <span className="text-xl font-bold">{currencyAmount(subscription.user_cost, subscription.currency)} <span className="text-xs font-medium opacity-85">{displayCycle(subscription.billing_cycle)}</span></span>
+        <span className="text-xl font-bold">{currencyAmount(subscription.current_user_cost, subscription.currency)} <span className="text-xs font-medium opacity-85">{displayCycle(subscription.billing_cycle)}</span></span>
         <span className="text-xs font-medium opacity-85">{displayDate(subscription.renewal_date)}</span>
       </span>
     </button>
@@ -68,7 +69,6 @@ function Detail({ subscription, details, onClose, onUpdated, initiallyDeleting }
   const [deleting, setDeleting] = useState(initiallyDeleting)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [password, setPassword] = useState<string | null>(null)
   const url = `${subscriptionApi}${subscription.id}/`
 
   async function run(action: () => Promise<unknown>) {
@@ -102,32 +102,27 @@ function Detail({ subscription, details, onClose, onUpdated, initiallyDeleting }
         ) : (
           <>
             <dl className="grid grid-cols-2 gap-4 rounded-2xl bg-slate-50 p-4 text-sm">
-              <div><dt className="text-slate-500">Your cost</dt><dd className="font-semibold">{currencyAmount(subscription.user_cost, subscription.currency)}</dd></div>
+              {subscription.trial_end_date && <div><dt>First paid date</dt><dd>{displayDate(subscription.trial_end_date)}</dd></div>}
+              {subscription.cancel_by_date && <div><dt>Cancel by</dt><dd>{displayDate(subscription.cancel_by_date)}</dd></div>}
+              <div><dt className="text-slate-500">Your cost</dt><dd className="font-semibold">{currencyAmount(subscription.current_user_cost, subscription.currency)}</dd></div>
               <div><dt className="text-slate-500">Billing cycle</dt><dd className="font-semibold">{details.billing_cycle_detail}</dd></div>
               <div><dt className="text-slate-500">Renewal date</dt><dd className="font-semibold">{displayDate(subscription.renewal_date)}</dd></div>
               <div><dt className="text-slate-500">Payment card</dt><dd className="font-semibold">{details.card_last4 ? `${subscription.card_nickname} · ${details.card_last4}` : 'Unassigned'}</dd></div>
-              {subscription.is_shared && <div><dt className="text-slate-500">Total cost</dt><dd className="font-semibold">{currencyAmount(subscription.cost, subscription.currency)}</dd></div>}
+              {subscription.is_shared && <div><dt className="text-slate-500">Total cost</dt><dd className="font-semibold">{currencyAmount(subscription.current_cost, subscription.currency)}</dd></div>}
               {subscription.account_email && <div><dt className="text-slate-500">Account email</dt><dd className="break-all font-semibold">{subscription.account_email}</dd></div>}
             </dl>
+            {subscription.cancellation_state !== 'none' && <div className="rounded-xl bg-amber-50 p-3 text-sm"><p className="font-semibold">Cancellation {subscription.cancellation_state}</p>{subscription.access_until && <p>Access continues until {displayDate(subscription.access_until)}</p>}{subscription.cancellation_notes && <p className="mt-1 whitespace-pre-wrap">{subscription.cancellation_notes}</p>}</div>}
+            {subscription.cancellation_url && <a className={buttonClass} href={subscription.cancellation_url} target="_blank" rel="noreferrer">Open provider cancellation page ↗</a>}
             {subscription.is_shared && (
               <div className="text-sm"><h3 className="font-bold">Participants</h3><ul className="mt-1 divide-y divide-slate-100">{subscription.participants.map((person, index) => <li key={`${person.name}-${index}`} className="flex justify-between gap-3 py-1.5"><span>{person.name}</span><span>{currencyAmount(person.share_amount ?? '0', subscription.currency)}</span></li>)}</ul></div>
             )}
             {subscription.notes && <p className="whitespace-pre-wrap break-words text-sm text-slate-600">{subscription.notes}</p>}
             {subscription.has_password && (
-              <div className="flex flex-wrap items-center gap-3">
-                <button className={buttonClass} disabled={busy} onClick={() => {
-                  if (password !== null) setPassword(null)
-                  else void run(async () => {
-                    const result = await api<{ password: string | null }>(`${url}password/`, { method: 'POST' })
-                    setPassword(result.password ?? 'Unavailable')
-                  })
-                }}>{password === null ? 'Reveal password' : 'Hide password'}</button>
-                {password !== null && <span className="break-all font-mono text-sm">{password}</span>}
-              </div>
+              <CredentialReveal url={`${url}password/`} />
             )}
             <div>
               <h3 className="mb-1 text-sm font-bold">Payment history</h3>
-              {details.history.length ? <ul className="divide-y divide-slate-100 text-sm">{details.history.map((payment) => <li key={payment.charged_for_date} className="flex justify-between gap-3 py-2"><span>{payment.charged_for_date_display}</span><span className="font-semibold">{payment.amount_display}</span></li>)}</ul> : <p className="text-sm text-slate-500">No recorded payments yet.</p>}
+              {details.history.length ? <ul className="divide-y divide-slate-100 text-sm">{details.history.map((payment) => <li key={payment.charged_for_date} className="flex justify-between gap-3 py-2"><span>{payment.charged_for_date_display} · {payment.payment_status}</span><span className="font-semibold">{payment.amount_display}</span></li>)}</ul> : <p className="text-sm text-slate-500">No recorded payments yet.</p>}
             </div>
             <Field label="Status">
               <select className={inputClass} value={subscription.status} disabled={busy} onChange={(event) => {
@@ -207,6 +202,7 @@ export function SubscriptionsPage() {
           <a className={`${buttonClass} gap-2`} href={`${subscriptionApi}export/csv/?${queryString}`}><Download size={16} /> Export CSV</a>
           <Link className={buttonClass} to={`${subscriptionPath}import/`}>Import CSV</Link>
           <Link className={`${primaryClass} gap-2`} to={`${subscriptionPath}add/`}><Plus size={18} /> Add subscription</Link>
+          <Link className={buttonClass} to="/subscriptions/quick-add/">Quick add</Link>
         </div>
       </header>
       {error && (
