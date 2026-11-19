@@ -5,7 +5,7 @@ from collections.abc import Mapping
 
 import pyotp
 from django import forms
-from django.contrib.auth import logout
+from django.contrib.auth import logout, update_session_auth_hash
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.cache import cache
 from django.db import transaction
@@ -69,6 +69,14 @@ def mark_verified(request, user):
     security = AccountSecurity.objects.filter(user=user, enabled=True).first()
     if security:
         request.session['mfa_revision'] = security.revision
+
+
+def update_authenticated_session(request, user):
+    previous_key = request.session.session_key
+    update_session_auth_hash(request, user)
+    if previous_key:
+        from finance.models import PushSubscription
+        PushSubscription.objects.filter(user=user, session_key=previous_key).update(session_key=request.session.session_key)
 
 
 def require_recent(request):

@@ -2,12 +2,15 @@ import base64
 import json
 import logging
 from datetime import datetime, timedelta
+from importlib import import_module
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from django.conf import settings
+from django.contrib.auth import BACKEND_SESSION_KEY, HASH_SESSION_KEY, SESSION_KEY
 from django.core.mail import send_mail
 from django.db import transaction
 from django.utils import timezone
+from django.utils.crypto import constant_time_compare
 from rest_framework import serializers
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -43,8 +46,27 @@ def immediate_email(user):
 
 def send_push(notification):
     from pywebpush import webpush, WebPushException
+    from accounts.models import AccountSecurity
+
+    user = notification.recipient
+    session_store = import_module(settings.SESSION_ENGINE).SessionStore
+    auth_hashes = [user.get_session_auth_hash(), *user.get_session_auth_fallback_hash()]
+    security = AccountSecurity.objects.filter(user=user, enabled=True).first()
     success = True
-    for sub in PushSubscription.objects.filter(user=notification.recipient):
+    for sub in PushSubscription.objects.filter(user=user):
+        session = session_store(session_key=sub.session_key).load()
+        session_hash = session.get(HASH_SESSION_KEY)
+        # Push access follows the browser's login, including password and MFA revocation.
+        authenticated = (
+            user.is_active
+            and str(session.get(SESSION_KEY)) == str(user.pk)
+            and session.get(BACKEND_SESSION_KEY) in settings.AUTHENTICATION_BACKENDS
+            and session_hash
+            and any(constant_time_compare(session_hash, expected) for expected in auth_hashes)
+        )
+        if not authenticated or (security and session.get('mfa_revision') != security.revision):
+            sub.delete()
+            continue
         try:
             webpush(subscription_info={'endpoint': sub.endpoint, 'keys': sub.keys},
                 data=json.dumps({'title': notification.title, 'body': notification.body, 'url': notification.link_url}),
@@ -143,8 +165,8 @@ def send_digests():
                 continue
             since = since or timezone.now() - timedelta(days=1 if pref.digest == 'daily' else 7)
             from django.db.models import Q
-            rows = InAppNotification.objects.filter(Q(created_at__gt=since) | Q(last_reminded_at__gt=since), recipient=pref.user, is_read=False).exclude(notificationdelivery__snoozed_until__gt=timezone.now()).order_by('created_at')[:100]
-            text = '\n\n'.join(f'{n.title}\n{n.body}' for n in rows)
+            rows = InAppNotification.objects.filter(Q(created_at__gt=since) | Q(last_reminded_at__gt=since), recipient=pref.user, is_read=False).exclude(notificationdelivery__snoozed_until__gt=timezone.now()).order_by('created_at', 'pk')
+            text = '\n\n'.join(f'{n.title}\n{n.body}' for n in rows.iterator())
             if text:
                 try:
                     send_mail(f'Subly {pref.digest} summary', text + '\n\n' + settings.SITE_URL,

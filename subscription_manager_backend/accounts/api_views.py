@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from zoneinfo import available_timezones
 
-from django.contrib.auth import login, logout, update_session_auth_hash
+from django.contrib.auth import login, logout
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, SetPasswordForm
 from django.utils.decorators import method_decorator
 from django.utils import timezone
@@ -32,7 +32,7 @@ from .forms import (
 )
 from .models import User
 from .services import resolve_invite, send_team_invite_email
-from .security import audit, mark_verified, require_recent, verify_factor, throttle
+from .security import audit, mark_verified, require_recent, verify_factor, throttle, update_authenticated_session
 
 
 TIMEZONES = tuple(sorted(available_timezones()))
@@ -122,9 +122,6 @@ class SignupView(PublicAccountView):
 
 class LogoutView(PublicAccountView):
     def post(self, request):
-        if request.user.is_authenticated:
-            from finance.models import PushSubscription
-            PushSubscription.objects.filter(user=request.user, session_key=request.session.session_key).delete()
         logout(request)
         return Response(status=204)
 
@@ -179,7 +176,7 @@ class SettingsSectionView(AccountView):
         elif section == 'password':
             password_form = PasswordChangeForm if user.has_usable_password() else SetPasswordForm
             user = validated(password_form(user, data)).save()
-            update_session_auth_hash(request, user)
+            update_authenticated_session(request, user)
             request.session.pop('reauthenticated_at', None)
             audit(user, 'password.changed')
         elif section == 'delete':

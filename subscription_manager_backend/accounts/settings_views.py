@@ -1,7 +1,7 @@
 from zoneinfo import available_timezones
 
 from django.contrib import messages
-from django.contrib.auth import logout, update_session_auth_hash
+from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm, SetPasswordForm
 from django.http import JsonResponse
@@ -25,6 +25,7 @@ from .forms import (
     ProfileSettingsForm,
 )
 from .team_workflows import TeamActionError, delete_user_account
+from .security import update_authenticated_session
 
 
 SETTINGS_SECTION_MAP = {
@@ -74,7 +75,7 @@ def account_settings(request):
             password_form = password_form_class(user=request.user, data=request.POST)
             if password_form.is_valid():
                 user = password_form.save()
-                update_session_auth_hash(request, user)
+                update_authenticated_session(request, user)
                 return redirect(f"{reverse('accounts:settings')}?updated=password")
 
         if form_type == 'delete_account':

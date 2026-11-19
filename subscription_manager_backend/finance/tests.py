@@ -17,7 +17,7 @@ from accounts.models import User, TeamMembership
 from accounts.team_workflows import create_team
 from subscriptions.models import Subscription, Transaction, PriceChange, ChargeShare, Repayment, InAppNotification
 from subscriptions.notifications import create_notification
-from .models import Receipt, SpendingBudget, ExchangeRate, NotificationPreference, NotificationDelivery, Connection, ImportedPayment, Activity
+from .models import Receipt, SpendingBudget, ExchangeRate, NotificationPreference, NotificationDelivery, PushSubscription, Connection, ImportedPayment, Activity
 from .backup import build_archive
 from .connections import encrypt_tokens, tokens_for, sync_plaid, sync_gmail
 from .delivery import deliver_queued, send_digests, route_notification, quiet_until, validate_push
@@ -212,6 +212,18 @@ class FinanceTests(TestCase):
         self.assertEqual(result.status_code, 400)
         self.assertEqual(Subscription.objects.count(), count)
 
+    def test_backup_restores_activity_without_change_details(self):
+        sub = self.sub()
+        result = self.client.delete(f'/api/subscriptions/{sub.pk}/')
+        self.assertEqual(result.status_code, 204)
+        self.assertEqual(Activity.objects.get().changes, {})
+        content = build_archive(self.user)
+        result = self.client.post('/api/finance/backup/restore/', {
+            'file': SimpleUploadedFile('backup.zip', content), 'confirm': 'RESTORE',
+        })
+        self.assertEqual(result.status_code, 200, result.content)
+        self.assertEqual(Activity.objects.filter(action='subscription.deleted', changes={}).count(), 2)
+
     def test_accountant_can_record_payments_but_cannot_reveal_credentials(self):
         team = create_team(name='Finance', user=self.other)
         member = TeamMembership.objects.create(team=team, user=self.user, role='accountant')
@@ -381,3 +393,96 @@ class FinanceTests(TestCase):
     def test_invalid_and_partial_preferences_are_rejected(self):
         result = self.client.put('/api/finance/notifications/preferences/', {'email_enabled': True, 'quiet_start': '22:00'}, content_type='application/json')
         self.assertEqual(result.status_code, 400)
+
+    def test_digest_includes_every_eligible_notification(self):
+        now = timezone.now().replace(hour=12)
+        NotificationPreference.objects.create(user=self.user, digest='daily', last_digest_at=now - timedelta(days=1))
+        InAppNotification.objects.bulk_create([
+            InAppNotification(recipient=self.user, title=f'Renewal {index}', event_type='renewal')
+            for index in range(101)
+        ])
+        with patch('finance.delivery.timezone.now', return_value=now):
+            self.assertEqual(send_digests(), 1)
+            self.assertEqual(send_digests(), 0)
+        self.assertEqual(len(mail.outbox), 1)
+        for index in range(101):
+            self.assertIn(f'Renewal {index}\n', mail.outbox[0].body)
+
+    def test_legacy_logout_removes_only_the_current_browsers_push(self):
+        current = PushSubscription.objects.create(user=self.user, endpoint='https://fcm.googleapis.com/current',
+            keys={}, session_key=self.client.session.session_key)
+        other = PushSubscription.objects.create(user=self.user, endpoint='https://fcm.googleapis.com/other',
+            keys={}, session_key='other-browser')
+        result = self.client.post('/accounts/logout/')
+        self.assertEqual(result.status_code, 302)
+        self.assertFalse(PushSubscription.objects.filter(pk=current.pk).exists())
+        self.assertTrue(PushSubscription.objects.filter(pk=other.pk).exists())
+
+    @patch('pywebpush.webpush')
+    def test_push_rejects_expired_and_revoked_browser_sessions(self, webpush):
+        from django.test import Client
+        from accounts.models import AccountSecurity
+        from .delivery import send_push
+
+        notification = InAppNotification.objects.create(recipient=self.user, title='Private renewal', event_type='renewal')
+        for reason in ('expired', 'password', 'mfa'):
+            with self.subTest(reason=reason):
+                browser = Client()
+                browser.force_login(self.user)
+                session = browser.session
+                row = PushSubscription.objects.create(user=self.user, endpoint=f'https://fcm.googleapis.com/{reason}',
+                    keys={}, session_key=session.session_key)
+                if reason == 'expired':
+                    session.set_expiry(-1)
+                    session.save()
+                elif reason == 'password':
+                    self.user.set_password('Changed-password-example-73')
+                    self.user.save(update_fields=['password'])
+                else:
+                    AccountSecurity.objects.create(user=self.user, enabled=True, revision='new-enrollment')
+                self.assertTrue(send_push(notification))
+                webpush.assert_not_called()
+                self.assertFalse(PushSubscription.objects.filter(pk=row.pk).exists())
+
+    @patch('pywebpush.webpush')
+    def test_push_delivers_to_a_current_authenticated_browser(self, webpush):
+        from accounts.models import AccountSecurity
+        from .delivery import send_push
+
+        row = PushSubscription.objects.create(user=self.user, endpoint='https://fcm.googleapis.com/current',
+            keys={}, session_key=self.client.session.session_key)
+        notification = InAppNotification.objects.create(recipient=self.user, title='Renewal', event_type='renewal')
+        self.assertTrue(send_push(notification))
+        webpush.assert_called_once()
+        self.assertTrue(PushSubscription.objects.filter(pk=row.pk).exists())
+        AccountSecurity.objects.create(user=self.user, enabled=True, revision='verified-enrollment')
+        session = self.client.session
+        session['mfa_revision'] = 'verified-enrollment'
+        session.save()
+        webpush.reset_mock()
+        self.assertTrue(send_push(notification))
+        webpush.assert_called_once()
+        self.assertTrue(PushSubscription.objects.filter(pk=row.pk).exists())
+
+    def test_password_change_keeps_push_bound_to_the_current_session(self):
+        for legacy in (False, True):
+            with self.subTest(legacy=legacy):
+                self.user.set_password('Password-example-42')
+                self.user.save(update_fields=['password'])
+                self.client.force_login(self.user)
+                previous_key = self.client.session.session_key
+                current = PushSubscription.objects.create(user=self.user,
+                    endpoint=f'https://fcm.googleapis.com/current-{legacy}', keys={}, session_key=previous_key)
+                payload = {'old_password': 'Password-example-42',
+                    'new_password1': 'New-password-example-73', 'new_password2': 'New-password-example-73'}
+                if legacy:
+                    result = self.client.post('/accounts/settings/', {'form_type': 'password', **payload})
+                    self.assertEqual(result.status_code, 302)
+                else:
+                    result = self.client.post('/api/accounts/settings/password/', payload, content_type='application/json')
+                    self.assertEqual(result.status_code, 200, result.content)
+                current.refresh_from_db()
+                self.assertNotEqual(self.client.session.session_key, previous_key)
+                self.assertEqual(current.session_key, self.client.session.session_key)
+                self.assertEqual(self.client.post('/api/accounts/logout/').status_code, 204)
+                self.assertFalse(PushSubscription.objects.filter(pk=current.pk).exists())

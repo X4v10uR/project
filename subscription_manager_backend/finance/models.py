@@ -137,5 +137,5 @@ class Activity(models.Model):
     subscription = models.ForeignKey('subscriptions.Subscription', null=True, blank=True, on_delete=models.SET_NULL)
     service = models.CharField(max_length=100, blank=True)
     action = models.CharField(max_length=100)
-    changes = models.JSONField(default=dict)
+    changes = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
