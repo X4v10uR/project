@@ -11,11 +11,13 @@ from django.db import transaction
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import serializers
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, renderer_classes
+from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from accounts.models import Team, TeamMembership
 from accounts.security import require_recent
 from dashboard.models import BalanceAdjustment
+from subly.renderers import ZipRenderer
 from subscriptions.models import Card, Subscription, SubscriptionParticipant, ReminderOffset, PriceChange, Transaction, ChargeShare, Repayment, InAppNotification
 from .models import Receipt, SpendingBudget, Activity, NotificationPreference, Connection, ImportedPayment
 from .documents import validate_file
@@ -263,6 +265,7 @@ def restore_archive(user, archive, data):
 
 
 @api_view(['POST'])
+@renderer_classes([JSONRenderer, ZipRenderer])
 def backup_export(request):
     require_recent(request)
     content = build_archive(request.user)

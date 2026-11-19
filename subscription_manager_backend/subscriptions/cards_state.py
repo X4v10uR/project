@@ -128,11 +128,6 @@ def _service_icon_label(service_name):
     return name[0].upper()
 
 
-def _monthly_price(subscription):
-    amount = subscription.user_cost if subscription.is_shared else subscription.cost
-    return monthly_equivalent(amount, subscription.billing_cycle)
-
-
 def _format_display_date(raw_date):
     if not raw_date:
         return "No date set"
@@ -160,12 +155,14 @@ def build_cards_page_state(user):
     subscriptions = (
         Subscription.objects.filter(status="active", card__user=user)
         .filter(Q(user=user, team__isnull=True) | Q(team__memberships__user=user))
+        .prefetch_related("price_changes", "participants")
         .order_by("renewal_date", "service_name")
     )
 
     subscriptions_payload = []
     for subscription in subscriptions:
-        monthly_price = _monthly_price(subscription)
+        amount = subscription.share_on(today) if subscription.bills_on(today) else 0
+        monthly_price = monthly_equivalent(amount, subscription.billing_cycle)
         color = _service_color(subscription)
         days_left = 0
         if subscription.renewal_date:

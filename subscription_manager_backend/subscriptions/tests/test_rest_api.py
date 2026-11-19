@@ -86,6 +86,28 @@ class SubscriptionApiTest(TestCase):
         self.assertEqual(filtered['stats'], portfolio['stats'])
         self.assertEqual(filtered['burn_metrics'], portfolio['burn_metrics'])
 
+    def test_card_spending_and_subscription_details_follow_current_prices(self):
+        today = timezone.localdate()
+        card = Card.objects.create(user=self.user, nickname='Card', last4='0101')
+        created = self.client.post(self.collection, {**self.payload, 'card': card.pk}, content_type='application/json')
+        self.assertEqual(created.status_code, 201, created.content)
+        pk = created.json()['id']
+        detail_url = reverse('subscriptions_api:detail', args=[pk])
+        change = self.client.post(f'{detail_url}prices/', {'cost': '24.00', 'effective_on': today.isoformat()},
+                                  content_type='application/json')
+        self.assertEqual(change.status_code, 201, change.content)
+
+        card_url = reverse('subscriptions_api:cards')
+        self.assertEqual(self.client.get(card_url).json()['state']['subscriptions'][0]['monthlyPrice'], 8)
+        detail = self.client.get(detail_url).json()
+        self.assertEqual(detail['details']['cost'], detail['current_cost'])
+        self.assertEqual(detail['details']['user_cost'], detail['current_user_cost'])
+        portfolio = self.client.get(self.collection).json()
+        self.assertEqual(portfolio['details'][str(pk)], detail['details'])
+
+        Subscription.objects.filter(pk=pk).update(pause_from=today)
+        self.assertEqual(self.client.get(card_url).json()['state']['subscriptions'][0]['monthlyPrice'], 0)
+
     def test_team_member_submits_request_without_saving_credentials(self):
         owner = get_user_model().objects.create_user(email='owner@example.com', password='example-password')
         team = Team.objects.create(name='API team', created_by=owner)

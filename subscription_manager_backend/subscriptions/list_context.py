@@ -342,6 +342,7 @@ def _ordinal_suffix(day):
 
 
 def _build_subscription_drawer_data(subscriptions):
+    today = timezone.localdate()
     subscription_ids = [subscription.pk for subscription in subscriptions]
     transactions_by_subscription = {sub_id: [] for sub_id in subscription_ids}
 
@@ -384,8 +385,8 @@ def _build_subscription_drawer_data(subscriptions):
     payload = {}
     for subscription in subscriptions:
         currency = _normalize_currency_code(subscription.currency)
-        total_cost = subscription.cost or Decimal("0")
-        user_cost = subscription.user_cost or Decimal("0")
+        total_cost = subscription.price_on(today)
+        user_cost = subscription.share_on(today)
         participant_count = int(getattr(subscription, "participant_count", 0) or 0)
         total_people = 1 + participant_count if subscription.is_shared else 1
 

@@ -70,12 +70,31 @@ class FinanceTests(TestCase):
         self.assertEqual(row['currency'], 'USD')
         receipt = Receipt.objects.get()
         self.assertNotIn('/media/', row['download_url'])
-        response = self.client.get(row['download_url'])
+        response = self.client.get(row['download_url'], HTTP_ACCEPT='application/pdf')
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
         response.close()
+        self.assertEqual(self.client.get(row['download_url'], HTTP_ACCEPT='image/png').status_code, 406)
+        self.assertEqual(self.client.delete(row['download_url']).status_code, 405)
         self.client.force_login(self.other)
         self.assertEqual(self.client.get(row['download_url']).status_code, 404)
         self.assertEqual(self.client.patch(f'/api/finance/receipts/{receipt.pk}/', {'note': 'x'}, content_type='application/json').status_code, 404)
+
+    def test_image_receipts_download_in_the_original_format(self):
+        from PIL import Image
+
+        for image_format, mime in [('PNG', 'image/png'), ('JPEG', 'image/jpeg')]:
+            with self.subTest(image_format=image_format):
+                buffer = io.BytesIO()
+                Image.new('RGB', (2, 2)).save(buffer, format=image_format)
+                original = buffer.getvalue()
+                file = SimpleUploadedFile('receipt.' + image_format.lower(), original, content_type=mime)
+                upload = self.client.post('/api/finance/receipts/', {'file': file})
+                self.assertEqual(upload.status_code, 201, upload.content)
+                response = self.client.get(upload.json()['download_url'], HTTP_ACCEPT=mime)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response['Content-Type'], mime)
+                self.assertEqual(b''.join(response.streaming_content), original)
 
     def test_receipts_reject_disguised_html_and_foreign_subscription(self):
         result = self.client.post('/api/finance/receipts/', {'file': SimpleUploadedFile('invoice.pdf', b'<script>alert(1)</script>', 'application/pdf')})
@@ -121,12 +140,14 @@ class FinanceTests(TestCase):
     def test_report_filters_and_csv_formula_escape_and_pdf(self):
         row = self.charge(self.sub(service_name='=FORMULA()'))
         self.charge(self.sub(user=self.other, service_name='Hidden'))
-        result = self.client.get('/api/finance/reports/?filetype=csv')
+        result = self.client.get('/api/finance/reports/?filetype=csv', HTTP_ACCEPT='text/csv')
         self.assertEqual(result.status_code, 200)
         self.assertIn("'=FORMULA()", result.content.decode('utf-8-sig'))
         self.assertNotIn('Hidden', result.content.decode('utf-8-sig'))
-        result = self.client.get('/api/finance/reports/?filetype=pdf')
+        result = self.client.get('/api/finance/reports/', HTTP_ACCEPT='application/pdf')
+        self.assertEqual(result['Content-Type'], 'application/pdf')
         self.assertTrue(result.content.startswith(b'%PDF-'))
+        self.assertEqual(self.client.get('/api/finance/reports/?filetype=pdf', HTTP_ACCEPT='text/csv').status_code, 406)
         self.assertNotIn('FORMULA', self.client.get('/api/finance/reports/?status=paid').content.decode('utf-8-sig'))
 
     def test_live_calendar_updates_and_can_be_revoked(self):
@@ -134,14 +155,19 @@ class FinanceTests(TestCase):
         result = self.post('calendar/feeds/', {'scope': 'personal'})
         url = result.json()['url'].split(settings.SITE_URL)[-1]
         self.client.logout()
-        self.assertIn('Studio', self.client.get(url).content.decode())
+        response = self.client.get(url, HTTP_ACCEPT='text/calendar')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'].split(';')[0], 'text/calendar')
+        self.assertIn('Studio', response.content.decode())
         sub.service_name = 'Updated Studio'
         sub.save()
         self.assertIn('Updated Studio', self.client.get(url).content.decode())
         self.client.force_login(self.user)
         result = self.client.delete('/api/finance/calendar/feeds/', {'id': result.json()['id']}, content_type='application/json')
         self.assertEqual(result.status_code, 204)
-        self.assertEqual(self.client.get(url).status_code, 404)
+        revoked = self.client.get(url, HTTP_ACCEPT='text/calendar')
+        self.assertEqual(revoked.status_code, 404)
+        self.assertIn('detail', revoked.json())
 
     def test_backup_roundtrip_retains_financial_history_and_receipt(self):
         sub = self.sub()
@@ -153,7 +179,10 @@ class FinanceTests(TestCase):
         Repayment.objects.create(share=share, amount=4, recorded_by=self.user, note='Partial')
         result = self.client.post('/api/finance/receipts/', {'file': self.pdf(), 'subscription': sub.pk, 'charge': charge.pk})
         self.assertEqual(result.status_code, 201)
-        content = build_archive(self.user)
+        exported = self.client.post('/api/finance/backup/export/', HTTP_ACCEPT='application/zip')
+        self.assertEqual(exported.status_code, 200)
+        self.assertEqual(exported['Content-Type'], 'application/zip')
+        content = exported.content
         with zipfile.ZipFile(io.BytesIO(content)) as archive:
             self.assertNotIn('never-export-this', archive.read('subly.json').decode())
             self.assertIn('receipts/' + str(Receipt.objects.get().pk), archive.namelist())

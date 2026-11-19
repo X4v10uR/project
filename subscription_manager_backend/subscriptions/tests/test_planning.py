@@ -61,7 +61,10 @@ class PlanningTests(TestCase):
         sub = self.sub(service_name='Very long name ' * 10, trial_end_date=self.today + timedelta(days=3), cancel_by_date=self.today + timedelta(days=2))
         events = self.client.get('/api/subscriptions/calendar/').json()['events']
         self.assertTrue({'payment', 'trial', 'deadline'} <= {event['kind'] for event in events})
-        exported = self.client.get('/api/subscriptions/calendar/export/').content.decode()
+        response = self.client.get('/api/subscriptions/calendar/export/', HTTP_ACCEPT='text/calendar')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'].split(';')[0], 'text/calendar')
+        exported = response.content.decode()
         self.assertIn('BEGIN:VCALENDAR\r\n', exported)
         self.assertIn('DTSTART;VALUE=DATE:', exported)
         self.assertTrue(all(len(line.encode('utf-8')) <= 75 for line in exported.split('\r\n')))

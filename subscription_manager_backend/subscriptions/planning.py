@@ -10,10 +10,12 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, renderer_classes
+from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 
 from accounts.models import TeamMembership
+from subly.renderers import CalendarRenderer
 from .api_views import _subscription_for
 from .models import ChargeShare, PriceChange, Repayment, Subscription, Transaction
 from .money import monthly_equivalent
@@ -92,7 +94,8 @@ def fold_ical(line):
     return '\r\n'.join([*lines, current])
 
 
-@api_view(['GET'])
+@api_view(['GET', 'HEAD'])
+@renderer_classes([JSONRenderer, CalendarRenderer])
 def calendar_export(request):
     query = selection(request)
     events = calendar_events(visible_subscriptions(request.user, query['scope']).prefetch_related('price_changes', 'participants'), query['start'], query['end'])

@@ -10,13 +10,15 @@ from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes, renderer_classes
+from rest_framework.exceptions import NotAcceptable
 from rest_framework.permissions import AllowAny
+from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
-from accounts.models import Team, TeamMembership
+from accounts.models import Team
+from subly.renderers import CalendarRenderer, CSVRenderer, JPEGRenderer, PDFRenderer, PNGRenderer
 from subscriptions.models import Subscription
 from subscriptions.money import monthly_equivalent
-from subscriptions.planning import calendar_export
 from .models import Receipt, SpendingBudget, ExchangeRate, CalendarFeed, Activity
 from .permissions import subscriptions_for, charges_for, subscription_for, require_team, team_permission, log_activity
 from .budgets import spend, check_budget
@@ -84,15 +86,22 @@ def receipts(request):
     return Response(receipt_data(row, request.user), status=201)
 
 
+@api_view(['GET', 'HEAD'])
+@renderer_classes([JSONRenderer, PDFRenderer, PNGRenderer, JPEGRenderer])
+def receipt_file(request, pk):
+    row = get_object_or_404(receipts_for(request.user), pk=pk)
+    if not (request.accepts(row.content_type) or request.accepts('application/json')):
+        raise NotAcceptable()
+    response = FileResponse(row.file.open('rb'), as_attachment=True, filename=row.filename, content_type=row.content_type)
+    response['Cache-Control'] = 'no-store'
+    response['X-Content-Type-Options'] = 'nosniff'
+    return response
+
+
 @api_view(['GET', 'PATCH', 'DELETE'])
-def receipt_detail(request, pk, download=False):
+def receipt_detail(request, pk):
     row = get_object_or_404(receipts_for(request.user), pk=pk)
     if request.method == 'GET':
-        if download:
-            response = FileResponse(row.file.open('rb'), as_attachment=True, filename=row.filename, content_type=row.content_type)
-            response['Cache-Control'] = 'no-store'
-            response['X-Content-Type-Options'] = 'nosniff'
-            return response
         return Response({**receipt_data(row, request.user), 'extracted_text': row.extracted_text})
     require_team(request.user, row.team_id, 'pay')
     if request.method == 'DELETE':
@@ -195,7 +204,8 @@ def conversion(request):
             'stale': (today - r.as_of).days > 7} for r in rates.values()]})
 
 
-@api_view(['GET'])
+@api_view(['GET', 'HEAD'])
+@renderer_classes([JSONRenderer, CSVRenderer, PDFRenderer])
 def report(request):
     from dashboard.api_views import ChargeFilters
     query = ChargeFilters(data=request.query_params)
@@ -216,8 +226,12 @@ def report(request):
     rows = rows.order_by('charged_for_date', 'pk')
     if rows.count() > 10000:
         raise serializers.ValidationError('Narrow the date range to export at most 10,000 charges.')
-    format = serializers.ChoiceField(choices=['csv', 'pdf']).run_validation(request.query_params.get('filetype', 'csv'))
-    if format == 'pdf':
+    default_type = 'pdf' if request.accepted_renderer.format == 'pdf' else 'csv'
+    filetype = serializers.ChoiceField(choices=['csv', 'pdf']).run_validation(request.query_params.get('filetype', default_type))
+    media_type = PDFRenderer.media_type if filetype == 'pdf' else CSVRenderer.media_type
+    if not (request.accepts(media_type) or request.accepts('application/json')):
+        raise NotAcceptable()
+    if filetype == 'pdf':
         return history_pdf(rows, 'Subly charge history')
     return csv_response(['Date', 'Service', 'Team', 'Currency', 'Your amount', 'Payment status'],
         ([r.charged_for_date, r.service_name_snapshot, r.team.name if r.team_id else 'Personal', r.currency, str(r.amount), r.payment_status] for r in rows), 'subly-charge-history.csv')
@@ -238,7 +252,8 @@ def feeds(request):
     return Response({'id': feed.pk, 'url': url, 'webcal_url': url.replace('https://', 'webcal://').replace('http://', 'webcal://')}, status=201, headers={'Cache-Control': 'no-store'})
 
 
-@api_view(['GET'])
+@api_view(['GET', 'HEAD'])
+@renderer_classes([JSONRenderer, CalendarRenderer])
 @permission_classes([AllowAny])
 @authentication_classes([])
 def feed_calendar(request, token):

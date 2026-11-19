@@ -4,7 +4,7 @@ from . import views, connections, delivery, backup
 urlpatterns = [
     path('receipts/', views.receipts),
     path('receipts/<int:pk>/', views.receipt_detail),
-    path('receipts/<int:pk>/file/', views.receipt_detail, {'download': True}),
+    path('receipts/<int:pk>/file/', views.receipt_file),
     path('budgets/', views.budgets),
     path('budgets/<int:pk>/', views.budget_detail),
     path('conversion/', views.conversion),

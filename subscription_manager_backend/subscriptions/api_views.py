@@ -102,6 +102,7 @@ def subscription_detail(request, pk):
         remove_subscription(subscription, actor=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    prefetch_related_objects([subscription], 'price_changes', 'participants', 'offsets')
     subscription.participant_count = subscription.participants.count()
     _apply_subscription_card_metadata([subscription])
     details = _build_subscription_drawer_data([subscription])[str(subscription.pk)]
