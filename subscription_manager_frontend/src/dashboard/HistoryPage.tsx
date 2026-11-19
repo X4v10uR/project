@@ -1,3 +1,4 @@
+import { ServiceIcon } from '../ServiceIcon'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
@@ -114,7 +115,7 @@ export function HistoryPage() {
             <thead className="border-b text-slate-600"><tr><th className="p-2">Date</th><th className="p-2">Service</th><th className="p-2">Source</th><th className="p-2 text-right">Your amount</th><th className="p-2">Payment status</th></tr></thead>
             <tbody className="divide-y divide-slate-100">{current.data.results.map((charge) => <tr key={charge.id}>
               <td className="p-2"><time dateTime={charge.date}>{displayDate(charge.date)}</time></td>
-              <td className="p-2 font-semibold">{charge.service}{charge.team && <span className="block text-xs font-normal">{charge.team}</span>}<Link className="mt-1 block text-xs font-medium text-indigo-700 underline" to={`/planning/receipts/?charge=${charge.id}`}>Receipts</Link></td>
+              <td className="p-2 font-semibold"><span className="inline-flex items-center gap-2"><ServiceIcon name={charge.service} className="size-6" />{charge.service}</span>{charge.team && <span className="block text-xs font-normal">{charge.team}</span>}<Link className="mt-1 block text-xs font-medium text-indigo-700 underline" to={`/planning/receipts/?charge=${charge.id}`}>Receipts</Link></td>
               <td className="p-2">Scheduled renewal</td>
               <td className="whitespace-nowrap p-2 text-right font-semibold">{currencyAmount(charge.amount, charge.currency)} <small>{charge.currency}</small></td>
               <td className="p-2"><ChargeControls charge={charge} reload={() => setRetry((value) => value + 1)} /></td>

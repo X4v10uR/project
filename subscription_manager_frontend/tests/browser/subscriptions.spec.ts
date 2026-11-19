@@ -12,6 +12,19 @@ async function signUp(page: Page) {
   return email
 }
 
+test('public pages show local brand marks and recover from a missing image', async ({ page }) => {
+  await page.route(url => url.protocol === 'https:', route => route.abort())
+  await page.goto('/')
+  const logos = page.getByRole('region', { name: 'Track the services you use' }).locator('img')
+  await expect(logos).toHaveCount(6)
+  await expect.poll(() => logos.evaluateAll(images => images.every(img => img.naturalWidth > 0 && img.getBoundingClientRect().width > 0))).toBe(true)
+
+  await page.route('**/service-icons/netflix.svg', route => route.abort())
+  await page.goto('/missing-page-for-icon-check/')
+  await expect(page.getByTitle('Netflix', { exact: true }).locator('svg')).toBeVisible()
+  await expect(page.getByTitle('Spotify', { exact: true }).locator('img')).toBeVisible()
+})
+
 test('create a card and team, open notifications, and sign back in', async ({ page }) => {
   const email = await signUp(page)
   await page.goto('/subscriptions/cards/add/')
@@ -135,12 +148,18 @@ test('manage trial and cancellation dates without recording an early charge', as
 test('quick add, schedule a price change, review duplicates, and export the calendar', async ({ page }) => {
   await signUp(page)
   await page.goto('/subscriptions/quick-add/')
-  await page.getByRole('button', { name: 'Spotify', exact: true }).click()
+  const preset = page.getByRole('button', { name: 'Spotify', exact: true })
+  await expect(preset.locator('img')).toHaveAttribute('src', '/service-icons/spotify.svg')
+  await expect(page.getByRole('button', { name: 'YouTube Premium', exact: true }).locator('img')).toHaveAttribute('src', '/service-icons/youtube.svg')
+  await expect(page.getByRole('button', { name: 'Gym membership', exact: true }).locator('svg')).toBeVisible()
+  await preset.click()
   await page.getByLabel('Cost (USD)').fill('12')
   await page.getByLabel('Next payment').fill(new Date().toISOString().slice(0, 10))
   await page.getByRole('button', { name: 'Add subscription', exact: true }).click()
   await expect(page).toHaveURL(/\/subscriptions\/$/)
-  await expect(page.getByRole('button', { name: /Spotify/ })).toBeVisible()
+  const logo = page.getByRole('button', { name: /Spotify/ }).locator('img')
+  await expect(logo).toBeVisible()
+  await expect.poll(() => logo.evaluate(image => image.naturalWidth)).toBeGreaterThan(0)
   await page.getByRole('button', { name: /Spotify/ }).click()
   await page.getByRole('link', { name: 'Edit subscription', exact: true }).click()
   await page.getByLabel('New full price (USD)').fill('15')

@@ -1,4 +1,5 @@
-import { Download, Plus, Search } from 'lucide-react'
+import { ServiceIcon } from '../ServiceIcon'
+import { Download, Plus, Search, Upload, Zap } from 'lucide-react'
 import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
@@ -47,10 +48,7 @@ function SubscriptionCard({ subscription, details, onSelect }: { subscription: S
   return (
     <button type="button" onClick={onSelect} className={`flex min-h-43 w-full flex-col rounded-2xl p-5 text-left transition hover:-translate-y-0.5 hover:shadow-md ${foreground}`} style={{ backgroundColor: details.card_color }}>
       <span className="flex w-full items-center justify-between gap-3">
-        <span className="relative grid size-10 place-items-center rounded-xl bg-white/85 font-bold text-slate-950">
-          {subscription.fallback_icon}
-          <img className="absolute inset-0 m-auto hidden size-6 rounded-sm bg-white object-contain" src={subscription.icon_url} alt="" loading="lazy" onLoad={(event) => event.currentTarget.classList.remove('hidden')} onError={(event) => event.currentTarget.classList.add('hidden')} />
-        </span>
+        <ServiceIcon name={subscription.service_name} />
         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusColors[subscription.status] ?? 'bg-white/60'}`}>{subscription.status}</span>
       </span>
       <span className="mt-4 text-lg font-bold">{subscription.service_name}</span>
@@ -84,7 +82,7 @@ function Detail({ subscription, details, onClose, onUpdated, initiallyDeleting }
   }
 
   return (
-    <Modal title={deleting ? `Delete ${subscription.service_name}?` : subscription.service_name} onClose={onClose}>
+    <Modal title={deleting ? `Delete ${subscription.service_name}?` : <span className="flex items-center gap-2"><ServiceIcon name={subscription.service_name} className="size-8" />{subscription.service_name}</span>} onClose={onClose}>
       <div className="grid gap-4">
         <ErrorBanner message={error} />
         {deleting ? (
@@ -200,9 +198,9 @@ export function SubscriptionsPage() {
         <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">Subscriptions</h1>
         <div className="flex flex-wrap gap-2">
           <a className={`${buttonClass} gap-2`} href={`${subscriptionApi}export/csv/?${queryString}`}><Download size={16} /> Export CSV</a>
-          <Link className={buttonClass} to={`${subscriptionPath}import/`}>Import CSV</Link>
+          <Link className={`${buttonClass} gap-2`} to={`${subscriptionPath}import/`}><Upload size={18} aria-hidden />Import CSV</Link>
           <Link className={`${primaryClass} gap-2`} to={`${subscriptionPath}add/`}><Plus size={18} /> Add subscription</Link>
-          <Link className={buttonClass} to="/subscriptions/quick-add/">Quick add</Link>
+          <Link className={`${buttonClass} gap-2`} to="/subscriptions/quick-add/"><Zap size={18} aria-hidden />Quick add</Link>
         </div>
       </header>
       {error && (

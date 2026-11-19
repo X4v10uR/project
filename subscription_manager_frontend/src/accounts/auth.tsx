@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useLocation } from 'react-router-dom'
 import { api } from '../api'
 
 export type AccountUser = {
@@ -25,6 +26,7 @@ type AuthState = {
 const AuthContext = createContext<AuthState | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation()
   const [user, setUser] = useState<AccountUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -58,7 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => controller.abort()
   }, [refresh])
 
-  if (error) {
+  // The public landing page remains available while the API is offline.
+  if (error && pathname !== '/') {
     return (
       <main className="mx-auto max-w-lg p-8 text-center">
         <p role="alert" className="mb-4 text-red-800">{error}</p>

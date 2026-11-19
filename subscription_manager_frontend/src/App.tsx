@@ -1,5 +1,5 @@
 import {
-  ArrowRight, ChartNoAxesCombined, CreditCard, LayoutGrid, List, LogOut,
+  ChartNoAxesCombined, CreditCard, LayoutGrid, List, LogOut,
   ReceiptText, UserRound, UsersRound,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -22,6 +22,7 @@ import { ActivityPage, BudgetsPage, ReceiptsPage, ReportsPage } from './finance/
 import { ConnectionsPage } from './finance/ConnectionsPage'
 import { NotificationSettingsPage } from './finance/NotificationSettings'
 import { DataPage } from './finance/DataPage'
+import { LandingPage } from './landing/LandingPage'
 
 function Brand() {
   return (
@@ -53,48 +54,6 @@ function PublicLayout() {
       </header>
       <main><Outlet /></main>
     </>
-  )
-}
-
-function LandingPage() {
-  const { user, loading } = useAuth()
-  if (!loading && user) return <Navigate replace to="/dashboard/" />
-  return (
-    <div className="mx-auto max-w-6xl px-5 pb-16 pt-14 sm:pt-20">
-      <section className="grid items-center gap-10 lg:grid-cols-[0.9fr_1.1fr]">
-        <div>
-          <h1 className="max-w-xl text-5xl font-semibold leading-[1.03] tracking-[-0.06em] sm:text-6xl">
-            Take control of your subscriptions
-          </h1>
-          <p className="mt-5 max-w-md text-lg leading-relaxed text-slate-600">
-            See what you spend, know when each service renews, and manage subscriptions you share with your team.
-          </p>
-          <Link className="primary-link mt-7" to="/accounts/signup/">
-            Get started <ArrowRight size={17} aria-hidden="true" />
-          </Link>
-        </div>
-        <img
-          className="w-full rounded-3xl border border-white bg-white shadow-xl shadow-slate-300/50"
-          src="/static/images/hero-demo.png"
-          alt="Subly dashboard showing spending, upcoming renewals, and subscriptions"
-        />
-      </section>
-      <section aria-labelledby="features" className="mt-20">
-        <h2 id="features" className="text-3xl font-semibold tracking-tight">Everything you need to stay in control</h2>
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
-          {[
-            ['Track expenses', 'View recurring costs and see how spending changes over time.'],
-            ['Plan for renewals', 'Set reminders so you have time to review a subscription before it renews.'],
-            ['Organize cards', 'See which subscriptions renew on each card and manage shared costs.'],
-          ].map(([title, description]) => (
-            <article key={title} className="rounded-3xl border border-slate-200/75 bg-white p-6">
-              <h3 className="text-lg font-semibold">{title}</h3>
-              <p className="mt-2 leading-relaxed text-slate-600">{description}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-    </div>
   )
 }
 
@@ -194,8 +153,8 @@ export function App() {
 
   return (
     <Routes>
+      <Route index element={<LandingPage />} />
       <Route element={<PublicLayout />}>
-        <Route index element={<LandingPage />} />
         <Route path="accounts/login/" element={<LoginPage />} />
         <Route path="accounts/signup/" element={<SignupPage />} />
         <Route path="accounts/invites/accept/:token/" element={<InviteAcceptPage />} />

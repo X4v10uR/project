@@ -1,3 +1,4 @@
+import { ServiceIcon } from '../ServiceIcon'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api, errorMessage } from '../api'
@@ -64,7 +65,7 @@ export function ImportPage() {
           <div className="max-h-96 overflow-auto"><table className="w-full text-left text-sm">
             <thead><tr>{['Row', 'Service', 'Cost', 'Cycle', 'Start date', 'Result'].map((label) => <th className="p-2" key={label}>{label}</th>)}</tr></thead>
             <tbody>{preview.rows.map((row) => <tr className="border-t border-slate-200" key={row.row}>
-              <td className="p-2">{row.row}</td><td className="p-2">{row.service}</td><td className="p-2">{row.currency} {row.cost}</td>
+              <td className="p-2">{row.row}</td><td className="p-2">{row.service && <ServiceIcon name={row.service} className="mr-1 size-5 align-middle" />}{row.service}</td><td className="p-2">{row.currency} {row.cost}</td>
               <td className="p-2">{row.cycle}</td><td className="p-2">{row.start}</td><td className="p-2">{row.errors ? errorMessage(row.errors, 'Invalid row') : row.status}</td>
             </tr>)}</tbody>
           </table></div>

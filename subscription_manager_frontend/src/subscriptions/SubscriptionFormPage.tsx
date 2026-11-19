@@ -1,3 +1,4 @@
+import { ServiceIcon } from '../ServiceIcon'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -32,6 +33,7 @@ function localDate() {
 function SubscriptionEditor({ options, subscription }: { options: Options; subscription: Subscription | null }) {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const [serviceName, setServiceName] = useState(subscription?.service_name ?? options.prefill.service_name ?? '')
   const [shared, setShared] = useState(subscription?.is_shared ?? false)
   const [split, setSplit] = useState(subscription?.split_type ?? 'equal')
   const [color, setColor] = useState(subscription?.display_color ?? '')
@@ -111,7 +113,12 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
       <section className={`${panelClass} grid gap-4`}>
         <h2 className="text-lg font-bold">Subscription details</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Service name"><input autoComplete="off" name="service_name" className={inputClass} required maxLength={100} defaultValue={subscription?.service_name ?? options.prefill.service_name} placeholder="e.g. Netflix" /></Field>
+          <Field label="Service name">
+            <span className="relative">
+              <ServiceIcon name={serviceName} className="pointer-events-none absolute top-1/2 left-2 size-7 -translate-y-1/2" />
+              <input autoComplete="off" name="service_name" className={`${inputClass} pl-11`} required maxLength={100} value={serviceName} onChange={event => setServiceName(event.target.value)} placeholder="e.g. Netflix" />
+            </span>
+          </Field>
           <Field label="Plan name"><input name="plan_name" className={inputClass} maxLength={100} defaultValue={subscription?.plan_name ?? options.prefill.plan_name ?? ''} placeholder="e.g. Premium" /></Field>
           <Field label="Category"><input list="subscription-categories" name="category" className={inputClass} required maxLength={50} defaultValue={subscription?.category ?? options.prefill.category} placeholder="e.g. Streaming" /></Field>
           <datalist id="subscription-categories">{options.categories.map((category) => <option key={category} value={category} />)}</datalist>

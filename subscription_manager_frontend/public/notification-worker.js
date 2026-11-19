@@ -10,6 +10,7 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(message.title, {
       body: message.body,
+      icon: "/subly-icon-192.png",
       data: { url: message.url },
     }),
   );

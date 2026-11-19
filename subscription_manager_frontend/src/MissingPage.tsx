@@ -1,62 +1,19 @@
+import { ServiceIcon } from './ServiceIcon'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from './accounts'
 import './MissingPage.css'
 
-const ICON_BASE = 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/'
-
-// Keep the service tiles and digit shapes from the original Django 404 page.
 const SERVICES = [
-  ['Netflix', 'netflix'],
-  ['Disney+', 'disney-plus'],
-  ['Amazon Prime Video', 'amazon-prime-video', 'amazon-prime', 'amazon'],
-  ['Hulu', 'hulu'],
-  ['HBO Max', 'hbo-max', 'max'],
-  ['Apple TV+', 'apple-tv-plus', 'apple-tv', 'apple'],
-  ['Paramount+', 'paramount-plus'],
-  ['Peacock', 'peacock'],
-  ['Crunchyroll', 'crunchyroll'],
-  ['Discovery+', 'discovery-plus', 'hbo-max', 'paramount-plus'],
-  ['Viu', 'viu', 'youtube'],
-  ['Shudder', 'shudder', 'hbo-max'],
-  ['BritBox', 'britbox', 'paramount-plus'],
-  ['YouTube Premium', 'youtube-premium', 'youtube'],
-  ['CuriosityStream', 'curiositystream', 'youtube'],
-  ['Spotify', 'spotify'],
-  ['Apple Music', 'apple-music', 'apple'],
-  ['YouTube Music', 'youtube-music', 'youtube'],
-  ['Amazon Music', 'amazon-music', 'amazon'],
-  ['Tidal', 'tidal'],
-  ['Deezer', 'deezer'],
-  ['Google One', 'google-one', 'google'],
-  ['iCloud+', 'icloud-plus', 'icloud', 'apple'],
-  ['Dropbox', 'dropbox'],
-  ['Microsoft 365', 'microsoft-365', 'microsoft'],
-  ['Notion', 'notion'],
-  ['Evernote', 'evernote', 'notion'],
-  ['Canva Pro', 'canva-pro', 'canva', 'adobe'],
-  ['Adobe Creative Cloud', 'adobe-creative-cloud', 'adobe'],
-  ['Xbox Game Pass', 'xbox-game-pass', 'xbox'],
-  ['PlayStation Plus', 'playstation-plus', 'playstation'],
-  ['Nintendo Switch Online', 'nintendo-switch-online', 'nintendo-switch', 'nintendo'],
-  ['EA Play', 'ea-play', 'electronic-arts'],
-  ['Ubisoft+', 'ubisoft-plus', 'ubisoft', 'playstation'],
-  ['Apple Arcade', 'apple-arcade', 'apple'],
-  ['Google Play Pass', 'google-play-pass', 'google-play', 'google'],
-  ['Audible', 'audible'],
-  ['Kindle Unlimited', 'kindle-unlimited', 'amazon'],
-  ['Coursera Plus', 'coursera-plus', 'coursera'],
-  ['Skillshare', 'skillshare', 'coursera'],
-  ['MasterClass', 'masterclass', 'coursera'],
-  ['Duolingo Plus', 'duolingo-plus', 'duolingo'],
-  ['Patreon', 'patreon'],
-  ['Substack', 'substack', 'patreon'],
-]
-
-const FALLBACK_ICONS = [
-  'google', 'youtube', 'amazon', 'apple', 'microsoft', 'dropbox', 'spotify',
-  'patreon', 'coursera', 'adobe', 'playstation', 'xbox', 'hbo-max',
-  'paramount-plus', 'disney-plus', 'paypal', 'docker', 'cloudflare', 'github', 'discord',
+  'Netflix', 'Disney+', 'Amazon Prime Video', 'Hulu', 'HBO Max',
+  'Apple TV+', 'Paramount+', 'Peacock', 'Crunchyroll', 'Twitch',
+  'Vimeo', 'Figma', 'GitHub', 'YouTube Premium', 'Nebula',
+  'Spotify', 'Apple Music', 'YouTube Music', 'Amazon Music', 'Tidal',
+  'Deezer', 'Google One', 'iCloud+', 'Dropbox', 'Microsoft 365',
+  'Notion', 'Evernote', 'Canva Pro', 'Adobe Creative Cloud', 'Xbox Game Pass',
+  'PlayStation Plus', 'Nintendo Switch Online', 'EA Play', 'Ubisoft+', 'Apple Arcade',
+  'Google Play Pass', 'Audible', 'Kindle Unlimited', 'Coursera Plus', 'Skillshare',
+  'LinkedIn', 'Duolingo Plus', 'Patreon', 'Substack',
 ]
 
 const FOUR = ['10010', '10010', '10010', '11111', '00010', '00010', '00010']
@@ -77,32 +34,15 @@ function createDigits() {
   }))
 }
 
-function ServiceTile({ service: [name, ...preferred], index }: { service: string[]; index: number }) {
-  const [candidate, setCandidate] = useState(0)
-  const offset = (index + 1) % FALLBACK_ICONS.length
-  const icons = [...new Set([
-    ...preferred, ...FALLBACK_ICONS.slice(offset), ...FALLBACK_ICONS.slice(0, offset),
-  ])]
-  const exhausted = candidate >= icons.length
-
+function ServiceTile({ service, index }: { service: string; index: number }) {
   return (
     <div
       className="missing-page-tile"
-      title={name}
-      style={{
-        animationDelay: `${index * 38}ms`,
-        backgroundColor: exhausted ? `hsl(${((index + 1) * 47) % 360} 55% 88%)` : undefined,
-      }}
+      title={service}
+      style={{ animationDelay: `${index * 38}ms` }}
       onAnimationEnd={(event) => { event.currentTarget.style.animationName = 'none' }}
     >
-      {!exhausted && (
-        <img
-          src={`${ICON_BASE}${icons[candidate]}.svg`}
-          alt=""
-          draggable={false}
-          onError={() => setCandidate((current) => current + 1)}
-        />
-      )}
+      <ServiceIcon name={service} className="size-full" />
     </div>
   )
 }

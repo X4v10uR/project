@@ -1,6 +1,7 @@
+import { ServiceIcon } from '../ServiceIcon'
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Pencil, Plus } from 'lucide-react';
+import { CalendarDays, ChartNoAxesCombined, ListChecks, Pencil, Plus, Zap } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../accounts';
@@ -19,8 +20,6 @@ type ServiceCard = {
   id?: number;
   is_placeholder: boolean;
   bg_style: string;
-  icon_url: string;
-  icon_fallback: string;
   edit_url: string;
   amount: string;
 };
@@ -258,15 +257,6 @@ function cardBackground(style: string) {
   return style.match(/#[\da-f]{6}/i)?.[0];
 }
 
-function ServiceIcon({ url, fallback }: { url: string; fallback: string }) {
-  const [failed, setFailed] = useState(false);
-  return (
-    <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-full bg-white/65 text-lg font-bold text-slate-800">
-      {url && !failed ? <img alt="" className="size-6 object-contain" onError={() => setFailed(true)} src={url} /> : fallback}
-    </span>
-  );
-}
-
 function UpcomingBills({ data }: { data: Dashboard }) {
   const bills = data.upcoming_bills.filter((bill) => !bill.is_placeholder);
   return (
@@ -283,7 +273,7 @@ function UpcomingBills({ data }: { data: Dashboard }) {
             <Link className="overflow-hidden rounded-2xl border border-slate-200 bg-white hover:border-slate-400" key={bill.id + '-' + bill.date} to={bill.edit_url}>
               <div className="h-2 bg-slate-300" style={{ backgroundColor: cardBackground(bill.bg_style) }} />
               <div className="flex items-center gap-3 p-3">
-                <ServiceIcon url={bill.icon_url} fallback={bill.icon_fallback} />
+                <ServiceIcon name={bill.service_name} />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-slate-800" title={bill.service_name}>{bill.service_name}</p>
                   <p className="text-base font-bold text-slate-900">{bill.amount}</p>
@@ -313,7 +303,7 @@ function ActiveSubscriptions({ data }: { data: Dashboard }) {
             <article className="rounded-2xl bg-slate-100 p-4 text-slate-900" key={subscription.id} style={{ backgroundColor: cardBackground(subscription.bg_style) }}>
               <div className="mb-3 flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-3">
-                  <ServiceIcon url={subscription.icon_url} fallback={subscription.icon_fallback} />
+                  <ServiceIcon name={subscription.title} />
                   <div className="min-w-0">
                     <p className="truncate font-bold" title={subscription.title}>{subscription.title}</p>
                     <span className="rounded-full bg-white/65 px-2 py-0.5 text-xs">{subscription.duration_label}</span>
@@ -343,7 +333,7 @@ function RecentTransactions({ transactions }: { transactions: Transaction[] }) {
         <ul className="space-y-2">
           {transactions.map((entry) => (
             <li className="flex items-center gap-3 rounded-xl bg-slate-50 p-3" key={entry.id}>
-              <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-200 text-sm font-bold text-slate-800" style={{ backgroundColor: cardBackground(entry.swatch_style) }}>{entry.title.slice(0, 1).toUpperCase()}</span>
+              <ServiceIcon name={entry.title} accent={cardBackground(entry.swatch_style)} className="rounded-full" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-slate-900" title={entry.title}>{entry.title}</p>
                 <p className="text-xs text-slate-600">{entry.timestamp}</p>
@@ -371,7 +361,12 @@ export function DashboardPage() {
         </div>
         <Link className="primary-link" to={createPath}><Plus aria-hidden="true" className="size-4" /> Create Subscription</Link>
       </header>
-      <nav className="flex flex-wrap gap-2" aria-label="Planning shortcuts"><Link className="secondary-link" to="/subscriptions/quick-add/">Quick add</Link><Link className="secondary-link" to={`/planning/insights/?scope=${scope}`}>Spending insights</Link><Link className="secondary-link" to={`/planning/calendar/?scope=${scope}`}>Renewal calendar</Link><Link className="secondary-link" to={`/planning/review/?scope=${scope}`}>Review inbox</Link></nav>
+      <nav className="flex flex-wrap gap-2" aria-label="Planning shortcuts">
+        <Link className="secondary-link" to="/subscriptions/quick-add/"><Zap size={16} aria-hidden />Quick add</Link>
+        <Link className="secondary-link" to={`/planning/insights/?scope=${scope}`}><ChartNoAxesCombined size={16} aria-hidden />Spending insights</Link>
+        <Link className="secondary-link" to={`/planning/calendar/?scope=${scope}`}><CalendarDays size={16} aria-hidden />Renewal calendar</Link>
+        <Link className="secondary-link" to={`/planning/review/?scope=${scope}`}><ListChecks size={16} aria-hidden />Review inbox</Link>
+      </nav>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <ScopePicker path={dashboardPath} scope={scope} />{data && <CurrencyPicker data={data} />}
       </div>

@@ -1,3 +1,4 @@
+import { ServiceIcon } from '../ServiceIcon'
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ArrowLeft, ArrowUpRight, Plus, UsersRound } from 'lucide-react'
@@ -19,7 +20,6 @@ export type TeamSubscription = {
   trial_end_date: string | null
   cancel_by_date: string | null
   status: string
-  icon: string
   account_email: string | null
   has_password: boolean
   accent_color?: string
@@ -116,7 +116,7 @@ export function TeamsPage() {
                   {subscriptions.map((item) => <tr key={item.id}>
                     <td className="px-4 py-3">
                       <Link className="inline-flex items-center gap-2 font-semibold hover:underline" to={teamPath(item.team_id)}>
-                        <span className="grid size-8 place-items-center rounded-lg" style={{ backgroundColor: item.accent_color }} aria-hidden>{item.icon}</span>
+                        <ServiceIcon name={item.service_name} accent={item.accent_color} className="size-8" />
                         {item.service_name}
                       </Link>
                     </td>

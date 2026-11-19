@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 import { type ReactNode, useEffect, useRef } from 'react'
 
 export const subscriptionPath = '/subscriptions/'
@@ -59,8 +60,6 @@ export interface Subscription {
   account_email: string | null
   has_password: boolean
   participants: { name: string; share_amount: string | null; member_id: number | null }[]
-  icon_url: string
-  fallback_icon: string
 }
 
 export interface SubscriptionDetails {
@@ -100,7 +99,7 @@ export function ErrorBanner({ message }: { message: string }) {
   return message && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-800">{message}</p>
 }
 
-export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Modal({ title, onClose, children }: { title: ReactNode; onClose: () => void; children: ReactNode }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const headingId = 'subscription-dialog-heading'
 
@@ -114,7 +113,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
     <dialog ref={dialog} aria-labelledby={headingId} onCancel={onClose} className="m-auto max-h-[90dvh] w-[min(94vw,36rem)] overflow-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl backdrop:bg-slate-900/40">
       <header className="mb-5 flex items-start justify-between gap-4">
         <h2 id={headingId} className="text-xl font-bold text-slate-950">{title}</h2>
-        <button type="button" className="rounded-lg px-2 text-2xl leading-none text-slate-600 hover:bg-slate-100" aria-label="Close dialog" onClick={onClose}>×</button>
+        <button type="button" className="grid size-9 place-items-center rounded-lg text-slate-600 hover:bg-slate-100" aria-label="Close dialog" onClick={onClose}><X size={20} aria-hidden /></button>
       </header>
       {children}
     </dialog>

@@ -1,3 +1,4 @@
+import { ServiceIcon } from '../ServiceIcon'
 import { CreditCard, Pencil, Plus, Search, Star, Trash2 } from 'lucide-react'
 import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -25,7 +26,6 @@ interface CardSubscription {
   currency: string
   cardId: string
   iconBg: string
-  iconLabel: string
   nextBillingDate: string
   plan: string
 }
@@ -47,7 +47,7 @@ function CardTile({ card, active, onSelect }: { card: Card; active: boolean; onS
   return (
     <button type="button" aria-pressed={active} onClick={onSelect} className={`grid min-h-40 w-full gap-4 rounded-2xl bg-linear-to-br ${theme[2]} p-5 text-left text-white shadow-sm transition hover:-translate-y-0.5 ${active ? 'ring-3 ring-lime-400 ring-offset-2' : ''}`}>
       <span className="flex items-center justify-between gap-3">
-        <CreditCard size={23} aria-hidden="true" />
+        <ServiceIcon name={card.brand} className="h-8 w-12 rounded-md" />
         {card.isPrimary && <span className="inline-flex items-center gap-1 rounded-full bg-lime-300 px-2 py-1 text-xs font-bold text-slate-950"><Star size={12} /> Primary</span>}
       </span>
       <span className="font-mono text-lg tracking-[0.13em]">••••&nbsp; {card.last4}</span>
@@ -184,7 +184,7 @@ export function CardsPage() {
                 {shown.map((subscription) => (
                   <li key={subscription.id}>
                     <Link to={subscription.teamId ? `/accounts/teams/${subscription.teamId}/` : `${subscriptionPath}?subscription=${subscription.id.slice(1)}`} className="flex items-center gap-3 rounded-lg px-1 py-3 hover:bg-slate-50">
-                      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-sm font-bold text-white" style={{ backgroundColor: subscription.iconBg, textShadow: '0 1px 3px #111827' }}>{subscription.iconLabel}</span>
+                      <ServiceIcon name={subscription.name} accent={subscription.iconBg} />
                       <span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold">{subscription.name}</span><span className="block text-xs text-slate-500">{subscription.plan} · {subscription.nextBillingDate}</span></span>
                       <span className="shrink-0 text-sm font-bold">{currencyAmount(subscription.monthlyPrice, subscription.currency)}<span className="block text-right text-xs font-medium text-slate-500">per month</span></span>
                     </Link>

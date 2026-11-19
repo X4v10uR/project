@@ -1,3 +1,4 @@
+import { ServiceIcon } from '../ServiceIcon'
 import { useState, type FormEvent } from "react";
 import { api } from "../api";
 import { PlanningLayout } from "../subscriptions/PlanningPages";
@@ -275,14 +276,14 @@ export function ConnectionsPage() {
             disabled={busy || !data?.plaid_configured}
             onClick={() => void bank()}
           >
-            Connect bank with Plaid
+            <ServiceIcon name="Plaid" className="mr-2 size-6" />Connect bank with Plaid
           </button>
           <button
             className={buttonClass}
             disabled={busy || !data?.gmail_configured}
             onClick={() => void gmail()}
           >
-            Connect Gmail
+            <ServiceIcon name="Gmail" className="mr-2 size-6" />Connect Gmail
           </button>
         </div>
         {data && (
@@ -368,7 +369,7 @@ export function ConnectionsPage() {
         <article className={panelClass} key={p.id}>
           <div className="flex flex-wrap justify-between gap-3">
             <div>
-              <h3 className="font-bold">{p.merchant}</h3>
+              <h3 className="flex items-center gap-2 font-bold"><ServiceIcon name={p.merchant} className="size-7" />{p.merchant}</h3>
               <p className="mt-1 text-sm text-slate-500">
                 {displayDate(p.date)} · {p.provider} {p.pending && "· Pending"}{" "}
                 {p.charge && "· Matched"}

@@ -1,3 +1,4 @@
+import { ServiceIcon } from '../ServiceIcon'
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ArrowLeft, Plus, UsersRound } from 'lucide-react'
@@ -42,7 +43,7 @@ function SubscriptionCard({ subscription, team }: { subscription: TeamSubscripti
   return (
     <article className="grid gap-3 rounded-xl border border-zinc-200 p-4">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl" style={{ backgroundColor: team.accent_color }} aria-hidden>{subscription.icon}</span>
+        <ServiceIcon name={subscription.service_name} accent={team.accent_color} />
         <div className="min-w-0 flex-1">
           <h3 className="truncate font-bold">{subscription.service_name}</h3>
           <p className="text-sm text-zinc-600">{subscription.currency} {subscription.cost} / {subscription.billing_cycle}</p>
@@ -166,7 +167,7 @@ export function TeamDetailPage() {
                   {team.pending_requests.map((item) => (
                     <article key={item.id} className="grid gap-3 rounded-xl border border-zinc-200 p-4">
                       <div>
-                        <h3 className="font-semibold">{item.service_name}</h3>
+                        <h3 className="flex items-center gap-2 font-semibold"><ServiceIcon name={item.service_name} className="size-7" />{item.service_name}</h3>
                         <p className="text-sm text-zinc-600">Requested by {item.requested_by} on {new Date(item.created_at).toLocaleDateString()}</p>
                       </div>
                       {isOwner && (
