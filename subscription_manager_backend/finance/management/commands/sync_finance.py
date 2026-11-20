@@ -1,5 +1,6 @@
 from datetime import timedelta
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import CommandError
+from finance.jobs import TrackedJobCommand
 from django.utils import timezone
 from finance.models import Connection
 from finance.connections import sync_connection, ProviderError
@@ -7,8 +8,12 @@ from finance.delivery import deliver_queued, send_digests
 from finance.budgets import check_all
 
 
-class Command(BaseCommand):
+class Command(TrackedJobCommand):
+    job_name = 'finance_sync'
     help = 'Sync bank/mail accounts, deliver queued alerts/digests, and check detailed budgets.'
+
+    def status_name(self, options):
+        return 'finance_notifications' if options['notifications_only'] else self.job_name
 
     def add_arguments(self, parser):
         parser.add_argument('--notifications-only', action='store_true')

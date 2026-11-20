@@ -292,7 +292,8 @@ class NotificationService:
         subscriptions = Subscription.objects.filter(
             Q(start_date__lte=instant.date() + timedelta(days=horizon + 1)) |
             Q(cancel_by_date__lte=instant.date() + timedelta(days=horizon + 1)),
-            status='active', reminders_enabled=True,
+            Q(status='active') | Q(status='paused', resume_on__isnull=False),
+            reminders_enabled=True,
         ).select_related('user', 'team').prefetch_related('offsets', 'team__memberships__user')
         due = []
         for sub in subscriptions:

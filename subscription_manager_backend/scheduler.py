@@ -20,9 +20,9 @@ import argparse
 import logging
 import os
 import sys
+from functools import partial
 
 import django
-from django.utils import timezone
 
 # Add the project directory to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -31,100 +31,50 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'subly.settings')
 django.setup()
 
-from dashboard.budgets import check_budgets
-from subscriptions.services import BillingService, NotificationService  # noqa: E402
+from django.core.management import call_command
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('renewal_notifications.log'),
-        logging.StreamHandler()
-    ]
-)
+from dashboard.budgets import check_budgets
+from finance.jobs import track_job
 
 logger = logging.getLogger(__name__)
 
-def main():
-    """Main function to send renewal notifications"""
-    parser = argparse.ArgumentParser(description='Send subscription renewal notifications')
-    parser.add_argument(
-        '--time-based', 
-        action='store_true',
-        help='Send notifications based on current time (matches subscription renewal times)'
-    )
-    parser.add_argument(
-        '--days-before',
-        type=int,
-        default=None,
-        help='Optional offset filter in days. If omitted, recovers the latest due offset for each upcoming event.'
-    )
-    parser.add_argument(
-        '--dry-run',
-        action='store_true',
-        help='Run without creating transactions or sending emails'
-    )
-    
-    args = parser.parse_args()
-    
-    logger.info("Starting renewal notification scheduler")
-    
-    try:
-        # Determine target time for filtering
-        target_time = None
-        if args.time_based:
-            # Use current time for filtering
-            target_time = timezone.localtime()
-            logger.info(f"Using time-based filtering: {target_time.strftime('%I:%M %p')}")
-        
-        # First, record renewal charges for subscriptions due today.
-        billing_results = BillingService.record_renewal_charges(
-            dry_run=args.dry_run
-        )
-        logger.info("Renewal charge processing completed:")
-        logger.info(f"  Total due renewals: {billing_results['total']}")
-        logger.info(f"  Transactions created: {billing_results['created']}")
-        logger.info(f"  Existing transactions: {billing_results['existing']}")
-        logger.info(f"  Billing errors: {billing_results['errors']}")
 
-        if not args.dry_run:
+def run_scheduler(*, time_based=False, days_before=None, dry_run=False):
+    def budgets():
+        with track_job('dashboard_budgets'):
             check_budgets()
-            from django.core.management import call_command
-            try:
-                call_command('sync_finance')
-            except Exception:
-                logger.exception('Finance sync needs attention; renewal processing will continue.')
 
-        # Then send notifications based on per-subscription offsets.
-        results = NotificationService.send_batch_notifications(
-            target_time=target_time,
-            days_before=args.days_before,
-            dry_run=args.dry_run,
-        )
-        
-        logger.info("Notification batch completed:")
-        logger.info(f"  Total subscriptions checked: {results['total']}")
-        logger.info(f"  Notifications sent: {results['sent']}")
-        logger.info(f"  Notifications skipped: {results.get('skipped', 0)}")
-        logger.info(f"  Errors: {results['errors']}")
-        
-        if args.time_based:
-            logger.info(f"  Time filter applied: {target_time.strftime('%I:%M %p')}")
-        
-        if results['errors'] > 0 or billing_results['errors'] > 0:
-            logger.warning(
-                "There were errors during scheduler run "
-                f"(billing={billing_results['errors']}, notifications={results['errors']})"
-            )
-            sys.exit(1)
-        else:
-            logger.info("All notifications sent successfully")
-            sys.exit(0)
-            
-    except Exception as e:
-        logger.error(f"Scheduler failed with error: {str(e)}", exc_info=True)
-        sys.exit(1)
+    jobs = [('renewal_charges', partial(call_command, 'record_subscription_charges', dry_run=dry_run))]
+    if not dry_run:
+        jobs.extend([('dashboard_budgets', budgets), ('finance_sync', partial(call_command, 'sync_finance'))])
+    jobs.append(('renewal_reminders', partial(call_command, 'send_renewal_notifications',
+                 time_based=time_based, days_before=days_before, dry_run=dry_run)))
+
+    failures = []
+    for name, run in jobs:
+        try:
+            run()
+            logger.info('Completed scheduled job %s', name)
+        except Exception:
+            failures.append(name)
+            logger.exception('Scheduled job %s failed', name)
+    if failures:
+        logger.error('Scheduler completed with failures in %s', ', '.join(failures))
+    else:
+        logger.info('All scheduled jobs completed successfully')
+    return 1 if failures else 0
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Record charges, sync finance data and send reminders')
+    parser.add_argument('--time-based', action='store_true', help='Use the current instant for timed reminders.')
+    parser.add_argument('--days-before', type=int, help='Only process the selected reminder offset.')
+    parser.add_argument('--dry-run', action='store_true', help='Preview billing and reminders without writing data.')
+    args = parser.parse_args()
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
+                        handlers=[logging.FileHandler('renewal_notifications.log'), logging.StreamHandler()])
+    return run_scheduler(**vars(args))
+
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

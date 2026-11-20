@@ -61,6 +61,12 @@ test('receipt uploads stay attached to charge history and reports download', asy
   await expect(page.getByLabel('Receipt amount')).toHaveValue('30.00')
   await page.reload()
   await expect(page.getByRole('heading', { name: 'studio.png' })).toBeVisible()
+  await page.getByLabel('Filter by merchant').fill('Elsewhere')
+  await page.getByRole('button', { name: 'Apply receipt filters' }).click()
+  await expect(page.getByText('No receipts in this selection.')).toBeVisible()
+  await page.getByLabel('Filter by merchant').fill('Studio')
+  await page.getByRole('button', { name: 'Apply receipt filters' }).click()
+  await expect(page.getByRole('heading', { name: 'studio.png' })).toBeVisible()
   await page.getByRole('link', { name: 'Reports', exact: true }).click()
   const csv = page.waitForEvent('download')
   await page.getByRole('link', { name: 'Download CSV report' }).click()
@@ -68,6 +74,40 @@ test('receipt uploads stay attached to charge history and reports download', asy
   const pdf = page.waitForEvent('download')
   await page.getByRole('link', { name: 'Download PDF report' }).click()
   expect((await pdf).suggestedFilename()).toBe('subly-charge-history.pdf')
+})
+
+test('the dashboard opens the failed charge and clears it after confirmation', async ({ page }) => {
+  await signup(page)
+  await addSubscription(page)
+  await page.goto('/dashboard/history/')
+  await page.getByLabel('Payment status for Studio').selectOption('failed')
+  await expect(page.getByLabel('Payment status for Studio')).toHaveValue('failed')
+  await page.goto('/dashboard/')
+  const attention = page.getByRole('region', { name: 'Needs attention' })
+  await expect(attention).toContainText('Failed payment')
+  await attention.getByRole('link', { name: 'Review charge' }).click()
+  await expect(page).toHaveURL(/charge=\d+/)
+  await page.getByLabel('Payment status for Studio').selectOption('paid')
+  await expect(page.getByText(/Confirmed paid/)).toBeVisible()
+  await page.goto('/dashboard/')
+  await expect(attention).toContainText('Nothing needs your attention')
+})
+
+test('older activity appends to the first page', async ({ page }) => {
+  await signup(page)
+  await page.route('**/api/finance/activity/**', async route => {
+    const older = new URL(route.request().url()).searchParams.has('before_id')
+    await route.fulfill({ json: {
+      next: older ? null : '/api/finance/activity/?before_id=2',
+      activity: [{ id: older ? 1 : 2, service: older ? 'Older record' : 'New record', action: 'reviewed',
+        changes: {}, actor: 'Test user', created_at: '2026-03-01T12:00:00Z' }],
+    } })
+  })
+  await page.goto('/planning/activity/')
+  await page.getByRole('button', { name: 'Load older activity' }).click()
+  await expect(page.getByRole('heading', { name: 'Older record · reviewed' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'New record · reviewed' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Load older activity' })).toHaveCount(0)
 })
 
 test('calendar subscriptions can be created and revoked', async ({ page }) => {

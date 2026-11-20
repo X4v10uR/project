@@ -35,8 +35,7 @@ modified and removed records, and commits the next cursor only after all pages
 succeed. Concurrent syncs on one connection are rejected. An interrupted sync
 claim expires after 30 minutes.
 
-Discovery groups payments by merchant and currency and suggests common billing
-cadences after at least two distinct payment dates. These are suggestions, not
+Discovery compares all available payment dates for each merchant and currency against calendar-month and fixed-day schedules. After at least two distinct dates fit a schedule, the suggestion shows the predicted payment after the latest import. Its editable start date preserves the inferred billing day across short months. These are suggestions, not
 proof of a subscription. The user reviews editable details before adding one.
 Payment matches require the same normalized merchant, exact amount/currency,
 and a date within three days of a personal scheduled charge. Confirming a match
@@ -162,6 +161,8 @@ per environment. Without a running job, on-demand sync works, but deferred
 alerts, digest emails and unattended imports wait. Keep the existing renewal
 charge/reminder jobs enabled too. No jobs are installed into the operating
 system automatically.
+
+Django admin → Finance → Scheduled job statuses shows each job’s last result, completion time, and last successful completion. Billing, dashboard budget checks, finance sync, and renewal reminders report independently. A failed job lets the scheduler finish the other jobs and makes it exit with status 1. Dry runs leave these timestamps unchanged. The standalone finance command records a separate status for notifications-only runs.
 
 ## Live calendars
 

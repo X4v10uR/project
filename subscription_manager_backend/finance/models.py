@@ -30,6 +30,19 @@ class Receipt(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 
+class ScheduledJobStatus(models.Model):
+    job = models.CharField(max_length=64, primary_key=True)
+    last_finished_at = models.DateTimeField()
+    last_succeeded_at = models.DateTimeField(null=True)
+    succeeded = models.BooleanField()
+
+    class Meta:
+        verbose_name_plural = 'scheduled job statuses'
+
+    def __str__(self):
+        return self.job
+
+
 class Connection(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     provider = models.CharField(max_length=10, choices=[('plaid', 'Plaid'), ('gmail', 'Gmail')])

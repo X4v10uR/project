@@ -315,6 +315,58 @@ def normalize(value):
     return re.sub(r'[^a-z0-9]', '', value.casefold())
 
 
+def infer_schedule(dates):
+    """Fit the observed payments to anchored billing schedules, including short months."""
+    from dateutil.relativedelta import relativedelta
+
+    if len(dates) < 2 or dates[-1] == date.max:
+        return None
+    best = None
+    lowest_error = None
+    for cycle, months, days, tolerance in (
+        ('monthly', 1, 0, 2), ('weekly', 0, 7, 2), ('fourweekly', 0, 28, 2),
+        ('quarterly', 3, 0, 5), ('halfyearly', 6, 0, 5), ('yearly', 12, 0, 5),
+    ):
+        # An observed 31st can explain a February 28th. Keep that original day
+        # as the subscription anchor so later months return to the 31st.
+        # Reject incompatible spans before projecting any dates.
+        steps = len(dates) - 1
+        span = (dates[-1] - dates[0]).days
+        if months:
+            month_span = (dates[-1].year - dates[0].year) * 12 + dates[-1].month - dates[0].month
+            if abs(month_span - steps * months) > 1:
+                continue
+        elif abs(span - steps * days) > 2 * tolerance:
+            continue
+        anchors = {}
+        for index, observed in enumerate(dates):
+            key = observed.day if months else observed.toordinal() - index * days
+            anchors[key] = (index, observed)
+        for index, anchor in anchors.values():
+            error = 0
+            for position, observed in enumerate(dates):
+                offset = position - index
+                try:
+                    expected = anchor + relativedelta(months=months * offset, days=days * offset)
+                except (OverflowError, ValueError):
+                    break
+                deviation = abs((observed - expected).days)
+                if deviation > tolerance:
+                    break
+                error += deviation
+            else:
+                if lowest_error is None or error < lowest_error:
+                    schedule = Subscription(start_date=anchor, billing_cycle=cycle)
+                    last_cycle = max(dates[-1], expected)
+                    if last_cycle == date.max:
+                        continue
+                    following = schedule.calculate_renewal_date(today=last_cycle + timedelta(days=1))
+                    if following:
+                        lowest_error = error
+                        best = (cycle, anchor, following)
+    return best
+
+
 def payment_matches(payment):
     if payment.pending or payment.removed or payment.charge_id:
         return []
@@ -325,21 +377,22 @@ def payment_matches(payment):
 
 @api_view(['GET'])
 def discoveries(request):
-    rows = list(ImportedPayment.objects.filter(connection__user=request.user, dismissed=False, removed=False).select_related('connection').order_by('-paid_on')[:1000])
+    history = ImportedPayment.objects.filter(connection__user=request.user, dismissed=False, removed=False).order_by('-paid_on', '-pk')
+    rows = history.select_related('connection')[:1000]
     groups = defaultdict(list)
-    for row in rows:
-        if not row.pending:
-            groups[(normalize(row.merchant), row.currency)].append(row)
+    for row in history.filter(pending=False).only('id', 'merchant', 'currency', 'paid_on', 'amount').iterator():
+        groups[(normalize(row.merchant), row.currency)].append(row)
     candidates = []
     for (_, currency), values in groups.items():
         dates = sorted({r.paid_on for r in values})
         if len(dates) < 2:
             continue
-        days = (dates[-1] - dates[-2]).days
-        cycle = 'weekly' if 5 <= days <= 9 else 'fourweekly' if 26 <= days <= 28 else 'monthly' if 29 <= days <= 33 else 'quarterly' if 85 <= days <= 95 else 'yearly' if 360 <= days <= 370 else None
-        if cycle and not Subscription.objects.filter(user=request.user, team__isnull=True, service_name__iexact=values[0].merchant, currency=currency).exists():
+        schedule = infer_schedule(dates)
+        if schedule and not Subscription.objects.filter(user=request.user, team__isnull=True, service_name__iexact=values[0].merchant, currency=currency).exists():
+            cycle, anchor, next_payment = schedule
             candidates.append({'service': values[0].merchant, 'cost': str(values[0].amount), 'currency': currency,
-                'billing_cycle': cycle, 'start_date': dates[-1], 'occurrences': len(dates), 'payment_ids': [v.pk for v in values]})
+                'billing_cycle': cycle, 'start_date': anchor, 'last_payment_date': dates[-1], 'next_payment_date': next_payment,
+                'occurrences': len(dates), 'payment_ids': [v.pk for v in values]})
     return Response({'candidates': candidates, 'payments': [{'id': r.pk, 'merchant': r.merchant, 'amount': str(r.amount), 'currency': r.currency,
         'date': r.paid_on, 'provider': r.connection.provider, 'pending': r.pending, 'charge': r.charge_id, 'description': r.description,
         'matches': [{'id': m.pk, 'service': m.service_name_snapshot, 'date': m.charged_for_date} for m in payment_matches(r)]} for r in rows]})

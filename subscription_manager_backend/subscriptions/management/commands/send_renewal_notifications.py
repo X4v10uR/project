@@ -1,14 +1,18 @@
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import CommandError
+from django.utils import timezone
+from finance.jobs import TrackedJobCommand
 from datetime import time
 from subscriptions.services import NotificationService
 import logging
 
 logger = logging.getLogger(__name__)
 
-class Command(BaseCommand):
+class Command(TrackedJobCommand):
+    job_name = 'renewal_reminders'
     help = 'Send renewal reminder emails for subscriptions with due reminder offsets'
 
     def add_arguments(self, parser):
+        parser.add_argument('--time-based', action='store_true', help='Use the current instant for timed reminders.')
         parser.add_argument(
             '--days-before',
             type=int,
@@ -32,7 +36,7 @@ class Command(BaseCommand):
         target_time_str = options.get('time')
         
         # Parse target time if provided
-        target_time = None
+        target_time = timezone.localtime() if options['time_based'] else None
         if target_time_str:
             try:
                 hour, minute = map(int, target_time_str.split(':'))

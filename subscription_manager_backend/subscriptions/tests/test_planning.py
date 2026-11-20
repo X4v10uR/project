@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 
 from django.core.cache import cache
@@ -8,7 +8,7 @@ from django.utils import timezone
 from accounts.models import User, TeamMembership
 from accounts.team_workflows import create_team
 from subscriptions.models import ChargeShare, PriceChange, Subscription, SubscriptionParticipant, Transaction
-from subscriptions.services import BillingService, renewals_between
+from subscriptions.services import BillingService, NotificationService, renewals_between
 
 
 @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
@@ -56,6 +56,21 @@ class PlanningTests(TestCase):
         sub = self.sub(billing_cycle='weekly', status='paused', resume_on=self.today + timedelta(days=6))
         BillingService.record_renewal_charges(self.today + timedelta(days=7))
         self.assertEqual(sub.transactions.count(), 1)
+
+    def test_first_post_resume_charge_and_reminder_use_the_same_schedule(self):
+        anchor = self.today
+        resumed = self.sub(billing_cycle='weekly', status='paused', resume_on=anchor + timedelta(days=6))
+        self.sub(billing_cycle='weekly', status='paused')
+        self.sub(billing_cycle='weekly', status='paused', resume_on=anchor + timedelta(days=14))
+        self.user.timezone = 'UTC'
+        self.user.save(update_fields=['timezone'])
+        instant = datetime.combine(anchor + timedelta(days=4), time(16), UTC)
+        due = NotificationService.get_subscriptions_due_for_notification(target_time=instant)
+        self.assertEqual([(sub.pk, sub.renewal_date) for sub, _ in due], [(resumed.pk, anchor + timedelta(days=7))])
+        self.assertTrue(NotificationService.send_renewal_reminder(*due[0]))
+        self.assertFalse(NotificationService.send_renewal_reminder(*due[0]))
+        BillingService.record_renewal_charges(anchor + timedelta(days=7))
+        self.assertEqual(list(Transaction.objects.values_list('subscription_id', flat=True)), [resumed.pk])
 
     def test_calendar_includes_deadlines_and_exports_valid_folded_events(self):
         sub = self.sub(service_name='Very long name ' * 10, trial_end_date=self.today + timedelta(days=3), cancel_by_date=self.today + timedelta(days=2))

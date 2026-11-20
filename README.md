@@ -97,6 +97,8 @@ Stored provider credentials require recent password verification, hide after one
 
 Planning now includes connected-account discovery, private receipts, combined currency totals, detailed budgets, charge reports, live calendar subscriptions, notification preferences, portable backups, and subscription activity. Teams support Viewer and Accountant roles and separate Member credential access. See [finance setup](subscription_manager_backend/FINANCE_SETUP.md) for Plaid/Gmail credentials, optional image OCR, browser push, scheduling, and archive behavior.
 
+The dashboard’s **Needs attention** panel links to the next cancellation deadline and the latest failed payment in the selected workspace. Team owners also see the oldest pending approval. Receipt lists support merchant and receipt-date filters. Use **Load older** in Receipts or Activity to continue through the full history.
+
 ## Notification delivery
 
 Local email prints to the Django console by default. Start Django with `runserver` to enable local WebSocket updates in the same process. Set `REDIS_URL` when running multiple processes or when scheduled jobs need to broadcast to connected browser sessions.

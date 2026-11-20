@@ -41,7 +41,7 @@ type Team = {
 function SubscriptionCard({ subscription, team }: { subscription: TeamSubscription; team: Team }) {
 
   return (
-    <article className="grid gap-3 rounded-xl border border-zinc-200 p-4">
+    <article id={`subscription-${subscription.id}`} tabIndex={-1} className="grid gap-3 rounded-xl border border-zinc-200 p-4">
       <div className="flex flex-wrap items-center gap-3">
         <ServiceIcon name={subscription.service_name} accent={team.accent_color} />
         <div className="min-w-0 flex-1">
@@ -74,7 +74,7 @@ export function TeamDetailPage() {
   const { teamId } = useParams()
   const { user } = useAuth()
   const navigate = useNavigate()
-  const { state } = useLocation()
+  const { state, hash } = useLocation()
   const incomingNotice = typeof state?.notice === 'string' ? state.notice : ''
   const [team, setTeam] = useState<Team | null>(null)
   const [error, setError] = useState('')
@@ -96,6 +96,12 @@ export function TeamDetailPage() {
     })
     return () => { active = false }
   }, [endpoint, incomingNotice])
+
+  useEffect(() => {
+    if (team && /^#(?:request|subscription)-\d+$/.test(hash)) {
+      document.getElementById(hash.slice(1))?.focus()
+    }
+  }, [team, hash])
 
   async function action(path: string, method: 'POST' | 'DELETE' | 'PATCH', success: string, options?: {
     data?: Record<string, FormDataEntryValue>
@@ -165,7 +171,7 @@ export function TeamDetailPage() {
               {team.pending_requests.length ? (
                 <div className="grid gap-3">
                   {team.pending_requests.map((item) => (
-                    <article key={item.id} className="grid gap-3 rounded-xl border border-zinc-200 p-4">
+                    <article id={`request-${item.id}`} tabIndex={-1} key={item.id} className="grid gap-3 rounded-xl border border-zinc-200 p-4">
                       <div>
                         <h3 className="flex items-center gap-2 font-semibold"><ServiceIcon name={item.service_name} className="size-7" />{item.service_name}</h3>
                         <p className="text-sm text-zinc-600">Requested by {item.requested_by} on {new Date(item.created_at).toLocaleDateString()}</p>

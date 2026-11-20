@@ -92,6 +92,7 @@ export function HistoryPage() {
   return (
     <section className="mx-auto grid max-w-5xl gap-5 px-4 py-6 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-3xl font-bold tracking-tight">Charge history</h1><Link className={buttonClass} to={`/planning/reports/?${query}`}>Export charge history</Link></div>
+      {params.has('charge') && <Link className="text-sm font-semibold underline" to={`/dashboard/history/?scope=${params.get('scope') === 'teams' ? 'teams' : 'personal'}`}>View all charges in this workspace</Link>}
       <form key={query} className={`${panelClass} grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-5`} onSubmit={filter}>
         <Field label="Scope"><select className={inputClass} name="scope" defaultValue={params.get('scope') || 'personal'}><option value="personal">Personal</option><option value="teams">My teams</option></select></Field>
         <Field label="Service"><input className={inputClass} name="service" type="search" maxLength={100} defaultValue={params.get('service') || ''} /></Field>

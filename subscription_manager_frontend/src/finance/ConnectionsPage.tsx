@@ -36,6 +36,8 @@ type Candidate = {
   currency: string;
   billing_cycle: string;
   start_date: string;
+  last_payment_date: string;
+  next_payment_date: string;
   occurrences: number;
 };
 type Payment = {
@@ -116,8 +118,8 @@ function CandidateCard({
         Possible recurring subscription: {candidate.service}
       </h3>
       <p className="my-3 text-sm text-slate-600">
-        Detected across {candidate.occurrences} dates. Review the service,
-        currency, cost and billing cadence before adding it.
+        Detected across {candidate.occurrences} dates. Last payment on {displayDate(candidate.last_payment_date)}.
+        Predicted next payment from this history: <strong>{displayDate(candidate.next_payment_date)}</strong>.
       </p>
       <form onSubmit={add} className="grid gap-3 sm:grid-cols-2">
         <Field label="Detected service">
@@ -163,7 +165,7 @@ function CandidateCard({
             ))}
           </select>
         </Field>
-        <Field label="Latest payment date">
+        <Field label="Billing schedule start date">
           <input
             name="start_date"
             className={inputClass}

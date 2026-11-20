@@ -5,7 +5,7 @@ import { CalendarDays, ChartNoAxesCombined, ListChecks, Pencil, Plus, Zap } from
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../accounts';
-import { currencyAmount } from '../subscriptions/shared';
+import { currencyAmount, displayDate } from '../subscriptions/shared';
 
 export { NotificationsPage } from './notifications';
 
@@ -38,6 +38,7 @@ type Dashboard = Balance & {
   over_budget: boolean;
   monthly_spend_by_currency: Record<string, string>;
   greeting_name: string;
+  needs_attention: { kind: 'deadline' | 'payment' | 'approval'; service: string; date: string; action: string; url: string }[];
   balance_chip_date: string;
   upcoming_count: number;
   total_active: number;
@@ -349,6 +350,21 @@ function RecentTransactions({ transactions }: { transactions: Transaction[] }) {
   );
 }
 
+function NeedsAttention({ items }: { items: Dashboard['needs_attention'] }) {
+  const labels = { deadline: 'Cancel by', payment: 'Failed payment', approval: 'Approval requested' };
+  return (
+    <section className={panelClass} aria-labelledby="attention-title">
+      <h2 id="attention-title" className="text-lg font-bold text-slate-900">Needs attention</h2>
+      {items.length ? <ul className="mt-2 divide-y divide-slate-100">{items.map((item) => (
+        <li key={item.kind} className="flex flex-wrap items-center justify-between gap-2 py-3">
+          <div><strong>{item.service}</strong><p className="text-sm text-slate-600">{labels[item.kind]} · <time dateTime={item.date}>{displayDate(item.date)}</time></p></div>
+          <Link className="secondary-link" to={item.url}>{item.action}</Link>
+        </li>
+      ))}</ul> : <p className="mt-2 text-sm text-slate-600">Nothing needs your attention in this workspace.</p>}
+    </section>
+  );
+}
+
 export function DashboardPage() {
   const { user } = useAuth();
   const { data, error, retry, scope, query, updateBalance } = useDashboard();
@@ -373,6 +389,7 @@ export function DashboardPage() {
       {data ? (
         <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
           <div className="min-w-0 space-y-5">
+            <NeedsAttention items={data.needs_attention} />
             <BalanceEditor data={data} key={query} onUpdate={updateBalance} scope={scope} />
             <BudgetEditor data={data} key={query + '-budget'} scope={scope} reload={retry} />
             <UpcomingBills data={data} />

@@ -12,7 +12,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
 from accounts.models import TeamMembership
-from subscriptions.models import ChargeShare, InAppNotification, Transaction
+from subscriptions.models import ChargeShare, InAppNotification, TeamSubscriptionRequest, Transaction
 from subscriptions.notifications import (
     notification_unread_count,
     push_bulk_read,
@@ -27,6 +27,7 @@ from .services import VALID_DASHBOARD_SCOPES, build_dashboard_view_model, charge
 
 
 class ChargeFilters(serializers.Serializer):
+    charge = serializers.IntegerField(min_value=1, required=False)
     scope = serializers.ChoiceField(choices=sorted(VALID_DASHBOARD_SCOPES), default='personal')
     service = serializers.CharField(required=False, max_length=100, allow_blank=True)
     start = serializers.DateField(required=False)
@@ -44,6 +45,8 @@ def charge_history(request):
     query.is_valid(raise_exception=True)
     filters = query.validated_data
     charges = charges_for_scope(request.user, filters['scope']).select_related('team').prefetch_related('shares')
+    if 'charge' in filters:
+        charges = charges.filter(pk=filters['charge'])
     owned_teams = set(request.user.team_memberships.filter(role__in=['owner', 'accountant']).values_list('team_id', flat=True))
     if filters.get('service'):
         charges = charges.filter(service_name_snapshot__icontains=filters['service'])
@@ -139,6 +142,37 @@ def charge_share(request, pk, share_id):
     return Response({'reimbursed': share.reimbursed})
 
 
+def needs_attention(user, scope):
+    from finance.delivery import local_now
+    from subscriptions.planning import visible_subscriptions
+
+    now = local_now(user)
+    today = now.date()
+    items = []
+    deadline = (visible_subscriptions(user, scope).filter(cancel_by_date__gte=today)
+                .exclude(status='cancelled').exclude(cancellation_state='confirmed')
+                .select_related('team').order_by('cancel_by_date', 'pk').first())
+    if deadline:
+        url = (f'/accounts/teams/{deadline.team_id}/#subscription-{deadline.pk}' if deadline.team_id
+               else f'/subscriptions/{deadline.pk}/edit/')
+        items.append({'kind': 'deadline', 'service': deadline.service_name, 'date': deadline.cancel_by_date,
+                      'action': 'Review subscription', 'url': url})
+    failed = (charges_for_scope(user, scope).filter(payment_status=Transaction.PaymentStatus.FAILED)
+              .order_by('-charged_for_date', '-pk').first())
+    if failed:
+        items.append({'kind': 'payment', 'service': failed.service_name_snapshot, 'date': failed.charged_for_date,
+                      'action': 'Review charge', 'url': f'/dashboard/history/?scope={scope}&charge={failed.pk}'})
+    if scope == 'teams':
+        pending = (TeamSubscriptionRequest.objects.filter(status=TeamSubscriptionRequest.STATUS_PENDING,
+                   team__memberships__user=user, team__memberships__role=TeamMembership.ROLE_OWNER)
+                   .select_related('team').order_by('created_at', 'pk').first())
+        if pending:
+            items.append({'kind': 'approval', 'service': pending.payload.get('service_name') or pending.team.name,
+                          'date': timezone.localtime(pending.created_at, now.tzinfo).date(), 'action': 'Review request',
+                          'url': f'/accounts/teams/{pending.team_id}/#request-{pending.pk}'})
+    return items
+
+
 class CurrencySelection(serializers.Serializer):
     currency = serializers.RegexField(r'^[A-Za-z]{3}$', required=False)
 
@@ -185,6 +219,7 @@ def dashboard_data(request):
     selection.is_valid(raise_exception=True)
     data = build_dashboard_view_model(request.user, scope=request.query_params.get('scope'),
                                       selected_currency=selection.validated_data.get('currency'))
+    data['needs_attention'] = needs_attention(request.user, data['dashboard_scope'])
     data['upcoming_count'] = len(data.pop('upcoming_renewals'))
     for name in ('active_subscriptions', 'paused_subscriptions', 'cancelled_subscriptions', 'shared_subscriptions'):
         data.pop(name)

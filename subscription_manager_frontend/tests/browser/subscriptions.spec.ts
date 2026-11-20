@@ -47,6 +47,23 @@ test('create a card and team, open notifications, and sign back in', async ({ pa
   await expect(page).toHaveURL(/dashboard\//)
 })
 
+test('team quick add identifies the pending request and focuses it', async ({ page }) => {
+  const email = await signUp(page)
+  await page.route('**/api/subscriptions/', route => route.fulfill({ status: 202, json: { request_id: 23, team: 7 } }))
+  await page.route('**/api/accounts/teams/7/', route => route.fulfill({ json: {
+    id: 7, name: 'Design team', role: 'member', members: [], subscriptions: [], accent_color: '#eee',
+    pending_requests: [{ id: 23, service_name: 'Studio', requested_by: email, created_at: '2026-03-01T12:00:00Z' }],
+  } }))
+  await page.goto('/subscriptions/quick-add/?team=7')
+  await page.getByLabel('Service', { exact: true }).fill('Studio')
+  await page.getByLabel('Cost (USD)').fill('12')
+  await page.getByLabel('Next payment').fill('2027-01-01')
+  await page.getByRole('button', { name: 'Add subscription', exact: true }).click()
+  await expect(page).toHaveURL(/teams\/7\/#request-23/)
+  await expect(page.getByText(/Request submitted for owner approval/)).toBeVisible()
+  await expect(page.locator('#request-23')).toBeFocused()
+})
+
 test('preview an import, navigate history, and keep a charge after deletion', async ({ page }) => {
   const today = new Date().toISOString().slice(0, 10)
   await signUp(page)

@@ -1,12 +1,14 @@
 from datetime import date
 
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import CommandError
+from finance.jobs import TrackedJobCommand
 from django.utils import timezone
 
 from subscriptions.services import BillingService
 
 
-class Command(BaseCommand):
+class Command(TrackedJobCommand):
+    job_name = 'renewal_charges'
     help = "Record renewal charges for subscriptions due on a target date."
 
     def add_arguments(self, parser):

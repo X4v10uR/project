@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import {
@@ -12,23 +12,49 @@ import {
 
 export const endpoint = "/api/finance/";
 export function useFinance<T>(path: string) {
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState("");
   const [version, setVersion] = useState(0);
+  const [result, setResult] = useState<{ path: string; version: number; data?: T; error?: string }>();
   useEffect(() => {
     const controller = new AbortController();
-    setData(null);
-    setError("");
     api<T>(endpoint + path, { signal: controller.signal })
-      .then((reply) => {
-        if (!controller.signal.aborted) setData(reply);
+      .then((data) => {
+        if (!controller.signal.aborted) setResult({ path, version, data });
       })
       .catch((e) => {
-        if (!controller.signal.aborted) setError(showError(e));
+        if (!controller.signal.aborted) setResult({ path, version, error: showError(e) });
       });
     return () => controller.abort();
   }, [path, version]);
-  return { data, error, reload: () => setVersion((v) => v + 1) };
+  const current = result?.path === path && result.version === version ? result : undefined;
+  return { data: current?.data ?? null, error: current?.error ?? "", reload: () => setVersion((v) => v + 1) };
+}
+
+export function useFinancePages<T extends { next: string | null }>(path: string) {
+  const { data, error, reload } = useFinance<T>(path);
+  const [tail, setTail] = useState<{ first: T; pages: T[]; loading: boolean; error: string }>();
+  const pending = useRef<AbortController | null>(null);
+  useEffect(() => () => { pending.current?.abort(); pending.current = null; }, [data]);
+  const current = data && tail?.first === data ? tail : undefined;
+  const pages = data ? [data, ...(current?.pages ?? [])] : [];
+  const next = pages.at(-1)?.next;
+  async function loadOlder() {
+    if (!next || !data || pending.current) return;
+    const controller = new AbortController();
+    pending.current = controller;
+    const previous = current?.pages ?? [];
+    setTail({ first: data, pages: previous, loading: true, error: "" });
+    try {
+      // Keep session requests on this origin when the API is behind a proxy.
+      const query = new URL(next, window.location.origin).search;
+      const page = await api<T>(endpoint + path.split("?")[0] + query, { signal: controller.signal });
+      if (!controller.signal.aborted) setTail({ first: data, pages: [...previous, page], loading: false, error: "" });
+    } catch (failure) {
+      if (!controller.signal.aborted) setTail({ first: data, pages: previous, loading: false, error: showError(failure) });
+    } finally {
+      if (pending.current === controller) pending.current = null;
+    }
+  }
+  return { pages, data, error: error || current?.error || "", reload, next, loading: current?.loading, loadOlder };
 }
 
 export function Reverify() {

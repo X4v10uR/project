@@ -12,6 +12,8 @@ from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.decorators import api_view, permission_classes, authentication_classes, renderer_classes
 from rest_framework.exceptions import NotAcceptable
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.utils.urls import remove_query_param, replace_query_param
 from rest_framework.permissions import AllowAny
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
@@ -37,6 +39,36 @@ class ReceiptInput(serializers.ModelSerializer):
         return value.upper()
 
 
+class ReceiptFilters(serializers.Serializer):
+    merchant = serializers.CharField(required=False, allow_blank=True, max_length=100)
+    start = serializers.DateField(required=False)
+    end = serializers.DateField(required=False)
+
+    def validate(self, data):
+        if data.get('start') and data.get('end') and data['start'] > data['end']:
+            raise serializers.ValidationError({'end': 'Choose an end date on or after the start date.'})
+        return data
+
+
+def older_page(rows, request):
+    # Continue after the last displayed record even if newer rows arrive or
+    # a row is deleted between clicks. Explicit page numbers also work.
+    params = request.query_params
+    if 'before_date' in params or 'before_id' in params:
+        stamp = serializers.DateTimeField().run_validation(params.get('before_date'))
+        pk = serializers.IntegerField(min_value=1).run_validation(params.get('before_id'))
+        rows = rows.filter(Q(created_at__lt=stamp) | Q(created_at=stamp, pk__lt=pk))
+    pages = PageNumberPagination()
+    pages.page_size = 50
+    page = pages.paginate_queryset(rows.order_by('-created_at', '-pk'), request)
+    next_url = None
+    if pages.page.has_next():
+        url = remove_query_param(request.build_absolute_uri(), 'page')
+        url = replace_query_param(url, 'before_date', page[-1].created_at.isoformat())
+        next_url = replace_query_param(url, 'before_id', page[-1].pk)
+    return page, next_url
+
+
 def receipts_for(user):
     return Receipt.objects.filter(Q(user=user, team__isnull=True) | Q(team__memberships__user=user)).distinct()
 
@@ -51,7 +83,16 @@ def receipt_data(row, user=None):
 @api_view(['GET', 'POST'])
 def receipts(request):
     if request.method == 'GET':
-        rows = receipts_for(request.user).order_by('-created_at')
+        rows = receipts_for(request.user)
+        filters = ReceiptFilters(data=request.query_params)
+        filters.is_valid(raise_exception=True)
+        selected = filters.validated_data
+        if selected.get('merchant'):
+            rows = rows.filter(merchant__icontains=selected['merchant'])
+        if selected.get('start'):
+            rows = rows.filter(issued_on__gte=selected['start'])
+        if selected.get('end'):
+            rows = rows.filter(issued_on__lte=selected['end'])
         can_upload = True
         if request.query_params.get('subscription'):
             sub = subscription_for(request.user, serializers.IntegerField(min_value=1).run_validation(request.query_params['subscription']))
@@ -61,7 +102,8 @@ def receipts(request):
             charge = get_object_or_404(charges_for(request.user), pk=serializers.IntegerField(min_value=1).run_validation(request.query_params['charge']))
             rows = rows.filter(charge=charge)
             can_upload = team_permission(request.user, charge.team_id, 'pay')
-        return Response({'receipts': [receipt_data(row, request.user) for row in rows[:500]], 'can_upload': can_upload,
+        page, next_url = older_page(rows, request)
+        return Response({'receipts': [receipt_data(row, request.user) for row in page], 'next': next_url, 'can_upload': can_upload,
             'subscriptions': [{'id': s.pk, 'service': s.service_name, 'team': s.team_id} for s in subscriptions_for(request.user) if team_permission(request.user, s.team_id, 'pay')],
             'ocr_available': bool(settings.TESSERACT_CMD)})
     data = ReceiptInput(data=request.data)
@@ -213,6 +255,8 @@ def report(request):
     filters = query.validated_data
     rows = charges_for(request.user).select_related('team')
     rows = rows.filter(team__isnull=False) if filters['scope'] == 'teams' else rows.filter(team__isnull=True)
+    if 'charge' in filters:
+        rows = rows.filter(pk=filters['charge'])
     if filters.get('service'):
         rows = rows.filter(service_name_snapshot__icontains=filters['service'])
     if filters.get('start'):
@@ -278,5 +322,6 @@ def activity(request):
         rows = rows.filter(subscription_id=serializers.IntegerField(min_value=1).run_validation(request.query_params['subscription']))
     if request.query_params.get('team'):
         rows = rows.filter(team_id=serializers.IntegerField(min_value=1).run_validation(request.query_params['team']))
-    return Response({'activity': [{'id': r.pk, 'actor': r.user.email if r.user_id else 'Deleted account', 'service': r.service,
-        'action': r.action, 'changes': r.changes, 'created_at': r.created_at} for r in rows.order_by('-created_at', '-pk')[:200]]})
+    page, next_url = older_page(rows, request)
+    return Response({'next': next_url, 'activity': [{'id': r.pk, 'actor': r.user.email if r.user_id else 'Deleted account', 'service': r.service,
+        'action': r.action, 'changes': r.changes, 'created_at': r.created_at} for r in page]})

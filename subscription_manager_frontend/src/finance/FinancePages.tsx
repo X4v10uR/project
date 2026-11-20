@@ -13,7 +13,7 @@ import {
   primaryClass,
   showError,
 } from "../subscriptions/shared";
-import { endpoint, useFinance } from "./common";
+import { endpoint, useFinance, useFinancePages } from "./common";
 
 type Budget = {
   id: number;
@@ -194,6 +194,7 @@ type Receipt = {
   can_edit: boolean;
 };
 type Receipts = {
+  next: string | null;
   receipts: Receipt[];
   subscriptions: { id: number; service: string; team: number | null }[];
   ocr_available: boolean;
@@ -348,19 +349,21 @@ function ReceiptCard({
   );
 }
 export function ReceiptsPage() {
-  const [params] = useSearchParams(),
+  const [params, setParams] = useSearchParams(),
     [failure, setFailure] = useState(""),
     [busy, setBusy] = useState(false);
   const sub = params.get("subscription"),
     charge = params.get("charge");
-  const { data, error, reload } = useFinance<Receipts>(
-    "receipts/" +
-      (sub
-        ? "?subscription=" + encodeURIComponent(sub)
-        : charge
-          ? "?charge=" + encodeURIComponent(charge)
-          : ""),
-  );
+  const { pages, data, error, reload, next, loading, loadOlder } = useFinancePages<Receipts>("receipts/?" + params.toString());
+  function filter(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const updated = new URLSearchParams(params);
+    for (const [name, value] of new FormData(event.currentTarget)) {
+      if (typeof value === "string" && value.trim()) updated.set(name, value.trim());
+      else updated.delete(name);
+    }
+    setParams(updated);
+  }
   async function upload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
@@ -428,16 +431,23 @@ export function ReceiptsPage() {
           </button>
         </form>
       )}
+      <form key={params.toString()} onSubmit={filter} className={`${panelClass} grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-4`}>
+        <Field label="Filter by merchant"><input name="merchant" className={inputClass} type="search" maxLength={100} defaultValue={params.get("merchant") ?? ""} /></Field>
+        <Field label="Receipt date from"><input name="start" className={inputClass} type="date" defaultValue={params.get("start") ?? ""} /></Field>
+        <Field label="Receipt date through"><input name="end" className={inputClass} type="date" defaultValue={params.get("end") ?? ""} /></Field>
+        <button className={buttonClass}>Apply receipt filters</button>
+      </form>
       {data && !data.receipts.length && (
         <p className={panelClass}>No receipts in this selection.</p>
       )}
-      {data?.receipts.map((r) => (
+      {pages.flatMap((page) => page.receipts).map((r) => (
         <ReceiptCard
           key={`${r.id}-${r.amount}-${r.currency}-${r.note}-${r.issued_on}`}
           receipt={r}
           reload={reload}
         />
       ))}
+      {next && <button className={buttonClass} disabled={loading} onClick={loadOlder}>{loading ? "Loading…" : "Load older receipts"}</button>}
     </PlanningLayout>
   );
 }
@@ -458,6 +468,7 @@ export function ReportsPage() {
   }
   return (
     <PlanningLayout title="Charge reports" workspace={false}>
+      {params.has('charge') && <p className="text-sm text-slate-600">This report is limited to the selected charge. Apply the filters below to choose another selection.</p>}
       <p className="text-sm text-slate-600">
         Download scheduled and confirmed-paid charge history, including retained
         charges for deleted subscriptions. Reports preserve original currencies
@@ -553,7 +564,7 @@ type Activity = {
 };
 export function ActivityPage() {
   const [params] = useSearchParams();
-  const { data, error } = useFinance<{ activity: Activity[] }>(
+  const { pages, data, error, next, loading, loadOlder } = useFinancePages<{ activity: Activity[]; next: string | null }>(
     "activity/?" + params.toString(),
   );
   return (
@@ -568,7 +579,7 @@ export function ActivityPage() {
           No changes recorded yet. Activity starts with this upgrade.
         </p>
       )}
-      {data?.activity.map((a) => (
+      {pages.flatMap((page) => page.activity).map((a) => (
         <article className={panelClass} key={a.id}>
           <h2 className="font-bold">
             {a.service || "Team"} · {a.action.replaceAll(".", " ")}
@@ -586,6 +597,7 @@ export function ActivityPage() {
           )}
         </article>
       ))}
+      {next && <button className={buttonClass} disabled={loading} onClick={loadOlder}>{loading ? "Loading…" : "Load older activity"}</button>}
     </PlanningLayout>
   );
 }

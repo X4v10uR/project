@@ -18,6 +18,7 @@ from accounts.team_workflows import create_team
 from subscriptions.models import Subscription, Transaction, PriceChange, ChargeShare, Repayment, InAppNotification
 from subscriptions.notifications import create_notification
 from .models import Receipt, SpendingBudget, ExchangeRate, NotificationPreference, NotificationDelivery, PushSubscription, Connection, ImportedPayment, Activity
+from .models import ScheduledJobStatus
 from .backup import build_archive
 from .connections import encrypt_tokens, tokens_for, sync_plaid, sync_gmail
 from .delivery import deliver_queued, send_digests, route_notification, quiet_until, validate_push
@@ -273,6 +274,102 @@ class FinanceTests(TestCase):
         sync_plaid(row)
         self.assertEqual(ImportedPayment.objects.count(), 1)
         self.assertTrue(ImportedPayment.objects.get().removed)
+
+    def test_discovery_uses_full_calendar_history_and_preserves_month_end(self):
+        connection = Connection.objects.create(user=self.user, provider='plaid', external_id='item', label='Bank')
+        histories = {
+            'Monthly': [date(2026, m, 1) for m in (1, 2, 3)],
+            'Month end': [date(2026, 1, 31), date(2026, 2, 28)],
+            'Four weeks': [date(2026, 1, 4) + timedelta(weeks=4 * i) for i in range(4)],
+            'Irregular': [date(2026, 1, 1), date(2026, 2, 15), date(2026, 3, 15)],
+        }
+        for merchant, dates in histories.items():
+            for day in dates:
+                ImportedPayment.objects.create(connection=connection, remote_id=f'{merchant}-{day}', merchant=merchant,
+                                               amount=20, currency='USD', paid_on=day)
+        result = self.client.get('/api/finance/discoveries/').json()
+        found = {row['service']: row for row in result['candidates']}
+        self.assertEqual(set(found), {'Monthly', 'Month end', 'Four weeks'})
+        for name, cycle, expected in [('Monthly', 'monthly', '2026-04-01'), ('Month end', 'monthly', '2026-03-31'),
+                                      ('Four weeks', 'fourweekly', '2026-04-26')]:
+            row = found[name]
+            self.assertEqual((row['billing_cycle'], row['next_payment_date']), (cycle, expected))
+            sub = Subscription(start_date=date.fromisoformat(row['start_date']), billing_cycle=cycle)
+            self.assertEqual(sub.calculate_renewal_date(histories[name][-1] + timedelta(days=1)).isoformat(), expected)
+
+    def test_older_pages_keep_filters_and_permissions_across_inserts(self):
+        # Use one timestamp to exercise the secondary ordering by id.
+        from urllib.parse import urlsplit
+        def fetch_next(link):
+            url = urlsplit(link)
+            return self.client.get(url.path + '?' + url.query).json()
+
+        for user, count, merchant in [(self.user, 52, 'Studio'), (self.other, 2, 'Studio'), (self.user, 1, 'Elsewhere')]:
+            Receipt.objects.bulk_create([Receipt(user=user, merchant=merchant, issued_on=self.today, filename=f'{i}.pdf') for i in range(count)])
+        Receipt.objects.create(user=self.user, merchant='Studio', issued_on=self.today - timedelta(days=1))
+        Receipt.objects.update(created_at=timezone.now())
+        url = f'/api/finance/receipts/?merchant=STUD&start={self.today}&end={self.today}'
+        first = self.client.get(url).json()
+        self.assertEqual(len(first['receipts']), 50)
+        expected = [r['id'] for r in self.client.get(url + '&page=2').json()['receipts']]
+        Receipt.objects.create(user=self.user, merchant='Studio', issued_on=self.today)
+        Receipt.objects.filter(pk=first['receipts'][-1]['id']).delete()
+        second = fetch_next(first['next'])
+        self.assertEqual([r['id'] for r in second['receipts']], expected)
+        self.assertEqual(len(expected), 2)
+        self.assertIsNone(second['next'])
+        self.assertEqual(self.client.get('/api/finance/receipts/?start=2026-06-01&end=2026-01-01').status_code, 400)
+        Activity.objects.bulk_create([Activity(owner=self.user, service='Studio', action='review') for _ in range(52)])
+        Activity.objects.create(owner=self.other, service='Private', action='review')
+        first = self.client.get('/api/finance/activity/').json()
+        second = fetch_next(first['next'])
+        self.assertEqual(len({r['id'] for r in first['activity'] + second['activity']}), 52)
+        self.assertIsNone(second['next'])
+        self.assertTrue(all(r['service'] == 'Studio' for r in first['activity'] + second['activity']))
+
+    def test_scheduler_records_partial_failure_and_preserves_last_success(self):
+        from scheduler import run_scheduler
+        self.assertEqual(run_scheduler(), 0)
+        previous = ScheduledJobStatus.objects.get(job='finance_sync').last_succeeded_at
+        Connection.objects.create(user=self.user, provider='plaid', external_id='item')
+        from .connections import ProviderError
+        with patch('finance.management.commands.sync_finance.sync_connection', side_effect=ProviderError('offline')):
+            with self.assertLogs('scheduler', level='ERROR'):
+                self.assertEqual(run_scheduler(), 1)
+        status = ScheduledJobStatus.objects.get(job='finance_sync')
+        self.assertFalse(status.succeeded)
+        self.assertEqual(status.last_succeeded_at, previous)
+        reminder = ScheduledJobStatus.objects.get(job='renewal_reminders')
+        self.assertTrue(reminder.succeeded)
+        self.assertGreaterEqual(reminder.last_succeeded_at, status.last_finished_at)
+        before = list(ScheduledJobStatus.objects.order_by('pk').values())
+        self.assertEqual(run_scheduler(dry_run=True), 0)
+        self.assertEqual(list(ScheduledJobStatus.objects.order_by('pk').values()), before)
+
+    def test_dashboard_attention_links_respect_scope_and_resolve(self):
+        from subscriptions.models import TeamSubscriptionRequest
+        team = create_team(name='Owned', user=self.user)
+        TeamMembership.objects.create(team=team, user=self.other, role='member')
+        nearest = self.sub(cancel_by_date=self.today + timedelta(days=1))
+        self.sub(cancel_by_date=self.today + timedelta(days=3))
+        self.sub(user=self.other, cancel_by_date=self.today)
+        failed = self.charge(nearest, payment_status='failed')
+        pending = TeamSubscriptionRequest.objects.create(team=team, requested_by=self.other, payload={'service_name': 'Team plan'})
+        personal = self.client.get('/api/dashboard/').json()['needs_attention']
+        self.assertEqual([r['kind'] for r in personal], ['deadline', 'payment'])
+        self.assertIn(f'/{nearest.pk}/edit/', personal[0]['url'])
+        query = personal[1]['url'].split('?')[1]
+        self.assertEqual(self.client.get('/api/dashboard/history/?' + query).json()['results'][0]['id'], failed.pk)
+        team_url = '/api/dashboard/?scope=teams'
+        approval, = self.client.get(team_url).json()['needs_attention']
+        self.assertTrue(approval['url'].endswith(f'#request-{pending.pk}'))
+        self.client.force_login(self.other)
+        self.assertEqual(self.client.get(team_url).json()['needs_attention'], [])
+        self.assertEqual(self.client.get('/api/dashboard/history/?' + query).json()['count'], 0)
+        self.client.force_login(self.user)
+        pending.status = 'approved'
+        pending.save()
+        self.assertEqual(self.client.get(team_url).json()['needs_attention'], [])
 
     def test_matching_requires_exact_identity_amount_and_date(self):
         charge = self.charge(self.sub())
