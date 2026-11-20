@@ -4,13 +4,13 @@ from django.urls import path, reverse_lazy
 
 from . import settings_views, views
 from .forms import AccountPasswordResetForm
-from .security import SecureAuthenticationForm
+from .security import AccountLoginView
 
 app_name = 'accounts'
 
 urlpatterns = [
     path('signup/', views.signup, name='signup'),
-    path('login/', auth_views.LoginView.as_view(template_name='accounts/login.html', authentication_form=SecureAuthenticationForm), name='login'),
+    path('login/', AccountLoginView.as_view(), name='login'),
     path('logout/', auth_views.LogoutView.as_view(next_page='/accounts/login/'), name='logout'),
     path('password-reset/', auth_views.PasswordResetView.as_view(
         form_class=AccountPasswordResetForm,

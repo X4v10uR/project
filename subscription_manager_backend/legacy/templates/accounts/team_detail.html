@@ -27,6 +27,7 @@
         </div>
     </div>
     <div style="display:flex; gap:12px; align-items:center;">
+        {% if can_add_or_request_subscription %}
         <a href="{% url 'subscriptions:create' %}?team={{ team.pk }}" class="teams-btn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -34,6 +35,7 @@
             </svg>
             <span>{% if is_team_owner %}Add Subscription{% else %}Create Request{% endif %}</span>
         </a>
+        {% endif %}
         {% if is_team_owner %}
         <button type="button" id="delete-team-trigger" class="teams-btn-danger">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -109,7 +111,7 @@
                         <span>{% if sub.account_email %}{{ sub.account_email }}{% else %}<span style="color:#bbbbbb; font-style:italic;">Not set</span>{% endif %}</span>
                     </div>
 
-                    {% if sub.account_password %}
+                    {% if sub.account_password and membership.may_view_credentials %}
                         <div class="teams-sub-secure-row">
                             <span class="teams-sub-secure-label">Password</span>
                             <span class="teams-password-wrap">
@@ -125,7 +127,7 @@
                                 </button>
                             </span>
                         </div>
-                    {% else %}
+                    {% elif not sub.account_password %}
                     <div class="teams-sub-secure-row">
                         <span class="teams-sub-secure-label">Password</span>
                         <span style="color:#bbbbbb; font-style:italic;">Not set</span>
@@ -138,11 +140,13 @@
         {% else %}
         <div class="teams-empty-box">
             No subscriptions yet.
+            {% if can_add_or_request_subscription %}
             <div style="margin-top:12px;">
                 <a href="{% url 'subscriptions:create' %}?team={{ team.pk }}" class="teams-btn">
                     {% if is_team_owner %}Add Subscription{% else %}Create Request{% endif %}
                 </a>
             </div>
+            {% endif %}
         </div>
         {% endif %}
 
@@ -234,7 +238,7 @@
                 <input type="email" name="email" placeholder="member@example.com" required class="teams-input" />
                 <select name="role" class="teams-select">
                     {% for value, label in invite_form.fields.role.choices %}
-                    <option value="{{ value }}">{{ label }}</option>
+                    <option value="{{ value }}"{% if value == invite_form.role.value %} selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                 </select>
                 <button type="submit" class="teams-btn" style="width:100%; justify-content:center;">Send Invite</button>

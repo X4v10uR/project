@@ -70,9 +70,12 @@ class SecurityTests(TestCase):
         self.client.logout()
         result = self.client.post('/accounts/login/', {'username': self.user.email, 'password': 'ExamplePassword42!'})
         self.assertEqual(result.status_code, 200)
+        other = User.objects.create_user(email='other-session@example.test')
+        self.client.force_login(other)
         result = self.client.post('/accounts/login/', {'username': self.user.email, 'password': 'ExamplePassword42!', 'otp': pyotp.TOTP(secret).now()})
         self.assertEqual(result.status_code, 302)
-        self.assertIsNotNone(self.client.get('/api/accounts/session/').json()['user'])
+        self.assertEqual(self.client.get('/api/accounts/session/').json()['user']['id'], self.user.pk)
+        self.assertEqual(self.user.security_events.filter(action='login.succeeded').count(), 1)
 
     def test_plan_cannot_be_self_promoted(self):
         response = self.client.post('/api/accounts/settings/billing/', {'subscription_plan': 'business', 'plan_status': 'active'}, content_type='application/json')

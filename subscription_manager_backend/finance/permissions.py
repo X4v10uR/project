@@ -18,7 +18,7 @@ def team_permission(user, team_id, permission):
     if permission == 'pay':
         return member.role in ('owner', 'accountant')
     if permission == 'credentials':
-        return member.role == 'owner' or (member.role == 'member' and member.can_view_credentials)
+        return member.may_view_credentials
     return member.role == 'owner'
 
 

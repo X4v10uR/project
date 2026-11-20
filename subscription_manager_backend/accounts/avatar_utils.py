@@ -131,6 +131,18 @@ def get_avatar_background_color(background_key):
     )
 
 
+def save_avatar_selection(user, choice, background):
+    fields = []
+    if choice:
+        user.avatar_choice = choice
+        fields.append('avatar_choice')
+    if background is not None:
+        user.avatar_background = normalize_avatar_background(background)
+        fields.append('avatar_background')
+    if fields:
+        user.save(update_fields=fields)
+
+
 def get_avatar_background_options():
     return [
         {"key": key, "label": label, "color": color}

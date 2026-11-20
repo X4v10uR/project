@@ -18,8 +18,8 @@ from .avatar_utils import (
     get_avatar_background_options,
     get_avatar_sections,
     is_valid_avatar_choice,
-    normalize_avatar_background,
     normalize_avatar_choice,
+    save_avatar_selection,
 )
 from .forms import (
     AccountDeletionForm,
@@ -32,7 +32,7 @@ from .forms import (
 )
 from .models import User
 from .services import resolve_invite, send_team_invite_email
-from .security import audit, mark_verified, require_recent, verify_factor, throttle, update_authenticated_session
+from .security import audit, finish_password_change, mark_verified, require_recent, verify_factor, throttle
 
 
 TIMEZONES = tuple(sorted(available_timezones()))
@@ -176,9 +176,7 @@ class SettingsSectionView(AccountView):
         elif section == 'password':
             password_form = PasswordChangeForm if user.has_usable_password() else SetPasswordForm
             user = validated(password_form(user, data)).save()
-            update_authenticated_session(request, user)
-            request.session.pop('reauthenticated_at', None)
-            audit(user, 'password.changed')
+            finish_password_change(request, user)
         elif section == 'delete':
             validated(AccountDeletionForm(data, user=user))
             flows.delete_user_account(user)
@@ -206,10 +204,7 @@ class AvatarView(AccountView):
         if choice and not is_valid_avatar_choice(choice):
             raise ValidationError({'avatar_choice': ['Please select a valid avatar.']})
         user = request.user
-        if choice:
-            user.avatar_choice = choice
-        user.avatar_background = normalize_avatar_background(background)
-        user.save(update_fields=['avatar_choice', 'avatar_background'])
+        save_avatar_selection(user, choice, data.get('avatar_background'))
         return Response({
             'user': account_user(user),
             'avatar_choice': build_user_avatar_path(user),
@@ -277,7 +272,7 @@ class TeamDetailView(AccountView):
             'id': team.pk,
             'name': team.name,
             'role': data['membership'].role,
-            'can_view_credentials': data['membership'].role == 'owner' or (data['membership'].role == 'member' and data['membership'].can_view_credentials),
+            'can_view_credentials': data['membership'].may_view_credentials,
             'accent_color': data['team_accent_color'],
             'subscriptions': [team_subscription(sub) for sub in data['team_subscriptions']],
             'members': [
@@ -286,7 +281,7 @@ class TeamDetailView(AccountView):
                     'user_id': member.user_id,
                     'email': member.user.email,
                     'role': member.role,
-                    'can_view_credentials': member.can_view_credentials,
+                    'can_view_credentials': member.may_view_credentials,
                     'avatar_url': member.user.avatar_url,
                     'avatar_background_color': member.user.avatar_background_color,
                 }

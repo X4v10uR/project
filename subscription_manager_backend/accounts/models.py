@@ -189,6 +189,10 @@ class TeamMembership(models.Model):
     def is_owner(self):
         return self.role == self.ROLE_OWNER
 
+    @property
+    def may_view_credentials(self):
+        return self.is_owner or (self.role == self.ROLE_MEMBER and self.can_view_credentials)
+
 
 class TeamInvite(models.Model):
     team = models.ForeignKey(

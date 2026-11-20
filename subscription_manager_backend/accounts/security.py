@@ -7,6 +7,7 @@ import pyotp
 from django import forms
 from django.contrib.auth import logout, update_session_auth_hash
 from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.views import LoginView
 from django.core.cache import cache
 from django.db import transaction
 from django.http import JsonResponse
@@ -71,12 +72,14 @@ def mark_verified(request, user):
         request.session['mfa_revision'] = security.revision
 
 
-def update_authenticated_session(request, user):
+def finish_password_change(request, user):
     previous_key = request.session.session_key
     update_session_auth_hash(request, user)
     if previous_key:
         from finance.models import PushSubscription
         PushSubscription.objects.filter(user=user, session_key=previous_key).update(session_key=request.session.session_key)
+    request.session.pop('reauthenticated_at', None)
+    audit(user, 'password.changed')
 
 
 def require_recent(request):
@@ -113,7 +116,18 @@ class SecureAuthenticationForm(AuthenticationForm):
             verify_factor(user, self.data.get('otp'))
         except PermissionDenied as exc:
             raise forms.ValidationError(str(exc)) from exc
+
+
+class AccountLoginView(LoginView):
+    authentication_form = SecureAuthenticationForm
+    template_name = 'accounts/login.html'
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        user = form.get_user()
         mark_verified(self.request, user)
+        audit(user, 'login.succeeded')
+        return response
 
 
 class Reauthentication(serializers.Serializer):

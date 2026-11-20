@@ -186,6 +186,7 @@ class SettingsViewTest(TestCase):
         self.assertEqual(self.user.last_name, 'Display')
         self.assertEqual(self.user.display_name, 'New Display Name')
         self.assertEqual(self.user.email, 'new-email@example.com')
+        self.assertTrue(self.user.security_events.filter(action='email.changed').exists())
         self.assertEqual(self.user.bio, 'I track all recurring costs here.')
         self.assertEqual(self.user.timezone, 'UTC')
         self.assertEqual(self.user.preferred_currency, 'EUR')
@@ -263,6 +264,18 @@ class SettingsViewTest(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.avatar_choice, male_avatar_path)
         self.assertEqual(self.user.avatar_background, background_key)
+
+    def test_changing_avatar_alone_preserves_its_background(self):
+        self.client.force_login(self.user)
+        choice = get_avatar_sections()['male'][0]['path']
+        for route in ('accounts:settings_avatar_update', 'accounts_api:avatar'):
+            with self.subTest(route=route):
+                User.objects.filter(pk=self.user.pk).update(avatar_background='mint', avatar_choice='')
+                response = self.client.post(reverse(route), {'avatar_choice': choice})
+                self.assertEqual(response.status_code, 200)
+                self.user.refresh_from_db()
+                self.assertEqual(self.user.avatar_choice, choice)
+                self.assertEqual(self.user.avatar_background, 'mint')
 
     def test_settings_avatar_update_rejects_invalid_choice(self):
         self.client.force_login(self.user)
@@ -417,6 +430,10 @@ class SettingsViewTest(TestCase):
 
     def test_password_settings_post_changes_password_and_keeps_session(self):
         self.client.force_login(self.user)
+        verified = self.client.post(reverse('accounts_api:security'), {
+            'action': 'reauthenticate', 'password': 'OldStrongPass123!',
+        })
+        self.assertEqual(verified.status_code, 200)
         response = self.client.post(
             reverse('accounts:settings'),
             {
@@ -432,6 +449,8 @@ class SettingsViewTest(TestCase):
 
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password('NewStrongPass456!'))
+        self.assertTrue(self.user.security_events.filter(action='password.changed').exists())
+        self.assertNotIn('reauthenticated_at', self.client.session)
 
         dashboard_response = self.client.get(reverse('dashboard:home'))
         self.assertEqual(dashboard_response.status_code, 200)
@@ -566,6 +585,23 @@ class TeamInviteFlowTest(TestCase):
         response = self.client.get(reverse('accounts:teams_overview'))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['teams_monthly_spend'], Decimal('52.00'))
+
+    def test_monthly_team_spend_includes_all_shares_and_resumed_plans(self):
+        today = timezone.localdate()
+        sub = self.team_subscription
+        sub.is_shared = True
+        sub.user_cost = Decimal('5')
+        sub.save()
+        sub.participants.create(name='Colleague', share_amount=Decimal('5'))
+        Subscription.objects.create(
+            user=self.owner, team=self.team, service_name='Resumed plan', category='Software',
+            billing_cycle='monthly', cost='20.00', currency='EUR', start_date=today,
+            status='paused', pause_from=today - timedelta(days=7), resume_on=today,
+            introductory_cost='12.00', introductory_until=today + timedelta(days=7),
+        )
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse('accounts_api:teams'))
+        self.assertEqual(response.json()['monthly_spend_by_currency'], {'USD': '10.00', 'EUR': '12.00'})
 
     def test_accept_invite_requires_sign_in_for_existing_user(self):
         invite, raw_token = create_team_invite(
@@ -866,6 +902,31 @@ class TeamInviteFlowTest(TestCase):
         self.assertContains(response, 'Create Request')
         self.assertNotContains(response, 'Password: Hidden')
         self.assertNotContains(response, 'secret-password')
+
+    def test_team_page_shows_actions_available_to_each_role(self):
+        self.client.force_login(self.member)
+        membership = TeamMembership.objects.create(team=self.team, user=self.member)
+        detail_url = reverse('accounts:team_detail', args=[self.team.pk])
+        reveal_url = reverse('accounts:team_subscription_password', args=[self.team.pk, self.team_subscription.pk])
+        add_url = reverse('subscriptions:create') + f'?team={self.team.pk}'
+        for role in (TeamMembership.ROLE_MEMBER, TeamMembership.ROLE_VIEWER, TeamMembership.ROLE_ACCOUNTANT):
+            with self.subTest(role=role):
+                membership.role = role
+                membership.can_view_credentials = role != TeamMembership.ROLE_MEMBER
+                membership.save()
+                response = self.client.get(detail_url)
+                self.assertNotContains(response, reveal_url)
+                if role == TeamMembership.ROLE_MEMBER:
+                    self.assertContains(response, add_url)
+                else:
+                    self.assertNotContains(response, add_url)
+        self.team_subscription.delete()
+        self.assertNotContains(self.client.get(detail_url), add_url)
+
+    def test_team_invite_form_defaults_to_member(self):
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse('accounts:team_detail', args=[self.team.pk]))
+        self.assertContains(response, '<option value="member" selected>Member</option>', html=True)
 
     def test_non_owner_sees_pending_requests_without_owner_controls(self):
         TeamMembership.objects.create(team=self.team, user=self.member, role=TeamMembership.ROLE_MEMBER)

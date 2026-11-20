@@ -136,6 +136,7 @@ def teams_overview_data(user):
     team_subscriptions = list(
         Subscription.objects.filter(team_id__in=team_ids)
         .select_related('team', 'user', 'card')
+        .prefetch_related('price_changes')
         .order_by('team__name', 'service_name')
     )
     team_member_counts = {
@@ -159,11 +160,13 @@ def teams_overview_data(user):
         membership.team_id: team_accent_color(membership.team_id) for membership in memberships
     }
     monthly_spend_by_currency = {}
+    today = timezone.localdate()
     for sub in team_subscriptions:
-        if sub.status == 'active':
-            currency = (sub.currency or 'USD').upper()
-            amount = monthly_equivalent(sub.share_on(timezone.localdate()), sub.billing_cycle) if sub.bills_on(timezone.localdate()) else Decimal('0')
-            monthly_spend_by_currency[currency] = monthly_spend_by_currency.get(currency, Decimal('0')) + amount
+        if not sub.bills_on(today):
+            continue
+        currency = (sub.currency or 'USD').upper()
+        amount = monthly_equivalent(sub.price_on(today), sub.billing_cycle)
+        monthly_spend_by_currency[currency] = monthly_spend_by_currency.get(currency, Decimal('0')) + amount
     monthly_spend_by_currency = {
         currency: amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         for currency, amount in sorted(monthly_spend_by_currency.items())
@@ -193,8 +196,9 @@ def team_detail_data(user, team_id):
         'team': team,
         'membership': membership,
         'is_team_owner': membership.is_owner,
+        'can_add_or_request_subscription': membership.role in (TeamMembership.ROLE_OWNER, TeamMembership.ROLE_MEMBER),
         'team_subscriptions': team.subscriptions.select_related('user', 'card').prefetch_related(
-            'participants'
+            'participants', 'price_changes'
         ).order_by('service_name'),
         'team_members': team.memberships.select_related('user').order_by('role', 'user__email'),
         'pending_requests': team.subscription_requests.filter(

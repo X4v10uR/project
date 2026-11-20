@@ -17,6 +17,7 @@ from .avatar_utils import (
     is_valid_avatar_choice,
     normalize_avatar_background,
     normalize_avatar_choice,
+    save_avatar_selection,
 )
 from .forms import (
     AccountDeletionForm,
@@ -25,7 +26,7 @@ from .forms import (
     ProfileSettingsForm,
 )
 from .team_workflows import TeamActionError, delete_user_account
-from .security import update_authenticated_session
+from .security import audit, finish_password_change
 
 
 SETTINGS_SECTION_MAP = {
@@ -57,9 +58,12 @@ def account_settings(request):
         active_settings_section = SETTINGS_SECTION_MAP.get(form_type, 'profile')
 
         if form_type == 'profile':
+            previous_email = request.user.email
             profile_form = ProfileSettingsForm(request.POST, request.FILES, instance=request.user)
             if profile_form.is_valid():
                 profile_form.save()
+                if request.user.email != previous_email:
+                    audit(request.user, 'email.changed')
                 return redirect(f"{reverse('accounts:settings')}?updated=profile")
 
         if form_type == 'billing':
@@ -75,7 +79,7 @@ def account_settings(request):
             password_form = password_form_class(user=request.user, data=request.POST)
             if password_form.is_valid():
                 user = password_form.save()
-                update_authenticated_session(request, user)
+                finish_password_change(request, user)
                 return redirect(f"{reverse('accounts:settings')}?updated=password")
 
         if form_type == 'delete_account':
@@ -140,22 +144,12 @@ def account_settings(request):
 @require_POST
 def update_avatar(request):
     avatar_choice = normalize_avatar_choice(request.POST.get('avatar_choice') or '')
-    avatar_background = normalize_avatar_background(request.POST.get('avatar_background') or '')
 
     if avatar_choice and not is_valid_avatar_choice(avatar_choice):
         return JsonResponse({'ok': False, 'error': 'invalid_avatar_choice'}, status=400)
 
     user = request.user
-    update_fields = []
-    if avatar_choice and avatar_choice != user.avatar_choice:
-        user.avatar_choice = avatar_choice
-        update_fields.append('avatar_choice')
-    if avatar_background != user.avatar_background:
-        user.avatar_background = avatar_background
-        update_fields.append('avatar_background')
-
-    if update_fields:
-        user.save(update_fields=update_fields)
+    save_avatar_selection(user, avatar_choice, request.POST.get('avatar_background'))
 
     return JsonResponse(
         {

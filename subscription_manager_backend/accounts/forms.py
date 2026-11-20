@@ -186,7 +186,7 @@ class TeamCreateForm(forms.ModelForm):
 
 class TeamInviteForm(forms.Form):
     email = forms.EmailField()
-    role = forms.ChoiceField(choices=TeamMembership.ROLE_CHOICES)
+    role = forms.ChoiceField(choices=TeamMembership.ROLE_CHOICES, initial=TeamMembership.ROLE_MEMBER)
 
     def clean_email(self):
         email = self.cleaned_data['email'].strip().lower()
