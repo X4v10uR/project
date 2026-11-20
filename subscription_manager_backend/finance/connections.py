@@ -363,7 +363,7 @@ def infer_schedule(dates):
                     following = schedule.calculate_renewal_date(today=last_cycle + timedelta(days=1))
                     if following:
                         lowest_error = error
-                        best = (cycle, anchor, following)
+                        best = (cycle, anchor, last_cycle, following)
     return best
 
 
@@ -389,9 +389,10 @@ def discoveries(request):
             continue
         schedule = infer_schedule(dates)
         if schedule and not Subscription.objects.filter(user=request.user, team__isnull=True, service_name__iexact=values[0].merchant, currency=currency).exists():
-            cycle, anchor, next_payment = schedule
+            cycle, anchor, paid_through, next_payment = schedule
             candidates.append({'service': values[0].merchant, 'cost': str(values[0].amount), 'currency': currency,
-                'billing_cycle': cycle, 'start_date': anchor, 'last_payment_date': dates[-1], 'next_payment_date': next_payment,
+                'billing_cycle': cycle, 'start_date': anchor, 'last_payment_date': dates[-1],
+                'paid_through': paid_through, 'next_payment_date': next_payment,
                 'occurrences': len(dates), 'payment_ids': [v.pk for v in values]})
     return Response({'candidates': candidates, 'payments': [{'id': r.pk, 'merchant': r.merchant, 'amount': str(r.amount), 'currency': r.currency,
         'date': r.paid_on, 'provider': r.connection.provider, 'pending': r.pending, 'charge': r.charge_id, 'description': r.description,

@@ -3,9 +3,12 @@
 import os
 import sys
 
+from subly.cli import configure_console_output
+
 
 def main():
     """Run administrative tasks."""
+    configure_console_output()
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'subly.settings')
     try:
         from django.core.management import execute_from_command_line

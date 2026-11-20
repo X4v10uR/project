@@ -51,7 +51,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         model = Subscription
         fields = (
             'id', 'team', 'service_name', 'display_color', 'plan_name', 'category', 'billing_cycle',
-            'cost', 'user_cost', 'currency', 'start_date', 'trial_end_date', 'cancel_by_date', 'renewal_date', 'renewal_time',
+            'cost', 'user_cost', 'currency', 'start_date', 'paid_through', 'trial_end_date', 'cancel_by_date', 'renewal_date', 'renewal_time',
             'status', 'reminders_enabled', 'reminder_offsets', 'card', 'card_nickname', 'notes',
             'is_shared', 'split_type', 'account_email', 'has_password', 'participants', 'icon_url', 'fallback_icon',
             'cancellation_url', 'cancellation_state', 'cancellation_notes', 'access_until',
@@ -100,4 +100,11 @@ def subscription_form(data, *, user, instance=None):
     form = SubscriptionForm(fields, instance=instance, user=user)
     if not form.is_valid():
         raise serializers.ValidationError(dict(form.errors))
+    if instance is None and data.get('paid_through') is not None:
+        try:
+            form.instance.paid_through = serializers.DateField().run_validation(data['paid_through'])
+        except serializers.ValidationError as exc:
+            raise serializers.ValidationError({'paid_through': exc.detail}) from exc
+        if form.instance.calculate_renewal_date() is None:
+            raise serializers.ValidationError({'paid_through': 'Choose a date that allows the next renewal.'})
     return form

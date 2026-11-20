@@ -161,3 +161,32 @@ test('notification preferences persist and connections explain setup', async ({ 
   await expect(page.getByRole('heading', { name: 'Subscription suggestions' })).toBeVisible()
   await expect(page.getByText('No recurring patterns found yet.', { exact: false })).toBeVisible()
 })
+
+test('reviewing an early bank payment skips the covered renewal and respects schedule edits', async ({ page }) => {
+  await signup(page)
+  const today = new Date()
+  function dateAfter(days: number) {
+    const date = new Date(today)
+    date.setUTCDate(date.getUTCDate() + days)
+    return date.toISOString().slice(0, 10)
+  }
+  const candidate = {
+    service: 'Early weekly payment', currency: 'USD', cost: '10.00', billing_cycle: 'weekly',
+    start_date: dateAfter(-13), last_payment_date: dateAfter(0), paid_through: dateAfter(1),
+    next_payment_date: dateAfter(8), occurrences: 3,
+  }
+  await page.route('**/api/finance/discoveries/', route =>
+    route.fulfill({ json: { candidates: [candidate], payments: [] } }))
+  await page.goto('/planning/connections/')
+  async function accept() {
+    const saved = page.waitForResponse(r => r.url().endsWith('/api/subscriptions/') && r.request().method() === 'POST')
+    await page.getByRole('button', { name: 'Add reviewed subscription' }).click()
+    const response = await saved
+    expect(response.status()).toBe(201)
+    return response.json()
+  }
+  expect((await accept()).renewal_date).toBe(candidate.next_payment_date)
+  await page.getByLabel('Detected service').fill('Manually reviewed schedule')
+  await page.getByLabel('Billing schedule start date').fill(dateAfter(1))
+  expect((await accept()).renewal_date).toBe(dateAfter(1))
+})

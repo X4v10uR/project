@@ -72,6 +72,7 @@ def _submit_team_request(subscription, actor, participants, reminder_offsets):
         'split_type': subscription.split_type,
         'currency': subscription.currency,
         'start_date': subscription.start_date.isoformat(),
+        'paid_through': subscription.paid_through.isoformat() if subscription.paid_through else None,
         'trial_end_date': subscription.trial_end_date.isoformat() if subscription.trial_end_date else None,
         'cancel_by_date': subscription.cancel_by_date.isoformat() if subscription.cancel_by_date else None,
         'renewal_time': subscription.renewal_time.isoformat() if subscription.renewal_time else '',

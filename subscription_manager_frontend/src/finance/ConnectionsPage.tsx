@@ -37,6 +37,7 @@ type Candidate = {
   billing_cycle: string;
   start_date: string;
   last_payment_date: string;
+  paid_through: string;
   next_payment_date: string;
   occurrences: number;
 };
@@ -98,10 +99,14 @@ function CandidateCard({
     setBusy(true);
     setError("");
     try {
+      const fields = Object.fromEntries(new FormData(event.currentTarget));
+      const usesDetectedSchedule =
+        fields.billing_cycle === candidate.billing_cycle && fields.start_date === candidate.start_date;
       await api("/api/subscriptions/", {
         method: "POST",
         body: JSON.stringify({
-          ...Object.fromEntries(new FormData(event.currentTarget)),
+          ...fields,
+          paid_through: usesDetectedSchedule ? candidate.paid_through : candidate.last_payment_date,
           category: "Other",
         }),
       });

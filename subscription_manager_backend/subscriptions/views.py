@@ -357,6 +357,7 @@ def build_subscription_csv(request):
             'Notes',
             'Split Type', 'Participant Shares', 'Reminders Enabled', 'Reminder Offsets', 'Display Color', 'Trial End Date', 'Cancel By Date',
             'Cancellation Url', 'Cancellation State', 'Cancellation Notes', 'Access Until', 'Pause From', 'Resume On', 'Introductory Cost', 'Introductory Until',
+            'Paid Through',
         ]
     )
 
@@ -394,6 +395,7 @@ def build_subscription_csv(request):
                 _sanitize_csv_cell(subscription.cancellation_url), subscription.cancellation_state,
                 _sanitize_csv_cell(subscription.cancellation_notes), subscription.access_until or '', subscription.pause_from or '', subscription.resume_on or '',
                 str(subscription.introductory_cost) if subscription.introductory_cost is not None else '', subscription.introductory_until or '',
+                subscription.paid_through or '',
             ]
         )
 

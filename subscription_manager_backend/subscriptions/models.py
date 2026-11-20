@@ -1,6 +1,6 @@
 from django.db import models
 from django.conf import settings
-from datetime import time
+from datetime import date, time, timedelta
 from decimal import Decimal
 from dateutil.relativedelta import relativedelta
 from django.core.validators import MinLengthValidator, RegexValidator
@@ -161,6 +161,7 @@ class Subscription(models.Model):
     )
     currency = models.CharField(max_length=3, default='USD')
     start_date = models.DateField()
+    paid_through = models.DateField(null=True, blank=True, help_text="Last billing date covered by imported payments.")
     trial_end_date = models.DateField(null=True, blank=True)
     cancel_by_date = models.DateField(null=True, blank=True)
     cancellation_url = models.URLField(blank=True)
@@ -228,6 +229,10 @@ class Subscription(models.Model):
             return None
 
         today = today or timezone.localdate()
+        if self.paid_through and today <= self.paid_through:
+            if self.paid_through == date.max:
+                return None
+            today = self.paid_through + timedelta(days=1)
         if start >= today:
             return start
         try:
@@ -287,7 +292,7 @@ class Subscription(models.Model):
             existing_subscription = (
                 type(self)
                 .objects.filter(pk=self.pk)
-                .only("start_date", "trial_end_date", "billing_cycle", "renewal_date", "status")
+                .only("start_date", "paid_through", "trial_end_date", "billing_cycle", "renewal_date", "status")
                 .first()
             )
 
@@ -295,6 +300,7 @@ class Subscription(models.Model):
         if (
             existing_subscription
             and existing_subscription.start_date == self.start_date
+            and existing_subscription.paid_through == self.paid_through
             and existing_subscription.trial_end_date == self.trial_end_date
             and existing_subscription.billing_cycle == self.billing_cycle
             and existing_subscription.renewal_date

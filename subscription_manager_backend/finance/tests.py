@@ -297,6 +297,37 @@ class FinanceTests(TestCase):
             sub = Subscription(start_date=date.fromisoformat(row['start_date']), billing_cycle=cycle)
             self.assertEqual(sub.calculate_renewal_date(histories[name][-1] + timedelta(days=1)).isoformat(), expected)
 
+    @patch('django.utils.timezone.localdate', return_value=date(2026, 1, 31))
+    def test_accepting_early_payment_skips_paid_cycle_and_preserves_month_end(self, _today):
+        from subscriptions.services import BillingService, NotificationService
+
+        connection = Connection.objects.create(user=self.user, provider='plaid', external_id='early')
+        for day in (date(2025, 10, 31), date(2025, 11, 30), date(2025, 12, 31), date(2026, 1, 30)):
+            ImportedPayment.objects.create(connection=connection, merchant='Studio', remote_id=str(day),
+                                           amount=20, currency='USD', paid_on=day)
+        candidate, = self.client.get('/api/finance/discoveries/').json()['candidates']
+        self.assertEqual(candidate['paid_through'], '2026-01-31')
+        self.assertEqual(candidate['next_payment_date'], '2026-02-28')
+        response = self.client.post('/api/subscriptions/', {
+            'service_name': candidate['service'], 'reminder_offsets': [3],
+            **{k: candidate[k] for k in ('cost', 'currency', 'billing_cycle', 'start_date', 'paid_through')},
+        }, content_type='application/json')
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(response.json()['renewal_date'], candidate['next_payment_date'])
+        sub = Subscription.objects.get(pk=response.json()['id'])
+        self.assertFalse(sub.transactions.exists())
+        self.assertEqual(BillingService.record_renewal_charges(date(2026, 1, 31))['created'], 0)
+        def reminders(month, day):
+            instant = datetime(2026, month, day, 10, tzinfo=dt_timezone.utc)
+            return [s.renewal_date for s, _ in NotificationService.get_subscriptions_due_for_notification(now=instant)
+                    if s.pk == sub.pk]
+        self.assertEqual(reminders(1, 30), [])
+        self.assertEqual(reminders(2, 26), [date(2026, 2, 28)])
+        self.assertEqual(BillingService.record_renewal_charges(date(2026, 3, 31))['created'], 2)
+        self.assertEqual(BillingService.record_renewal_charges(date(2026, 3, 31))['created'], 0)
+        self.assertCountEqual(sub.transactions.values_list('charged_for_date', flat=True),
+                              [date(2026, 2, 28), date(2026, 3, 31)])
+
     def test_older_pages_keep_filters_and_permissions_across_inserts(self):
         # Use one timestamp to exercise the secondary ordering by id.
         from urllib.parse import urlsplit

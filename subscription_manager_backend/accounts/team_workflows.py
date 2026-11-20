@@ -235,6 +235,7 @@ def create_subscription_from_request_payload(team_request, reviewer):
         split_type=payload.get('split_type', 'equal'),
         currency=payload.get('currency', 'USD'),
         start_date=start_date,
+        paid_through=date.fromisoformat(payload['paid_through']) if payload.get('paid_through') else None,
         trial_end_date=date.fromisoformat(payload['trial_end_date']) if payload.get('trial_end_date') else None,
         cancel_by_date=date.fromisoformat(payload['cancel_by_date']) if payload.get('cancel_by_date') else None,
         renewal_time=renewal_time,

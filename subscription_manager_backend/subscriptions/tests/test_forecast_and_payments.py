@@ -1,6 +1,8 @@
 from datetime import UTC, date, datetime, timedelta
 from uuid import uuid4
 from decimal import Decimal
+from io import BytesIO, TextIOWrapper
+from unittest.mock import patch
 
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -44,9 +46,25 @@ class ForecastAndPaymentTests(TestCase):
                          [(start + timedelta(weeks=n)).isoformat() for n in range(5)])
         self.assertFalse(Transaction.objects.exists())
 
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.console.EmailBackend')
+    def test_reminder_command_on_redirected_cp1252_console(self):
+        from manage import main
+
+        sub = self.create(service_name='Studio 星', start_date=(self.today + timedelta(days=3)).isoformat())
+        with TextIOWrapper(BytesIO(), encoding='cp1252', errors='strict') as output:
+            args = ['manage.py', 'send_renewal_notifications']
+            with patch.multiple('sys', stdout=output, stderr=output, argv=args):
+                main()
+                main()
+            output.flush()
+            log = output.buffer.getvalue().decode('cp1252')
+        self.assertIn('Sent: 1', log)
+        self.assertIn('Sent: 0', log)
+        self.assertEqual(NotificationLog.objects.filter(subscription=sub, delivery_claim__isnull=True).count(), 1)
+
     def test_quarterly_trial_defers_charges_and_preserves_month_end_anchor(self):
         trial = date(self.today.year + 1, 1, 31)
-        sub = self.create(billing_cycle='quarterly', trial_end_date=trial.isoformat(),
+        sub = self.create(billing_cycle='quarterly', trial_end_date=trial.isoformat(), paid_through=self.today.isoformat(),
                           cancel_by_date=(trial - timedelta(days=2)).isoformat(), cost='30.00')
         self.assertEqual(sub.renewal_date, trial)
         self.assertEqual(self.dashboard()['monthly_spend_by_currency'], {'PKR': '10.00'})
@@ -65,6 +83,7 @@ class ForecastAndPaymentTests(TestCase):
         self.assertEqual(reply.json()['imported'], 1)
         restored = Subscription.objects.exclude(pk=sub.pk).get()
         self.assertEqual((restored.trial_end_date, restored.cancel_by_date), (trial, sub.cancel_by_date))
+        self.assertEqual(restored.paid_through, self.today)
 
     def test_team_approval_preserves_trial_and_deadline_and_an_older_client_can_edit(self):
         team = create_team(user=self.user, name='Quarterly team')
@@ -73,7 +92,7 @@ class ForecastAndPaymentTests(TestCase):
         self.client.force_login(member)
         first_paid = self.today + timedelta(days=14)
         cancel = first_paid - timedelta(days=2)
-        fields = {**self.fields, 'billing_cycle': 'quarterly', 'team_id': team.pk,
+        fields = {**self.fields, 'billing_cycle': 'quarterly', 'team_id': team.pk, 'paid_through': self.today.isoformat(),
                   'trial_end_date': first_paid.isoformat(), 'cancel_by_date': cancel.isoformat()}
         response = self.client.post('/api/subscriptions/', fields, content_type='application/json')
         self.assertEqual(response.status_code, 202, response.content)
@@ -90,6 +109,7 @@ class ForecastAndPaymentTests(TestCase):
         self.assertEqual(edited.status_code, 200, edited.content)
         self.assertEqual(edited.json()['cancel_by_date'], cancel.isoformat())
         self.assertEqual(edited.json()['trial_end_date'], first_paid.isoformat())
+        self.assertEqual(edited.json()['paid_through'], self.today.isoformat())
 
     def test_downtime_recovery_sends_actionable_deadlines_once(self):
         first_paid = date(self.today.year + 1, 6, 12)

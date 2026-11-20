@@ -24,7 +24,7 @@ from .documents import validate_file
 
 
 SUB_FIELDS = ['service_name', 'display_color', 'plan_name', 'category', 'billing_cycle', 'cost', 'user_cost', 'is_shared', 'split_type', 'currency',
-    'start_date', 'trial_end_date', 'cancel_by_date', 'cancellation_url', 'cancellation_state', 'cancellation_notes', 'access_until',
+    'start_date', 'paid_through', 'trial_end_date', 'cancel_by_date', 'cancellation_url', 'cancellation_state', 'cancellation_notes', 'access_until',
     'pause_from', 'resume_on', 'introductory_cost', 'introductory_until', 'last_reviewed_on', 'usage_rating', 'renewal_date', 'renewal_time',
     'status', 'notes', 'reminders_enabled', 'account_email']
 SPECS = {

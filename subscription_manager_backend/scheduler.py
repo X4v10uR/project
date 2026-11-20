@@ -35,6 +35,7 @@ from django.core.management import call_command
 
 from dashboard.budgets import check_budgets
 from finance.jobs import track_job
+from subly.cli import configure_console_output
 
 logger = logging.getLogger(__name__)
 
@@ -66,13 +67,14 @@ def run_scheduler(*, time_based=False, days_before=None, dry_run=False):
 
 
 def main():
+    configure_console_output()
     parser = argparse.ArgumentParser(description='Record charges, sync finance data and send reminders')
     parser.add_argument('--time-based', action='store_true', help='Use the current instant for timed reminders.')
     parser.add_argument('--days-before', type=int, help='Only process the selected reminder offset.')
     parser.add_argument('--dry-run', action='store_true', help='Preview billing and reminders without writing data.')
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
-                        handlers=[logging.FileHandler('renewal_notifications.log'), logging.StreamHandler()])
+                        handlers=[logging.FileHandler('renewal_notifications.log', encoding='utf-8'), logging.StreamHandler()])
     return run_scheduler(**vars(args))
 
 
