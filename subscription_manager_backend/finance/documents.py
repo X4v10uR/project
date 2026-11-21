@@ -45,7 +45,7 @@ def validate_file(file):
 def parse_invoice(text):
     text = text[:100000]
     # Prefer an explicitly labelled total; never guess a payment status from text.
-    patterns = [r'(?:grand total|amount paid|total paid|total|amount due)\s*[:\-]?\s*(USD|EUR|GBP|PKR|CAD|AUD|INR|JPY|CHF|\$|€|£)\s*([\d,]+\.\d{2})',
+    patterns = [r'(?<!sub[ -])\b(?:grand total|amount paid|total paid|total|amount due)\s*[:\-]?\s*(USD|EUR|GBP|PKR|CAD|AUD|INR|JPY|CHF|\$|€|£)\s*([\d,]+\.\d{2})',
                 r'\b(USD|EUR|GBP|PKR|CAD|AUD|INR|JPY|CHF)\s*([\d,]+\.\d{2})\b']
     result = {}
     for pattern in patterns:

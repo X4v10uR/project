@@ -20,6 +20,7 @@ from dashboard.models import BalanceAdjustment
 from subly.renderers import ZipRenderer
 from subscriptions.models import Card, Subscription, SubscriptionParticipant, ReminderOffset, PriceChange, Transaction, ChargeShare, Repayment, InAppNotification
 from .models import Receipt, SpendingBudget, Activity, NotificationPreference, Connection, ImportedPayment
+from .budgets import BudgetInput
 from .documents import validate_file
 
 
@@ -96,7 +97,7 @@ def build_archive(user):
         total = 0
         for row in queries['receipts'][0]:
             if not row.file:
-                continue
+                raise serializers.ValidationError(f'Receipt {row.pk} is missing from storage. Repair it before exporting.')
             try:
                 with row.file.open('rb') as file:
                     content = file.read(10 * 1024 * 1024 + 1)
@@ -122,7 +123,9 @@ def read_archive(file):
         data = json.loads(archive.read('subly.json'))
         if not isinstance(data, dict) or data.get('version') != 1 or any(not isinstance(data.get(k, []), list) for k in [*SPECS, 'teams']):
             raise ValueError()
-        if sum(len(data.get(k, [])) for k in SPECS) > 50000:
+        if not isinstance(data.get('preferences', {}), dict):
+            raise ValueError()
+        if sum(len(data.get(k, [])) for k in [*SPECS, 'teams']) > 50000:
             raise ValueError()
         for key in [*SPECS, 'teams']:
             ids = [r['id'] for r in data.get(key, [])]
@@ -139,12 +142,13 @@ def create_record(key, row, **refs):
     # Stored passwords are never materialized from an archive.
     if key == 'cards' and obj.is_primary and Card.objects.filter(user=obj.user, is_primary=True).exists():
         obj.is_primary = False
-    if key == 'receipts':
+    if key == 'charges' and obj.subscription_id is None:
+        # Deleting a subscription retains its charges and their snapshots.
+        obj.full_clean(exclude=['subscription'])
+    elif key == 'receipts':
         obj.full_clean(exclude=['file'])
     else:
         obj.full_clean()
-    if key in ('budgets', 'balances') and obj.monthly_limit is not None and obj.monthly_limit <= 0:
-        raise serializers.ValidationError('Budget limits must be positive.')
     if key in ('cards', 'subscriptions', 'charges', 'shares', 'repayments') and hasattr(obj, 'amount') and obj.amount < 0:
         raise serializers.ValidationError('Amounts cannot be negative.')
     if key in ('subscriptions', 'prices'):
@@ -154,19 +158,19 @@ def create_record(key, row, **refs):
                 raise serializers.ValidationError('Prices cannot be negative.')
     if key == 'shares' and (obj.repaid_amount < 0 or obj.repaid_amount > obj.amount):
         raise serializers.ValidationError('A repaid share cannot exceed its amount.')
+    dates = {f: model._meta.get_field(f).to_python(row[f]) for f in ('created_at', 'charged_at') if f in row and hasattr(obj, f)}
+    if any(value is None for value in dates.values()):
+        raise serializers.ValidationError('An archived timestamp is missing.')
+    if key == 'subscriptions' and obj.renewal_date:
+        dates['renewal_date'] = obj.renewal_date
     try:
         obj.save()
+        if dates:
+            model.objects.filter(pk=obj.pk).update(**dates)
     except Exception:
         if key == 'receipts' and obj.file and obj.file._committed:
             obj.file.delete(save=False)
         raise
-    dates = {f: model._meta.get_field(f).to_python(row[f]) for f in ('created_at', 'charged_at') if f in row and hasattr(obj, f)}
-    if key == 'subscriptions':
-        dates.update({f: getattr(obj, f) for f in ('renewal_date', 'user_cost')})
-        if row.get('renewal_date'):
-            dates['renewal_date'] = model._meta.get_field('renewal_date').to_python(row['renewal_date'])
-    if dates:
-        model.objects.filter(pk=obj.pk).update(**dates)
     return obj
 
 
@@ -187,12 +191,12 @@ def restore_archive(user, archive, data):
                 team = Team.objects.create(name=name, created_by=user)
                 TeamMembership.objects.create(team=team, user=user, role='owner')
                 maps['teams'][row['id']] = team
-            for key in ('cards', 'subscriptions', 'participants', 'offsets', 'prices', 'charges', 'shares', 'repayments', 'budgets', 'receipts', 'activity', 'notifications', 'connections', 'imports'):
+            for key in ('cards', 'subscriptions', 'participants', 'offsets', 'prices', 'charges', 'shares', 'repayments', 'receipts', 'activity', 'notifications', 'connections', 'imports'):
                 for row in data.get(key, []):
                     refs = {}
-                    if key in ('cards', 'subscriptions', 'charges', 'budgets', 'receipts', 'connections'):
+                    if key in ('cards', 'subscriptions', 'charges', 'receipts', 'connections'):
                         refs['user'] = user
-                    if key in ('subscriptions', 'charges', 'budgets', 'receipts', 'activity'):
+                    if key in ('subscriptions', 'charges', 'receipts', 'activity'):
                         refs['team'] = ref('teams', row, 'team_id')
                     if key == 'subscriptions':
                         # A team subscription may have used another payer's card, which is not exported.
@@ -218,18 +222,21 @@ def restore_archive(user, archive, data):
                         refs['content_type'] = validate_file(file)
                         row = {k: v for k, v in row.items() if k != 'content_type'}
                         refs['file'] = file
-                    if key == 'budgets':
-                        if not 1 <= row.get('warning_percent', 80) <= 99:
-                            raise serializers.ValidationError('Invalid budget warning threshold.')
                     obj = create_record(key, row, **refs)
                     maps[key][row['id']] = obj
                     if key == 'receipts':
                         files.append(obj.file.name)
+            for row in data.get('budgets', []):
+                team = ref('teams', row, 'team_id')
+                budget = BudgetInput(data={**row, 'team_id': team.pk if team else None}, context={'user': user})
+                budget.is_valid(raise_exception=True)
+                maps['budgets'][row['id']] = budget.save()
             for row in data.get('balances', []):
                 values = {f: BalanceAdjustment._meta.get_field(f).to_python(row[f]) for f in SPECS['balances'][1] if f in row}
                 if values['scope'] not in ('personal', 'teams'):
                     raise serializers.ValidationError('Invalid balance scope.')
-                BalanceAdjustment.objects.update_or_create(user=user, scope=values.pop('scope'), currency=values.pop('currency'), defaults=values)
+                balance, _ = BalanceAdjustment.objects.update_or_create(user=user, scope=values.pop('scope'), currency=values.pop('currency'), defaults=values)
+                maps['balances'][row['id']] = balance
             pref = data.get('notification_preferences')
             if pref:
                 from .delivery import PreferenceInput

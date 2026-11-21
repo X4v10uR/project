@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 import secrets
+import unicodedata
 from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
@@ -156,6 +157,7 @@ def sync_plaid(connection):
         for page in pages:
             for row in page.get('added', []) + page.get('modified', []):
                 if not row.get('iso_currency_code') or Decimal(str(row['amount'])) <= 0:
+                    ImportedPayment.objects.filter(connection=connection, remote_id=row['transaction_id']).update(removed=True)
                     continue
                 ImportedPayment.objects.update_or_create(connection=connection, remote_id=row['transaction_id'], defaults={
                     'merchant': (row.get('merchant_name') or row['name'])[:100], 'amount': row['amount'],
@@ -312,7 +314,8 @@ def connection_detail(request, pk):
 
 
 def normalize(value):
-    return re.sub(r'[^a-z0-9]', '', value.casefold())
+    name = unicodedata.normalize('NFC', value.casefold())
+    return ''.join(c for c in name if c.isalnum() or unicodedata.category(c).startswith('M'))
 
 
 def infer_schedule(dates):
@@ -368,11 +371,13 @@ def infer_schedule(dates):
 
 
 def payment_matches(payment):
-    if payment.pending or payment.removed or payment.charge_id:
+    merchant = normalize(payment.merchant)
+    if not merchant or payment.pending or payment.removed or payment.dismissed or payment.charge_id:
         return []
     rows = Transaction.objects.filter(user=payment.connection.user, team__isnull=True, currency=payment.currency,
-        payment_status__in=['scheduled', 'failed'], charged_for_date__range=[payment.paid_on - timedelta(days=3), payment.paid_on + timedelta(days=3)])
-    return [r for r in rows if r.amount == payment.amount and normalize(r.service_name_snapshot) == normalize(payment.merchant)]
+        amount=payment.amount, importedpayment__isnull=True, payment_status__in=['scheduled', 'failed'],
+        charged_for_date__range=[payment.paid_on - timedelta(days=3), payment.paid_on + timedelta(days=3)])
+    return [r for r in rows if normalize(r.service_name_snapshot) == merchant]
 
 
 @api_view(['GET'])
@@ -381,14 +386,18 @@ def discoveries(request):
     rows = history.select_related('connection')[:1000]
     groups = defaultdict(list)
     for row in history.filter(pending=False).only('id', 'merchant', 'currency', 'paid_on', 'amount').iterator():
-        groups[(normalize(row.merchant), row.currency)].append(row)
+        merchant = normalize(row.merchant)
+        if merchant:
+            groups[(merchant, row.currency)].append(row)
+    subscriptions = Subscription.objects.filter(user=request.user, team__isnull=True).values_list('service_name', 'currency')
+    existing = {(normalize(name), currency) for name, currency in subscriptions}
     candidates = []
-    for (_, currency), values in groups.items():
+    for (merchant, currency), values in groups.items():
         dates = sorted({r.paid_on for r in values})
-        if len(dates) < 2:
+        if len(dates) < 2 or (merchant, currency) in existing:
             continue
         schedule = infer_schedule(dates)
-        if schedule and not Subscription.objects.filter(user=request.user, team__isnull=True, service_name__iexact=values[0].merchant, currency=currency).exists():
+        if schedule:
             cycle, anchor, paid_through, next_payment = schedule
             candidates.append({'service': values[0].merchant, 'cost': str(values[0].amount), 'currency': currency,
                 'billing_cycle': cycle, 'start_date': anchor, 'last_payment_date': dates[-1],
@@ -414,8 +423,6 @@ def discovery_action(request, pk):
         match = next((m for m in matches if m.pk == charge_id), None)
         if match is None:
             raise ValidationError('The match is no longer available. Amount, currency, merchant and date must agree.')
-        if ImportedPayment.objects.filter(charge=match).exclude(pk=row.pk).exists():
-            raise ValidationError('This charge is already matched to another imported payment.')
         match.payment_status = 'paid'
         match.save(update_fields=['payment_status'])
         row.charge = match

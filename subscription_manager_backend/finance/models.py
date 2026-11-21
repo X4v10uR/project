@@ -96,6 +96,13 @@ class SpendingBudget(models.Model):
     warning_percent = models.PositiveSmallIntegerField(default=80)
     last_level = models.PositiveSmallIntegerField(default=0)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'team', 'category', 'currency'], name='unique_team_spending_budget'),
+            models.UniqueConstraint(fields=['user', 'category', 'currency'], condition=models.Q(team__isnull=True),
+                                    name='unique_personal_spending_budget'),
+        ]
+
 
 class ExchangeRate(models.Model):
     base = models.CharField(max_length=3)

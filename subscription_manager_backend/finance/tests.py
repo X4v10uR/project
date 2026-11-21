@@ -5,16 +5,19 @@ import time
 import zipfile
 from datetime import datetime, date, timedelta, timezone as dt_timezone
 from decimal import Decimal
+from pathlib import Path
 from unittest.mock import patch, Mock
 from django.conf import settings
 from django.core import mail
 from django.core.cache import cache
 from django.core.files.storage import FileSystemStorage
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import transaction
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from accounts.models import User, TeamMembership
 from accounts.team_workflows import create_team
+from dashboard.models import BalanceAdjustment
 from subscriptions.models import Subscription, Transaction, PriceChange, ChargeShare, Repayment, InAppNotification
 from subscriptions.notifications import create_notification
 from .models import Receipt, SpendingBudget, ExchangeRate, NotificationPreference, NotificationDelivery, PushSubscription, Connection, ImportedPayment, Activity
@@ -54,11 +57,11 @@ class FinanceTests(TestCase):
     def post(self, path, data=None):
         return self.client.post('/api/finance/' + path, data or {}, content_type='application/json')
 
-    def pdf(self):
+    def pdf(self, text='Invoice 2026-11-19 Total: USD 30.00'):
         from reportlab.pdfgen import canvas
         output = io.BytesIO()
         pdf = canvas.Canvas(output)
-        pdf.drawString(80, 750, 'Invoice 2026-11-19 Total: USD 30.00')
+        pdf.drawString(80, 750, text)
         pdf.save()
         return SimpleUploadedFile('invoice.pdf', output.getvalue(), 'application/pdf')
 
@@ -96,6 +99,36 @@ class FinanceTests(TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response['Content-Type'], mime)
                 self.assertEqual(b''.join(response.streaming_content), original)
+
+    def test_receipt_extracts_total_after_subtotal(self):
+        for label in ('Subtotal', 'Sub-total', 'Sub Total'):
+            with self.subTest(label=label):
+                file = self.pdf(f'{label}: USD 20.00    Tax: USD 2.00    Total: USD 22.00')
+                response = self.client.post('/api/finance/receipts/', {'file': file})
+                self.assertEqual(response.status_code, 201)
+                self.assertEqual(response.json()['amount'], '22.00')
+
+    def test_missing_receipt_file_returns_404_and_prevents_incomplete_backup(self):
+        self.client.post('/api/finance/receipts/', {'file': self.pdf()})
+        row = Receipt.objects.get()
+        row.file.storage.delete(row.file.name)
+        for name in (row.file.name, ''):
+            with self.subTest(name=name):
+                Receipt.objects.filter(pk=row.pk).update(file=name)
+                self.assertEqual(self.client.get(f'/api/finance/receipts/{row.pk}/file/').status_code, 404)
+                self.assertEqual(self.post('backup/export/').status_code, 400)
+
+    def test_receipt_file_deletion_follows_transaction_commit(self):
+        self.client.post('/api/finance/receipts/', {'file': self.pdf()})
+        row = Receipt.objects.get()
+        url = f'/api/finance/receipts/{row.pk}/'
+        with transaction.atomic():
+            self.assertEqual(self.client.delete(url).status_code, 204)
+            transaction.set_rollback(True)
+        self.assertTrue(row.file.storage.exists(row.file.name))
+        with self.captureOnCommitCallbacks(execute=True):
+            self.assertEqual(self.client.delete(url).status_code, 204)
+        self.assertFalse(row.file.storage.exists(row.file.name))
 
     def test_receipts_reject_disguised_html_and_foreign_subscription(self):
         result = self.client.post('/api/finance/receipts/', {'file': SimpleUploadedFile('invoice.pdf', b'<script>alert(1)</script>', 'application/pdf')})
@@ -212,6 +245,56 @@ class FinanceTests(TestCase):
         result = self.client.post('/api/finance/backup/restore/', {'file': SimpleUploadedFile('backup.zip', output.getvalue()), 'confirm': 'RESTORE'})
         self.assertEqual(result.status_code, 400)
         self.assertEqual(Subscription.objects.count(), count)
+
+    def test_backup_restores_charge_for_deleted_subscription_with_receipt(self):
+        sub = self.sub()
+        charge = self.charge(sub, payment_status='paid')
+        self.client.post('/api/finance/receipts/', {'file': self.pdf(), 'charge': charge.pk})
+        sub.delete()
+        result = self.client.post('/api/finance/backup/restore/', {
+            'file': SimpleUploadedFile('backup.zip', build_archive(self.user)), 'confirm': 'RESTORE',
+        })
+        self.assertEqual(result.status_code, 200, result.content)
+        copied = Transaction.objects.exclude(pk=charge.pk).get()
+        self.assertIsNone(copied.subscription_id)
+        self.assertEqual(copied.payment_status, 'paid')
+        self.assertTrue(Receipt.objects.filter(charge=copied, subscription=None).exists())
+
+    def test_invalid_receipt_timestamp_leaves_no_restored_files(self):
+        pdf = self.pdf()
+        content = pdf.read()
+        data = {'version': 1, 'receipts': [
+            {'id': 1, 'filename': pdf.name}, {'id': 2, 'filename': pdf.name, 'created_at': 'unknown'},
+        ]}
+        output = io.BytesIO()
+        with zipfile.ZipFile(output, 'w') as archive:
+            archive.writestr('subly.json', json.dumps(data))
+            for row in data['receipts']:
+                archive.writestr(f'receipts/{row["id"]}', content)
+        result = self.client.post('/api/finance/backup/restore/', {
+            'file': SimpleUploadedFile('backup.zip', output.getvalue()), 'confirm': 'RESTORE',
+        })
+        self.assertEqual(result.status_code, 400)
+        self.assertFalse(Receipt.objects.exists())
+        self.assertFalse(any(path.is_file() for path in Path(self.temp.name).rglob('*')))
+
+    def test_restoring_existing_limits_keeps_one_editable_budget_and_counts_balances(self):
+        budget = SpendingBudget.objects.create(user=self.user, currency='USD', monthly_limit=50)
+        adjustment = BalanceAdjustment.objects.create(user=self.user, currency='USD', monthly_limit=0, amount=-10)
+        content = build_archive(self.user)
+        SpendingBudget.objects.filter(pk=budget.pk).update(monthly_limit=25)
+        BalanceAdjustment.objects.filter(pk=adjustment.pk).update(amount=20)
+        result = self.client.post('/api/finance/backup/restore/', {
+            'file': SimpleUploadedFile('backup.zip', content), 'confirm': 'RESTORE',
+        })
+        self.assertEqual(result.status_code, 200, result.content)
+        self.assertEqual(result.json()['restored']['balances'], 1)
+        adjustment.refresh_from_db()
+        self.assertEqual(adjustment.amount, Decimal('-10'))
+        self.assertEqual(SpendingBudget.objects.get().monthly_limit, Decimal('50'))
+        edited = self.post('budgets/', {'currency': 'USD', 'monthly_limit': '75'})
+        self.assertEqual(edited.status_code, 201)
+        self.assertEqual(edited.json()['id'], budget.pk)
 
     def test_backup_restores_activity_without_change_details(self):
         sub = self.sub()
@@ -412,6 +495,33 @@ class FinanceTests(TestCase):
         charge.refresh_from_db(); self.assertEqual(charge.payment_status, 'paid')
         self.assertEqual(self.post(f'discoveries/{payment.pk}/', {'action': 'match', 'charge': charge.pk}).status_code, 400)
 
+    def test_payment_matches_distinguish_non_latin_merchants(self):
+        first = self.charge(self.sub(service_name='東京'))
+        self.charge(self.sub(service_name='大阪'))
+        connection = Connection.objects.create(user=self.user, provider='plaid', external_id='bank')
+        for index, merchant in enumerate(['東京', '大阪']):
+            ImportedPayment.objects.create(connection=connection, remote_id=str(index), merchant=merchant,
+                                           amount=30, currency='USD', paid_on=self.today - timedelta(days=7 * index))
+        data = self.client.get('/api/finance/discoveries/').json()
+        self.assertEqual(data['candidates'], [])
+        self.assertEqual([row['id'] for row in data['payments'][0]['matches']], [first.pk])
+
+    @patch('finance.connections.plaid')
+    def test_plaid_correction_to_credit_withdraws_old_debit(self, plaid):
+        connection = Connection.objects.create(user=self.user, provider='plaid', external_id='bank',
+                                               encrypted_tokens=encrypt_tokens({'access_token': 'token'}))
+        debit = {'transaction_id': 'one', 'name': 'Studio', 'amount': 30, 'iso_currency_code': 'USD', 'date': str(self.today)}
+        plaid.side_effect = [
+            {'added': [debit], 'next_cursor': 'a', 'has_more': False},
+            {'modified': [{**debit, 'amount': -30}], 'next_cursor': 'b', 'has_more': False},
+            {'modified': [debit], 'next_cursor': 'c', 'has_more': False},
+        ]
+        sync_plaid(connection)
+        sync_plaid(connection)
+        self.assertEqual(self.client.get('/api/finance/discoveries/').json()['payments'], [])
+        sync_plaid(connection)
+        self.assertFalse(ImportedPayment.objects.get().removed)
+
     def test_gmail_callback_checks_state_and_session_owner(self):
         self.assertEqual(self.client.get('/api/finance/connections/gmail/callback/?state=invalid&code=x').status_code, 400)
 
@@ -457,6 +567,8 @@ class FinanceTests(TestCase):
         budget = SpendingBudget.objects.create(user=self.user, team=team, currency='USD', monthly_limit=100)
         TeamMembership.objects.filter(user=self.user, team=team).delete()
         self.assertEqual(self.client.get('/api/finance/budgets/').json()['budgets'], [])
+        self.assertIn(self.client.delete(f'/api/finance/budgets/{budget.pk}/').status_code, (403, 404))
+        self.assertTrue(SpendingBudget.objects.filter(pk=budget.pk).exists())
 
     def test_member_credential_permission_is_enforced_in_both_routes(self):
         team = create_team(name='Team', user=self.other)

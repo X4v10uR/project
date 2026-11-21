@@ -6,7 +6,7 @@ import requests
 from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
-from django.http import FileResponse, HttpResponse
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers
@@ -23,7 +23,7 @@ from subscriptions.models import Subscription
 from subscriptions.money import monthly_equivalent
 from .models import Receipt, SpendingBudget, ExchangeRate, CalendarFeed, Activity
 from .permissions import subscriptions_for, charges_for, subscription_for, require_team, team_permission, log_activity
-from .budgets import spend, check_budget
+from .budgets import BudgetInput, spend, check_budget
 from .documents import validate_file, extract_receipt, csv_response, history_pdf
 
 
@@ -132,9 +132,15 @@ def receipts(request):
 @renderer_classes([JSONRenderer, PDFRenderer, PNGRenderer, JPEGRenderer])
 def receipt_file(request, pk):
     row = get_object_or_404(receipts_for(request.user), pk=pk)
+    if not row.file:
+        raise Http404('Receipt file is missing.')
     if not (request.accepts(row.content_type) or request.accepts('application/json')):
         raise NotAcceptable()
-    response = FileResponse(row.file.open('rb'), as_attachment=True, filename=row.filename, content_type=row.content_type)
+    try:
+        file = row.file.open('rb')
+    except FileNotFoundError as exc:
+        raise Http404('Receipt file is missing.') from exc
+    response = FileResponse(file, as_attachment=True, filename=row.filename, content_type=row.content_type)
     response['Cache-Control'] = 'no-store'
     response['X-Content-Type-Options'] = 'nosniff'
     return response
@@ -147,10 +153,10 @@ def receipt_detail(request, pk):
         return Response({**receipt_data(row, request.user), 'extracted_text': row.extracted_text})
     require_team(request.user, row.team_id, 'pay')
     if request.method == 'DELETE':
-        if row.subscription_id:
-            log_activity(request.user, row.subscription, 'receipt.deleted', {'filename': row.filename})
-        row.file.delete(save=False)
-        row.delete()
+        with transaction.atomic():
+            if row.subscription_id:
+                log_activity(request.user, row.subscription, 'receipt.deleted', {'filename': row.filename})
+            row.delete()
         return Response(status=204)
     data = ReceiptInput(row, data=request.data, partial=True)
     data.is_valid(raise_exception=True)
@@ -158,23 +164,6 @@ def receipt_detail(request, pk):
     if row.subscription_id:
         log_activity(request.user, row.subscription, 'receipt.updated')
     return Response(receipt_data(row, request.user))
-
-
-class BudgetInput(serializers.ModelSerializer):
-    team_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
-    class Meta:
-        model = SpendingBudget
-        fields = ('team_id', 'category', 'currency', 'monthly_limit', 'warning_percent')
-        extra_kwargs = {'monthly_limit': {'min_value': Decimal('.01')}, 'warning_percent': {'min_value': 1, 'max_value': 99}}
-
-    def validate_currency(self, value):
-        if len(value) != 3 or not value.isascii() or not value.isalpha():
-            raise serializers.ValidationError('Use a three-letter currency code.')
-        return value.upper()
-
-    def validate(self, values):
-        require_team(self.context['user'], values.get('team_id'), 'pay')
-        return values
 
 
 def budget_data(budget):
@@ -192,17 +181,17 @@ def budgets(request):
             'categories': sorted(set(subscriptions_for(request.user).values_list('category', flat=True)))})
     data = BudgetInput(data=request.data, context={'user': request.user})
     data.is_valid(raise_exception=True)
-    values = data.validated_data
     with transaction.atomic():
-        budget, _ = SpendingBudget.objects.update_or_create(user=request.user, team_id=values.get('team_id'),
-            category=values.get('category', ''), currency=values['currency'], defaults=values)
+        budget = data.save()
         check_budget(budget.pk)
     return Response(budget_data(budget), status=201)
 
 
 @api_view(['DELETE'])
 def budget_detail(request, pk):
-    get_object_or_404(SpendingBudget, pk=pk, user=request.user).delete()
+    budget = get_object_or_404(SpendingBudget, pk=pk, user=request.user)
+    require_team(request.user, budget.team_id, 'pay')
+    budget.delete()
     return Response(status=204)
 
 

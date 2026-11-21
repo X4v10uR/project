@@ -2,10 +2,38 @@ from decimal import Decimal
 from functools import partial
 from django.db import transaction
 from django.utils import timezone
+from rest_framework import serializers
 from subscriptions.models import Subscription
 from subscriptions.money import monthly_equivalent
 from subscriptions.notifications import create_notification
 from .models import SpendingBudget
+from .permissions import require_team
+
+
+class BudgetInput(serializers.ModelSerializer):
+    team_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+
+    class Meta:
+        model = SpendingBudget
+        fields = ('team_id', 'category', 'currency', 'monthly_limit', 'warning_percent')
+        extra_kwargs = {'monthly_limit': {'min_value': Decimal('.01')}, 'warning_percent': {'min_value': 1, 'max_value': 99}}
+
+    def validate_currency(self, value):
+        if len(value) != 3 or not value.isascii() or not value.isalpha():
+            raise serializers.ValidationError('Use a three-letter currency code.')
+        return value.upper()
+
+    def validate(self, values):
+        require_team(self.context['user'], values.get('team_id'), 'pay')
+        return values
+
+    def create(self, validated_data):
+        budget, _ = SpendingBudget.objects.update_or_create(
+            user=self.context['user'], team_id=validated_data.get('team_id'),
+            category=validated_data.get('category', ''), currency=validated_data['currency'],
+            defaults=validated_data,
+        )
+        return budget
 
 
 def spend(budget):
