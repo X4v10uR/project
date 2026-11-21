@@ -1,4 +1,5 @@
 import csv
+import json
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from io import StringIO
@@ -161,3 +162,24 @@ class HistoryAndImportTests(TestCase):
         self.assertEqual(imported.participants.get().name, 'Ann, Jr.')
         self.assertEqual(imported.offsets.get().days_before, 6)
         self.assertFalse(imported.reminders_enabled)
+
+    def test_export_transfers_the_effective_regular_price_and_split_during_a_discount(self):
+        today = timezone.localdate()
+        sub = self.plan(cost=Decimal('12'), user_cost=Decimal('4'), is_shared=True,
+                        introductory_cost=Decimal('3'), introductory_until=today + timedelta(days=10),
+                        cancellation_notes="'Keep this note")
+        for name in ('Ann', 'Bo'):
+            sub.participants.create(name=name, share_amount=Decimal('4'))
+        sub.price_changes.create(previous_cost=12, cost=20, effective_on=today)
+        content = self.client.get(reverse('subscriptions_api:export')).content.decode()
+        row = next(csv.DictReader(StringIO(content)))
+        self.assertEqual((row['Total Cost'], row['Your Cost']), ('20.00', '6.67'))
+        self.assertEqual(json.loads(row['Participant Shares']),
+                         [{'name': 'Ann', 'share': '6.67'}, {'name': 'Bo', 'share': '6.66'}])
+        self.client.force_login(User.objects.create_user('recipient@example.test'))
+        result = self.upload_csv(content, 'confirm')
+        self.assertEqual(result.json()['imported'], 1, result.content)
+        imported = Subscription.objects.get(user__email='recipient@example.test')
+        self.assertEqual(imported.price_on(today), Decimal('3.00'))
+        self.assertEqual(imported.price_on(imported.introductory_until), Decimal('20.00'))
+        self.assertEqual(imported.cancellation_notes, sub.cancellation_notes)

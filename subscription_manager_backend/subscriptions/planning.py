@@ -1,6 +1,6 @@
 """Decision tools built from the same schedule and recorded payments as billing."""
 from collections import defaultdict
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
 from dateutil.relativedelta import relativedelta
@@ -35,8 +35,9 @@ class Selection(serializers.Serializer):
     end = serializers.DateField(required=False)
 
     def validate(self, data):
-        data.setdefault('start', timezone.localdate())
-        data.setdefault('end', data['start'] + relativedelta(years=1) - timedelta(days=1))
+        start = data.setdefault('start', timezone.localdate())
+        if 'end' not in data:
+            data['end'] = date.max if start.year == date.max.year else start + relativedelta(years=1) - timedelta(days=1)
         if not 0 <= (data['end'] - data['start']).days <= 731:
             raise serializers.ValidationError('Select a range of up to two years.')
         return data
@@ -191,7 +192,9 @@ def review_inbox(request):
         future = [change for change in sub.price_changes.all() if change.effective_on > today]
         if future:
             change = future[0]
-            reasons.append(f'Price changes from {sub.currency} {change.previous_cost:.2f} to {change.cost:.2f} on {change.effective_on}. Annual rate impact: {sub.currency} {monthly_equivalent(change.cost - change.previous_cost, sub.billing_cycle) * 12:.2f}.')
+            current_price = sub.regular_price_on(today)
+            annual_impact = monthly_equivalent(change.cost - current_price, sub.billing_cycle) * 12
+            reasons.append(f'Price changes from {sub.currency} {current_price:.2f} to {change.cost:.2f} on {change.effective_on}. Annual rate impact: {sub.currency} {annual_impact:.2f}.')
         if reasons:
             items.append({'id': sub.pk, 'service': sub.service_name, 'currency': sub.currency, 'reasons': reasons,
                 'monthly_saving': amount(monthly_equivalent(sub.share_on(today), sub.billing_cycle)) if sub.bills_on(today) else '0.00',
@@ -216,7 +219,6 @@ def review_action(request):
         if fields['action'] == 'pause':
             sub.pause_from = timezone.localdate()
             sub.resume_on = None
-            sub.save(update_fields=['pause_from', 'resume_on'])
             change_subscription_status(sub, actor=request.user, status='paused')
         else:
             sub.last_reviewed_on = timezone.localdate()
@@ -236,8 +238,8 @@ class PriceInput(serializers.Serializer):
 @transaction.atomic
 def price_changes(request, pk):
     sub = _subscription_for(request.user, pk)
-    Subscription.objects.select_for_update().get(pk=sub.pk)
     if request.method == 'POST':
+        sub = Subscription.objects.select_for_update().get(pk=sub.pk)
         data = PriceInput(data=request.data)
         data.is_valid(raise_exception=True)
         fields = data.validated_data
@@ -249,7 +251,13 @@ def price_changes(request, pk):
         PriceChange.objects.create(subscription=sub, previous_cost=sub.regular_price_on(fields['effective_on']), **fields)
         from finance.permissions import log_activity
         log_activity(request.user, sub, 'subscription.price.scheduled', {'cost': str(fields['cost']), 'effective_on': str(fields['effective_on'])})
-    return Response({'changes': [{'id': c.pk, 'previous_cost': amount(c.previous_cost), 'cost': amount(c.cost), 'effective_on': c.effective_on} for c in sub.price_changes.all()]}, status=201 if request.method == 'POST' else 200)
+    changes = []
+    for change in sub.price_changes.all():
+        # Older schedules can retain the original quote after an intervening price edit.
+        previous_cost = changes[-1]['cost'] if changes else amount(change.previous_cost)
+        changes.append({'id': change.pk, 'previous_cost': previous_cost,
+                        'cost': amount(change.cost), 'effective_on': change.effective_on})
+    return Response({'changes': changes}, status=201 if request.method == 'POST' else 200)
 
 
 @api_view(['GET'])

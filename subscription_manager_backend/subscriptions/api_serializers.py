@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from decimal import Decimal
 
 from rest_framework import serializers
@@ -16,6 +17,12 @@ class ParticipantInput(serializers.Serializer):
         min_value=Decimal('0'),
         default=Decimal('0'),
     )
+
+    def to_internal_value(self, data):
+        # Detail responses use share_amount, while the editor sends share.
+        if isinstance(data, Mapping) and 'share' not in data and data.get('share_amount') is not None:
+            data = {**data, 'share': data['share_amount']}
+        return super().to_internal_value(data)
 
 
 class SubscriptionInput(serializers.Serializer):

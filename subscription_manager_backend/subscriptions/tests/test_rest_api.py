@@ -86,6 +86,18 @@ class SubscriptionApiTest(TestCase):
         self.assertEqual(filtered['stats'], portfolio['stats'])
         self.assertEqual(filtered['burn_metrics'], portfolio['burn_metrics'])
 
+    def test_editing_returned_details_preserves_custom_participant_shares(self):
+        payload = {**self.payload, 'split_type': 'custom', 'participants': [{'name': 'Alex', 'share': '7.25'}]}
+        result = self.client.post(self.collection, payload, content_type='application/json')
+        self.assertEqual(result.status_code, 201, result.content)
+        url = reverse('subscriptions_api:detail', args=[result.json()['id']])
+        fields = self.client.get(url).json()
+        fields['notes'] = 'Updated the description'
+        result = self.client.put(url, fields, content_type='application/json')
+        self.assertEqual(result.status_code, 200, result.content)
+        self.assertEqual(result.json()['participants'][0]['share_amount'], '7.25')
+        self.assertEqual(result.json()['user_cost'], '10.75')
+
     def test_card_spending_and_subscription_details_follow_current_prices(self):
         today = timezone.localdate()
         card = Card.objects.create(user=self.user, nickname='Card', last4='0101')

@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from django.core.cache import cache
 from django.test import TestCase, override_settings
+from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import User, TeamMembership
@@ -111,6 +112,51 @@ class PlanningTests(TestCase):
         sub.refresh_from_db()
         self.assertEqual(sub.last_reviewed_on, self.today)
 
+    def test_review_pause_catches_up_using_the_previous_pause_dates(self):
+        start = self.today - timedelta(weeks=3)
+        sub = self.sub(billing_cycle='weekly', start_date=start,
+                       pause_from=start + timedelta(weeks=1), resume_on=start + timedelta(weeks=2))
+        Subscription.objects.filter(pk=sub.pk).update(renewal_date=start)
+        result = self.post('review/action/', {'action': 'pause', 'ids': [sub.pk]})
+        self.assertEqual(result.status_code, 200, result.content)
+        BillingService.record_renewal_charges(self.today)
+        self.assertCountEqual(sub.transactions.values_list('charged_for_date', flat=True),
+                              [start, start + timedelta(weeks=2)])
+
+    def test_pausing_again_after_scheduled_resume_stops_future_charges(self):
+        sub = self.sub(billing_cycle='weekly', resume_on=self.today - timedelta(days=1))
+        result = self.post(f'{sub.pk}/status/', {'status': 'paused'})
+        self.assertEqual(result.status_code, 200, result.content)
+        BillingService.record_renewal_charges(self.today + timedelta(weeks=1))
+        self.assertFalse(sub.transactions.exists())
+
+    def test_edit_form_can_pause_and_resume_without_reusing_expired_dates(self):
+        sub = self.sub(billing_cycle='weekly', pause_from=self.today - timedelta(weeks=2),
+                       resume_on=self.today - timedelta(weeks=1))
+        url = f'/api/subscriptions/{sub.pk}/'
+        fields = self.client.get(url).json()
+        for status in ('paused', 'active'):
+            fields['status'] = status
+            result = self.client.put(url, fields, content_type='application/json')
+            self.assertEqual(result.status_code, 200, result.content)
+            fields = result.json()
+            sub.refresh_from_db()
+            self.assertEqual(sub.bills_on(self.today), status == 'active')
+            self.assertIsNone(sub.resume_on)
+
+        fields.update(status='paused', pause_from=str(self.today), resume_on=str(self.today + timedelta(weeks=1)))
+        result = self.client.put(url, fields, content_type='application/json')
+        self.assertEqual(result.status_code, 200, result.content)
+        sub.refresh_from_db()
+        self.assertTrue(sub.bills_on(self.today + timedelta(weeks=1)))
+
+    def test_calendar_ranges_at_the_last_supported_year(self):
+        for params in ({'start': '9999-12-01'}, {'start': '9999-12-01', 'end': '9999-12-31'}):
+            with self.subTest(params=params):
+                result = self.client.get('/api/subscriptions/calendar/', params)
+                self.assertEqual(result.status_code, 200, result.content)
+                self.assertEqual(result.json()['events'], [])
+
     def test_price_change_validates_dates_and_ownership(self):
         sub = self.sub()
         response = self.post(f'{sub.pk}/prices/', {'cost': '40', 'effective_on': str(self.today + timedelta(days=10))})
@@ -127,6 +173,8 @@ class PlanningTests(TestCase):
         detail = self.client.get(f'/api/subscriptions/{sub.pk}/').json()
         self.assertEqual(detail['cost'], '40.00')
         self.assertEqual(detail['current_cost'], '5.00')
+        legacy_edit = self.client.get(reverse('subscriptions:update', args=[sub.pk]))
+        self.assertEqual(legacy_edit.context['cost_value'], '40.00')
         detail.update(cost='40.00', reminder_offsets=[], participants=[])
         response = self.client.put(f'/api/subscriptions/{sub.pk}/', detail, content_type='application/json')
         self.assertEqual(response.status_code, 200, response.content)
@@ -134,6 +182,25 @@ class PlanningTests(TestCase):
         self.assertEqual(sub.price_on(self.today), Decimal('5'))
         self.assertEqual(sub.price_on(self.today + timedelta(days=8)), Decimal('40'))
         self.assertEqual(sub.price_changes.count(), 1)
+
+    def test_editing_todays_price_updates_the_next_price_change(self):
+        sub = self.sub()
+        future = self.today + timedelta(weeks=2)
+        self.assertEqual(self.post(f'{sub.pk}/prices/', {'cost': '50', 'effective_on': str(future)}).status_code, 201)
+        detail_url = f'/api/subscriptions/{sub.pk}/'
+        fields = self.client.get(detail_url).json()
+        for price in ('35.00', '40.00'):
+            fields['cost'] = price
+            result = self.client.put(detail_url, fields, content_type='application/json')
+            self.assertEqual(result.status_code, 200, result.content)
+        self.assertEqual(sub.price_changes.get(effective_on=future).previous_cost, Decimal('40.00'))
+        # Previously saved schedules may still contain the old quote.
+        sub.price_changes.filter(effective_on=future).update(previous_cost=30)
+        changes = self.client.get(detail_url + 'prices/').json()['changes']
+        self.assertEqual([(c['previous_cost'], c['cost']) for c in changes],
+                         [('30.00', '40.00'), ('40.00', '50.00')])
+        reasons = self.client.get('/api/subscriptions/review/').json()['items'][0]['reasons']
+        self.assertTrue(any('USD 40.00 to 50.00' in reason for reason in reasons))
 
     def test_future_price_cannot_make_custom_shares_exceed_the_bill(self):
         sub = self.sub(is_shared=True, split_type='custom', user_cost=10)

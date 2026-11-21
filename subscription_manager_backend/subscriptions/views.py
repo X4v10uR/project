@@ -20,6 +20,7 @@ from .color_utils import (
 from .forms import SubscriptionForm
 from .list_context import build_subscription_list_context, filter_personal_subscriptions
 from .models import ReminderOffset, Subscription
+from .money import equal_share
 from .workflows import change_subscription_status, remove_subscription, save_subscription
 
 
@@ -329,7 +330,8 @@ def subscription_export_csv(request):
 
 def build_subscription_csv(request):
     subscriptions, _ = filter_personal_subscriptions(request)
-    subscriptions = subscriptions.prefetch_related('participants', 'offsets')
+    subscriptions = subscriptions.prefetch_related('participants', 'offsets', 'price_changes')
+    today = timezone.localdate()
 
     response = HttpResponse(content_type='text/csv')
     response['Cache-Control'] = 'no-store'
@@ -362,9 +364,13 @@ def build_subscription_csv(request):
     )
 
     for subscription in subscriptions:
-        participant_names = ', '.join(
-            sorted(participant.name for participant in subscription.participants.all())
-        )
+        price = subscription.regular_price_on(today)
+        people = sorted(subscription.participants.all(), key=lambda person: person.pk)
+        participant_names = ', '.join(sorted(person.name for person in people))
+        participant_shares = []
+        for index, person in enumerate(people, 1):
+            share = equal_share(price, len(people) + 1, index) if subscription.split_type == 'equal' else person.share_amount or 0
+            participant_shares.append({'name': person.name, 'share': str(share)})
         writer.writerow(
             [
                 _sanitize_csv_cell(subscription.service_name),
@@ -376,8 +382,8 @@ def build_subscription_csv(request):
                 _sanitize_csv_cell(participant_names),
                 _sanitize_csv_cell(subscription.account_email or ''),
                 _sanitize_csv_cell(subscription.currency),
-                str(subscription.cost),
-                str(subscription.user_cost),
+                str(price),
+                str(subscription.share_of(price)),
                 subscription.start_date.isoformat() if subscription.start_date else '',
                 subscription.renewal_date.isoformat()
                 if subscription.renewal_date
@@ -387,8 +393,7 @@ def build_subscription_csv(request):
                 else '',
                 _sanitize_csv_cell(subscription.notes or ''),
                 subscription.split_type,
-                json.dumps([{'name': person.name, 'share': str(person.share_amount or 0)}
-                            for person in subscription.participants.all()]),
+                json.dumps(participant_shares),
                 'Yes' if subscription.reminders_enabled else 'No',
                 ','.join(str(offset.days_before) for offset in subscription.offsets.all()),
                 subscription.display_color, subscription.trial_end_date or '', subscription.cancel_by_date or '',
@@ -459,6 +464,7 @@ def subscription_update(request, pk):
         request.POST if request.method == 'POST' else None,
         instance=subscription,
         user=request.user,
+        initial={'cost': subscription.regular_price_on(timezone.localdate())},
     )
     if request.method == 'POST' and form.is_valid() and _save_subscription_form(request, form, subscription.team):
         if subscription.team_id:

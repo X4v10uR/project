@@ -1,5 +1,4 @@
 import logging
-from decimal import Decimal
 from datetime import UTC, date, datetime, time, timedelta
 from collections import defaultdict
 from copy import copy
@@ -15,6 +14,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import ChargeShare, NotificationLog, Subscription, Transaction
+from .money import equal_share
 from .notifications import create_notification
 
 logger = logging.getLogger(__name__)
@@ -54,11 +54,11 @@ def _record_charge(subscription, day):
     )
 
     if created and subscription.is_shared:
-        people = list(subscription.participants.all())
-        cents, remainder = divmod(int(subscription.price_on(day) * 100), len(people) + 1)
+        people = list(subscription.participants.order_by('pk'))
+        price = subscription.price_on(day)
         ChargeShare.objects.bulk_create([
             ChargeShare(charge=charge, name=person.name, member_id=person.member_id,
-                        amount=Decimal(cents + (index < remainder)).scaleb(-2) if subscription.split_type == 'equal' else person.share_amount or 0)
+                        amount=equal_share(price, len(people) + 1, index) if subscription.split_type == 'equal' else person.share_amount or 0)
             for index, person in enumerate(people, 1)
         ])
     return charge, created

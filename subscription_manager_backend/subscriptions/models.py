@@ -12,6 +12,7 @@ import hashlib
 from cryptography.fernet import Fernet, InvalidToken
 
 from .color_utils import normalize_subscription_display_color
+from .money import equal_share
 
 
 ACCOUNT_PASSWORD_PREFIX = "enc::"
@@ -275,14 +276,15 @@ class Subscription(models.Model):
         return price
 
     def share_on(self, day):
-        price = self.price_on(day)
+        return self.share_of(self.price_on(day))
+
+    def share_of(self, price):
         if not self.is_shared:
             return price
         if not self.participants.exists():
             return (price * self.user_cost / self.cost).quantize(Decimal('0.01')) if self.cost else self.user_cost
         if self.split_type == 'equal':
-            cents, remainder = divmod(int(price * 100), self.participants.count() + 1)
-            return Decimal(cents + bool(remainder)).scaleb(-2)
+            return equal_share(price, self.participants.count() + 1, 0)
         return max(Decimal('0'), price - sum((p.share_amount or Decimal('0') for p in self.participants.all()), Decimal('0')))
 
     def save(self, *args, **kwargs):

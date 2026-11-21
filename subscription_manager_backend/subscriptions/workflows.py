@@ -9,7 +9,8 @@ from django.utils import timezone
 from accounts.models import TeamMembership
 from accounts.services import is_team_owner
 
-from .models import ReminderOffset, SubscriptionParticipant, TeamSubscriptionRequest
+from .models import PriceChange, ReminderOffset, Subscription, SubscriptionParticipant, TeamSubscriptionRequest
+from .money import equal_share
 from .notifications import create_notification, create_team_notifications
 from .services import catch_up_charges, record_due_charge_for_subscription
 
@@ -36,12 +37,9 @@ def prepare_participants(subscription, participants):
         raise ValidationError('Choose each participant from the current team once, excluding the payer.')
 
     if subscription.split_type == 'equal':
-        cents, remainder = divmod(int(subscription.cost * 100), len(participants) + 1)
-        subscription.user_cost = Decimal(cents + (remainder > 0)).scaleb(-2)
-        shares = [
-            Decimal(cents + (index < remainder)).scaleb(-2)
-            for index in range(1, len(participants) + 1)
-        ]
+        people = len(participants) + 1
+        subscription.user_cost = equal_share(subscription.cost, people, 0)
+        shares = [equal_share(subscription.cost, people, index) for index in range(1, people)]
     else:
         shares = [participant['share'] for participant in participants]
         subscription.user_cost = subscription.cost - sum(shares, Decimal('0'))
@@ -49,7 +47,7 @@ def prepare_participants(subscription, participants):
             raise ValidationError('The sum of participant shares exceeds the total cost.')
         if subscription.introductory_cost is not None and sum(shares, Decimal('0')) > subscription.introductory_cost:
             raise ValidationError('Fixed participant shares exceed the introductory price. Use an equal split or lower the shares.')
-        if subscription.pk and subscription.price_changes.filter(effective_on__gte=timezone.localdate(), cost__lt=sum(shares, Decimal('0'))).exists():
+        if subscription.pk and subscription.price_changes.filter(effective_on__gt=timezone.localdate(), cost__lt=sum(shares, Decimal('0'))).exists():
             raise ValidationError('Fixed participant shares exceed a scheduled future price. Lower the shares first.')
 
     return [
@@ -108,9 +106,18 @@ def _submit_team_request(subscription, actor, participants, reminder_offsets):
     return team_request
 
 
+def _adjust_pause_dates(subscription, previous_status, status, today):
+    if status == 'active' and previous_status == 'paused':
+        subscription.pause_from = None
+        subscription.resume_on = None
+    elif status == 'paused' and subscription.resume_on and subscription.resume_on <= today:
+        subscription.pause_from = today
+        subscription.resume_on = None
+
+
 def save_subscription(subscription, *, actor, participants, reminder_offsets):
     creating = subscription.pk is None
-    from finance.permissions import team_permission, log_activity
+    from finance.permissions import log_activity
     from finance.backup import SUB_FIELDS
     if subscription.team_id and not is_team_owner(actor, subscription.team):
         membership = TeamMembership.objects.filter(user=actor, team=subscription.team).first()
@@ -119,26 +126,31 @@ def save_subscription(subscription, *, actor, participants, reminder_offsets):
     before = {}
     before_participants = []
     before_offsets = []
-    if not creating:
-        previous_values = type(subscription).objects.get(pk=subscription.pk)
-        before = {field: str(getattr(previous_values, field)) for field in SUB_FIELDS}
-        before_participants = [{'name': p.name, 'share': str(p.share_amount), 'member_id': p.member_id} for p in previous_values.participants.all()]
-        before_offsets = list(previous_values.offsets.values_list('days_before', flat=True))
-    participants_to_create = prepare_participants(subscription, participants)
     team = subscription.team
-    if creating and team and not is_team_owner(actor, team):
-        return _submit_team_request(subscription, actor, participants_to_create, reminder_offsets)
-
     with transaction.atomic():
         if not creating:
-            catch_up_charges(subscription.pk, timezone.localdate() - timedelta(days=1))
-            from .models import PriceChange, Subscription
-            previous = Subscription.objects.get(pk=subscription.pk)
-            if previous.regular_price_on(timezone.localdate()) != subscription.cost:
-                today = timezone.localdate()
+            previous = Subscription.objects.select_for_update().get(pk=subscription.pk)
+            before = {field: str(getattr(previous, field)) for field in SUB_FIELDS}
+            before_participants = [{'name': p.name, 'share': str(p.share_amount), 'member_id': p.member_id} for p in previous.participants.all()]
+            before_offsets = list(previous.offsets.values_list('days_before', flat=True))
+        participants_to_create = prepare_participants(subscription, participants)
+        if creating and team and not is_team_owner(actor, team):
+            return _submit_team_request(subscription, actor, participants_to_create, reminder_offsets)
+        if not creating:
+            today = timezone.localdate()
+            catch_up_charges(subscription.pk, today - timedelta(days=1))
+            if (previous.status != subscription.status and previous.pause_from == subscription.pause_from
+                    and previous.resume_on == subscription.resume_on):
+                _adjust_pause_dates(subscription, previous.status, subscription.status, today)
+            regular_price = previous.regular_price_on(today)
+            if regular_price != subscription.cost:
                 existing_change = previous.price_changes.filter(effective_on=today).first()
                 PriceChange.objects.update_or_create(subscription=subscription, effective_on=today,
-                    defaults={'previous_cost': existing_change.previous_cost if existing_change else previous.regular_price_on(today), 'cost': subscription.cost})
+                    defaults={'previous_cost': existing_change.previous_cost if existing_change else regular_price, 'cost': subscription.cost})
+                following = previous.price_changes.filter(effective_on__gt=today).first()
+                if following:
+                    following.previous_cost = subscription.cost
+                    following.save(update_fields=['previous_cost'])
         subscription.save()
         if subscription.cancellation_state == 'confirmed' and subscription.status != 'cancelled':
             subscription.status = 'cancelled'
@@ -205,13 +217,11 @@ def remove_subscription(subscription, *, actor):
 def change_subscription_status(subscription, *, actor, status):
     from finance.permissions import log_activity
     before_status = subscription.status
-    catch_up_charges(subscription.pk, timezone.localdate() - timedelta(days=1))
-    if status == 'active':
-        if subscription.status == 'paused':
-            subscription.pause_from = None
-            subscription.resume_on = None
-        if subscription.status == 'cancelled':
-            subscription.cancellation_state = 'none'
+    today = timezone.localdate()
+    catch_up_charges(subscription.pk, today - timedelta(days=1))
+    _adjust_pause_dates(subscription, before_status, status, today)
+    if status == 'active' and (before_status == 'cancelled' or subscription.cancellation_state == 'confirmed'):
+        subscription.cancellation_state = 'none'
     subscription.status = status
     subscription.save(update_fields=['status', 'renewal_date', 'updated_at', 'pause_from', 'resume_on', 'cancellation_state'])
     log_activity(actor, subscription, 'subscription.status.changed', {'status': {'before': before_status, 'after': status}})
