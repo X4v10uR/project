@@ -97,9 +97,17 @@ Stored provider credentials require recent password verification, hide after one
 
 Planning now includes connected-account discovery, private receipts, combined currency totals, detailed budgets, charge reports, live calendar subscriptions, notification preferences, portable backups, and subscription activity. Teams support Viewer and Accountant roles and separate Member credential access. See [finance setup](subscription_manager_backend/FINANCE_SETUP.md) for Plaid/Gmail credentials, optional image OCR, browser push, scheduling, and archive behavior.
 
-The dashboard’s **Needs attention** panel links to the next cancellation deadline and the latest failed payment in the selected workspace. Team owners also see the oldest pending approval. Receipt lists support merchant and receipt-date filters. Use **Load older** in Receipts or Activity to continue through the full history.
+New accounts can add a first bill, import a subscription list, or create a team from the dashboard. After adding a bill, the confirmation shows the next scheduled provider charge and links to its reminder settings.
+
+**Needs attention** lists cancellation deadlines, expiring trials, price increases, and outstanding team renewal decisions for today through the next six days. Overdue team decisions stay visible for their renewal cycle. Open failed payments and pending owner approvals also appear. Each item links to the corresponding subscription, charge, or request. On the team page, owners can assign a renewal to an owner or member. The assignee or an owner can record a keep, change, or cancel decision for that billing date. Arrange any plan change or cancellation with the provider.
+
+In **Planning → Connections**, preview a bank statement CSV, map its columns, and confirm outgoing payments. Reuse the same statement account label for duplicate detection. Use **Match manually** to link a payment to a same-currency charge, including team charges you manage as an owner or accountant. The confirmation shows both amounts and preserves the recorded charge and shares.
+
+Receipt lists support merchant and receipt-date filters. Use **Load older** in Receipts or Activity to continue through the full history.
 
 ## Notification delivery
+
+Operators can monitor failed or overdue jobs with `check_job_health` and restore the SQLite database and private receipts together with `recovery_snapshot`. See [scheduler monitoring and recovery](subscription_manager_backend/OPERATIONS.md).
 
 Local email prints to the Django console by default. Start Django with `runserver` to enable local WebSocket updates in the same process. Set `REDIS_URL` when running multiple processes or when scheduled jobs need to broadcast to connected browser sessions.
 

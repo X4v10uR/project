@@ -22,6 +22,7 @@ from subscriptions.models import Card, Subscription, SubscriptionParticipant, Re
 from .models import Receipt, SpendingBudget, Activity, NotificationPreference, Connection, ImportedPayment
 from .budgets import BudgetInput
 from .documents import validate_file
+from subscriptions.models import TeamRenewal
 
 
 SUB_FIELDS = ['service_name', 'display_color', 'plan_name', 'category', 'billing_cycle', 'cost', 'user_cost', 'is_shared', 'split_type', 'currency',
@@ -32,6 +33,7 @@ SPECS = {
     'cards': (Card, ['nickname', 'last4', 'brand', 'theme', 'is_primary']),
     'subscriptions': (Subscription, SUB_FIELDS),
     'participants': (SubscriptionParticipant, ['name', 'share_amount']),
+    'renewals': (TeamRenewal, ['decision', 'decision_for', 'decided_at']),
     'offsets': (ReminderOffset, ['days_before']),
     'prices': (PriceChange, ['previous_cost', 'cost', 'effective_on']),
     'charges': (Transaction, ['service_name_snapshot', 'amount', 'currency', 'charged_for_date', 'source', 'payment_status', 'shares_captured']),
@@ -70,6 +72,9 @@ def build_archive(user):
         'cards': (Card.objects.filter(user=user), ()),
         'subscriptions': (subs, ('team_id', 'card_id')),
         'participants': (SubscriptionParticipant.objects.filter(subscription_id__in=sub_ids), ('subscription_id',)),
+        'renewals': (TeamRenewal.objects.filter(subscription_id__in=sub_ids).annotate(
+            assigned_to_exporter=Q(assignee__user=user), decided_by_exporter=Q(decided_by=user)
+        ), ('subscription_id', 'assigned_to_exporter', 'decided_by_exporter')),
         'offsets': (ReminderOffset.objects.filter(subscription_id__in=sub_ids), ('subscription_id',)),
         'prices': (PriceChange.objects.filter(subscription_id__in=sub_ids), ('subscription_id',)),
         'charges': (charges, ('subscription_id', 'team_id')),
@@ -89,6 +94,14 @@ def build_archive(user):
         'exclusions': ['login/MFA secrets', 'stored provider passwords', 'integration access tokens', 'calendar access tokens', 'team invitations']}
     for key, (query, refs) in queries.items():
         data[key] = records(query, SPECS[key][1], refs)
+    # A personal statement can link to a team charge the user manages as an accountant.
+    # The portable backup includes team records only when the user owns that team.
+    exported_subscriptions, exported_charges = set(sub_ids), set(charge_ids)
+    for row in data['imports']:
+        if row['subscription_id'] not in exported_subscriptions:
+            row['subscription_id'] = None
+        if row['charge_id'] not in exported_charges:
+            row['charge_id'] = None
     pref = NotificationPreference.objects.filter(user=user).first()
     data['notification_preferences'] = {f: getattr(pref, f) for f in ('email_enabled', 'push_enabled', 'digest', 'quiet_start', 'quiet_end')} if pref else None
     output = io.BytesIO()
@@ -191,7 +204,7 @@ def restore_archive(user, archive, data):
                 team = Team.objects.create(name=name, created_by=user)
                 TeamMembership.objects.create(team=team, user=user, role='owner')
                 maps['teams'][row['id']] = team
-            for key in ('cards', 'subscriptions', 'participants', 'offsets', 'prices', 'charges', 'shares', 'repayments', 'receipts', 'activity', 'notifications', 'connections', 'imports'):
+            for key in ('cards', 'subscriptions', 'renewals', 'participants', 'offsets', 'prices', 'charges', 'shares', 'repayments', 'receipts', 'activity', 'notifications', 'connections', 'imports'):
                 for row in data.get(key, []):
                     refs = {}
                     if key in ('cards', 'subscriptions', 'charges', 'receipts', 'connections'):
@@ -203,6 +216,16 @@ def restore_archive(user, archive, data):
                         refs['card'] = maps['cards'].get(row.get('card_id'))
                     if key in ('participants', 'offsets', 'prices', 'charges', 'receipts', 'activity', 'imports'):
                         refs['subscription'] = ref('subscriptions', row, 'subscription_id', key in ('participants', 'offsets', 'prices'))
+                    if key == 'renewals':
+                        sub = ref('subscriptions', row, 'subscription_id', required=True)
+                        if sub.team_id is None:
+                            raise serializers.ValidationError('A renewal decision requires a team subscription.')
+                        refs['subscription'] = sub
+                        if data.get('account_email') == user.email:
+                            if row.get('assigned_to_exporter') is True:
+                                refs['assignee'] = TeamMembership.objects.get(team_id=sub.team_id, user=user)
+                            if row.get('decided_by_exporter') is True:
+                                refs['decided_by'] = user
                     if key in ('shares', 'receipts', 'imports'):
                         refs['charge'] = ref('charges', row, 'charge_id', key == 'shares')
                     if key == 'repayments':

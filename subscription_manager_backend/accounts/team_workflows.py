@@ -197,7 +197,7 @@ def team_detail_data(user, team_id):
         'membership': membership,
         'is_team_owner': membership.is_owner,
         'can_add_or_request_subscription': membership.role in (TeamMembership.ROLE_OWNER, TeamMembership.ROLE_MEMBER),
-        'team_subscriptions': team.subscriptions.select_related('user', 'card').prefetch_related(
+        'team_subscriptions': team.subscriptions.select_related('user', 'card', 'renewal_review__decided_by').prefetch_related(
             'participants', 'price_changes'
         ).order_by('service_name'),
         'team_members': team.memberships.select_related('user').order_by('role', 'user__email'),

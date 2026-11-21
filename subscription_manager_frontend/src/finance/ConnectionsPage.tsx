@@ -14,7 +14,8 @@ import {
   primaryClass,
   showError,
 } from "../subscriptions/shared";
-import { endpoint, Reverify, useFinance } from "./common";
+import { endpoint, Reverify, useFinance, useFinancePages } from "./common";
+import { ManualMatch, StatementImport } from "./StatementPayments";
 
 type Connection = {
   id: number;
@@ -53,7 +54,7 @@ type Payment = {
   description: string;
   matches: { id: number; service: string; date: string }[];
 };
-type Discoveries = { candidates: Candidate[]; payments: Payment[] };
+type Discoveries = { candidates: Candidate[]; payments: Payment[]; next: string | null };
 type PlaidHandler = { open: () => void; destroy: () => void };
 type PlaidClient = {
   create: (options: {
@@ -193,8 +194,9 @@ export function ConnectionsPage() {
   const {
     data: discovery,
     error: discoveryError,
-    reload: reloadDiscovery,
-  } = useFinance<Discoveries>("discoveries/");
+    reload: reloadDiscovery, pages, next, loading, loadOlder,
+  } = useFinancePages<Discoveries>("discoveries/");
+  const [matching, setMatching] = useState<number>();
   const [failure, setFailure] = useState(""),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
@@ -274,6 +276,7 @@ export function ConnectionsPage() {
         Gmail scans up to 50 new receipt and invoice messages per sync from the
         last 90 days and captures supported attachments.
       </p>
+      <StatementImport onImport={refresh} />
       <Reverify />
       <section className={panelClass}>
         <h2 className="font-bold">Connect an account</h2>
@@ -306,10 +309,12 @@ export function ConnectionsPage() {
       {data?.connections.map((c) => (
         <article key={c.id} className={panelClass}>
           <h2 className="font-bold">
-            {c.label} · {c.provider === "gmail" ? "Gmail" : "Bank"}
+            {c.label} · {c.provider === "statement" ? "CSV" : c.provider === "gmail" ? "Gmail" : "Bank"}
           </h2>
           <p className="my-2 text-sm text-slate-500">
-            {!c.enabled
+            {c.provider === "statement"
+              ? "Statement imports"
+              : !c.enabled
               ? "Archived import; reconnect the provider to sync new data."
               : c.last_synced_at
                 ? `Last synced ${new Date(c.last_synced_at).toLocaleString()}`
@@ -317,7 +322,7 @@ export function ConnectionsPage() {
           </p>
           <ErrorBanner message={c.error} />
           <div className="mt-3 flex gap-3">
-            <button
+            {c.provider !== "statement" && <button
               className={buttonClass}
               disabled={busy || !c.enabled}
               onClick={() =>
@@ -330,14 +335,14 @@ export function ConnectionsPage() {
               }
             >
               Sync now
-            </button>
+            </button>}
             <button
               className={buttonClass}
               disabled={busy}
               onClick={() => {
                 if (
                   window.confirm(
-                    "Disconnect this account and remove its imported transaction data? Saved subscriptions, receipts and charge history will remain.",
+                    c.provider === "statement" ? "Remove the payments imported into this statement account?" : "Disconnect this account and remove its imported transaction data? Saved subscriptions, receipts and charge history will remain.",
                   )
                 )
                   void action(async () => {
@@ -347,7 +352,7 @@ export function ConnectionsPage() {
                   });
               }}
             >
-              Disconnect
+              {c.provider === "statement" ? "Remove statement account" : "Disconnect"}
             </button>
           </div>
         </article>
@@ -369,10 +374,10 @@ export function ConnectionsPage() {
       <h2 className="text-xl font-bold">Imported payments & invoices</h2>
       {discovery && !discovery.payments.length && (
         <p className={panelClass}>
-          Sync a connected account to see imported payments and invoices.
+          Import a statement or sync a connected account to see payments and invoices.
         </p>
       )}
-      {discovery?.payments.map((p) => (
+      {pages.flatMap(page => page.payments).map((p) => (
         <article className={panelClass} key={p.id}>
           <div className="flex flex-wrap justify-between gap-3">
             <div>
@@ -403,6 +408,7 @@ export function ConnectionsPage() {
                 Confirm payment for {m.service} · {displayDate(m.date)}
               </button>
             ))}
+            {!p.pending && !p.charge && matching !== p.id && <button className={buttonClass} disabled={busy} onClick={() => setMatching(p.id)}>Match manually</button>}
             <button
               className={buttonClass}
               disabled={busy}
@@ -418,8 +424,14 @@ export function ConnectionsPage() {
               Dismiss
             </button>
           </div>
+          {matching === p.id && !p.charge && <ManualMatch payment={p} onClose={() => setMatching(undefined)} onMatch={() => {
+            setMatching(undefined);
+            setNotice("Payment matched.");
+            refresh();
+          }} />}
         </article>
       ))}
+      {next && <button className={buttonClass} disabled={loading} onClick={loadOlder}>Load older payments</button>}
     </PlanningLayout>
   );
 }

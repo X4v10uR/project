@@ -8,7 +8,7 @@ type Row = {
   row: number; service: string; status: 'ready' | 'duplicate' | 'invalid'; errors?: unknown
   cost?: string; currency?: string; cycle?: string; start?: string
 }
-type Preview = { rows: Row[]; imported: number }
+type Preview = { rows: Row[]; imported: number; first_subscription_id?: number | null }
 const template = 'Service Name,Plan Name,Category,Billing Cycle,Currency,Total Cost,Start Date,Trial End Date,Cancel By Date\r\nMusic,Individual,Music,monthly,USD,9.99,2026-01-31,,\r\n'
 
 export function ImportPage() {
@@ -34,7 +34,7 @@ export function ImportPage() {
       const result = await api<Preview>(`${subscriptionApi}import/csv/`, { method: 'POST', body })
       if (mode === 'confirm') {
         const skipped = result.rows.filter((row) => row.status === 'duplicate').length
-        navigate(subscriptionPath, { state: { notice: `Imported ${result.imported}. Skipped ${skipped} duplicates.` } })
+        navigate(subscriptionPath, { state: { savedSubscriptionId: result.first_subscription_id, notice: `Imported ${result.imported}. Skipped ${skipped} duplicates.` } })
       } else {
         setPreview(result)
       }

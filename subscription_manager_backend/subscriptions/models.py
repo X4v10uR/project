@@ -602,6 +602,20 @@ class ChargeShare(models.Model):
     repaid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
 
+class TeamRenewal(models.Model):
+    class Decision(models.TextChoices):
+        KEEP = 'keep', 'Keep'
+        CHANGE = 'change', 'Change'
+        CANCEL = 'cancel', 'Cancel'
+
+    subscription = models.OneToOneField(Subscription, on_delete=models.CASCADE, related_name='renewal_review')
+    assignee = models.ForeignKey('accounts.TeamMembership', null=True, blank=True, on_delete=models.SET_NULL)
+    decision = models.CharField(max_length=6, choices=Decision.choices, blank=True)
+    decision_for = models.DateField(null=True, blank=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+
+
 class SubscriptionParticipant(models.Model):
     """External participants for shared subscriptions"""
     subscription = models.ForeignKey(Subscription, on_delete=models.CASCADE, related_name='participants')

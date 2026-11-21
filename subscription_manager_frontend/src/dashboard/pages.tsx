@@ -38,7 +38,12 @@ type Dashboard = Balance & {
   over_budget: boolean;
   monthly_spend_by_currency: Record<string, string>;
   greeting_name: string;
-  needs_attention: { kind: 'deadline' | 'payment' | 'approval'; service: string; date: string; action: string; url: string }[];
+  show_get_started: boolean;
+  needs_attention: {
+    id: string; kind: 'deadline' | 'payment' | 'approval' | 'trial' | 'price' | 'decision';
+    service: string; workspace: string | null; date: string; amount: string | null;
+    currency: string | null; action: string; url: string;
+  }[];
   balance_chip_date: string;
   upcoming_count: number;
   total_active: number;
@@ -351,16 +356,20 @@ function RecentTransactions({ transactions }: { transactions: Transaction[] }) {
 }
 
 function NeedsAttention({ items }: { items: Dashboard['needs_attention'] }) {
-  const labels = { deadline: 'Cancel by', payment: 'Failed payment', approval: 'Approval requested' };
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? items : items.slice(0, 5);
+  const labels = { deadline: 'Cancel by', payment: 'Failed payment', approval: 'Approval requested', trial: 'Trial ends', price: 'Price increases', decision: 'Renewal decision due' };
   return (
     <section className={panelClass} aria-labelledby="attention-title">
       <h2 id="attention-title" className="text-lg font-bold text-slate-900">Needs attention</h2>
-      {items.length ? <ul className="mt-2 divide-y divide-slate-100">{items.map((item) => (
-        <li key={item.kind} className="flex flex-wrap items-center justify-between gap-2 py-3">
-          <div><strong>{item.service}</strong><p className="text-sm text-slate-600">{labels[item.kind]} · <time dateTime={item.date}>{displayDate(item.date)}</time></p></div>
+      <p className="mt-1 text-sm text-slate-600">The next seven days, plus open payment failures and approval requests.</p>
+      {items.length ? <ul className="mt-2 divide-y divide-slate-100">{visible.map((item) => (
+        <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+          <div><strong>{item.service}</strong>{item.workspace && <span className="ml-2 text-sm text-slate-600">{item.workspace}</span>}<p className="text-sm text-slate-600">{labels[item.kind]} · <time dateTime={item.date}>{displayDate(item.date)}</time>{item.amount != null && item.currency && <> · {currencyAmount(item.amount, item.currency)}</>}</p></div>
           <Link className="secondary-link" to={item.url}>{item.action}</Link>
         </li>
       ))}</ul> : <p className="mt-2 text-sm text-slate-600">Nothing needs your attention in this workspace.</p>}
+      {items.length > 5 && <button className="secondary-link mt-2" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? 'Show fewer' : `Show all ${items.length} items`}</button>}
     </section>
   );
 }
@@ -377,6 +386,17 @@ export function DashboardPage() {
         </div>
         <Link className="primary-link" to={createPath}><Plus aria-hidden="true" className="size-4" /> Create Subscription</Link>
       </header>
+      {data?.show_get_started && (
+        <section className={panelClass} aria-labelledby="get-started">
+          <h2 id="get-started" className="text-xl font-bold">Track your first subscription</h2>
+          <p className="mt-1 text-sm text-slate-600">Add a bill to see its next payment and choose when to get a reminder.</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link className="primary-link" to="/subscriptions/quick-add/">Add my first subscription</Link>
+            <Link className="secondary-link" to="/subscriptions/import/">Import a subscription list</Link>
+            <Link className="secondary-link" to="/accounts/teams/create/">Set up a team</Link>
+          </div>
+        </section>
+      )}
       <nav className="flex flex-wrap gap-2" aria-label="Planning shortcuts">
         <Link className="secondary-link" to="/subscriptions/quick-add/"><Zap size={16} aria-hidden />Quick add</Link>
         <Link className="secondary-link" to={`/planning/insights/?scope=${scope}`}><ChartNoAxesCombined size={16} aria-hidden />Spending insights</Link>
@@ -389,7 +409,7 @@ export function DashboardPage() {
       {data ? (
         <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
           <div className="min-w-0 space-y-5">
-            <NeedsAttention items={data.needs_attention} />
+            <NeedsAttention key={scope} items={data.needs_attention} />
             <BalanceEditor data={data} key={query} onUpdate={updateBalance} scope={scope} />
             <BudgetEditor data={data} key={query + '-budget'} scope={scope} reload={retry} />
             <UpcomingBills data={data} />

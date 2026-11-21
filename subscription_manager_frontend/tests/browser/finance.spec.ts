@@ -26,6 +26,38 @@ async function verify(page: Page) {
   await expect(page.getByText('Verified for five minutes.')).toBeVisible()
 }
 
+test('a new account adds its first bill and reconciles a statement payment', async ({ page }) => {
+  await signup(page)
+  const today = new Date().toISOString().slice(0, 10)
+  const start = page.getByRole('region', { name: 'Track your first subscription' })
+  await expect(start.getByRole('link', { name: 'Import a subscription list' })).toBeVisible()
+  await expect(start.getByRole('link', { name: 'Set up a team' })).toBeVisible()
+  await start.getByRole('link', { name: 'Add my first subscription' }).click()
+  await page.getByLabel('Service', { exact: true }).fill('Studio')
+  await page.getByLabel('Cost (USD)').fill('30')
+  await page.getByLabel('Next payment').fill(today)
+  await page.getByRole('button', { name: 'Add subscription', exact: true }).click()
+  const saved = page.getByRole('region', { name: 'Saved subscription schedule' })
+  await expect(saved).toContainText('Next provider charge')
+  await saved.getByRole('link', { name: 'Adjust renewal reminders' }).click()
+  await expect(page.getByLabel('Remind me before renewals and cancellation deadlines')).toBeVisible()
+  await page.goto('/planning/connections/')
+  await page.getByLabel('Statement CSV').setInputFiles({
+    name: 'statement.csv', mimeType: 'text/csv',
+    buffer: Buffer.from(`date,merchant,amount\n${today},Vendor LLC,32.50\n`),
+  })
+  await page.getByRole('button', { name: 'Preview statement' }).click()
+  await page.getByRole('button', { name: 'Import 1 payment', exact: false }).click()
+  await page.getByRole('button', { name: 'Match manually' }).click()
+  await page.getByLabel('Charge to match').selectOption({ index: 1 })
+  await page.getByRole('button', { name: 'Confirm manual match' }).click()
+  await expect(page.getByText('Payment matched.', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Preview statement' }).click()
+  await expect(page.getByText(/0 ready · 1 duplicates/)).toBeVisible()
+  await page.goto('/dashboard/history/')
+  await expect(page.getByLabel('Payment status for Studio')).toHaveValue('paid')
+})
+
 test('detailed budgets and combined currency totals work on mobile', async ({ page }) => {
   await signup(page)
   await addSubscription(page)

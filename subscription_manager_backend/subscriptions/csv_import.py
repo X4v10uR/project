@@ -145,4 +145,4 @@ def import_subscriptions(request):
             return Response({'rows': preview, 'imported': 0, 'detail': 'Correct the invalid rows before importing.'}, status=400)
         for sub, data in pending:
             save_subscription(sub, actor=request.user, participants=data['participants'], reminder_offsets=data['reminder_offsets'])
-    return Response({'rows': preview, 'imported': len(pending)})
+    return Response({'rows': preview, 'imported': len(pending), 'first_subscription_id': pending[0][0].pk if pending else None})

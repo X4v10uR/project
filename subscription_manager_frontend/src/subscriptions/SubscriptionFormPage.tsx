@@ -50,6 +50,12 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
   const preferredCurrency = user?.preferred_currency ?? ''
   const currency = subscription?.currency ?? (/^[A-Za-z]{3}$/.test(preferredCurrency) ? preferredCurrency : 'USD')
 
+  const [query] = useSearchParams()
+  const openReminders = query.get('section') === 'reminders'
+  useEffect(() => {
+    if (openReminders) document.getElementById('renewal-reminders')?.scrollIntoView({ block: 'center' })
+  }, [openReminders])
+
   function addParticipant() {
     setParticipants((people) => [...people, { id: nextParticipantId, name: '', share: '', member_id: null }])
     setNextParticipantId((id) => id + 1)
@@ -87,7 +93,7 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
         subscription ? `${subscriptionApi}${subscription.id}/` : subscriptionApi,
         { method: subscription ? 'PUT' : 'POST', body: JSON.stringify(payload) },
       )
-      navigate(backPath, { state: { notice: 'request_id' in response ? 'Subscription request submitted.' : 'Subscription saved.' } })
+      navigate(backPath, { state: { savedSubscriptionId: !subscription && 'id' in response ? response.id : undefined, notice: 'request_id' in response ? 'Subscription request submitted.' : 'Subscription saved.' } })
     } catch (error) {
       setError(showError(error))
     } finally {
@@ -177,7 +183,7 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
         )}
       </div></details>
 
-      <details className={panelClass}><summary className="cursor-pointer text-lg font-bold">Renewal and deadline reminders (optional)</summary><div className="mt-4 grid gap-4">
+      <details className={panelClass} id="renewal-reminders" open={openReminders || undefined}><summary className="cursor-pointer text-lg font-bold">Renewal and deadline reminders (optional)</summary><div className="mt-4 grid gap-4">
         <label className="flex gap-3 text-sm font-medium"><input type="checkbox" className="size-4 accent-indigo-600" checked={remindersEnabled} onChange={(event) => setRemindersEnabled(event.target.checked)} /> Remind me before renewals and cancellation deadlines</label>
         {remindersEnabled && (
           <>

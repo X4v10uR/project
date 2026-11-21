@@ -43,9 +43,14 @@ class ScheduledJobStatus(models.Model):
         return self.job
 
 
+class JobHealthAlert(models.Model):
+    recipient = models.EmailField(primary_key=True)
+    unhealthy_jobs = models.JSONField(default=list)
+
+
 class Connection(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    provider = models.CharField(max_length=10, choices=[('plaid', 'Plaid'), ('gmail', 'Gmail')])
+    provider = models.CharField(max_length=10, choices=[('plaid', 'Plaid'), ('gmail', 'Gmail'), ('statement', 'Bank statement')])
     external_id = models.CharField(max_length=255)
     label = models.CharField(max_length=255)
     encrypted_tokens = models.TextField()

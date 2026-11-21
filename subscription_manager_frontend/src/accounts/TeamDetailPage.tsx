@@ -6,6 +6,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { CredentialReveal } from './SecuritySettings'
 import { displayDate } from '../subscriptions/shared'
+import { SavedRenewal } from '../subscriptions/SavedRenewal'
 import { useAuth } from './auth'
 import { dangerClass, ErrorMessage, Field, fieldClass, formData, messageFrom, panelClass, primaryClass, secondaryClass, StatusMessage } from './Controls'
 import { type Role, type TeamSubscription, TeamStatus } from './TeamPages'
@@ -27,18 +28,71 @@ type PendingRequest = {
   created_at: string
 }
 
+type Renewal = {
+  assignee_id: number | null
+  renewal_date: string | null
+  due_on: string | null
+  decision: '' | 'keep' | 'change' | 'cancel'
+  decided_at: string | null
+  decided_by: string | null
+  can_decide: boolean
+}
+
+type TeamSubscriptionDetail = TeamSubscription & { renewal: Renewal }
+type RenewalFields = Record<string, FormDataEntryValue | null>
+
 type Team = {
   id: number
   name: string
   role: Role
   can_view_credentials: boolean
   accent_color: string
-  subscriptions: TeamSubscription[]
+  subscriptions: TeamSubscriptionDetail[]
   members: Member[]
   pending_requests: PendingRequest[]
 }
 
-function SubscriptionCard({ subscription, team }: { subscription: TeamSubscription; team: Team }) {
+function RenewalPanel({ renewal, team, saving, onUpdate }: {
+  renewal: Renewal; team: Team; saving: boolean; onUpdate: (fields: RenewalFields) => void
+}) {
+  const assignee = team.members.find(person => person.id === renewal.assignee_id)
+  const labels = { '': 'Awaiting decision', keep: 'Keep', change: 'Change', cancel: 'Cancel' }
+  function assign(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    onUpdate({ assignee_id: new FormData(event.currentTarget).get('assignee_id') || null })
+  }
+  function decide(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    onUpdate({ decision: new FormData(event.currentTarget).get('decision'), renewal_date: renewal.renewal_date })
+  }
+  return <section className="grid gap-2 border-t border-zinc-200 pt-3 text-sm" aria-label="Renewal responsibility">
+    <h4 className="font-bold">Renewal decision</h4>
+    <p>Responsible person · {assignee?.email || 'Unassigned'}</p>
+    {renewal.renewal_date ? <>
+      <p>Renewal {displayDate(renewal.renewal_date)} · Decide by {displayDate(renewal.due_on)}</p>
+      <p className="font-semibold">{labels[renewal.decision]}</p>
+      {renewal.decided_at && <p className="text-zinc-600">Recorded {new Date(renewal.decided_at).toLocaleString()}{renewal.decided_by && ' by ' + renewal.decided_by}</p>}
+    </> : <p>No upcoming payment scheduled.</p>}
+    {team.role === 'owner' && <form className="grid gap-2" onSubmit={assign}>
+      <Field label="Renewal owner"><select className={fieldClass} name="assignee_id" key={renewal.assignee_id ?? ''} defaultValue={renewal.assignee_id ?? ''}>
+        <option value="">Unassigned</option>
+        {team.members.filter(person => person.role === 'owner' || person.role === 'member').map(person => <option key={person.id} value={person.id}>{person.email}</option>)}
+      </select></Field>
+      <button className={secondaryClass + ' justify-self-start'} disabled={saving}>Save assignment</button>
+    </form>}
+    {renewal.can_decide && <form className="grid gap-2" onSubmit={decide}>
+      <Field label="Decision for this renewal"><select className={fieldClass} name="decision" key={renewal.renewal_date + renewal.decision} defaultValue={renewal.decision}>
+        {Object.entries(labels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+      </select></Field>
+      <p className="text-xs text-zinc-600">Record the team's plan here. Complete plan changes or cancellation with the provider.</p>
+      <button className={secondaryClass + ' justify-self-start'} disabled={saving}>Save decision</button>
+    </form>}
+  </section>
+}
+
+function SubscriptionCard({ subscription, team, saving, onUpdate }: {
+  subscription: TeamSubscriptionDetail; team: Team; saving: boolean; onUpdate: (fields: RenewalFields) => void
+}) {
 
   return (
     <article id={`subscription-${subscription.id}`} tabIndex={-1} className="grid gap-3 rounded-xl border border-zinc-200 p-4">
@@ -65,6 +119,7 @@ function SubscriptionCard({ subscription, team }: { subscription: TeamSubscripti
           </dd>
         </div>
       </dl>
+      <RenewalPanel renewal={subscription.renewal} team={team} saving={saving} onUpdate={onUpdate} />
       {team.role === 'owner' && <Link className="justify-self-start text-sm font-semibold underline underline-offset-3" to={'/subscriptions/' + subscription.id + '/edit/'}>Edit subscription</Link>}
     </article>
   )
@@ -104,7 +159,7 @@ export function TeamDetailPage() {
   }, [team, hash])
 
   async function action(path: string, method: 'POST' | 'DELETE' | 'PATCH', success: string, options?: {
-    data?: Record<string, FormDataEntryValue>
+    data?: Record<string, FormDataEntryValue | null>
     returnToTeams?: boolean
     resetForm?: HTMLFormElement
   }) {
@@ -147,6 +202,7 @@ export function TeamDetailPage() {
       <Link className={secondaryClass + ' justify-self-start'} to="/accounts/teams/"><ArrowLeft size={15} aria-hidden /> Teams</Link>
       <ErrorMessage message={error} />
       <StatusMessage message={notice} />
+      {state?.savedSubscriptionId && <SavedRenewal subscriptionId={state.savedSubscriptionId} />}
       {!team && !error && <p role="status" className="text-sm text-zinc-600">Loading team…</p>}
       {team && <>
         <header className="flex flex-wrap items-center justify-between gap-4">
@@ -162,7 +218,8 @@ export function TeamDetailPage() {
               <h2 className="mb-4 text-lg font-bold">Subscriptions</h2>
               {team.subscriptions.length ? (
                 <div className="grid gap-3 lg:grid-cols-2">
-                  {team.subscriptions.map((item) => <SubscriptionCard key={item.id} subscription={item} team={team} />)}
+                  {team.subscriptions.map(item => <SubscriptionCard key={item.id} subscription={item} team={team} saving={saving}
+                    onUpdate={fields => void action(endpoint + 'subscriptions/' + item.id + '/renewal/', 'PATCH', 'Renewal updated.', { data: fields })} />)}
                 </div>
               ) : <p className="text-sm text-zinc-600">No subscriptions yet.</p>}
             </section>

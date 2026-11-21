@@ -19,6 +19,7 @@ from .api_serializers import SubscriptionInput, SubscriptionSerializer, Subscrip
 from .cards_state import build_card_options
 from .color_utils import LIGHT_SUBSCRIPTION_COLOR_PRESETS
 from .list_context import _apply_subscription_card_metadata, _build_subscription_drawer_data, build_subscription_list_context
+from .services import next_billing_date
 from .models import Subscription
 from .views import (
     CATEGORY_SUGGESTIONS,
@@ -106,7 +107,11 @@ def subscription_detail(request, pk):
     subscription.participant_count = subscription.participants.count()
     _apply_subscription_card_metadata([subscription])
     details = _build_subscription_drawer_data([subscription])[str(subscription.pk)]
-    return Response({**SubscriptionSerializer(subscription).data, 'details': details})
+    from finance.delivery import local_now
+    next_payment = next_billing_date(subscription, local_now(request.user).date())
+    return Response({**SubscriptionSerializer(subscription).data, 'details': details,
+                     'next_payment': {'date': next_payment, 'amount': str(subscription.price_on(next_payment))}
+                     if next_payment else None})
 
 
 @api_view(['POST'])

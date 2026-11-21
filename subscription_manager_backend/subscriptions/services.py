@@ -26,6 +26,17 @@ def effective_renewal_date(subscription, today):
     return subscription.calculate_renewal_date(today=today)
 
 
+def next_billing_date(subscription, today):
+    day = effective_renewal_date(subscription, today)
+    if day and subscription.bills_on(day):
+        return day
+    if day and subscription.resume_on and day < subscription.resume_on:
+        day = subscription.calculate_renewal_date(today=subscription.resume_on)
+        if day and subscription.bills_on(day):
+            return day
+    return None
+
+
 def _next_renewal(subscription, day):
     if day == date.max:
         return None

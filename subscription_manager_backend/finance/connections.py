@@ -21,6 +21,7 @@ from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.decorators import api_view
 from rest_framework.exceptions import ValidationError
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from accounts.security import require_recent
 from subscriptions.models import Subscription, Transaction
@@ -383,9 +384,11 @@ def payment_matches(payment):
 @api_view(['GET'])
 def discoveries(request):
     history = ImportedPayment.objects.filter(connection__user=request.user, dismissed=False, removed=False).order_by('-paid_on', '-pk')
-    rows = history.select_related('connection')[:1000]
+    pages = PageNumberPagination()
+    pages.page_size = 50
+    rows = pages.paginate_queryset(history.select_related('connection'), request)
     groups = defaultdict(list)
-    for row in history.filter(pending=False).only('id', 'merchant', 'currency', 'paid_on', 'amount').iterator():
+    for row in history.filter(pending=False, charge__isnull=True).only('id', 'merchant', 'currency', 'paid_on', 'amount').iterator():
         merchant = normalize(row.merchant)
         if merchant:
             groups[(merchant, row.currency)].append(row)
@@ -403,31 +406,64 @@ def discoveries(request):
                 'billing_cycle': cycle, 'start_date': anchor, 'last_payment_date': dates[-1],
                 'paid_through': paid_through, 'next_payment_date': next_payment,
                 'occurrences': len(dates), 'payment_ids': [v.pk for v in values]})
-    return Response({'candidates': candidates, 'payments': [{'id': r.pk, 'merchant': r.merchant, 'amount': str(r.amount), 'currency': r.currency,
+    return Response({'next': pages.get_next_link(), 'candidates': candidates, 'payments': [{'id': r.pk, 'merchant': r.merchant, 'amount': str(r.amount), 'currency': r.currency,
         'date': r.paid_on, 'provider': r.connection.provider, 'pending': r.pending, 'charge': r.charge_id, 'description': r.description,
         'matches': [{'id': m.pk, 'service': m.service_name_snapshot, 'date': m.charged_for_date} for m in payment_matches(r)]} for r in rows]})
+
+
+def eligible_manual_charges(user, payment):
+    from dashboard.api_views import editable_charges
+
+    return editable_charges(user).filter(currency=payment.currency, importedpayment__isnull=True,
+                                         payment_status__in=['scheduled', 'failed', 'paid'])
+
+
+@api_view(['GET'])
+def manual_charge_options(request, pk):
+    row = get_object_or_404(ImportedPayment, pk=pk, connection__user=request.user, pending=False,
+                            removed=False, dismissed=False, charge__isnull=True)
+    charges = eligible_manual_charges(request.user, row)
+    query = request.query_params.get('q', '').strip()
+    if query:
+        charges = charges.filter(Q(service_name_snapshot__icontains=query) | Q(team__name__icontains=query))
+    pages = PageNumberPagination()
+    pages.page_size = 25
+    choices = pages.paginate_queryset(charges.select_related('team').order_by('-charged_for_date', '-pk'), request)
+    return Response({'next': pages.get_next_link(), 'charges': [
+        {'id': charge.pk, 'service': charge.service_name_snapshot, 'date': charge.charged_for_date,
+         'amount': charge.amount, 'currency': charge.currency, 'team': charge.team.name if charge.team_id else None}
+        for charge in choices]})
 
 
 @api_view(['POST'])
 @transaction.atomic
 def discovery_action(request, pk):
     row = get_object_or_404(ImportedPayment.objects.select_for_update().select_related('connection'), pk=pk, connection__user=request.user)
-    action = serializers.ChoiceField(choices=['dismiss', 'match']).run_validation(request.data.get('action'))
+    action = serializers.ChoiceField(choices=['dismiss', 'match', 'manual_match']).run_validation(request.data.get('action'))
     if action == 'dismiss':
         row.dismissed = True
         row.save(update_fields=['dismissed'])
     else:
         charge_id = serializers.IntegerField(min_value=1).run_validation(request.data.get('charge'))
-        get_object_or_404(Transaction.objects.select_for_update(), pk=charge_id, user=request.user, team__isnull=True)
-        matches = payment_matches(row)
-        match = next((m for m in matches if m.pk == charge_id), None)
-        if match is None:
-            raise ValidationError('The match is no longer available. Amount, currency, merchant and date must agree.')
+        if action == 'manual_match':
+            if row.pending or row.removed or row.dismissed or row.charge_id:
+                raise ValidationError('This payment is no longer available to match.')
+            from dashboard.api_views import editable_charges
+            match = get_object_or_404(editable_charges(request.user).select_for_update(of=('self',)), pk=charge_id)
+            if not eligible_manual_charges(request.user, row).filter(pk=charge_id).exists():
+                raise ValidationError('Choose an unmatched charge in the same currency that has not been refunded.')
+        else:
+            get_object_or_404(Transaction.objects.select_for_update(), pk=charge_id, user=request.user, team__isnull=True)
+            matches = payment_matches(row)
+            match = next((m for m in matches if m.pk == charge_id), None)
+            if match is None:
+                raise ValidationError('The match is no longer available. Amount, currency, merchant and date must agree.')
         match.payment_status = 'paid'
         match.save(update_fields=['payment_status'])
         row.charge = match
         row.subscription = match.subscription
         row.save(update_fields=['charge', 'subscription'])
         if match.subscription:
-            log_activity(request.user, match.subscription, 'payment.matched', {'provider': row.connection.provider, 'charge': match.pk})
+            log_activity(request.user, match.subscription, 'payment.matched', {
+                'provider': row.connection.provider, 'charge': match.pk, 'manual': action == 'manual_match'})
     return Response({'saved': True})

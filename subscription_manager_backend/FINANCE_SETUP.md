@@ -37,11 +37,13 @@ claim expires after 30 minutes.
 
 Discovery compares all available payment dates for each merchant and currency against calendar-month and fixed-day schedules. After at least two distinct dates fit a schedule, the suggestion shows the predicted payment after the latest import. Its editable start date preserves the inferred billing day across short months. These are suggestions, not
 proof of a subscription. The user reviews editable details before adding one.
-Payment matches require the same normalized merchant, exact amount/currency,
+Suggested payment matches require the same normalized merchant, exact amount/currency,
 and a date within three days of a personal scheduled charge. Confirming a match
 marks the charge paid; imports never silently mark charges paid. A charge may
 only be matched once. Pending and removed bank transactions are excluded.
-Shared or differently named payments can still be confirmed manually in History.
+For a different merchant name, amount, or date, choose **Match manually** on the imported payment and compare both amounts before confirming. The charge must use the payment currency. Team owners and accountants can also match eligible charges in their teams. History retains the scheduled amount and participant shares.
+
+**Import a bank statement** in Connections accepts up to 500 rows per UTF-8 CSV (1 MB). Choose the account label, date format and debit sign, map the columns, and preview before confirming. Duplicate detection checks previous imports and restored records for the same statement account label. When a transaction ID is present, conflicting payment details for that ID appear as an error in the preview. Without an ID, rows with the same date, merchant, amount and currency count as duplicates. Supply distinct transaction IDs for legitimate identical payments.
 
 Disconnect revokes the Plaid item before deleting local connection/import data.
 Subscriptions, recorded charges and saved receipts remain.
@@ -144,6 +146,8 @@ reminder using the current delivery preferences. Queued delivery retries with
 backoff up to ten attempts; worker errors are logged without provider secrets.
 
 ## Scheduling
+
+See [operations](OPERATIONS.md) for independent stale-job alerts and a full SQLite/private-receipt backup and restore rehearsal.
 
 Existing `scheduler.py` runs finance synchronization and queued/digest delivery
 alongside renewal processing. Provider sync failures are logged without blocking

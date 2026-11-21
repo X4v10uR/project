@@ -2,6 +2,7 @@ from django.urls import path
 
 from . import api_views as views
 from .security import security_settings
+from .renewals import update_renewal
 
 app_name = 'accounts_api'
 
@@ -19,6 +20,7 @@ urlpatterns = [
     path('teams/<int:team_id>/members/<int:membership_id>/', views.TeamMemberView.as_view(), name='team_member'),
     path('teams/<int:team_id>/leave/', views.TeamLeaveView.as_view(), name='team_leave'),
     path('teams/<int:team_id>/invite/', views.TeamInviteView.as_view(), name='team_invite'),
+    path('teams/<int:team_id>/subscriptions/<int:subscription_id>/renewal/', update_renewal, name='team_renewal'),
     path(
         'teams/<int:team_id>/subscriptions/<int:subscription_id>/password/',
         views.TeamSubscriptionPasswordView.as_view(),

@@ -1,3 +1,4 @@
+import { SavedRenewal } from './SavedRenewal'
 import { ServiceIcon } from '../ServiceIcon'
 import { Download, Plus, Search, Upload, Zap } from 'lucide-react'
 import { type FormEvent, useEffect, useState } from 'react'
@@ -210,6 +211,7 @@ export function SubscriptionsPage() {
         </div>
       )}
       {typeof location.state?.notice === 'string' && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">{location.state.notice}</p>}
+      {portfolio?.subscriptions.some(item => item.id === location.state?.savedSubscriptionId) && <SavedRenewal subscriptionId={location.state.savedSubscriptionId} />}
       {portfolio && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Subscription summary">
           {[

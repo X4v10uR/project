@@ -25,7 +25,7 @@ export function QuickAddPage() {
           state: { notice: 'Request submitted for owner approval. You can track it under Pending requests.' },
         })
       } else {
-        navigate(team ? `/accounts/teams/${team}/` : '/subscriptions/', { state: { notice: 'Subscription added. You can add sharing, reminders, and other details anytime.' } })
+        navigate(team ? `/accounts/teams/${team}/` : '/subscriptions/', { state: { savedSubscriptionId: result.id, notice: 'Subscription added. You can add sharing, reminders, and other details anytime.' } })
       }
     } catch (e) { setError(showError(e)) } finally { setBusy(false) }
   }

@@ -266,15 +266,21 @@ class TeamsView(AccountView):
 
 class TeamDetailView(AccountView):
     def get(self, request, team_id):
+        from finance.delivery import local_now
+        from .renewals import review_details
         data = flows.team_detail_data(request.user, team_id)
         team = data['team']
+        today = local_now(request.user).date()
         return Response({
             'id': team.pk,
             'name': team.name,
             'role': data['membership'].role,
             'can_view_credentials': data['membership'].may_view_credentials,
             'accent_color': data['team_accent_color'],
-            'subscriptions': [team_subscription(sub) for sub in data['team_subscriptions']],
+            'subscriptions': [
+                {**team_subscription(sub), 'renewal': review_details(sub, data['membership'], today)}
+                for sub in data['team_subscriptions']
+            ],
             'members': [
                 {
                     'id': member.pk,
@@ -327,6 +333,9 @@ class TeamMemberView(AccountView):
             member.role = role
             member.can_view_credentials = credentials if role == 'member' else role == 'owner'
             member.save(update_fields=['role', 'can_view_credentials'])
+            from .renewals import ASSIGNABLE_ROLES
+            if role not in ASSIGNABLE_ROLES:
+                member.teamrenewal_set.update(assignee=None)
             Activity.objects.create(owner=request.user, user=request.user, team_id=team_id, action='member.permissions.changed',
                 changes={'member': member.user.email, 'role': {'before': old, 'after': role}, 'can_view_credentials': member.can_view_credentials})
         return Response({'role': member.role, 'can_view_credentials': member.can_view_credentials})

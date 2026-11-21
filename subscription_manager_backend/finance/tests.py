@@ -470,9 +470,9 @@ class FinanceTests(TestCase):
         failed = self.charge(nearest, payment_status='failed')
         pending = TeamSubscriptionRequest.objects.create(team=team, requested_by=self.other, payload={'service_name': 'Team plan'})
         personal = self.client.get('/api/dashboard/').json()['needs_attention']
-        self.assertEqual([r['kind'] for r in personal], ['deadline', 'payment'])
-        self.assertIn(f'/{nearest.pk}/edit/', personal[0]['url'])
-        query = personal[1]['url'].split('?')[1]
+        self.assertEqual([r['kind'] for r in personal], ['payment', 'deadline', 'deadline'])
+        self.assertIn(f'/{nearest.pk}/edit/', personal[1]['url'])
+        query = personal[0]['url'].split('?')[1]
         self.assertEqual(self.client.get('/api/dashboard/history/?' + query).json()['results'][0]['id'], failed.pk)
         team_url = '/api/dashboard/?scope=teams'
         approval, = self.client.get(team_url).json()['needs_attention']
@@ -484,6 +484,19 @@ class FinanceTests(TestCase):
         pending.status = 'approved'
         pending.save()
         self.assertEqual(self.client.get(team_url).json()['needs_attention'], [])
+
+    def test_weekly_queue_uses_the_recipients_week_and_effective_prices(self):
+        from finance.delivery import local_now
+        today = local_now(self.user).date()
+        trial = self.sub(trial_end_date=today + timedelta(days=6))
+        self.sub(cancel_by_date=today + timedelta(days=7))
+        sub = self.sub(introductory_cost='10.00', introductory_until=today + timedelta(days=2))
+        PriceChange.objects.create(subscription=sub, cost='25.00', previous_cost='30.00', effective_on=today + timedelta(days=3))
+        data = self.client.get('/api/dashboard/').json()
+        self.assertFalse(data['show_get_started'])
+        self.assertEqual([(item['kind'], item['amount']) for item in data['needs_attention']],
+                         [('price', '30.00'), ('trial', '30.00')])
+        self.assertIn(f'/{trial.pk}/edit/', data['needs_attention'][1]['url'])
 
     def test_matching_requires_exact_identity_amount_and_date(self):
         charge = self.charge(self.sub())
