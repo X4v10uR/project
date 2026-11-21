@@ -10,16 +10,35 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency fallback
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import transaction
+from django.db.models.functions import Coalesce
 from django.template.loader import render_to_string
+from django.utils import timezone
 
 from .models import InAppNotification
 
 logger = logging.getLogger(__name__)
 
 
+def visible_notifications(user):
+    return InAppNotification.objects.filter(recipient=user).exclude(
+        notificationdelivery__snoozed_until__gt=timezone.now()
+    )
+
+
+def recent_notifications(user):
+    return visible_notifications(user).select_related('team').annotate(
+        latest=Coalesce('last_reminded_at', 'created_at')
+    ).order_by('-latest', '-pk')
+
+
 def notification_unread_count(user):
-    from django.utils import timezone
-    return InAppNotification.objects.filter(recipient=user, is_read=False).exclude(notificationdelivery__snoozed_until__gt=timezone.now()).count()
+    return visible_notifications(user).filter(is_read=False).count()
+
+
+def mark_all_notifications_read(user):
+    unread = visible_notifications(user).filter(is_read=False)
+    if unread.update(is_read=True, read_at=timezone.now()):
+        push_bulk_read(user)
 
 
 def serialize_notification(notification):

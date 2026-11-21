@@ -1,14 +1,22 @@
 from importlib import import_module
 
 from channels.auth import get_user
+from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.conf import settings
+
+from accounts.security import session_mfa_is_current
+
+
+@database_sync_to_async
+def session_is_authenticated(user, session):
+    return user is not None and user.is_authenticated and session is not None and session_mfa_is_current(user, session)
 
 
 class NotificationConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
         user = self.scope.get("user")
-        if not user or not user.is_authenticated:
+        if not await session_is_authenticated(user, self.scope.get('session')):
             await self.close(code=4401)
             return
 
@@ -22,11 +30,11 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
             await self.channel_layer.group_discard(group_name, self.channel_name)
 
     async def send_notification(self, payload):
-        # WebSocket authentication is otherwise only checked during the handshake.
+        # Reload the session so logout and MFA changes also reach open sockets.
         store = import_module(settings.SESSION_ENGINE).SessionStore
         session = store(session_key=self.scope['session'].session_key)
         user = await get_user({'session': session})
-        if not user.is_authenticated or user.pk != self.scope['user'].pk:
+        if user.pk != self.scope['user'].pk or not await session_is_authenticated(user, session):
             await self.close(code=4401)
             return
         await self.send_json(payload)

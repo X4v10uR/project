@@ -5,17 +5,17 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
-from django.utils import timezone
 
 from subscriptions.models import InAppNotification
 from subscriptions.notifications import (
+    mark_all_notifications_read,
     notification_unread_count,
-    push_bulk_read,
     push_updated,
+    recent_notifications,
     serialize_notification,
 )
 
-from .services import build_dashboard_view_model, set_user_balance_target
+from .services import VALID_DASHBOARD_SCOPES, build_dashboard_view_model, set_user_balance_target
 
 
 def landing_page(request):
@@ -85,16 +85,21 @@ def adjust_balance(request):
             status=400,
         )
 
-    scope = payload.get('scope') or request.GET.get('scope') or 'personal'
+    scope = payload.get('scope')
+    if scope in (None, ''):
+        scope = request.GET.get('scope') or 'personal'
     if not isinstance(scope, str):
         return JsonResponse({'ok': False, 'message': 'Scope must be text.'}, status=400)
+    scope = scope.strip().lower()
+    if scope not in VALID_DASHBOARD_SCOPES:
+        return JsonResponse({'ok': False, 'message': 'Choose personal or teams.'}, status=400)
     snapshot = set_user_balance_target(request.user, target_balance, scope=scope)
     return JsonResponse({'ok': True, **snapshot})
 
 
 @login_required
 def notifications_page(request):
-    notifications = InAppNotification.objects.filter(recipient=request.user)[:50]
+    notifications = recent_notifications(request.user)[:50]
     return render(
         request,
         'dashboard/notifications.html',
@@ -106,9 +111,7 @@ def notifications_page(request):
 
 @login_required
 def notifications_list_api(request):
-    notifications = list(
-        InAppNotification.objects.filter(recipient=request.user)[:20]
-    )
+    notifications = recent_notifications(request.user)[:20]
     return JsonResponse(
         {
             'ok': True,
@@ -130,15 +133,14 @@ def notification_mark_read_api(request, pk):
     if not notification:
         return JsonResponse({'ok': False, 'message': 'Not found.'}, status=404)
 
-    notification.mark_read()
-    push_updated(notification)
+    if not notification.is_read:
+        notification.mark_read()
+        push_updated(notification)
     return JsonResponse({'ok': True, 'unread_count': notification_unread_count(request.user)})
 
 
 @login_required
 @require_POST
 def notifications_mark_all_read_api(request):
-    notifications = InAppNotification.objects.filter(recipient=request.user, is_read=False)
-    notifications.update(is_read=True, read_at=timezone.now())
-    push_bulk_read(request.user)
+    mark_all_notifications_read(request.user)
     return JsonResponse({'ok': True, 'unread_count': notification_unread_count(request.user)})

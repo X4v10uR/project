@@ -132,10 +132,10 @@ def _build_balance_trend_points(transactions, today, window_days=30, currency=No
     }
 
 
-def _monthly_spend_by_currency(active_subscriptions):
+def _monthly_spend_by_currency(subscriptions, today):
     totals = {}
-    for subscription in active_subscriptions:
-        monthly_cost = _monthly_cost(subscription)
+    for subscription in subscriptions:
+        monthly_cost = _monthly_cost(subscription, today)
         currency = (subscription.currency or 'USD').upper()
         totals[currency] = totals.get(currency, Decimal('0.00')) + monthly_cost
     return totals
@@ -143,8 +143,9 @@ def _monthly_spend_by_currency(active_subscriptions):
 
 def monthly_spend_for_scope(user, scope, currency):
     subscriptions, _ = _subscriptions_for_scope(user, scope)
-    costs = subscriptions.filter(status='active', currency__iexact=currency)
-    return _quantize_money(sum((_monthly_cost(sub) for sub in costs), Decimal('0')))
+    today = timezone.localdate()
+    plans = subscriptions.filter(currency__iexact=currency).exclude(status='cancelled')
+    return _quantize_money(sum((_monthly_cost(sub, today) for sub in plans if sub.bills_on(today)), Decimal('0')))
 
 
 def _build_balance_snapshot(user, monthly_spend_by_currency, scope, currency='USD'):
@@ -187,10 +188,8 @@ def set_user_balance_target(user, target_balance, scope='personal', currency='US
     }
 
 
-def _monthly_cost(subscription):
-    if subscription.status == 'active' and not subscription.bills_on(timezone.localdate()):
-        return Decimal('0')
-    cost = subscription.share_on(timezone.localdate())
+def _monthly_cost(subscription, today):
+    cost = subscription.share_on(today)
     return monthly_equivalent(cost, subscription.billing_cycle)
 
 
@@ -273,7 +272,7 @@ def _build_upcoming_placeholder(index):
     return data
 
 
-def _build_subscription_panel_item(subscription, index, service_color_map):
+def _build_subscription_panel_item(subscription, today, service_color_map):
     create_query = {
         'service_name': subscription.service_name,
         'category': subscription.category,
@@ -287,7 +286,7 @@ def _build_subscription_panel_item(subscription, index, service_color_map):
         'bg_class': '',
         'bg_style': service_background_style(subscription.service_name, service_color_map),
         'title': subscription.service_name,
-        'subtitle': f"{_format_money(_monthly_cost(subscription), subscription.currency)}/monthly",
+        'subtitle': f"{_format_money(_monthly_cost(subscription, today), subscription.currency)}/monthly",
         'create_url': (
             reverse('subscriptions:create')
             + '?'
@@ -325,8 +324,8 @@ def _duration_label(subscription):
     return mapping.get(subscription.billing_cycle, '1 month')
 
 
-def _build_active_item(subscription, index, service_color_map):
-    effective_cost = subscription.share_on(timezone.localdate())
+def _build_active_item(subscription, today, service_color_map):
+    effective_cost = subscription.share_on(today)
     card_last4 = subscription.card.last4 if subscription.card else None
     return {
         'id': subscription.pk,
@@ -374,7 +373,6 @@ def _build_transaction_item(transaction, index, service_color_map):
 def build_dashboard_view_model(user, today=None, scope='personal', selected_currency=None):
     today = today or timezone.localdate()
     window_end = today + timedelta(days=29)
-    scope = _normalize_dashboard_scope(scope)
 
     user_subs, scope = _subscriptions_for_scope(user, scope)
     transactions = charges_for_scope(user, scope)
@@ -384,28 +382,28 @@ def build_dashboard_view_model(user, today=None, scope='personal', selected_curr
     else:
         view_all_url = _renewal_view_all_url()
 
-    active_subs_qs = user_subs.filter(status='active')
-    active_subs = sorted(
-        list(active_subs_qs),
-        key=lambda sub: (
-            effective_renewal_date(sub, today) or date.max,
-            (sub.service_name or '').lower(),
-        ),
-    )
-    paused_subs = user_subs.filter(status='paused')
-    cancelled_subs = user_subs.filter(status='cancelled')
-    paused_subs_list = list(paused_subs)
-    cancelled_subs_list = list(cancelled_subs)
+    active_subs, paused_subs, cancelled_subs = [], [], []
+    for sub in user_subs:
+        if sub.bills_on(today):
+            active_subs.append(sub)
+        elif sub.status == 'cancelled' or sub.cancellation_state == 'confirmed':
+            cancelled_subs.append(sub)
+        else:
+            paused_subs.append(sub)
+    active_subs.sort(key=lambda sub: (
+        effective_renewal_date(sub, today) or date.max, sub.service_name.lower(), sub.pk,
+    ))
+    active_subs_qs = user_subs.filter(pk__in=[sub.pk for sub in active_subs])
     shared_subs = active_subs_qs.filter(is_shared=True)
     occurrences = sorted(
-        ((day, sub) for sub in active_subs + paused_subs_list for day in renewals_between(sub, today, window_end)),
+        ((day, sub) for sub in active_subs + paused_subs for day in renewals_between(sub, today, window_end)),
         key=lambda event: (event[0], event[1].service_name.lower(), event[1].pk),
     )
     upcoming_renewals = [sub for _, sub in occurrences]
 
-    monthly_spend_by_currency = _monthly_spend_by_currency(active_subs)
-    paused_spend_by_currency = _monthly_spend_by_currency(paused_subs_list)
-    cancelled_spend_by_currency = _monthly_spend_by_currency(cancelled_subs_list)
+    monthly_spend_by_currency = _monthly_spend_by_currency(active_subs, today)
+    paused_spend_by_currency = _monthly_spend_by_currency(paused_subs, today)
+    cancelled_spend_by_currency = _monthly_spend_by_currency(cancelled_subs, today)
     upcoming_total_by_currency = {}
     for day, sub in occurrences:
         currency = (sub.currency or 'USD').upper()
@@ -414,25 +412,25 @@ def build_dashboard_view_model(user, today=None, scope='personal', selected_curr
             upcoming_total_by_currency.get(currency, Decimal('0.00')) + charge_amount
         )
     total_subscriptions_balance_by_currency = {}
-    for sub in active_subs + paused_subs_list + cancelled_subs_list:
-        currency = (sub.currency or 'USD').upper()
-        total_subscriptions_balance_by_currency[currency] = (
-            total_subscriptions_balance_by_currency.get(currency, Decimal('0.00'))
-            + _monthly_cost(sub)
-        )
+    for totals in (monthly_spend_by_currency, paused_spend_by_currency, cancelled_spend_by_currency):
+        for currency, amount in totals.items():
+            total_subscriptions_balance_by_currency[currency] = (
+                total_subscriptions_balance_by_currency.get(currency, Decimal('0.00')) + amount
+            )
 
-    monthly_spend = monthly_spend_by_currency.get('USD', Decimal('0.00'))
+    balance_currency = selected_currency or 'USD'
+    monthly_spend = monthly_spend_by_currency.get(balance_currency, Decimal('0.00'))
     yearly_spend = monthly_spend * Decimal('12')
     active_count = len(active_subs)
-    usd_active_count = sum(
-        1 for sub in active_subs if (sub.currency or 'USD').upper() == 'USD'
+    currency_active_count = sum(
+        1 for sub in active_subs if (sub.currency or 'USD').upper() == balance_currency
     )
-    paused_count = len(paused_subs_list)
-    cancelled_count = len(cancelled_subs_list)
-    shared_count = shared_subs.count()
+    paused_count = len(paused_subs)
+    cancelled_count = len(cancelled_subs)
+    shared_count = sum(sub.is_shared for sub in active_subs)
     avg_monthly_spend = (
-        monthly_spend / Decimal(usd_active_count)
-        if usd_active_count
+        monthly_spend / Decimal(currency_active_count)
+        if currency_active_count
         else Decimal('0.00')
     )
 
@@ -440,19 +438,19 @@ def build_dashboard_view_model(user, today=None, scope='personal', selected_curr
         transactions
         .order_by('-charged_for_date', '-pk')[:2]
     )
-    service_color_map = build_service_color_map(active_subs, recent_transactions_qs)
+    service_color_map = build_service_color_map(active_subs + upcoming_renewals, recent_transactions_qs)
 
     upcoming_items = [
         _build_upcoming_item(sub, day, today, service_color_map)
         for day, sub in occurrences
     ]
     subscription_panel_items = [
-        _build_subscription_panel_item(sub, index, service_color_map)
-        for index, sub in enumerate(active_subs[:3])
+        _build_subscription_panel_item(sub, today, service_color_map)
+        for sub in active_subs[:3]
     ]
     active_panel_items = [
-        _build_active_item(sub, index, service_color_map)
-        for index, sub in enumerate(active_subs)
+        _build_active_item(sub, today, service_color_map)
+        for sub in active_subs
     ]
     recent_transaction_items = [
         _build_transaction_item(txn, index, service_color_map)
@@ -472,15 +470,12 @@ def build_dashboard_view_model(user, today=None, scope='personal', selected_curr
     )
     recent_transactions = recent_transaction_items
 
-    next_renewal = upcoming_renewals[0] if upcoming_renewals else None
-    next_renewal_date = effective_renewal_date(next_renewal, today) if next_renewal else None
-    chip_date = next_renewal_date.strftime('%m/%d') if next_renewal_date else '--/--'
+    chip_date = occurrences[0][0].strftime('%m/%d') if occurrences else '--/--'
     balance_trend = _build_balance_trend_points(transactions, today, window_days=30, currency=selected_currency)
-    balance_currency = selected_currency or 'USD'
     adjustments = BalanceAdjustment.objects.filter(user=user, scope=scope)
     monthly_limit = adjustments.filter(currency=balance_currency).values_list('monthly_limit', flat=True).first()
     balance_snapshot = _build_balance_snapshot(user, monthly_spend_by_currency, scope, balance_currency)
-    currencies = set(monthly_spend_by_currency) | set(adjustments.values_list('currency', flat=True))
+    currencies = set(total_subscriptions_balance_by_currency) | set(adjustments.values_list('currency', flat=True))
     currencies.update(transactions.order_by().values_list('currency', flat=True).distinct())
     currencies.update([balance_currency, user.preferred_currency or 'USD', 'USD'])
     omitted_currencies = balance_trend['omitted_currencies']
@@ -534,8 +529,8 @@ def build_dashboard_view_model(user, today=None, scope='personal', selected_curr
         'total_cancelled': cancelled_count,
         'total_shared': shared_count,
         'active_subscriptions': active_subs_qs,
-        'paused_subscriptions': paused_subs,
-        'cancelled_subscriptions': cancelled_subs,
+        'paused_subscriptions': user_subs.filter(pk__in=[sub.pk for sub in paused_subs]),
+        'cancelled_subscriptions': user_subs.filter(pk__in=[sub.pk for sub in cancelled_subs]),
         'shared_subscriptions': shared_subs,
         'monthly_spend': _quantize_money(monthly_spend),
         'monthly_spend_by_currency': {

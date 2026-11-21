@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Q, Sum
+from django.db.models import Exists, OuterRef, Prefetch, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers
@@ -12,11 +12,12 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
 from accounts.models import TeamMembership
-from subscriptions.models import ChargeShare, InAppNotification, TeamSubscriptionRequest, Transaction
+from subscriptions.models import ChargeShare, InAppNotification, Repayment, TeamSubscriptionRequest, Transaction
 from subscriptions.notifications import (
+    mark_all_notifications_read,
     notification_unread_count,
-    push_bulk_read,
     push_updated,
+    recent_notifications,
     serialize_notification,
 )
 from subly.context_processors import runtime_flags
@@ -44,7 +45,10 @@ def charge_history(request):
     query = ChargeFilters(data=request.query_params)
     query.is_valid(raise_exception=True)
     filters = query.validated_data
-    charges = charges_for_scope(request.user, filters['scope']).select_related('team').prefetch_related('shares')
+    shares = ChargeShare.objects.annotate(has_repayments=Exists(Repayment.objects.filter(share_id=OuterRef('pk'))))
+    charges = charges_for_scope(request.user, filters['scope']).select_related('team').prefetch_related(
+        Prefetch('shares', queryset=shares)
+    )
     if 'charge' in filters:
         charges = charges.filter(pk=filters['charge'])
     owned_teams = set(request.user.team_memberships.filter(role__in=['owner', 'accountant']).values_list('team_id', flat=True))
@@ -61,7 +65,7 @@ def charge_history(request):
         {'id': row.pk, 'service': row.service_name_snapshot, 'date': row.charged_for_date,
          'amount': str(row.amount), 'currency': row.currency, 'source': row.source,
          'shares_captured': row.shares_captured, 'payment_status': row.payment_status, 'can_edit': row.team_id is None or row.team_id in owned_teams,
-         'shares': [{'id': share.pk, 'name': share.name, 'amount': str(share.amount), 'reimbursed': share.reimbursed, 'has_repayments': share.repayments.exists()}
+         'shares': [{'id': share.pk, 'name': share.name, 'amount': str(share.amount), 'reimbursed': share.reimbursed, 'has_repayments': share.has_repayments}
                     for share in row.shares.all()],
          'team': row.team.name if row.team_id else None, 'subscription_id': row.subscription_id}
         for row in rows
@@ -86,11 +90,15 @@ class PaymentUpdate(serializers.Serializer):
 
 
 @api_view(['PATCH'])
+@transaction.atomic
 def charge_payment(request, pk):
-    charge = get_object_or_404(editable_charges(request.user), pk=pk)
+    charge = get_object_or_404(editable_charges(request.user).select_for_update(of=('self',)), pk=pk)
     data = PaymentUpdate(data=request.data)
     data.is_valid(raise_exception=True)
-    charge.payment_status = data.validated_data['payment_status']
+    status = data.validated_data['payment_status']
+    if charge.payment_status == status:
+        return Response({'payment_status': status})
+    charge.payment_status = status
     charge.save(update_fields=['payment_status'])
     if charge.subscription_id:
         from finance.permissions import log_activity
@@ -134,7 +142,10 @@ def charge_share(request, pk, share_id):
     data.is_valid(raise_exception=True)
     if share.repayments.exists():
         raise serializers.ValidationError('This share has repayment records. Manage it under Settlements.')
-    share.reimbursed = data.validated_data['reimbursed']
+    reimbursed = data.validated_data['reimbursed']
+    if share.reimbursed == reimbursed:
+        return Response({'reimbursed': reimbursed})
+    share.reimbursed = reimbursed
     share.save(update_fields=['reimbursed'])
     if share.charge.subscription_id:
         from finance.permissions import log_activity
@@ -249,8 +260,7 @@ def adjust_balance(request):
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def notifications(request):
-    from django.db.models.functions import Coalesce
-    recent = InAppNotification.objects.filter(recipient=request.user).exclude(notificationdelivery__snoozed_until__gt=timezone.now()).annotate(latest=Coalesce('last_reminded_at', 'created_at')).order_by('-latest', '-pk').select_related('team')[:50]
+    recent = recent_notifications(request.user)[:50]
     return Response({
         'notifications': [serialize_notification(notification) for notification in recent],
         'unread_count': notification_unread_count(request.user),
@@ -280,7 +290,5 @@ def mark_read(request, pk):
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def mark_all_read(request):
-    unread = InAppNotification.objects.filter(recipient=request.user, is_read=False)
-    if unread.update(is_read=True, read_at=timezone.now()):
-        push_bulk_read(request.user)
+    mark_all_notifications_read(request.user)
     return Response({'unread_count': notification_unread_count(request.user)})

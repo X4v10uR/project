@@ -88,14 +88,18 @@ def require_recent(request):
         raise PermissionDenied('Verify your current Subly password before this sensitive action.')
 
 
+def session_mfa_is_current(user, session):
+    revision = AccountSecurity.objects.filter(user=user, enabled=True).values_list('revision', flat=True).first()
+    return revision is None or session.get('mfa_revision') == revision
+
+
 class SecurityMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
         if request.user.is_authenticated:
-            security = AccountSecurity.objects.filter(user=request.user, enabled=True).first()
-            if security and request.session.get('mfa_revision') != security.revision:
+            if not session_mfa_is_current(request.user, request.session):
                 logout(request)
             elif request.path.endswith('/password/') or request.path.endswith('/password'):
                 # All API and legacy credential-reveal routes share this guard.

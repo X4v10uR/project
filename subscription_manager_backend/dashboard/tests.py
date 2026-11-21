@@ -10,13 +10,15 @@ from channels.db import database_sync_to_async
 from channels.layers import get_channel_layer
 from channels.testing import WebsocketCommunicator
 from django.conf import settings
-from django.db import transaction
+from django.db import connection, transaction
 from django.test import TestCase, Client, TransactionTestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
-from accounts.models import Team, TeamMembership
-from dashboard.services import _days_left_text
+from accounts.models import AccountSecurity, Team, TeamMembership
+from dashboard.services import _days_left_text, build_dashboard_view_model
+from finance.models import Activity, NotificationDelivery
 from subscriptions.models import InAppNotification, Subscription
 from subscriptions.notifications import create_notification
 from dashboard.models import BalanceAdjustment
@@ -58,6 +60,35 @@ class NotificationDeliveryTest(TestCase):
     CHANNEL_LAYERS={'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}},
 )
 class NotificationWebSocketTest(TransactionTestCase):
+    def test_socket_requires_current_mfa_revision_on_connect_and_delivery(self):
+        from subly.asgi import application
+
+        user = User.objects.create_user(email='socket-mfa@example.com')
+        security = AccountSecurity.objects.create(user=user, enabled=True, revision='current')
+        self.client.force_login(user)
+        session = self.client.session
+        session['mfa_revision'] = security.revision
+        session.save()
+        headers = [(b'origin', b'http://testserver'),
+                   (b'cookie', f'{settings.SESSION_COOKIE_NAME}={session.session_key}'.encode())]
+
+        async def scenario():
+            connection = WebsocketCommunicator(application, '/ws/notifications/', headers=headers)
+            self.assertTrue((await connection.connect())[0])
+            try:
+                await AccountSecurity.objects.filter(pk=security.pk).aupdate(revision='updated')
+                await get_channel_layer().group_send(f'notifications_user_{user.pk}', {'type': 'notification.bulk_read'})
+                self.assertEqual(await connection.receive_output(), {'type': 'websocket.close', 'code': 4401})
+            finally:
+                await connection.disconnect()
+            new_connection = WebsocketCommunicator(application, '/ws/notifications/', headers=headers)
+            try:
+                self.assertEqual(await new_connection.connect(), (False, 4401))
+            finally:
+                await new_connection.disconnect()
+
+        async_to_sync(scenario)()
+
     def test_logged_out_session_cannot_receive_further_events(self):
         from subly.asgi import application
 
@@ -296,6 +327,66 @@ class DashboardViewTest(TestCase):
             Decimal('52.00'),
         )
 
+    def test_resumed_plan_counts_toward_spend_balance_and_budget(self):
+        today = timezone.localdate()
+        plan = Subscription.objects.create(
+            user=self.user, service_name='Resumed', billing_cycle='monthly', currency='EUR',
+            cost=Decimal('12'), start_date=today, status='paused',
+            pause_from=today - timedelta(days=7), resume_on=today,
+        )
+        Subscription.objects.create(
+            user=self.user, service_name='On hold', billing_cycle='monthly', currency='EUR',
+            cost=Decimal('8'), start_date=today, status='active', pause_from=today,
+        )
+        self.client.put(reverse('dashboard_api:budget'), {'currency': 'EUR', 'monthly_limit': '10'},
+                        content_type='application/json')
+        response = self.client.post(reverse('dashboard_api:adjust_balance'),
+                                    {'currency': 'EUR', 'target_balance': '20'}, content_type='application/json')
+        self.assertEqual(response.json()['balance_adjustment_display'], '+EUR 8.00')
+        data = self.client.get(reverse('dashboard_api:home'), {'currency': 'EUR'}).json()
+        self.assertEqual(data['monthly_spend_by_currency'], {'EUR': '12.00'})
+        self.assertEqual((data['monthly_spend'], data['yearly_spend'], data['avg_monthly_spend']),
+                         ('12.00', '144.00', '12.00'))
+        self.assertEqual([row['id'] for row in data['active_subscriptions_panel']], [plan.pk])
+        self.assertEqual(data['stats_total_paused'], 'EUR 8.00')
+        self.assertEqual(data['balance_display'], 'EUR 20.00')
+        self.assertTrue(data['over_budget'])
+        self.assertTrue(InAppNotification.objects.filter(recipient=self.user, event_type='budget.exceeded').exists())
+
+    def test_next_bill_uses_first_charge_after_pause(self):
+        first = timezone.localdate() + timedelta(days=1)
+        resume = first + timedelta(weeks=1)
+        Subscription.objects.create(
+            user=self.user, service_name='Weekly', billing_cycle='weekly', cost=Decimal('10'),
+            start_date=first, pause_from=first, resume_on=resume,
+        )
+        data = self.client.get(reverse('dashboard_api:home')).json()
+        self.assertEqual(data['upcoming_bills'][0]['date'], resume.isoformat())
+        self.assertEqual(data['balance_chip_date'], resume.strftime('%m/%d'))
+
+    def test_dashboard_uses_its_reporting_date_for_prices(self):
+        today = timezone.localdate()
+        after_intro = today + timedelta(days=5)
+        Subscription.objects.create(
+            user=self.user, service_name='Intro', billing_cycle='monthly', cost=Decimal('15'),
+            start_date=today, introductory_cost=Decimal('5'), introductory_until=after_intro,
+        )
+        data = build_dashboard_view_model(self.user, today=after_intro)
+        self.assertEqual(data['monthly_spend'], Decimal('15'))
+        self.assertEqual(data['active_subscriptions_panel'][0]['amount'], '$15.00')
+        self.assertEqual(data['subscriptions_panel'][0]['subtitle'], '$15.00/monthly')
+
+    def test_forecast_reserves_custom_color_of_a_paused_plan_due_to_resume(self):
+        today = timezone.localdate()
+        fields = {'user': self.user, 'billing_cycle': 'weekly', 'cost': Decimal('5'), 'start_date': today}
+        Subscription.objects.create(service_name='Spotify', **fields)
+        Subscription.objects.create(service_name='Studio', display_color='#7BCFC0', status='paused',
+                                    resume_on=today + timedelta(weeks=1), **fields)
+        data = self.client.get(reverse('dashboard_api:home')).json()
+        colors = {row['service_name']: row['bg_style'] for row in data['upcoming_bills']}
+        self.assertEqual(colors['Studio'], 'background-color: #7BCFC0;')
+        self.assertNotEqual(colors['Spotify'].upper(), colors['Studio'].upper())
+
     def test_balance_trend_points_cover_30_days(self):
         response = self.client.get(reverse('dashboard:home'))
         points = response.context['balance_trend_points']
@@ -410,6 +501,46 @@ class DashboardViewTest(TestCase):
         self.assertEqual(response.status_code, 400)
         payload = response.json()
         self.assertFalse(payload['ok'])
+
+    def test_legacy_balance_rejects_unknown_scope_without_changing_personal_balance(self):
+        url = reverse('dashboard:adjust_balance')
+        for scope in ('team', False, []):
+            with self.subTest(scope=scope):
+                response = self.client.post(url, {'scope': scope, 'target_balance': '55'}, content_type='application/json')
+                self.assertEqual(response.status_code, 400)
+        self.assertFalse(BalanceAdjustment.objects.filter(user=self.user).exists())
+
+    def test_retrying_payment_and_reimbursement_records_each_change_once(self):
+        sub = Subscription.objects.create(user=self.user, service_name='Shared studio', billing_cycle='monthly',
+                                          cost=Decimal('16'), start_date=timezone.localdate())
+        charge = sub.transactions.create(user=self.user, service_name_snapshot=sub.service_name,
+                                         charged_for_date=sub.start_date, amount=Decimal('8'))
+        share = charge.shares.create(name='Colleague', amount=Decimal('8'))
+        for url, args, payload, action in (
+            ('dashboard_api:payment', [charge.pk], {'payment_status': 'paid'}, 'payment.status.changed'),
+            ('dashboard_api:share', [charge.pk, share.pk], {'reimbursed': True}, 'share.reimbursement.changed'),
+        ):
+            with self.subTest(action=action):
+                for _ in range(2):
+                    result = self.client.patch(reverse(url, args=args), payload, content_type='application/json')
+                    self.assertEqual(result.status_code, 200)
+                self.assertEqual(Activity.objects.filter(subscription=sub, action=action).count(), 1)
+
+    def test_history_loads_repayment_flags_without_a_query_per_share(self):
+        sub = Subscription.objects.create(user=self.user, service_name='Shared studio', billing_cycle='monthly',
+                                          cost=Decimal('16'), start_date=timezone.localdate())
+        charge = sub.transactions.create(user=self.user, service_name_snapshot=sub.service_name,
+                                         charged_for_date=sub.start_date, amount=Decimal('8'))
+        share = charge.shares.create(name='A', amount=Decimal('4'))
+        share.repayments.create(amount=Decimal('2'), recorded_by=self.user)
+        url = reverse('dashboard_api:history')
+        with CaptureQueriesContext(connection) as initial_queries:
+            self.client.get(url)
+        charge.shares.create(name='B', amount=Decimal('4'))
+        with CaptureQueriesContext(connection) as expanded_queries:
+            row = self.client.get(url).json()['results'][0]
+        self.assertEqual({s['name']: s['has_repayments'] for s in row['shares']}, {'A': True, 'B': False})
+        self.assertEqual(len(expanded_queries), len(initial_queries))
 
     def test_dashboard_does_not_mutate_stale_renewal_dates(self):
         today = timezone.localdate()
@@ -748,3 +879,30 @@ class NotificationApiTest(TestCase):
             InAppNotification.objects.filter(recipient=self.user, read_at__isnull=False).count(),
             2,
         )
+
+    def test_snoozed_notification_survives_mark_all_read_and_resurfaces(self):
+        now = timezone.now()
+        snoozed = InAppNotification.objects.create(recipient=self.user, title='Remind me later')
+        visible = InAppNotification.objects.create(recipient=self.user, title='Visible now')
+        delivery = NotificationDelivery.objects.create(notification=snoozed, deliver_after=now + timedelta(days=1),
+                                                        snoozed_until=now + timedelta(days=1))
+        for url in ('dashboard_api:notifications', 'dashboard:notifications_list_api'):
+            with self.subTest(url=url):
+                data = self.client.get(reverse(url)).json()
+                self.assertEqual([item['id'] for item in data['notifications']], [visible.pk])
+                self.assertEqual(data['unread_count'], 1)
+        self.assertNotContains(self.client.get(reverse('dashboard:notifications_page')), snoozed.title)
+        for url in ('dashboard_api:read_all', 'dashboard:notifications_mark_all_read_api'):
+            with self.subTest(url=url):
+                InAppNotification.objects.filter(pk=visible.pk).update(is_read=False, read_at=None)
+                self.assertEqual(self.client.post(reverse(url)).json()['unread_count'], 0)
+                snoozed.refresh_from_db()
+                self.assertFalse(snoozed.is_read)
+        delivery.snoozed_until = now - timedelta(minutes=1)
+        delivery.save()
+        snoozed.last_reminded_at = timezone.now()
+        snoozed.save()
+        for url in ('dashboard_api:notifications', 'dashboard:notifications_list_api'):
+            data = self.client.get(reverse(url)).json()
+            self.assertEqual([item['id'] for item in data['notifications']], [snoozed.pk, visible.pk])
+            self.assertEqual(data['unread_count'], 1)

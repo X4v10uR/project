@@ -15,7 +15,7 @@
             {% if notification.body %}
             <p class="text-sm text-slate-600 mt-1">{{ notification.body }}</p>
             {% endif %}
-            <p class="text-xs text-slate-400 mt-2">{{ notification.created_at|date:"M d, Y H:i" }}</p>
+            <p class="text-xs text-slate-400 mt-2">{{ notification.latest|date:"M d, Y H:i" }}</p>
             {% if notification.link_url %}
             <a href="{{ notification.link_url }}" class="inline-flex mt-2 text-sm text-slate-700 hover:text-slate-900 underline">Open</a>
             {% endif %}

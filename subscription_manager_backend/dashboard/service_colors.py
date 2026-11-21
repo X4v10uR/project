@@ -43,9 +43,9 @@ def _hex_to_rgb(color):
 
 def _rgb_to_hex(red, green, blue):
     return (
-        f'#{max(0, min(255, int(round(red)))):02x}'
-        f'{max(0, min(255, int(round(green)))):02x}'
-        f'{max(0, min(255, int(round(blue)))):02x}'
+        f'#{max(0, min(255, int(round(red)))):02X}'
+        f'{max(0, min(255, int(round(green)))):02X}'
+        f'{max(0, min(255, int(round(blue)))):02X}'
     )
 
 
@@ -98,28 +98,23 @@ def _pick_distinct_palette_color(seed_text, used_colors):
     return _generate_pastel_color(seed_text, used_colors)
 
 
-def build_service_color_map(active_subscriptions, recent_transactions):
-    service_order = []
-    custom_colors = {}
+def build_service_color_map(subscriptions, recent_transactions):
+    service_colors = {}
 
     def _add_service(name, color=""):
         normalized = _normalize_service_name(name)
-        if normalized and normalized not in service_order:
-            service_order.append(normalized)
-        normalized_color = normalize_subscription_display_color(color)
-        if normalized and normalized_color and normalized not in custom_colors:
-            custom_colors[normalized] = normalized_color
+        if normalized and not service_colors.get(normalized):
+            service_colors[normalized] = normalize_subscription_display_color(color)
 
-    for subscription in active_subscriptions:
+    for subscription in subscriptions:
         _add_service(subscription.service_name, getattr(subscription, "display_color", ""))
     for transaction in recent_transactions:
         _add_service(transaction.service_name_snapshot)
 
-    used_colors = set()
+    used_colors = {color for color in service_colors.values() if color}
     color_map = {}
 
-    for normalized in service_order:
-        custom_color = custom_colors.get(normalized)
+    for normalized, custom_color in service_colors.items():
         if custom_color:
             color_map[normalized] = custom_color
             continue
