@@ -15,8 +15,8 @@ async function signUp(page: Page) {
 test('public pages show local brand marks and recover from a missing image', async ({ page }) => {
   await page.route(url => url.protocol === 'https:', route => route.abort())
   await page.goto('/')
-  const logos = page.getByRole('region', { name: 'Track the services you use' }).locator('img')
-  await expect(logos).toHaveCount(6)
+  const logos = page.getByRole('region', { name: 'Track the services you use' }).locator('.lp-service-logo-group:not([aria-hidden]) img')
+  await expect(logos).toHaveCount(14)
   await expect.poll(() => logos.evaluateAll(images => images.every(img => img.naturalWidth > 0 && img.getBoundingClientRect().width > 0))).toBe(true)
 
   await page.route('**/service-icons/netflix.svg', route => route.abort())
