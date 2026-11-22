@@ -1,0 +1,176 @@
+/* Glass belongs to floating controls. Reading surfaces stay solid. */
+.lp-liquid-surface {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  backdrop-filter: blur(4px) saturate(150%);
+  -webkit-backdrop-filter: blur(4px) saturate(150%);
+}
+
+/* A clear, beveled edge catches light without washing out the lens beneath. */
+.lp-liquid-surface::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #ffffffed 0%, #ffffff47 22%, #ffffff08 38%, #d7f9ff9c 62%, #ffffffed 81%, #ffdff370 100%);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+}
+
+/* Scope the library's utility styles instead of scanning all dependencies. */
+.lp-liquid-surface > .bg-black { display: none; }
+/* Keep the rim aligned when web fonts change the dock's intrinsic width. */
+.lp-liquid-surface > span, .lp-liquid-body > svg { width: 100% !important; height: 100% !important; }
+.lp-liquid-body > svg { pointer-events: none; }
+.lp-liquid-body .glass {
+  width: 100%;
+  height: 100%;
+  border: 1px solid #ffffff85;
+  background: #f7f9f2d9;
+  box-shadow: 0 8px 24px #15251a1a, inset 0 2px 2px #fff, inset 0 -2px 3px #ffffffb3, inset 2px 0 5px #ffffff70 !important;
+}
+.lp-liquid-body .glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(155deg, #ffffff3d, #ffffff05 45%, #ffffff1f);
+}
+.lp-liquid-body .glass__warp { -webkit-backdrop-filter: blur(4.8px) saturate(155%); }
+.lp-liquid-surface[data-tone='dark'] .glass {
+  border-color: #ffffff8c;
+  background: #171e1afa;
+  box-shadow: 0 14px 38px #00000026, 0 3px 8px #0000001a, inset 0 2px 2px #ffffffb3, inset 0 -2px 3px #ffffff73, inset 2px 0 6px #ffffff40, inset -2px 0 5px #c2edff33 !important;
+}
+.lp-liquid-surface[data-tone='dark'] .glass::after {
+  background: linear-gradient(155deg, #ffffff24, #ffffff00 45%, #ffffff0a);
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .lp-liquid-body .glass, .lp-liquid-surface[data-tone='dark'] .glass { background: transparent; }
+  .lp-liquid-body .glass::after { background: linear-gradient(165deg, #ffffffa6, #f4f8ee40 48%, #ffffff66); }
+  .lp-liquid-surface[data-tone='dark'] .glass::after { background: linear-gradient(180deg, #ffffff33 0%, #1018136b 17%, #10181380 50%, #10181380 82%, #ffffff26 100%); }
+}
+
+.lp-floating-nav {
+  gap: 5px;
+  padding: 8px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.lp-floating-nav > a {
+  position: relative;
+  min-height: 46px;
+  padding-inline: 17px;
+  color: #fff;
+  background: #09141138;
+  text-shadow: 0 1px 3px #00000066;
+  border: 1px solid transparent;
+  transition: background .2s, border-color .2s, box-shadow .2s;
+}
+.lp-floating-nav > a[aria-current] {
+  color: #172219;
+  text-shadow: 0 1px 0 #ffffff66;
+  border-color: #ffffffb3;
+  background: linear-gradient(155deg, #ffffffed, #ffffffb3 55%, #ffffffcc);
+  box-shadow: inset 0 2px 2px #fff, inset 0 -1px 2px #ffffff99, 0 2px 6px #00000026;
+}
+.lp-floating-nav > a:hover { background: #09141159; }
+.lp-floating-nav > a[aria-current]:hover { background: #ffffffe6; }
+.lp-floating-nav > .lp-floating-signup {
+  color: #172007;
+  text-shadow: 0 1px 0 #ffffff4d;
+  border-color: #e1ff90b3;
+  background: linear-gradient(160deg, #eaffbfe6, #c7f631c9 55%, #d7ff75e6);
+  box-shadow: inset 0 2px 2px #ffffffe6, inset 0 -2px 2px #a3ca2280, 0 2px 6px #00000026;
+}
+.lp-floating-nav > .lp-floating-signup:hover { background: #dcff80; }
+.lp-floating-nav a:focus-visible { outline-color: #d8ff78; outline-offset: 3px; }
+
+.lp-demo-dock {
+  position: relative;
+  z-index: 0;
+  gap: 4px;
+  margin-top: 22px;
+  padding: 5px;
+  border: 0;
+  background: transparent;
+}
+.lp-demo-dock button, .lp-demo-dock > a {
+  position: relative;
+  min-height: 40px;
+  color: #34422a;
+  transition: background .2s, box-shadow .2s, color .2s;
+}
+.lp-demo-dock button[aria-pressed='true'] {
+  background: linear-gradient(155deg, #4d6544e6, #273120d9);
+  box-shadow: inset 0 2px 2px #ffffff8c, inset 0 -1px 1px #ffffff40, 0 2px 5px #1e2b2026;
+}
+.lp-demo-dock button:not([aria-pressed='true']):hover { background: #ffffff70; }
+.lp-demo-dock > a { background: #dceca9a6; box-shadow: inset 0 1px 0 #ffffff80; }
+.lp-demo-dock > a:hover { background: #dceca9; }
+
+/* A quieter version of the material for the two small overlay surfaces. */
+.lp-notification, .lp-mobile-nav {
+  border-color: #ffffffbd;
+  background: #fbf5f9f2;
+  box-shadow: 0 18px 45px #50263c1f, inset 0 2px 2px #fff, inset 0 -2px 2px #ffffffb3, inset 2px 0 4px #ffffff66;
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .lp-notification, .lp-mobile-nav {
+    background: linear-gradient(135deg, #ffffff8c, #ffffff33 55%, #ffffff59);
+    backdrop-filter: blur(10px) saturate(150%);
+    -webkit-backdrop-filter: blur(10px) saturate(150%);
+  }
+  .lp-mobile-nav { background: linear-gradient(135deg, #ffffffcc, #ffffff80); }
+}
+.lp-notification { border-radius: 24px; }
+.lp-notification > p { color: #574451; }
+.lp-notification-app > span, .lp-notification > div > span:last-child { color: #65505f; }
+.lp-mobile-nav { padding: 10px; }
+.lp-mobile-nav a { border-radius: 11px; transition: background .2s; }
+.lp-mobile-nav a:hover, .lp-mobile-nav a:focus-visible { background: #ffffffa3; }
+
+/* Small refinements to the surrounding composition. */
+.lp-hero-pill { border-color: #ffffff; background: linear-gradient(135deg, #fff, #ffffff85); box-shadow: 0 4px 18px #2830200a, inset 0 -1px 0 #1b28120a; }
+.lp-hero-pill a { color: #555b50; }
+.lp-button-dark { box-shadow: inset 0 1px 0 #ffffff24, 0 3px 7px #0000000b; }
+.lp-button-outline { box-shadow: inset 0 1px 0 #ffffffad; }
+.lp-showcase-card { box-shadow: 0 14px 36px #11170d14, 0 2px 6px #0000000a; }
+.lp-dashboard-visual { background: radial-gradient(ellipse at 20% 0, #edf0d9, transparent 65%), #d8dacd; }
+.lp-demo { box-shadow: 0 18px 45px #33382920, 0 2px 5px #33382912; }
+.lp-card-caption > span { color: #c6c6c2; border: 1px solid #ffffff12; }
+
+@media (max-width: 600px) {
+  .lp-floating-nav { gap: 2px; padding: 6px; }
+  .lp-floating-nav > a { padding-inline: 10px; font-size: .75rem; }
+  .lp-floating-nav > .lp-floating-signup { margin-left: 1px; padding-inline: 12px; }
+  .lp-demo-dock { gap: 2px; }
+}
+@media (max-width: 360px) {
+  .lp-floating-nav { gap: 0; }
+  .lp-floating-nav > a { padding-inline: 6px; font-size: .6875rem; }
+  .lp-floating-nav > .lp-floating-signup { padding-inline: 8px; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .lp-liquid-surface { backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .lp-liquid-body .glass { background: #f1f5e8; }
+  .lp-liquid-surface[data-tone='dark'] .glass { background: #202920; }
+  .lp-liquid-body .glass__warp { display: none; }
+  .lp-notification, .lp-mobile-nav { background: #fbf5f9; backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+@media (forced-colors: active) {
+  .lp-liquid-surface { display: none; }
+  .lp-floating-nav, .lp-demo-dock, .lp-notification, .lp-mobile-nav { border: 1px solid CanvasText; background: Canvas; }
+  .lp-floating-nav > a, .lp-demo-dock button { color: LinkText; }
+  .lp-floating-nav > a[aria-current], .lp-demo-dock button[aria-pressed='true'] { outline: 2px solid Highlight; outline-offset: -3px; }
+}

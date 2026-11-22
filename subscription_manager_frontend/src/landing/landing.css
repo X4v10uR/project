@@ -674,6 +674,9 @@ html:has(.lp-page) { min-width: 0; }
   .lp-about > div:first-child { gap: 8px; }
   .lp-about .lp-eyebrow { max-width: 75px; font-size: .625rem; }
 }
+@media (min-width: 601px) {
+  .lp-mobile-nav { display: none; }
+}
 @media (prefers-reduced-motion: no-preference) {
   .lp-hero-pill { animation: lp-appear .5s cubic-bezier(.22, 1, .36, 1) both; }
   .lp-hero-headline { animation: lp-appear .65s .07s cubic-bezier(.22, 1, .36, 1) both; }

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   Bell, CalendarDays, ChartNoAxesCombined, Check, ChevronDown, CreditCard,
   LayoutGrid, Menu, Pause, Play, Plus, ShieldCheck, Smile, Sparkles, UsersRound, X, Zap,
@@ -9,11 +9,13 @@ import { useAuth } from '../accounts'
 import { useSmoothPageScroll } from './useSmoothPageScroll'
 import { useLandingMotion } from './useLandingMotion'
 import { LandingNavigation } from './LandingNavigation'
+import { LandingGlass } from './LandingGlass'
 import { ProcessThread, SubscriptionStack } from './LandingIllustrations'
 import './landing.css'
+import './landing-glass.css'
 
 function Logo() {
-  return <Link className="lp-logo" to="/" aria-label="Subly home"><Zap fill="currentColor" strokeWidth={2.5} aria-hidden="true"/>subly<span>.</span></Link>
+  return <a className="lp-logo" href="#top" aria-label="Subly home"><Zap fill="currentColor" strokeWidth={2.5} aria-hidden="true"/>subly<span>.</span></a>
 }
 
 function Sticker({ children, className = '' }: { children: ReactNode; className?: string }) {
@@ -99,11 +101,11 @@ function ProductPreview() {
         {view === 'overview' ? <>
           <div className="lp-demo-stats"><div><button className="lp-period" type="button" onClick={() => setYearly(!yearly)} aria-label={`Show ${yearly ? 'monthly' : 'yearly'} spending`}>{yearly ? 'Yearly' : 'Monthly'} spending<ChevronDown size={13}/></button><strong className={yearly ? 'lp-demo-amount-yearly' : undefined}>${(total * (yearly ? 12 : 1)).toFixed(2)}<small>/{yearly ? 'yr' : 'mo'}</small></strong><span>Every little thing, accounted for.</span></div><div><span>Active subscriptions</span><strong>{services.length}<small>services</small></strong><div className="lp-demo-service-stack">{services.slice(0, 4).map(service => <ServiceIcon key={service.name} name={service.name}/>)}</div></div></div>
           <MiniChart/>
-        </> : <div className="lp-demo-calendar"><div className="lp-weekdays">{['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, index) => <span key={index}>{day}</span>)}</div><div className="lp-days">{Array.from({ length: 6 }, (_, index) => <span key={`blank-${index}`}/>)}{Array.from({ length: 30 }, (_, index) => <span className={services.some(service => service.day === index + 1) ? 'lp-calendar-charge' : ''} key={index}>{index + 1}</span>)}</div></div>}
+        </> : <div className="lp-demo-calendar" role="img" aria-label={`November 2026 renewal calendar. ${services.map(service => `November ${service.day}: ${service.name}, $${service.amount.toFixed(2)}`).join('. ')}.`}><div className="lp-weekdays" aria-hidden="true">{['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, index) => <span key={index}>{day}</span>)}</div><div className="lp-days" aria-hidden="true">{Array.from({ length: 6 }, (_, index) => <span key={`blank-${index}`}/>)}{Array.from({ length: 30 }, (_, index) => <span className={services.some(service => service.day === index + 1) ? 'lp-calendar-charge' : ''} key={index}>{index + 1}</span>)}</div></div>}
         <div className="lp-demo-table-title"><strong>Upcoming renewals</strong><span>Example data · USD</span></div>
         <div className="lp-demo-table">{services.slice(0, 3).map(service => <div className="lp-demo-row" key={service.name}><ServiceIcon name={service.name}/><div><strong>{service.name}</strong><span>{service.plan}</span></div><span className="lp-renewal-date">Nov {service.day}</span><strong>${service.amount.toFixed(2)}</strong></div>)}</div>
       </div>
-      <nav className="lp-demo-dock" aria-label="Demo views"><button type="button" onClick={() => setView('overview')} aria-pressed={view === 'overview'}><LayoutGrid size={15}/>Overview</button><button type="button" onClick={() => setView('calendar')} aria-pressed={view === 'calendar'}><CalendarDays size={15}/>Calendar</button><Link to="/accounts/signup/" aria-label="Create an account to add a subscription"><Plus size={17}/></Link></nav>
+      <nav className="lp-demo-dock" aria-label="Demo views"><LandingGlass/><button type="button" onClick={() => setView('overview')} aria-pressed={view === 'overview'}><LayoutGrid size={15}/>Overview</button><button type="button" onClick={() => setView('calendar')} aria-pressed={view === 'calendar'}><CalendarDays size={15}/>Calendar</button><Link to="/accounts/signup/" aria-label="Create an account to add a subscription"><Plus size={17}/></Link></nav>
     </div>
   </div>
 }
@@ -153,21 +155,44 @@ export function LandingPage() {
   useSmoothPageScroll(!user)
   const pageRef = useLandingMotion(!user)
   const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const menuToggleRef = useRef<HTMLButtonElement>(null)
   const [openFaq, setOpenFaq] = useState<number | null>(0)
 
   useEffect(() => {
     const previousTitle = document.title
     document.title = 'Subly — Small subscriptions. Big picture.'
-    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setMenuOpen(false) }
-    document.addEventListener('keydown', closeOnEscape)
-    return () => { document.title = previousTitle; document.removeEventListener('keydown', closeOnEscape) }
+    return () => { document.title = previousTitle }
   }, [])
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const desktop = window.matchMedia('(min-width: 601px)')
+    const closeOnDesktop = () => { if (desktop.matches) setMenuOpen(false) }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setMenuOpen(false)
+      menuToggleRef.current?.focus()
+    }
+    const closeOnOutsidePress = (event: PointerEvent) => {
+      if (event.target instanceof Node && !menuRef.current?.contains(event.target) && !menuToggleRef.current?.contains(event.target)) setMenuOpen(false)
+    }
+    closeOnDesktop()
+    desktop.addEventListener('change', closeOnDesktop)
+    document.addEventListener('keydown', closeOnEscape)
+    document.addEventListener('pointerdown', closeOnOutsidePress)
+    return () => {
+      desktop.removeEventListener('change', closeOnDesktop)
+      document.removeEventListener('keydown', closeOnEscape)
+      document.removeEventListener('pointerdown', closeOnOutsidePress)
+    }
+  }, [menuOpen])
 
   if (!loading && user) return <Navigate replace to="/dashboard/"/>
 
   return <div className="lp-page" id="top" ref={pageRef}>
     <a className="lp-skip-link" href="#main-content">Skip to content</a>
-    <header className="lp-header"><nav className="lp-nav" aria-label="Primary navigation"><Logo/><div className="lp-nav-links"><a href="#features">The good stuff</a><a href="#how-it-works">How it works</a><a href="#pricing">Pricing</a></div><div className="lp-nav-actions"><Link className="lp-login" to="/accounts/login/">Log in</Link><Link className="lp-button lp-button-dark" to="/accounts/signup/">Get started free<Plus size={15}/></Link><button className="lp-menu-toggle" type="button" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={menuOpen} aria-controls="lp-mobile-nav">{menuOpen ? <X/> : <Menu/>}</button></div>{menuOpen && <div className="lp-mobile-nav" id="lp-mobile-nav"><a href="#features" onClick={() => setMenuOpen(false)}>The good stuff</a><a href="#how-it-works" onClick={() => setMenuOpen(false)}>How it works</a><a href="#pricing" onClick={() => setMenuOpen(false)}>Pricing</a><a href="#questions" onClick={() => setMenuOpen(false)}>FAQs</a><Link to="/accounts/login/">Log in</Link></div>}</nav></header>
+    <header className="lp-header"><nav className="lp-nav" aria-label="Primary navigation" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setMenuOpen(false) }}><Logo/><div className="lp-nav-links"><a href="#features">The good stuff</a><a href="#how-it-works">How it works</a><a href="#pricing">Pricing</a></div><div className="lp-nav-actions"><Link className="lp-login" to="/accounts/login/">Log in</Link><Link className="lp-button lp-button-dark" to="/accounts/signup/">Get started free<Plus size={15}/></Link><button ref={menuToggleRef} className="lp-menu-toggle" type="button" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={menuOpen} aria-controls="lp-mobile-nav">{menuOpen ? <X/> : <Menu/>}</button></div>{menuOpen && <div ref={menuRef} className="lp-mobile-nav" id="lp-mobile-nav"><a href="#features" onClick={() => setMenuOpen(false)}>The good stuff</a><a href="#how-it-works" onClick={() => setMenuOpen(false)}>How it works</a><a href="#pricing" onClick={() => setMenuOpen(false)}>Pricing</a><a href="#questions" onClick={() => setMenuOpen(false)}>FAQs</a><Link to="/accounts/login/">Log in</Link></div>}</nav></header>
 
     <main id="main-content">
       <section className="lp-hero" aria-labelledby="lp-hero-title"><div className="lp-hero-pill"><span/>Less life admin. More living.<span className="lp-pill-divider"/><a href="#preview">Meet Subly<Plus size={13}/></a></div><div className="lp-hero-headline"><h1 id="lp-hero-title" aria-label="Small subscriptions. Big picture."><span className="lp-hero-line">SMALL SUBSCRIPTIONS.</span><span className="lp-hero-line lp-hero-line-large">BIG PICTURE.</span></h1><Sticker className="lp-sticker-orange lp-hero-sticker">Get your money’s worth</Sticker><span className="lp-smile-sticker" aria-hidden="true"><Smile strokeWidth={1.65}/></span><span className="lp-starburst" aria-label="100 percent free"><span>100%<small>FREE. REALLY.</small></span></span><Sticker className="lp-sticker-pink lp-hero-sticker-right">A little more in control.</Sticker></div><p>All your subscriptions, spending, and renewals in one happy place.<br className="lp-desktop-break"/> Less “wait, I’m still paying for that?” More peace of mind.</p><div className="lp-hero-actions"><Link className="lp-button lp-button-dark" to="/accounts/signup/">Get my subscriptions together<Plus size={16}/></Link><a className="lp-button lp-button-outline" href="#preview">Take a look inside</a></div><span className="lp-hero-note">Free to use. No credit card. No extra subscription.</span></section>

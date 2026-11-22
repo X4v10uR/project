@@ -1,8 +1,10 @@
-import { useEffect, useState, type RefObject } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { LayoutGrid, Plus, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { LandingGlass } from './LandingGlass'
 
 export function LandingNavigation({ pageRef }: { pageRef: RefObject<HTMLDivElement | null> }) {
+  const navigationRef = useRef<HTMLElement>(null)
   const [visible, setVisible] = useState(false)
   const [active, setActive] = useState('features')
 
@@ -32,7 +34,8 @@ export function LandingNavigation({ pageRef }: { pageRef: RefObject<HTMLDivEleme
     return () => { visibility.disconnect(); sections.disconnect() }
   }, [pageRef])
 
-  return <nav className="lp-floating-nav" aria-label="Page sections" data-visible={visible} aria-hidden={!visible} inert={!visible}>
+  return <nav ref={navigationRef} className="lp-floating-nav" aria-label="Page sections" data-visible={visible} aria-hidden={!visible} inert={!visible}>
+    <LandingGlass tone="dark" mouseContainer={navigationRef} active={visible}/>
     <a href="#features" aria-current={active === 'features' ? 'location' : undefined}><LayoutGrid size={16} aria-hidden="true"/><span>Features</span></a>
     <a href="#how-it-works" aria-current={active === 'how-it-works' ? 'location' : undefined}><Sparkles size={16} aria-hidden="true"/><span>How it works</span></a>
     <a href="#pricing" aria-current={active === 'pricing' ? 'location' : undefined}><span className="lp-nav-price" aria-hidden="true">$0</span><span>Pricing</span></a>
