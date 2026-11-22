@@ -37,6 +37,7 @@ type Overview = {
   teams: TeamCard[]
   subscriptions: TeamSubscription[]
   monthly_spend_by_currency: Record<string, string>
+  received_invites: { id: number; team_name: string; role: Role; expires_at: string }[]
 }
 
 function teamPath(id: number) {
@@ -48,10 +49,12 @@ export function TeamStatus({ status }: { status: string }) {
 }
 
 export function TeamsPage() {
+  const navigate = useNavigate()
   const { state } = useLocation()
   const [data, setData] = useState<Overview | null>(null)
   const [selectedTeam, setSelectedTeam] = useState('')
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -62,6 +65,22 @@ export function TeamsPage() {
     })
     return () => { active = false }
   }, [])
+
+  async function acceptInvite(id: number) {
+    setError('')
+    setSaving(true)
+    try {
+      const reply = await api<{ team_id: number }>(`/api/accounts/invites/${id}/accept/`, { method: 'POST' })
+      navigate(teamPath(reply.team_id), { state: { notice: 'You joined the team.' } })
+    } catch (failure) {
+      setError(messageFrom(failure))
+      try {
+        setData(await api<Overview>('/api/accounts/teams/'))
+      } catch { /* Preserve the acceptance error for retry. */ }
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const subscriptions = data?.subscriptions.filter((item) => !selectedTeam || String(item.team_id) === selectedTeam) ?? []
   return (
@@ -74,6 +93,15 @@ export function TeamsPage() {
       <StatusMessage message={typeof state?.notice === 'string' ? state.notice : ''} />
       {!data && !error && <p role="status" className="text-sm text-zinc-600">Loading teams…</p>}
       {data && <>
+        {!!data.received_invites?.length && <section className={panelClass}>
+          <h2 className="mb-3 text-lg font-bold">Invitations to join</h2>
+          <ul className="grid gap-3">
+            {data.received_invites.map(invite => <li key={invite.id} className="flex flex-wrap items-center justify-between gap-3">
+              <div><p className="font-semibold">{invite.team_name}</p><p className="text-sm text-zinc-600">Join as {invite.role} · Expires {new Date(invite.expires_at).toLocaleString()}</p></div>
+              <button type="button" className={primaryClass} disabled={saving} onClick={() => void acceptInvite(invite.id)}>Accept invitation</button>
+            </li>)}
+          </ul>
+        </section>}
         <div className="grid gap-3 sm:grid-cols-3">
           <div className={panelClass}><p className="text-sm font-medium text-zinc-600">Teams</p><p className="mt-1 text-2xl font-bold">{data.teams.length}</p></div>
           <div className={panelClass}><p className="text-sm font-medium text-zinc-600">Team subscriptions</p><p className="mt-1 text-2xl font-bold">{data.subscriptions.length}</p></div>

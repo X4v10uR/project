@@ -3,6 +3,7 @@ import logging
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.db import DatabaseError
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
@@ -152,8 +153,15 @@ def team_invite(request, team_id):
 @require_http_methods(['GET', 'POST'])
 @never_cache
 def invite_accept(request, token):
+    invite_errors = {}
     if request.method == 'POST':
-        result = flows.redeem_invite(token=token, user=request.user)
+        signup_data = request.POST.dict() if 'password1' in request.POST or 'password2' in request.POST else None
+        try:
+            result = flows.redeem_invite(token=token, user=request.user, signup_data=signup_data)
+        except ValidationError as error:
+            invite_errors = error.message_dict
+            invite = resolve_invite(token)
+            result = {'invite': invite, 'result': flows.invite_access_status(invite, request.user)}
         invite, status = result['invite'], result['result']
         if status in {'accepted', 'already_member'}:
             user = result['user']
@@ -169,7 +177,9 @@ def invite_accept(request, token):
         invite = resolve_invite(token)
         status = flows.invite_access_status(invite, request.user)
 
-    return render(request, 'accounts/invite_accept.html', {'invite': invite, 'invite_status': status})
+    return render(request, 'accounts/invite_accept.html', {
+        'invite': invite, 'invite_status': status, 'invite_errors': invite_errors,
+    })
 
 @login_required
 @never_cache

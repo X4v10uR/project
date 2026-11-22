@@ -3,6 +3,7 @@ from zoneinfo import available_timezones
 
 from django.contrib.auth import login, logout
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, SetPasswordForm
+from django.core.exceptions import ValidationError as FormValidationError
 from django.utils.decorators import method_decorator
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -256,6 +257,12 @@ class TeamsView(AccountView):
             'monthly_spend_by_currency': {
                 currency: str(amount) for currency, amount in data['teams_monthly_spend_by_currency'].items()
             },
+            'received_invites': [
+                {'id': invite.pk, 'team_name': invite.team.name, 'role': invite.role, 'expires_at': invite.expires_at}
+                for invite in flows.received_team_invites(request.user).filter(
+                    accepted_at__isnull=True, revoked_at__isnull=True, expires_at__gt=timezone.now(),
+                ).select_related('team')
+            ],
         })
 
     def post(self, request):
@@ -302,6 +309,16 @@ class TeamDetailView(AccountView):
                 }
                 for item in data['pending_requests']
             ],
+            'pending_invites': [
+                {
+                    'id': invite.pk,
+                    'email': invite.email,
+                    'role': invite.role,
+                    'expires_at': invite.expires_at,
+                    'status': flows.invite_status(invite),
+                }
+                for invite in team.invites.filter(accepted_at__isnull=True, revoked_at__isnull=True)
+            ] if data['is_team_owner'] else [],
         })
 
     def delete(self, request, team_id):
@@ -359,7 +376,14 @@ class TeamInviteView(AccountView):
         result = flows.invite_team_member(
             team=team, actor=request.user, send_invite=send_team_invite_email, **form.cleaned_data
         )
-        return Response(result, status=201)
+        return Response(result, status=201, headers={'Cache-Control': 'no-store'})
+
+
+class TeamInviteDetailView(AccountView):
+    def delete(self, request, team_id, invite_id):
+        team = flows.get_team_or_404_for_user(request.user, team_id)
+        message = flows.revoke_team_invite(team=team, invite_id=invite_id, actor=request.user)
+        return Response({'message': message})
 
 
 class TeamSubscriptionPasswordView(AccountView):
@@ -400,7 +424,39 @@ def invite_details(invite, user):
         'role': invite.role,
         'email': invite.email,
         'current_email': user.email if user.is_authenticated else None,
+        'requires_account': not user.is_authenticated and not User.objects.filter(email__iexact=invite.email).exists(),
     }
+
+
+def invite_redemption_response(request, result):
+    status = result['result']
+    invite = result['invite']
+    headers = {'Cache-Control': 'no-store'}
+    if status not in ('accepted', 'already_member'):
+        details = invite_details(invite, request.user)
+        messages = {
+            'sign_in_required': 'Sign in with the invited email to accept this invitation.',
+            'email_mismatch': 'Switch to the invited account before accepting this invitation.',
+            'expired': 'This invitation has expired. Ask the team owner for a new link.',
+            'revoked': 'This invitation has been revoked.',
+            'already_used': 'This invitation has already been used.',
+            'invalid': 'This invitation is invalid.',
+        }
+        status_code = {
+            'sign_in_required': 403, 'email_mismatch': 409, 'already_used': 409,
+            'expired': 410, 'revoked': 410, 'invalid': 404,
+        }.get(status, 400)
+        return Response(
+            {**details, 'status': status, 'detail': messages.get(status, 'Unable to accept the invitation.')},
+            status=status_code, headers=headers,
+        )
+
+    user = result['user']
+    if status == 'accepted':
+        flows.notify_invite_accepted(invite=invite, membership=result['membership'], user=user)
+    if not request.user.is_authenticated:
+        login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+    return Response({'status': status, 'team_id': invite.team_id, 'user': account_user(user)}, headers=headers)
 
 
 class AcceptInviteView(PublicAccountView):
@@ -408,33 +464,16 @@ class AcceptInviteView(PublicAccountView):
         return Response(invite_details(resolve_invite(token), request.user), headers={'Cache-Control': 'no-store'})
 
     def post(self, request, token):
-        payload(request)
-        result = flows.redeem_invite(token=token, user=request.user)
-        status = result['result']
-        invite = result['invite']
-        headers = {'Cache-Control': 'no-store'}
-        if status not in ('accepted', 'already_member'):
-            details = invite_details(invite, request.user)
-            messages = {
-                'sign_in_required': 'Sign in with the invited email to accept this invitation.',
-                'email_mismatch': 'Switch to the invited account before accepting this invitation.',
-                'expired': 'This invitation has expired. Ask the team owner for a new link.',
-                'revoked': 'This invitation has been revoked.',
-                'already_used': 'This invitation has already been used.',
-                'invalid': 'This invitation is invalid.',
-            }
-            status_code = {
-                'sign_in_required': 403, 'email_mismatch': 409, 'already_used': 409,
-                'expired': 410, 'revoked': 410, 'invalid': 404,
-            }.get(status, 400)
-            return Response(
-                {**details, 'status': status, 'detail': messages.get(status, 'Unable to accept the invitation.')},
-                status=status_code, headers=headers,
-            )
+        data = payload(request)
+        signup_data = data if 'password1' in data or 'password2' in data else None
+        try:
+            result = flows.redeem_invite(token=token, user=request.user, signup_data=signup_data)
+        except FormValidationError as error:
+            return Response(error.message_dict, status=400, headers={'Cache-Control': 'no-store'})
+        return invite_redemption_response(request, result)
 
-        user = result['user']
-        if status == 'accepted':
-            flows.notify_invite_accepted(invite=invite, membership=result['membership'], user=user)
-        if not request.user.is_authenticated:
-            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-        return Response({'status': status, 'team_id': invite.team_id, 'user': account_user(user)}, headers=headers)
+
+class AcceptReceivedInviteView(AccountView):
+    def post(self, request, invite_id):
+        result = flows.redeem_invite(user=request.user, received_invite_id=invite_id)
+        return invite_redemption_response(request, result)

@@ -20,6 +20,7 @@ urlpatterns = [
     path('teams/<int:team_id>/members/<int:membership_id>/', views.TeamMemberView.as_view(), name='team_member'),
     path('teams/<int:team_id>/leave/', views.TeamLeaveView.as_view(), name='team_leave'),
     path('teams/<int:team_id>/invite/', views.TeamInviteView.as_view(), name='team_invite'),
+    path('teams/<int:team_id>/invites/<int:invite_id>/', views.TeamInviteDetailView.as_view(), name='team_invite_detail'),
     path('teams/<int:team_id>/subscriptions/<int:subscription_id>/renewal/', update_renewal, name='team_renewal'),
     path(
         'teams/<int:team_id>/subscriptions/<int:subscription_id>/password/',
@@ -28,4 +29,5 @@ urlpatterns = [
     ),
     path('teams/requests/<int:request_id>/<str:action>/', views.TeamRequestReviewView.as_view(), name='request_review'),
     path('invites/accept/<str:token>/', views.AcceptInviteView.as_view(), name='invite_accept'),
+    path('invites/<int:invite_id>/accept/', views.AcceptReceivedInviteView.as_view(), name='received_invite_accept'),
 ]

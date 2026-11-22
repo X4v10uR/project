@@ -59,7 +59,7 @@ def send_team_invite_email(invite, raw_token):
     subject = render_to_string("emails/team_invite_subject.txt", context).strip()
     body = render_to_string("emails/team_invite.txt", context)
     html_body = render_to_string("emails/team_invite.html", context)
-    send_mail(
+    sent = send_mail(
         subject=subject,
         message=body,
         from_email=settings.DEFAULT_FROM_EMAIL,
@@ -67,6 +67,8 @@ def send_team_invite_email(invite, raw_token):
         html_message=html_body,
         fail_silently=False,
     )
+    if not sent:
+        raise RuntimeError('Email backend did not send the invitation.')
 
 
 def resolve_invite(raw_token):

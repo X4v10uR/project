@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { Eye, EyeOff, Zap } from 'lucide-react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { api } from '../api'
+import { api, ApiError } from '../api'
 import { type AccountUser, useAuth } from './auth'
 import { ErrorMessage, Field, fieldClass, formData, messageFrom, primaryClass, secondaryClass } from './Controls'
 
@@ -74,7 +74,7 @@ function AuthForm({ signup = false }: { signup?: boolean }) {
       <h1 className="mb-6 text-3xl font-bold tracking-tight">{signup ? 'Create account' : 'Sign in'}</h1>
       <form onSubmit={submit} className="grid gap-4">
         <ErrorMessage message={error} />
-        <Field label="Email"><input name="email" type="email" autoComplete="username" required className={fieldClass} /></Field>
+        <Field label="Email"><input name="email" type="email" autoComplete="username" defaultValue={search.get('email') ?? ''} required className={fieldClass} /></Field>
         <div className="grid gap-1.5 text-sm font-semibold text-zinc-800">
           <label htmlFor="auth-password">Password</label>
           <PasswordInput id="auth-password" name={signup ? 'password1' : 'password'} autocomplete={signup ? 'new-password' : 'current-password'} />
@@ -113,6 +113,7 @@ type Invite = {
   team_name?: string
   email?: string
   current_email?: string | null
+  requires_account?: boolean
 }
 
 const inviteTitles: Record<InviteStatus, string> = {
@@ -135,6 +136,7 @@ export function InviteAcceptPage() {
   const endpoint = '/api/accounts/invites/accept/' + encodeURIComponent(token ?? '') + '/'
   const loginPath = '/accounts/login/?' + new URLSearchParams({
     next: '/accounts/invites/accept/' + encodeURIComponent(token ?? '') + '/',
+    email: invite?.email ?? '',
   })
 
   useEffect(() => {
@@ -149,17 +151,22 @@ export function InviteAcceptPage() {
     return () => { active = false }
   }, [endpoint])
 
-  async function accept() {
+  async function accept(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const fields = formData(event.currentTarget)
     setSaving(true)
     setError('')
     try {
       const reply = await api<{ team_id: number; user: AccountUser }>(endpoint, {
         method: 'POST',
-        body: JSON.stringify({}),
+        body: JSON.stringify(fields),
       })
       setUser(reply.user)
       navigate('/accounts/teams/' + reply.team_id + '/', { replace: true })
     } catch (failure) {
+      if (failure instanceof ApiError && failure.data && typeof failure.data === 'object' && 'status' in failure.data) {
+        setInvite(failure.data as Invite)
+      }
       setError(messageFrom(failure))
     } finally {
       setSaving(false)
@@ -181,9 +188,18 @@ export function InviteAcceptPage() {
             <a className={secondaryClass} href="/accounts/password-reset/">Set or reset your password</a>
           </>
         ) : invite?.status === 'ready' ? (
-          <button type="button" className={primaryClass} onClick={() => void accept()} disabled={loading || saving}>
-            {saving ? 'Accepting…' : 'Accept invitation'}
-          </button>
+          <form onSubmit={accept} className="grid gap-4">
+            {invite.requires_account && <>
+              <p className="text-sm text-zinc-600">Create your account with {invite.email} and choose a password to sign in again.</p>
+              <label htmlFor="invite-password" className="text-sm font-semibold">Password</label>
+              <PasswordInput id="invite-password" name="password1" autocomplete="new-password" />
+              <label htmlFor="invite-confirm-password" className="text-sm font-semibold">Confirm password</label>
+              <PasswordInput id="invite-confirm-password" name="password2" autocomplete="new-password" />
+            </>}
+            <button className={primaryClass} disabled={loading || saving}>
+              {saving ? 'Accepting…' : invite.requires_account ? 'Create account and join team' : 'Accept invitation'}
+            </button>
+          </form>
         ) : invite && <Link className={secondaryClass} to="/accounts/teams/">Go to teams</Link>}
       </div>
     </PublicAccountLayout>

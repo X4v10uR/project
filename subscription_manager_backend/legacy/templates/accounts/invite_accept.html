@@ -18,6 +18,18 @@
     <p class="text-sm text-slate-600 mt-2">{{ invite.email }} was invited to join {{ invite.team.name }}.</p>
     <form method="post" class="mt-4">
         {% csrf_token %}
+        {% for errors in invite_errors.values %}
+        {% for error in errors %}<p role="alert" class="text-sm text-red-700">{{ error }}</p>{% endfor %}
+        {% endfor %}
+        {% if not request.user.is_authenticated %}
+        <p class="text-sm text-slate-600 mb-3">Choose a password for your new account so you can sign in again.</p>
+        <label class="block mb-3">Password
+            <input name="password1" type="password" autocomplete="new-password" required class="block w-full border rounded-lg p-2">
+        </label>
+        <label class="block mb-3">Confirm password
+            <input name="password2" type="password" autocomplete="new-password" required class="block w-full border rounded-lg p-2">
+        </label>
+        {% endif %}
         <button type="submit" class="px-3 py-2 rounded-lg bg-slate-900 text-white text-sm">Accept invitation</button>
     </form>
     {% elif invite_status == "expired" %}

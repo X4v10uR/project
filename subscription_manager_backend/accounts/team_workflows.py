@@ -3,6 +3,7 @@ from datetime import date, time
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.contrib.auth.hashers import make_password
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count, Q
 from django.http import Http404
@@ -10,13 +11,14 @@ from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 
-from subscriptions.models import ReminderOffset, Subscription, SubscriptionParticipant, TeamSubscriptionRequest, Transaction
+from subscriptions.models import InAppNotification, ReminderOffset, Subscription, SubscriptionParticipant, TeamSubscriptionRequest, Transaction
 from subscriptions.money import monthly_equivalent
 from subscriptions.notifications import create_notification, create_team_notifications
 from subscriptions.services import record_due_charge_for_subscription
 
 from .models import Team, TeamInvite, TeamMembership, User
-from .services import accept_invite, create_team_invite, is_team_owner, user_team_membership
+from .forms import CustomUserCreationForm
+from .services import accept_invite, create_team_invite, invite_accept_url, is_team_owner, user_team_membership
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +61,11 @@ def invite_access_status(invite, user):
 
 
 @transaction.atomic
-def redeem_invite(*, token, user):
-    invites = TeamInvite.objects.filter(token_hash=TeamInvite.hash_token(token))
+def redeem_invite(*, user, token=None, signup_data=None, received_invite_id=None):
+    if received_invite_id is not None:
+        invites = received_team_invites(user).filter(pk=received_invite_id)
+    else:
+        invites = TeamInvite.objects.filter(token_hash=TeamInvite.hash_token(token))
     team_id = invites.values_list('team_id', flat=True).first()
     # Match the lock order used by invite rotation.
     if team_id is None or not Team.objects.select_for_update().filter(pk=team_id).exists():
@@ -71,10 +76,16 @@ def redeem_invite(*, token, user):
         return {'result': status, 'invite': invite}
 
     if not user.is_authenticated:
+        password = make_password(None)
+        if signup_data is not None:
+            form = CustomUserCreationForm({**signup_data, 'email': invite.email})
+            if not form.is_valid():
+                raise ValidationError(form.errors.as_data())
+            password = form.save(commit=False).password
         # An invitation can provision a new account, but cannot authenticate an
         # account that was created in between the lookup and this write.
         user, created = User.objects.get_or_create(
-            email=invite.email.lower(), defaults={'password': make_password(None)}
+            email=invite.email.lower(), defaults={'password': password}
         )
         if not created:
             return {'result': 'sign_in_required', 'invite': invite}
@@ -87,6 +98,15 @@ def redeem_invite(*, token, user):
         return {'result': 'already_member', 'invite': invite, 'user': user}
     membership = accept_invite(invite=invite, user=user)
     return {'result': 'accepted', 'invite': invite, 'membership': membership, 'user': user}
+
+
+def received_team_invites(user):
+    if not user.is_authenticated:
+        return TeamInvite.objects.none()
+    notified_ids = list(InAppNotification.objects.filter(
+        recipient=user, event_type='team.invite.received',
+    ).values_list('metadata__invite_id', flat=True))
+    return TeamInvite.objects.filter(pk__in=notified_ids, email__iexact=user.email)
 
 
 def get_team_or_404_for_user(user, team_id):
@@ -308,7 +328,9 @@ def create_team(*, name, user):
     return team
 
 
+@transaction.atomic
 def remove_team_member(*, team, membership_id, actor):
+    Team.objects.select_for_update().get(pk=team.pk)
     if not is_team_owner(actor, team):
         raise TeamActionError('Only team owners can remove members.', status_code=403)
 
@@ -401,17 +423,34 @@ def delete_user_account(user):
 @transaction.atomic
 def rotate_team_invite(*, team, email, role, actor):
     Team.objects.select_for_update().get(pk=team.pk)
+    if not is_team_owner(actor, team):
+        raise TeamActionError('Only team owners can invite members.', status_code=403)
     if TeamMembership.objects.filter(team=team, user__email__iexact=email).exists():
         raise TeamActionError('That email is already a team member.')
     now = timezone.now()
-    replaced = team.invites.filter(
+    previous = team.invites.filter(
         email__iexact=email,
         accepted_at__isnull=True,
         revoked_at__isnull=True,
-        expires_at__gt=now,
-    ).update(revoked_at=now)
+    )
+    replaced = previous.filter(expires_at__gt=now).exists()
+    previous.update(revoked_at=now)
     invite, raw_token = create_team_invite(team=team, email=email, role=role, invited_by=actor)
     return invite, raw_token, bool(replaced)
+
+
+@transaction.atomic
+def revoke_team_invite(*, team, invite_id, actor):
+    Team.objects.select_for_update().get(pk=team.pk)
+    if not is_team_owner(actor, team):
+        raise TeamActionError('Only team owners can revoke invitations.', status_code=403)
+    invite = get_object_or_404(TeamInvite.objects.select_for_update(), team=team, pk=invite_id)
+    if invite.accepted_at:
+        raise TeamActionError('This invitation has already been accepted.', status_code=409)
+    if not invite.revoked_at:
+        invite.revoked_at = timezone.now()
+        invite.save(update_fields=['revoked_at'])
+    return 'Invitation revoked.'
 
 
 def invite_team_member(*, team, email, role, actor, send_invite):
@@ -435,7 +474,7 @@ def invite_team_member(*, team, email, role, actor, send_invite):
             team=team,
             event_type='team.invite.received',
             title=f'Invitation to join {team.name}',
-            body=f'{actor.email} invited you as {role}. Open the invitation sent to your email to join.',
+            body=f'{actor.email} invited you as {role}. Open this invitation to join.',
             link_url=reverse('accounts:teams_overview'),
             metadata={'invite_id': invite.pk, 'team_id': team.pk, 'role': role},
             send_email_alert=False,
@@ -458,7 +497,7 @@ def invite_team_member(*, team, email, role, actor, send_invite):
         message = f'Invitation re-sent to {email}.'
     else:
         message = f'Invitation sent to {email}.'
-    return {'email_sent': email_sent, 'message': message}
+    return {'email_sent': email_sent, 'message': message, 'invite_url': invite_accept_url(raw_token)}
 
 
 def notify_invite_accepted(*, invite, membership, user):
@@ -486,6 +525,8 @@ def reveal_team_subscription_password(*, team, subscription_id):
 
 def review_team_request(*, request_id, reviewer, approve, decision_note=''):
     with transaction.atomic():
+        team_id = get_object_or_404(TeamSubscriptionRequest, pk=request_id).team_id
+        Team.objects.select_for_update().get(pk=team_id)
         team_request = get_object_or_404(
             TeamSubscriptionRequest.objects.select_for_update().select_related('team', 'requested_by'),
             pk=request_id,
@@ -497,6 +538,11 @@ def review_team_request(*, request_id, reviewer, approve, decision_note=''):
             raise TeamActionError('This request has already been processed.', status_code=409)
 
         if approve:
+            if not TeamMembership.objects.filter(
+                team=team_request.team, user=team_request.requested_by,
+                role__in=(TeamMembership.ROLE_OWNER, TeamMembership.ROLE_MEMBER),
+            ).exists():
+                raise TeamActionError('The requester is no longer allowed to add team subscriptions.', status_code=409)
             subscription = create_subscription_from_request_payload(team_request, reviewer)
             event_type = 'team.request.approved'
             title = f'Request approved: {subscription.service_name}'

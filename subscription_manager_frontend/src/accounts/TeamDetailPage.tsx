@@ -28,6 +28,14 @@ type PendingRequest = {
   created_at: string
 }
 
+type PendingInvite = {
+  id: number
+  email: string
+  role: Role
+  expires_at: string
+  status: 'ready' | 'expired'
+}
+
 type Renewal = {
   assignee_id: number | null
   renewal_date: string | null
@@ -50,6 +58,7 @@ type Team = {
   subscriptions: TeamSubscriptionDetail[]
   members: Member[]
   pending_requests: PendingRequest[]
+  pending_invites: PendingInvite[]
 }
 
 function RenewalPanel({ renewal, team, saving, onUpdate }: {
@@ -135,6 +144,7 @@ export function TeamDetailPage() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState(incomingNotice)
   const [saving, setSaving] = useState(false)
+  const [inviteUrl, setInviteUrl] = useState('')
   const [confirmation, setConfirmation] = useState<'leave' | 'delete' | null>(null)
   const endpoint = '/api/accounts/teams/' + teamId + '/'
 
@@ -143,6 +153,7 @@ export function TeamDetailPage() {
     setTeam(null)
     setError('')
     setConfirmation(null)
+    setInviteUrl('')
     setNotice(incomingNotice)
     api<Team>(endpoint).then((reply) => {
       if (active) setTeam(reply)
@@ -165,9 +176,10 @@ export function TeamDetailPage() {
   }) {
     setError('')
     setNotice('')
+    setInviteUrl('')
     setSaving(true)
     try {
-      const reply = await api<{ message?: string }>(path, {
+      const reply = await api<{ message?: string; invite_url?: string }>(path, {
         method,
         body: options?.data ? JSON.stringify(options.data) : undefined,
       })
@@ -177,6 +189,7 @@ export function TeamDetailPage() {
       }
       options?.resetForm?.reset()
       setTeam(await api<Team>(endpoint))
+      setInviteUrl(reply.invite_url ?? '')
       setNotice(reply.message ?? success)
     } catch (failure) {
       setError(messageFrom(failure))
@@ -282,6 +295,21 @@ export function TeamDetailPage() {
                   <Field label="Role"><select name="role" className={fieldClass} defaultValue="member"><option value="member">Member</option><option value="owner">Owner</option><option value="viewer">Viewer</option><option value="accountant">Accountant</option></select></Field>
                   <button className={primaryClass} disabled={saving}>Send invite</button>
                 </form>
+                {inviteUrl && <div className="mt-4 grid gap-2 text-sm">
+                  <p>Share this invitation link with the recipient.</p>
+                  <input aria-label="Invitation link" readOnly value={inviteUrl} onFocus={event => event.currentTarget.select()} className={fieldClass} />
+                </div>}
+                <h3 className="mt-5 mb-3 font-semibold">Pending invitations</h3>
+                {team.pending_invites?.length ? <ul className="grid gap-3">
+                  {team.pending_invites.map(invite => <li key={invite.id} className="grid gap-2 rounded-xl border border-zinc-200 p-3">
+                    <p className="break-all text-sm font-semibold">{invite.email}</p>
+                    <p className="text-xs text-zinc-600 capitalize">{invite.role} · {invite.status === 'expired' ? 'Expired' : 'Expires ' + new Date(invite.expires_at).toLocaleString()}</p>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" className={secondaryClass} disabled={saving} onClick={() => void action(endpoint + 'invite/', 'POST', 'Invitation re-sent.', { data: { email: invite.email, role: invite.role } })}>Resend invite</button>
+                      <button type="button" className={dangerClass} disabled={saving} onClick={() => void action(endpoint + 'invites/' + invite.id + '/', 'DELETE', 'Invitation revoked.')}>Revoke invite</button>
+                    </div>
+                  </li>)}
+                </ul> : <p className="text-sm text-zinc-600">No pending invitations.</p>}
               </section>
             )}
             <section className={panelClass + ' grid gap-3'} aria-label="Team membership actions">
