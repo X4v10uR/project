@@ -6,6 +6,7 @@ import {
 import { Link, Navigate } from 'react-router-dom'
 import { ServiceIcon } from '../ServiceIcon'
 import { useAuth } from '../accounts'
+import { useSmoothPageScroll } from './useSmoothPageScroll'
 import './landing.css'
 
 function Logo() {
@@ -126,6 +127,7 @@ const faqs = [
 
 export function LandingPage() {
   const { user, loading } = useAuth()
+  useSmoothPageScroll(!user)
   const [menuOpen, setMenuOpen] = useState(false)
   const [openFaq, setOpenFaq] = useState<number | null>(0)
 
