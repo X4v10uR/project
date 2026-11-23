@@ -5,7 +5,7 @@ export function SubscriptionStack() {
     <div className="lp-stack-card lp-stack-card-back"><span>YOUR FAVORITES</span><span>Music. Movies. More.</span></div>
     <div className="lp-stack-card lp-stack-card-middle"><span>UP NEXT</span><span>All accounted for.<Check size={21}/></span></div>
     <div className="lp-stack-card lp-stack-card-front">
-      <div><Zap size={28} fill="currentColor" strokeWidth={2.5}/><strong>subly.</strong></div>
+      <div><Zap size={28} fill="currentColor" strokeWidth={2.5}/><strong>DUES.</strong></div>
       <span>Less scattered.<br/>More sorted.</span>
       <div className="lp-stack-card-footer"><span>THE WHOLE PICTURE</span><span>✳</span></div>
     </div>

@@ -31,7 +31,7 @@ export function DataPage() {
     setBusy(true);
     setError("");
     try {
-      await downloadFile(endpoint + "backup/export/", "subly-backup.zip", {
+      await downloadFile(endpoint + "backup/export/", "dues-backup.zip", {
         method: "POST",
       });
     } catch (e) {
@@ -102,7 +102,7 @@ export function DataPage() {
         onSubmit={(e) => void restore(e)}
       >
         <h2 className="font-bold">Preview a restore</h2>
-        <Field label="Subly backup ZIP">
+        <Field label="DUES backup ZIP">
           <input
             className={inputClass}
             type="file"

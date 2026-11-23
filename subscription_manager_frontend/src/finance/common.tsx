@@ -93,7 +93,7 @@ export function Reverify() {
         transferring a backup.
       </p>
       <form onSubmit={verify} className="grid gap-3 sm:grid-cols-2">
-        <Field label="Current Subly password">
+        <Field label="Current DUES password">
           <input
             className={inputClass}
             name="password"

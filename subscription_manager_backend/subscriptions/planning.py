@@ -100,7 +100,7 @@ def fold_ical(line):
 def calendar_export(request):
     query = selection(request)
     events = calendar_events(visible_subscriptions(request.user, query['scope']).prefetch_related('price_changes', 'participants'), query['start'], query['end'])
-    lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Subly//Renewals//EN', 'CALSCALE:GREGORIAN']
+    lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//DUES//Renewals//EN', 'CALSCALE:GREGORIAN']
     labels = {'payment': 'Payment', 'trial': 'Trial ends', 'deadline': 'Cancel by', 'pause': 'Pause begins', 'resume': 'Resume'}
     for event in events:
         summary = f"{event['service']}: {labels[event['kind']]}"
@@ -108,10 +108,10 @@ def calendar_export(request):
             summary += f" ({event['currency']} {event['amount']})"
         lines += ['BEGIN:VEVENT', f"UID:{request.user.pk}-{event['id']}@subly", f"DTSTAMP:{timezone.now():%Y%m%dT%H%M%SZ}",
             'DTSTART;VALUE=DATE:' + event['date'].replace('-', ''), 'SUMMARY:' + ical_text(summary),
-            'DESCRIPTION:Tracked in Subly. Confirm cancellation with your provider.', 'END:VEVENT']
+            'DESCRIPTION:Tracked in DUES. Confirm cancellation with your provider.', 'END:VEVENT']
     lines.append('END:VCALENDAR')
     return HttpResponse('\r\n'.join(fold_ical(line) for line in lines) + '\r\n', content_type='text/calendar; charset=utf-8',
-        headers={'Content-Disposition': 'attachment; filename="subly-renewals.ics"', 'Cache-Control': 'no-store'})
+        headers={'Content-Disposition': 'attachment; filename="dues-renewals.ics"', 'Cache-Control': 'no-store'})
 
 
 @api_view(['GET'])

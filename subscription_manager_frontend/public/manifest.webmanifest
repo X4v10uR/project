@@ -1,6 +1,6 @@
 {
-  "name": "Subly Subscription Manager",
-  "short_name": "Subly",
+  "name": "DUES Subscription Manager",
+  "short_name": "DUES",
   "start_url": "/dashboard/",
   "scope": "/",
   "display": "standalone",

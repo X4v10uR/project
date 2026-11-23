@@ -46,7 +46,7 @@ def read_rows(upload):
                 raise serializers.ValidationError({'file': f'Choose a file with at most {MAX_ROWS} subscriptions.'})
             row = dict(zip(headers, values))
             if {'your_cost', 'renewal_date', 'participants', 'is_shared'} <= row.keys():
-                # Undo the spreadsheet text escape in Subly exports before matching names.
+                # Undo the spreadsheet text escape in DUES exports before matching names.
                 for key in ('service_name', 'plan_name', 'category', 'account_email', 'notes', 'participants', 'cancellation_notes'):
                     value = row.get(key, '')
                     if value.startswith("'") and (value[1:].lstrip().startswith(CSV_FORMULA_PREFIXES)

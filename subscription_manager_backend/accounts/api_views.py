@@ -163,7 +163,7 @@ class SettingsSectionView(AccountView):
         data = payload(request)
         user = request.user
         if section == 'billing':
-            return Response({'detail': 'Subly is free. Plan details are managed by the service.'}, status=403)
+            return Response({'detail': 'DUES is free. Plan details are managed by the service.'}, status=403)
         form_class = {
             'profile': ProfileSettingsForm,
             'billing': BillingSettingsForm,

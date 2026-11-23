@@ -67,7 +67,7 @@ def account_settings(request):
                 return redirect(f"{reverse('accounts:settings')}?updated=profile")
 
         if form_type == 'billing':
-            return JsonResponse({'detail': 'Subly is free. Plan details are read-only.'}, status=403)
+            return JsonResponse({'detail': 'DUES is free. Plan details are read-only.'}, status=403)
 
         if form_type == 'preferences':
             preferences_form = PreferencesSettingsForm(request.POST, instance=request.user)

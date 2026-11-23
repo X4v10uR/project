@@ -9,15 +9,15 @@ Subscription Details:
 - Billing Cycle: {{ subscription.get_billing_cycle_display }}
 - Date: {{ subscription.renewal_date|date:"F d, Y" }}{% if subscription.renewal_time %} at {{ subscription.renewal_time|time:"g:i A" }}{% endif %}
 
-If you want to cancel or modify this subscription, please log in to your Subly dashboard:
+If you want to cancel or modify this subscription, please log in to your DUES dashboard:
 {{ subscription_url }}
 
-Thanks for using Subly to manage your subscriptions!
+Thanks for using DUES to manage your subscriptions!
 
 Best regards,
-The Subly Team
+The DUES Team
 
 ---
 This is an automated reminder. If you no longer wish to receive these notifications, 
-you can update your preferences in your Subly dashboard:
+you can update your preferences in your DUES dashboard:
 {{ preferences_url }}{% endautoescape %}

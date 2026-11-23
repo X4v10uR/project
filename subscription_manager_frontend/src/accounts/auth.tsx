@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return session.user
     } catch (failure) {
       if (!signal?.aborted) {
-        setError('Could not connect to Subly. Check your connection and try again.')
+        setError('Could not connect to DUES. Check your connection and try again.')
       }
       throw failure
     } finally {

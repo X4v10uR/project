@@ -19,8 +19,8 @@ Operators receive an email when a job first becomes unhealthy and another on rec
 Create the parent directory on an access-controlled backup volume. Each run needs a new destination. The example paths use the same virtual environment as the scheduler example.
 
 ```powershell
-..\.venv\Scripts\python.exe manage.py recovery_snapshot create D:\SublyBackups\nightly-20261122
-..\.venv\Scripts\python.exe manage.py recovery_snapshot restore D:\SublyBackups\nightly-20261122 D:\SublyBackups\rehearsal-20261122
+..\.venv\Scripts\python.exe manage.py recovery_snapshot create D:\DUESBackups\nightly-20261122
+..\.venv\Scripts\python.exe manage.py recovery_snapshot restore D:\DUESBackups\nightly-20261122 D:\DUESBackups\rehearsal-20261122
 ```
 
 Creation uses SQLite's online backup API, checks database integrity and foreign keys, and copies every private receipt referenced by that database snapshot. Concurrent uploads use unique filenames. If a referenced receipt is deleted or unreadable during the copy, creation fails before publishing the snapshot. Retry after resolving the missing file or quiescing writers. The manifest contains SHA-256 checksums of the database and all referenced receipts. Restore verifies those checksums and database integrity before publishing the recovered pair in the new directory. Existing destinations are refused.

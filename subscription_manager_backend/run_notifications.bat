@@ -5,7 +5,7 @@ REM This can be scheduled to run daily using Windows Task Scheduler
 
 cd /d "%~dp0"
 
-echo Starting Subly renewal notifications at %date% %time%
+echo Starting DUES renewal notifications at %date% %time%
 set "NOTIFICATION_PYTHON=python"
 if exist "%~dp0..\.venv\Scripts\python.exe" set "NOTIFICATION_PYTHON=%~dp0..\.venv\Scripts\python.exe"
 if exist "%~dp0.venv\Scripts\python.exe" set "NOTIFICATION_PYTHON=%~dp0.venv\Scripts\python.exe"

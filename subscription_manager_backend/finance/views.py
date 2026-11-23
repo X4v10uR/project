@@ -265,9 +265,9 @@ def report(request):
     if not (request.accepts(media_type) or request.accepts('application/json')):
         raise NotAcceptable()
     if filetype == 'pdf':
-        return history_pdf(rows, 'Subly charge history')
+        return history_pdf(rows, 'DUES charge history')
     return csv_response(['Date', 'Service', 'Team', 'Currency', 'Your amount', 'Payment status'],
-        ([r.charged_for_date, r.service_name_snapshot, r.team.name if r.team_id else 'Personal', r.currency, str(r.amount), r.payment_status] for r in rows), 'subly-charge-history.csv')
+        ([r.charged_for_date, r.service_name_snapshot, r.team.name if r.team_id else 'Personal', r.currency, str(r.amount), r.payment_status] for r in rows), 'dues-charge-history.csv')
 
 
 @api_view(['GET', 'POST', 'DELETE'])
@@ -296,7 +296,7 @@ def feed_calendar(request, token):
     from subscriptions.planning import calendar_events, visible_subscriptions, fold_ical, ical_text
     today = timezone.localdate()
     events = calendar_events(visible_subscriptions(feed.user, feed.scope).prefetch_related('participants', 'price_changes'), today - timedelta(days=30), today + relativedelta(years=1))
-    lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Subly//Live renewals//EN', 'X-WR-CALNAME:Subly renewals', 'REFRESH-INTERVAL;VALUE=DURATION:PT6H', 'X-PUBLISHED-TTL:PT6H']
+    lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//DUES//Live renewals//EN', 'X-WR-CALNAME:DUES renewals', 'REFRESH-INTERVAL;VALUE=DURATION:PT6H', 'X-PUBLISHED-TTL:PT6H']
     for event in events:
         lines += ['BEGIN:VEVENT', f"UID:{feed.user_id}-{event['id']}@subly", f'DTSTAMP:{timezone.now():%Y%m%dT%H%M%SZ}',
             'DTSTART;VALUE=DATE:' + event['date'].replace('-', ''), 'SUMMARY:' + ical_text(f"{event['service']}: {event['kind']}"), 'END:VEVENT']

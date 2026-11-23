@@ -125,7 +125,7 @@ def build_archive(user):
 
 def read_archive(file):
     if not file or file.size > 110 * 1024 * 1024:
-        raise serializers.ValidationError('Choose a Subly ZIP archive up to 110 MB.')
+        raise serializers.ValidationError('Choose a DUES ZIP archive up to 110 MB.')
     try:
         archive = zipfile.ZipFile(file)
         entries = archive.infolist()
@@ -279,7 +279,7 @@ def restore_archive(user, archive, data):
             user.preferred_currency, user.timezone = currency, zone
             user.save(update_fields=['preferred_currency', 'timezone'])
             for sub in maps['subscriptions'].values():
-                log = {'source': 'Subly archive', 'original_export': data.get('exported_at')}
+                log = {'source': 'DUES archive', 'original_export': data.get('exported_at')}
                 Activity.objects.create(owner=user, user=user, subscription=sub, team=sub.team, service=sub.service_name, action='archive.restored', changes=log)
     except Exception as exc:
         from .models import private_storage
@@ -299,7 +299,7 @@ def restore_archive(user, archive, data):
 def backup_export(request):
     require_recent(request)
     content = build_archive(request.user)
-    return HttpResponse(content, content_type='application/zip', headers={'Content-Disposition': 'attachment; filename="subly-backup.zip"', 'Cache-Control': 'no-store'})
+    return HttpResponse(content, content_type='application/zip', headers={'Content-Disposition': 'attachment; filename="dues-backup.zip"', 'Cache-Control': 'no-store'})
 
 
 @api_view(['POST'])

@@ -28,9 +28,9 @@ function Brand() {
   return (
     <Link to="/" className="inline-flex items-center gap-2.5 text-lg font-bold tracking-tight">
       <span className="grid size-8 place-items-center rounded-[10px] bg-lime-accent text-slate-950" aria-hidden="true">
-        S
+        D
       </span>
-      Subly
+      DUES
     </Link>
   )
 }
@@ -60,7 +60,7 @@ function PublicLayout() {
 function RequireAuth() {
   const { user, loading } = useAuth()
   const location = useLocation()
-  if (loading) return <p className="p-8 text-center text-slate-600" role="status">Loading Subly…</p>
+  if (loading) return <p className="p-8 text-center text-slate-600" role="status">Loading DUES…</p>
   if (!user) {
     const next = encodeURIComponent(location.pathname + location.search)
     return <Navigate replace to={`/accounts/login/?next=${next}`} />

@@ -1,5 +1,5 @@
 """
-WSGI config for subly project.
+WSGI config for the DUES project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 

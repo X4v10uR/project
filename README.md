@@ -1,6 +1,6 @@
-# Subly
+# DUES
 
-Subly tracks recurring subscriptions, card spending, shared team expenses, and renewal reminders.
+DUES tracks recurring subscriptions, card spending, shared team expenses, and renewal reminders.
 
 | Module | Stack | Local URL |
 |---|---|---|
@@ -50,7 +50,7 @@ npm ci
 npm run dev
 ```
 
-Open [Subly](http://127.0.0.1:5173). If Django is listening on a different address, copy the frontend's `.env.example` to `.env` and set `BACKEND_URL`.
+Open [DUES](http://127.0.0.1:5173). If Django is listening on a different address, copy the frontend's `.env.example` to `.env` and set `BACKEND_URL`.
 
 ## Checks
 
@@ -71,7 +71,7 @@ Charge history starts each scheduled charge as **Scheduled**. The account holder
 
 Run the backend migrations before using charge history. History lists scheduled charges by renewal date, including charges for subscriptions removed after upgrading. Team history follows current team membership. Deleting a team removes its history.
 
-Under Subscriptions, choose **Import CSV** to download a template or preview a Subly export. Review row errors and duplicates, then confirm. The importer matches personal subscriptions by service, plan, and account email, ignoring case. Imports create subscription schedules. Stored passwords, payment cards, and historical payments are excluded. New exports include participant shares and reminder settings.
+Under Subscriptions, choose **Import CSV** to download a template or preview a DUES export. Review row errors and duplicates, then confirm. The importer matches personal subscriptions by service, plan, and account email, ignoring case. Imports create subscription schedules. Stored passwords, payment cards, and historical payments are excluded. New exports include participant shares and reminder settings.
 
 For production routing and deployment, see the [frontend README](subscription_manager_frontend/README.md) and the [backend README](subscription_manager_backend/README.md).
 
@@ -87,7 +87,7 @@ The price-history panel records dated future changes, and editing the regular co
 
 Settlement balances aggregate shares on confirmed-paid charges by participant, payer, team, and currency. Team participants can link to current members. Partial repayments have an amount, note, timestamp, and recording user; overpayments are rejected. History reimbursement checkboxes remain available for shares without repayment records. CSV transfers lifecycle/introductory/pause settings, but does not transfer price-change history or repayment records.
 
-Subly remains free, with a read-only plan summary. The dashboard's funding target is the recurring monthly commitment plus a chosen reserve; it is not a bank balance.
+DUES remains free, with a read-only plan summary. The dashboard's funding target is the recurring monthly commitment plus a chosen reserve; it is not a bank balance.
 
 ### Account security
 

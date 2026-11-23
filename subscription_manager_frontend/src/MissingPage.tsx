@@ -53,7 +53,7 @@ export function MissingPage() {
 
   useEffect(() => {
     const previousTitle = document.title
-    document.title = '404 - Not Found | Subly'
+    document.title = '404 - Not Found | DUES'
     return () => { document.title = previousTitle }
   }, [])
 

@@ -161,7 +161,7 @@ export function SettingsPage() {
                 <Field label="Bio"><textarea className={fieldClass} name="bio" rows={3} defaultValue={settings.profile.bio} maxLength={280} /></Field>
               </>}
               {section === 'billing' && <>
-                <div className="rounded-xl border border-lime-200 bg-lime-50 p-5"><h3 className="text-xl font-bold">Subly Free</h3><p className="mt-2 text-sm text-zinc-700">All current tracking, planning, and team features are included. Subly does not charge you, and there is no plan renewal date.</p></div>
+                <div className="rounded-xl border border-lime-200 bg-lime-50 p-5"><h3 className="text-xl font-bold">DUES Free</h3><p className="mt-2 text-sm text-zinc-700">All current tracking, planning, and team features are included. DUES does not charge you, and there is no plan renewal date.</p></div>
               </>}
               {section === 'preferences' && <>
                 <label className="flex items-center gap-3 rounded-xl border border-zinc-200 p-4 text-sm font-semibold">

@@ -8,8 +8,8 @@ function notificationTarget(value) {
 
 self.addEventListener("push", (event) => {
   let message = {
-    title: "Subly reminder",
-    body: "Open Subly to review your subscriptions.",
+    title: "DUES reminder",
+    body: "Open DUES to review your subscriptions.",
     url: "/dashboard/notifications/",
   };
   try {

@@ -1,6 +1,6 @@
 {% autoescape off %}Hello,
 
-You have been invited to join the team "{{ team.name }}" on Subly as {{ invite.get_role_display }}.
+You have been invited to join the team "{{ team.name }}" on DUES as {{ invite.get_role_display }}.
 
 Accept invitation:
 {{ invite_url }}

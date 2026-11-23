@@ -1,6 +1,6 @@
-# Subly Backend
+# DUES Backend
 
-Django and Django REST Framework API for Subly. This folder contains the database migrations, admin, renewal jobs, and avatar assets. The React app lives in [subscription_manager_frontend](../subscription_manager_frontend/).
+Django and Django REST Framework API for DUES. This folder contains the database migrations, admin, renewal jobs, and avatar assets. The React app lives in [subscription_manager_frontend](../subscription_manager_frontend/).
 
 ## Run locally on Windows
 

@@ -21,7 +21,7 @@ async function addSubscription(page: Page) {
 
 async function verify(page: Page) {
   await page.getByText('Verify password for sensitive actions', { exact: true }).click()
-  await page.getByLabel('Current Subly password').fill('Browser-Example42!')
+  await page.getByLabel('Current DUES password').fill('Browser-Example42!')
   await page.getByRole('button', { name: 'Verify password', exact: true }).click()
   await expect(page.getByText('Verified for five minutes.')).toBeVisible()
 }
@@ -102,10 +102,10 @@ test('receipt uploads stay attached to charge history and reports download', asy
   await page.getByRole('link', { name: 'Reports', exact: true }).click()
   const csv = page.waitForEvent('download')
   await page.getByRole('link', { name: 'Download CSV report' }).click()
-  expect((await csv).suggestedFilename()).toBe('subly-charge-history.csv')
+  expect((await csv).suggestedFilename()).toBe('dues-charge-history.csv')
   const pdf = page.waitForEvent('download')
   await page.getByRole('link', { name: 'Download PDF report' }).click()
-  expect((await pdf).suggestedFilename()).toBe('subly-charge-history.pdf')
+  expect((await pdf).suggestedFilename()).toBe('dues-charge-history.pdf')
 })
 
 test('the dashboard opens the failed charge and clears it after confirmation', async ({ page }) => {
@@ -167,7 +167,7 @@ test('backup can be previewed and restored without losing history', async ({ pag
   await page.getByRole('button', { name: 'Download backup ZIP' }).click()
   const file = await (await download).path()
   expect(file).toBeTruthy()
-  await page.getByLabel('Subly backup ZIP').setInputFiles(file!)
+  await page.getByLabel('DUES backup ZIP').setInputFiles(file!)
   await page.getByRole('button', { name: 'Preview backup' }).click()
   await expect(page.getByText(/Restore adds new copies/)).toBeVisible()
   await page.getByRole('checkbox', { name: /I understand this adds new copies/ }).check()

@@ -128,4 +128,4 @@ def history_pdf(rows, title):
     content.append(table)
     SimpleDocTemplate(output, pagesize=landscape(A4), leftMargin=30, rightMargin=30).build(content)
     return HttpResponse(output.getvalue(), content_type='application/pdf',
-        headers={'Content-Disposition': 'attachment; filename="subly-charge-history.pdf"', 'Cache-Control': 'no-store'})
+        headers={'Content-Disposition': 'attachment; filename="dues-charge-history.pdf"', 'Cache-Control': 'no-store'})

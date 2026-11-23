@@ -50,7 +50,7 @@ export function ImportPage() {
       <Link className="text-sm font-semibold text-slate-600" to={subscriptionPath}>Back to subscriptions</Link>
       <h1 className="text-3xl font-bold tracking-tight">Import subscriptions</h1>
       <form className={`${panelClass} grid gap-4`} onSubmit={submit}>
-        <p className="text-sm text-slate-700">Upload personal subscriptions using a Subly export or the CSV template. Use UTF-8, up to 500 rows and 1 MB.</p>
+        <p className="text-sm text-slate-700">Upload personal subscriptions using a DUES export or the CSV template. Use UTF-8, up to 500 rows and 1 MB.</p>
         <a className="w-fit text-sm font-semibold underline" href={`data:text/csv;charset=utf-8,${encodeURIComponent(template)}`} download="subscriptions-template.csv">Download CSV template</a>
         <Field label="CSV file"><input type="file" required accept=".csv,text/csv" className={inputClass} disabled={busy} onChange={(event) => {
           setFile(event.currentTarget.files?.[0])

@@ -315,7 +315,7 @@ html:has(.lp-page) { min-width: 0; }
 
 .lp-report-card > div:first-child, .lp-example { font-size: .75rem; }
 
-/* A Subly subscription wallet gives the about section its own illustration. */
+/* A DUES subscription wallet gives the about section its own illustration. */
 .lp-subscription-stack { position: relative; width: 235px; height: 270px; margin-top: 65px; perspective: 900px; }
 .lp-stack-card { position: absolute; inset-inline: 0; display: flex; flex-direction: column; justify-content: space-between; height: 150px; padding: 20px; border: 1px solid #ffffff55; border-radius: 18px; box-shadow: inset 0 2px 2px #ffffff44, 0 16px 24px #00000035; }
 .lp-stack-card > span:first-child { font-family: ui-monospace, monospace; font-size: .625rem; letter-spacing: .08em; }

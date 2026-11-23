@@ -38,7 +38,7 @@ def notify_changes(recipient, jobs, issues):
     lines = [f'{name}: {issues[name]}' for name in opened]
     lines.extend(f'{name}: healthy again' for name in recovered)
     status = 'needs attention' if opened else 'recovery'
-    if not send_mail(f'Subly scheduled jobs: {status}', '\n'.join(lines),
+    if not send_mail(f'DUES scheduled jobs: {status}', '\n'.join(lines),
                      settings.DEFAULT_FROM_EMAIL, [recipient]):
         raise CommandError('The email backend did not accept the job health alert.')
     state.unhealthy_jobs = sorted(previous.difference(jobs).union(issues))

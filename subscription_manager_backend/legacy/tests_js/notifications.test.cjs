@@ -35,7 +35,7 @@ test('push handles malformed payloads and keeps destinations on this origin', as
         let waiting;
         state.handlers.push({ data: { json: () => payload }, waitUntil: (promise) => { waiting = promise; } });
         await waiting;
-        assert.equal(state.shown[0].title, 'Subly reminder');
+        assert.equal(state.shown[0].title, 'DUES reminder');
         assert.equal(state.shown[0].data.url, 'https://subly.example/dashboard/notifications/');
     }
 });

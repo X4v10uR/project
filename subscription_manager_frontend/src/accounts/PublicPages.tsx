@@ -13,13 +13,13 @@ function PublicAccountLayout({ children }: { children: ReactNode }) {
         <p className="mb-5 max-w-lg text-5xl leading-tight font-semibold tracking-tight text-zinc-900">
           See all your subscriptions in one place
         </p>
-        <img src="/static/images/dashboard.png" alt="Subly dashboard preview" className="mt-7 max-w-none rounded-2xl border border-zinc-200 shadow-xl" />
+        <img src="/static/images/dashboard.png" alt="DUES dashboard preview" className="mt-7 max-w-none rounded-2xl border border-zinc-200 shadow-xl" />
       </div>
       <div className="flex items-center justify-center bg-white px-6 py-10">
         <div className="w-full max-w-sm">
           <Link to="/" className="mb-10 inline-flex items-center gap-2 text-lg font-bold text-zinc-950">
             <span className="grid size-9 place-items-center rounded-xl bg-[#e8f542]"><Zap aria-hidden size={18} fill="currentColor" /></span>
-            Subly
+            DUES
           </Link>
           {children}
         </div>
@@ -90,7 +90,7 @@ function AuthForm({ signup = false }: { signup?: boolean }) {
       </form>
       {!signup && <a className="mt-5 inline-block text-sm font-semibold underline" href="/accounts/password-reset/">Set or reset your password</a>}
       <p className="mt-5 text-sm text-zinc-600">
-        {signup ? 'Already have an account?' : 'New to Subly?'}{' '}
+        {signup ? 'Already have an account?' : 'New to DUES?'}{' '}
         <Link className="font-semibold text-zinc-950 underline underline-offset-3" to={(signup ? '/accounts/login/' : '/accounts/signup/') + switchQuery}>
           {signup ? 'Sign in' : 'Create an account'}
         </Link>

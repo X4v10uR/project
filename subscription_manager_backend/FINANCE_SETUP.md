@@ -27,9 +27,9 @@ Set `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_ENV=sandbox`, and
 institution coverage depend on your Plaid account; select countries it supports.
 Enable the Transactions product in Plaid.
 
-In **Connections**, verify your Subly password, select **Connect bank with
+In **Connections**, verify your DUES password, select **Connect bank with
 Plaid**, complete Link, then select **Sync now**. No bank login credentials pass
-through Subly. Server-held Plaid access tokens are encrypted with the existing
+through DUES. Server-held Plaid access tokens are encrypted with the existing
 account-password key. The adapter uses `/transactions/sync`, processes added,
 modified and removed records, and commits the next cursor only after all pages
 succeed. Concurrent syncs on one connection are rejected. An interrupted sync

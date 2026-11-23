@@ -207,7 +207,7 @@ def send_digests():
             text = '\n\n'.join(f'{n.title}\n{n.body}' for n in rows.iterator())
             if text:
                 try:
-                    accepted = send_mail(f'Subly {pref.digest} summary', text + '\n\n' + settings.SITE_URL,
+                    accepted = send_mail(f'DUES {pref.digest} summary', text + '\n\n' + settings.SITE_URL,
                         settings.DEFAULT_FROM_EMAIL, [pref.user.email], fail_silently=False)
                     if not accepted:
                         raise RuntimeError('Email backend did not send the digest.')

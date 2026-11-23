@@ -85,7 +85,7 @@ def finish_password_change(request, user):
 def require_recent(request):
     stamp = request.session.get('reauthenticated_at', 0)
     if not 0 <= time.time() - stamp <= 300:
-        raise PermissionDenied('Verify your current Subly password before this sensitive action.')
+        raise PermissionDenied('Verify your current DUES password before this sensitive action.')
 
 
 def session_mfa_is_current(user, session):
@@ -166,7 +166,7 @@ def security_settings(request):
             raise serializers.ValidationError('MFA is already enabled.')
         raw = pyotp.random_base32()
         request.session['pending_mfa'] = protect_secret(raw)
-        return Response({'secret': raw, 'uri': pyotp.TOTP(raw).provisioning_uri(name=user.email, issuer_name='Subly')}, headers={'Cache-Control': 'no-store'})
+        return Response({'secret': raw, 'uri': pyotp.TOTP(raw).provisioning_uri(name=user.email, issuer_name='DUES')}, headers={'Cache-Control': 'no-store'})
     if action == 'enable':
         raw = secret_value(AccountSecurity(encrypted_secret=request.session.get('pending_mfa', '')))
         throttle(f'mfa_setup:{user.pk}')

@@ -1,4 +1,4 @@
-# Subly Frontend
+# DUES Frontend
 
 React, TypeScript, Tailwind CSS, and Vite frontend for [subscription_manager_backend](../subscription_manager_backend/).
 
@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-Open [Subly](http://127.0.0.1:5173). If Django is listening on a different address, copy `.env.example` to `.env` and set `BACKEND_URL`. Vite proxies the Django routes and WebSocket connection from the frontend origin so sessions and CSRF work in the browser.
+Open [DUES](http://127.0.0.1:5173). If Django is listening on a different address, copy `.env.example` to `.env` and set `BACKEND_URL`. Vite proxies the Django routes and WebSocket connection from the frontend origin so sessions and CSRF work in the browser.
 
 ## Build
 

@@ -1,6 +1,6 @@
 # 📧 Email Notification System Setup
 
-This guide explains how to set up and use the subscription renewal notification system in Subly.
+This guide explains how to set up and use the subscription renewal notification system in DUES.
 
 ## 🎯 Features
 
@@ -101,7 +101,7 @@ python manage.py send_renewal_notifications
 ### Windows Task Scheduler (Hourly for Time-Based)
 
 1. Open Task Scheduler
-2. Create Basic Task: "Subly Hourly Notifications"
+2. Create Basic Task: "DUES Hourly Notifications"
 3. Set trigger: Daily, repeat every 1 hour for 24 hours
 4. Action: Start a program
 5. Program: `python`
@@ -110,7 +110,7 @@ python manage.py send_renewal_notifications
 
 ### Windows Task Scheduler (Daily for General)
 
-1. Create Basic Task: "Subly Daily Notifications"
+1. Create Basic Task: "DUES Daily Notifications"
 2. Set trigger: Daily at 3:00 PM
 3. Action: Start a program
 4. Program: `C:\path\to\subscription_manager\subscription_manager_backend\run_notifications.bat`
@@ -175,7 +175,7 @@ The system uses three email templates:
 
 ### Create Test Subscription with Time
 
-1. Go to "Add Subscription" in your Subly dashboard
+1. Go to "Add Subscription" in your DUES dashboard
 2. Fill in service details
 3. **Set Renewal Time**: Choose specific time (e.g., 9:00 AM)
 4. Save subscription

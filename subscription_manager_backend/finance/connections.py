@@ -91,7 +91,7 @@ def connections(request):
 def plaid_link(request):
     require_recent(request)
     try:
-        data = plaid('link/token/create', client_name='Subly', user={'client_user_id': str(request.user.pk)},
+        data = plaid('link/token/create', client_name='DUES', user={'client_user_id': str(request.user.pk)},
             products=['transactions'], country_codes=settings.PLAID_COUNTRY_CODES, language='en')
     except ProviderError as exc:
         raise ValidationError(str(exc))
