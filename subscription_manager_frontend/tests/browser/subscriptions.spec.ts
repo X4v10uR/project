@@ -8,7 +8,7 @@ async function signUp(page: Page) {
   await page.locator('[name=password1]').fill('Browser-Example42!')
   await page.locator('[name=password2]').fill('Browser-Example42!')
   await page.getByRole('button', { name: 'Create account' }).click()
-  await expect(page.getByRole('heading', { name: 'Monthly recurring spend' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Monthly Spending' })).toBeVisible()
   return email
 }
 
@@ -146,7 +146,9 @@ test('record a payment and reimbursement, then set a currency-specific budget', 
   await status.selectOption('paid')
   await expect(page.getByText(/Confirmed paid/)).toBeVisible()
   await page.getByText('Reimbursements', { exact: true }).click()
-  await page.getByRole('checkbox', { name: /Alex.*reimbursed/ }).check()
+  const reimbursement = page.getByRole('checkbox', { name: /Alex.*reimbursed/ })
+  await reimbursement.check()
+  await expect(reimbursement).toBeEnabled()
   await page.reload()
   await expect(status).toHaveValue('paid')
   await page.getByText('Reimbursements', { exact: true }).click()

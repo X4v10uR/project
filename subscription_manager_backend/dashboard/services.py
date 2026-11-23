@@ -250,6 +250,12 @@ def _build_upcoming_item(subscription, renewal_date, today, service_color_map):
         'bg_style': service_background_style(subscription.service_name, service_color_map),
         'service_name': subscription.service_name,
         'amount': _format_money(effective_cost, subscription.currency),
+        'currency': (subscription.currency or 'USD').upper(),
+        'description': subscription.plan_name or subscription.category or subscription.get_billing_cycle_display(),
+        'payment_card': (
+            f"{subscription.card.brand or 'Card'} ••{subscription.card.last4}" if subscription.card else ''
+        ),
+        'days_until': (renewal_date - today).days,
         'days_left_text': _days_left_text(renewal_date, today),
         'edit_url': _subscription_destination_url(subscription),
         'icon_url': subscription.get_icon_url(),
@@ -366,6 +372,7 @@ def _build_transaction_item(transaction, index, service_color_map):
         'swatch_style': service_background_style(transaction.service_name_snapshot, service_color_map),
         'title': transaction.service_name_snapshot,
         'timestamp': transaction.charged_for_date.strftime('%b %d, %Y'),
+        'payment_status': transaction.get_payment_status_display(),
         'amount': f"-{_format_money(transaction.amount, transaction.currency)}",
     }
 
@@ -405,9 +412,19 @@ def build_dashboard_view_model(user, today=None, scope='personal', selected_curr
     paused_spend_by_currency = _monthly_spend_by_currency(paused_subs, today)
     cancelled_spend_by_currency = _monthly_spend_by_currency(cancelled_subs, today)
     upcoming_total_by_currency = {}
+    balance_currency = selected_currency or 'USD'
+    week_total = Decimal('0.00')
+    next_week_bill = None
     for day, sub in occurrences:
         currency = (sub.currency or 'USD').upper()
         charge_amount = sub.share_on(day)
+        if currency == balance_currency and day < today + timedelta(days=7):
+            week_total += charge_amount
+            if next_week_bill is None:
+                next_week_bill = {
+                    'service': sub.service_name, 'days_until': (day - today).days,
+                    'reminders_enabled': sub.reminders_enabled,
+                }
         upcoming_total_by_currency[currency] = (
             upcoming_total_by_currency.get(currency, Decimal('0.00')) + charge_amount
         )
@@ -418,7 +435,6 @@ def build_dashboard_view_model(user, today=None, scope='personal', selected_curr
                 total_subscriptions_balance_by_currency.get(currency, Decimal('0.00')) + amount
             )
 
-    balance_currency = selected_currency or 'USD'
     monthly_spend = monthly_spend_by_currency.get(balance_currency, Decimal('0.00'))
     yearly_spend = monthly_spend * Decimal('12')
     active_count = len(active_subs)
@@ -436,7 +452,7 @@ def build_dashboard_view_model(user, today=None, scope='personal', selected_curr
 
     recent_transactions_qs = list(
         transactions
-        .order_by('-charged_for_date', '-pk')[:2]
+        .order_by('-charged_for_date', '-pk')[:3]
     )
     service_color_map = build_service_color_map(active_subs + upcoming_renewals, recent_transactions_qs)
 
@@ -495,6 +511,7 @@ def build_dashboard_view_model(user, today=None, scope='personal', selected_curr
         'dashboard_scope': scope,
         'currency_options': sorted(currencies),
         'balance_currency': balance_currency,
+        'as_of_date': today.isoformat(),
         'monthly_limit': str(monthly_limit) if monthly_limit is not None else None,
         'over_budget': monthly_limit is not None and _quantize_money(monthly_spend_by_currency.get(balance_currency, Decimal('0'))) > monthly_limit,
         # Main balance block
@@ -520,6 +537,7 @@ def build_dashboard_view_model(user, today=None, scope='personal', selected_curr
         'stats_total_cancelled': _format_currency_breakdown(cancelled_spend_by_currency),
         # Dashboard sections
         'upcoming_bills': upcoming_bills,
+        'upcoming_week': {'amount': _format_money(week_total, balance_currency), 'next_bill': next_week_bill},
         'subscriptions_panel': subscriptions_panel,
         'active_subscriptions_panel': active_subscriptions_panel,
         'recent_transactions': recent_transactions,

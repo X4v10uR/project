@@ -46,6 +46,21 @@ class ForecastAndPaymentTests(TestCase):
                          [(start + timedelta(weeks=n)).isoformat() for n in range(5)])
         self.assertFalse(Transaction.objects.exists())
 
+    def test_dashboard_week_total_uses_selected_currency_and_first_seven_days(self):
+        for days, code in [(1, 'USD'), (2, 'PKR'), (6, 'PKR'), (7, 'PKR')]:
+            self.create(start_date=(self.today + timedelta(days=days)).isoformat(),
+                        billing_cycle='monthly', currency=code, reminders_enabled=False)
+        dashboard = self.dashboard(currency='PKR')
+        self.assertEqual(dashboard['as_of_date'], self.today.isoformat())
+        self.assertCountEqual(
+            [bill['currency'] for bill in dashboard['upcoming_bills'] if bill['days_until'] <= 7],
+            ['USD', 'PKR', 'PKR', 'PKR'],
+        )
+        week = dashboard['upcoming_week']
+        self.assertEqual(week['amount'], 'PKR 20.00')
+        self.assertEqual(week['next_bill'], {'service': 'Studio', 'days_until': 2, 'reminders_enabled': False})
+        self.assertEqual(self.dashboard(currency='EUR')['upcoming_week'], {'amount': 'EUR 0.00', 'next_bill': None})
+
     @override_settings(EMAIL_BACKEND='django.core.mail.backends.console.EmailBackend')
     def test_reminder_command_on_redirected_cp1252_console(self):
         from manage import main

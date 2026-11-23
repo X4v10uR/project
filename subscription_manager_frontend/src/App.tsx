@@ -10,6 +10,7 @@ import {
 } from './accounts'
 import { NotificationBell, NotificationsPage, NotificationsProvider } from './dashboard/notifications'
 import { HistoryPage } from './dashboard/HistoryPage'
+import { DashboardNavigation } from './dashboard/DashboardNavigation'
 import { ImportPage } from './subscriptions/ImportPage'
 import { BalanceStatsPage, DashboardPage } from './dashboard/pages'
 import { CardsPage } from './subscriptions/CardsPage'
@@ -104,35 +105,41 @@ function AppLayout() {
   const profileName = user.first_name || 'Profile'
   const profileActive = path === '/accounts/settings/'
 
+  const isDashboard = path === '/dashboard/'
+  const navigation = (
+    <div className="app-dock-wrap">
+      <nav className="app-dock" aria-label="Application navigation">
+        <Link className="app-dock-link" to="/accounts/settings/" aria-current={profileActive ? 'page' : undefined} title={profileName}>
+          {user.avatar_url ? (
+            <img className="size-6 rounded-lg object-contain" src={user.avatar_url} alt="" style={{ backgroundColor: user.avatar_background_color }} />
+          ) : <UserRound size={19} aria-hidden="true" />}
+          <span className="max-w-18 truncate">{profileName}</span>
+        </Link>
+        {tabs.map(({ label, to, active, icon: Icon }) => (
+          <Link className="app-dock-link" key={to} to={to} aria-current={active ? 'page' : undefined}>
+            <Icon size={19} aria-hidden="true" />
+            <span>{label}</span>
+          </Link>
+        ))}
+        <button type="button" className="app-dock-link" onClick={() => void signOut()} disabled={signingOut}>
+          <LogOut size={19} aria-hidden="true" />
+          <span>{signingOut ? 'Logging out…' : 'Log out'}</span>
+        </button>
+      </nav>
+    </div>
+  )
+
   return (
     <NotificationsProvider>
-      <div className="app-shell">
-        <header className="app-shell-header">
+      <div className={isDashboard ? 'app-shell dashboard-shell' : 'app-shell'}>
+        {!isDashboard && <header className="app-shell-header">
           <Brand />
           <NotificationBell />
-        </header>
+        </header>}
         {error && <p className="mx-auto max-w-6xl px-5 text-red-700" role="alert">{error}</p>}
+        {isDashboard && <DashboardNavigation tabs={tabs} signingOut={signingOut} onSignOut={signOut} />}
         <main id="app-content"><Outlet /></main>
-        <div className="app-dock-wrap">
-          <nav className="app-dock" aria-label="Application navigation">
-            <Link className="app-dock-link" to="/accounts/settings/" aria-current={profileActive ? 'page' : undefined} title={profileName}>
-              {user.avatar_url ? (
-                <img className="size-6 rounded-lg object-contain" src={user.avatar_url} alt="" style={{ backgroundColor: user.avatar_background_color }} />
-              ) : <UserRound size={19} aria-hidden="true" />}
-              <span className="max-w-18 truncate">{profileName}</span>
-            </Link>
-            {tabs.map(({ label, to, active, icon: Icon }) => (
-              <Link className="app-dock-link" key={to} to={to} aria-current={active ? 'page' : undefined}>
-                <Icon size={19} aria-hidden="true" />
-                <span>{label}</span>
-              </Link>
-            ))}
-            <button type="button" className="app-dock-link" onClick={() => void signOut()} disabled={signingOut}>
-              <LogOut size={19} aria-hidden="true" />
-              <span>{signingOut ? 'Logging out…' : 'Log out'}</span>
-            </button>
-          </nav>
-        </div>
+        {!isDashboard && navigation}
       </div>
     </NotificationsProvider>
   )

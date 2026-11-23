@@ -198,9 +198,11 @@ def dashboard_data(request):
     selection.is_valid(raise_exception=True)
     data = build_dashboard_view_model(request.user, scope=request.query_params.get('scope'),
                                       selected_currency=selection.validated_data.get('currency'))
+    team_names = list(request.user.team_memberships.order_by('team__name').values_list('team__name', flat=True)[:2])
+    data['team_label'] = team_names[0] if len(team_names) == 1 else ('All teams' if team_names else '')
     data['show_get_started'] = (
         data['dashboard_scope'] == 'personal' and not any(data[key] for key in ('total_active', 'total_paused', 'total_cancelled'))
-        and not request.user.team_memberships.exists()
+        and not team_names
     )
     data['needs_attention'] = needs_attention(request.user, data['dashboard_scope'])
     data['upcoming_count'] = len(data.pop('upcoming_renewals'))

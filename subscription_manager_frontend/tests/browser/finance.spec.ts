@@ -7,7 +7,7 @@ async function signup(page: Page) {
   await page.locator('[name=password1]').fill('Browser-Example42!')
   await page.locator('[name=password2]').fill('Browser-Example42!')
   await page.getByRole('button', { name: 'Create account' }).click()
-  await expect(page.getByRole('heading', { name: 'Monthly recurring spend' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Monthly Spending' })).toBeVisible()
 }
 
 async function addSubscription(page: Page) {

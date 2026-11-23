@@ -77,9 +77,11 @@ export interface SubscriptionDetails {
   }[]
 }
 
-export function currencyAmount(value: number | string, currency: string) {
+export function currencyAmount(value: number | string, currency: string, fractionDigits?: number) {
   if (!/^[A-Za-z]{3}$/.test(currency)) return `${currency} ${Number(value).toFixed(2)}`
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(value))
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency', currency, minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits,
+  }).format(Number(value))
 }
 
 export function displayDate(value: string | null) {
