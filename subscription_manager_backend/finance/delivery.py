@@ -97,6 +97,8 @@ def send_push(notification, *, delivered=None):
 
 def route_notification(notification, send_email_alert):
     from subscriptions.notifications import _send_notification_email
+    if not notification.recipient.is_active:
+        return
     pref = NotificationPreference.objects.filter(user=notification.recipient).first()
     email = send_email_alert and (not pref or (pref.email_enabled and pref.digest == 'off'))
     push = bool(pref and pref.push_enabled and settings.VAPID_PRIVATE_KEY)
@@ -134,7 +136,7 @@ def deliver_queued():
             if not row or row.deliver_after > timezone.now():
                 continue
             n = row.notification
-            if n.is_read:
+            if n.is_read or not n.recipient.is_active:
                 row.delete()
                 continue
             pref = NotificationPreference.objects.filter(user=n.recipient).first()
@@ -177,9 +179,12 @@ def deliver_queued():
 
 def send_digests():
     sent = 0
-    for pref_id in NotificationPreference.objects.filter(email_enabled=True).exclude(digest='off').values_list('pk', flat=True):
+    eligible = NotificationPreference.objects.filter(email_enabled=True, user__is_active=True).exclude(digest='off')
+    for pref_id in eligible.values_list('pk', flat=True):
         with transaction.atomic():
-            pref = NotificationPreference.objects.select_for_update().select_related('user').get(pk=pref_id)
+            pref = eligible.select_for_update().select_related('user').filter(pk=pref_id).first()
+            if pref is None:
+                continue
             cutoff = timezone.now()
             now = local_now(pref.user)
             since = pref.last_digest_at
@@ -229,8 +234,9 @@ class PreferenceInput(serializers.ModelSerializer):
 
 
 @api_view(['GET', 'PUT'])
+@transaction.atomic
 def preferences(request):
-    row, _ = NotificationPreference.objects.get_or_create(user=request.user)
+    row, _ = NotificationPreference.objects.select_for_update().get_or_create(user=request.user)
     if request.method == 'PUT':
         data = PreferenceInput(row, data=request.data)
         data.is_valid(raise_exception=True)

@@ -93,6 +93,7 @@ class TeamInvitationTests(TestCase):
             first = self.post(self.send_url, {'email': 'new@example.test', 'role': 'viewer'})
         self.assertEqual(first.status_code, 201, first.content)
         self.assertFalse(first.json()['email_sent'])
+        self.assertIn('email failed', InAppNotification.objects.get(recipient=self.member).title)
         old_token = urlsplit(first.json()['invite_url']).path.rstrip('/').split('/')[-1]
         first_invite = TeamInvite.objects.get(team=self.team)
         detail = self.client.get(self.detail).json()

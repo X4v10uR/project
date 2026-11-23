@@ -27,7 +27,7 @@ class Command(TrackedJobCommand):
         parser.add_argument(
             '--time',
             type=str,
-            help='Target time for notifications (HH:MM format, e.g., 15:00). Checks reminders due by that time in the recipient’s time zone.'
+            help='Simulate a run at this server time (HH:MM, e.g., 15:00). Each recipient uses their own local schedule.'
         )
 
     def handle(self, *args, **options):
@@ -68,38 +68,24 @@ class Command(TrackedJobCommand):
         error_count = 0
         
         for subscription, offset in subscriptions_to_notify:
+            target = subscription.team.name if subscription.team_id else subscription.user.email
+            event_time = subscription.renewal_time.strftime(' at %I:%M %p') if subscription.renewal_time else ''
+            event = f"{subscription.service_name} ({target}, event on {subscription.renewal_date}{event_time}, offset: {offset})"
             try:
                 if dry_run:
-                    renewal_time_str = ""
-                    if subscription.renewal_time:
-                        renewal_time_str = f" at {subscription.renewal_time.strftime('%I:%M %p')}"
-                    
-                    self.stdout.write(
-                        f"[DRY RUN] Would send notification for {subscription.service_name} "
-                        f"to {subscription.user.email} (event on {subscription.renewal_date}{renewal_time_str}, offset: {offset})"
-                    )
+                    self.stdout.write(f"[DRY RUN] Eligible reminder for {event}")
                     sent_count += 1
                 else:
                     if not NotificationService.send_renewal_reminder(subscription, days_before=offset):
                         skipped_count += 1
                         continue
                     sent_count += 1
-                    renewal_time_str = ""
-                    if subscription.renewal_time:
-                        renewal_time_str = f" at {subscription.renewal_time.strftime('%I:%M %p')}"
-                    
-                    self.stdout.write(
-                        self.style.SUCCESS(
-                            f"Sent notification for {subscription.service_name} "
-                            f"to {subscription.user.email} (event on {subscription.renewal_date}{renewal_time_str}, offset: {offset})"
-                        )
-                    )
+                    self.stdout.write(self.style.SUCCESS(f"Processed reminder for {event}"))
             except Exception as e:
                 error_count += 1
                 self.stdout.write(
                     self.style.ERROR(
-                        f"Failed to send notification for {subscription.service_name} "
-                        f"to {subscription.user.email}: {str(e)}"
+                        f"Failed to process reminder for {event}: {e}"
                     )
                 )
                 logger.error(f"Email notification error: {str(e)}", exc_info=True)
@@ -110,7 +96,7 @@ class Command(TrackedJobCommand):
 
         if target_time:
             self.stdout.write(f"Time filter: {target_time.strftime('%I:%M %p')}")
-        self.stdout.write(f"  Sent: {sent_count}")
+        self.stdout.write(f"  {'Eligible' if dry_run else 'Sent'}: {sent_count}")
         self.stdout.write(f"  Skipped: {skipped_count}")
         self.stdout.write(f"  Errors: {error_count}")
         

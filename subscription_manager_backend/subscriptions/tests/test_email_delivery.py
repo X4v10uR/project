@@ -16,7 +16,7 @@ from finance.models import NotificationDelivery, NotificationPreference
 from subly import settings as project_settings
 from subly.emailing import frontend_url
 from subscriptions.models import InAppNotification, NotificationLog, Subscription
-from subscriptions.notifications import _send_notification_email
+from subscriptions.notifications import _send_notification_email, create_notification
 from subscriptions.services import NotificationService
 
 
@@ -92,6 +92,46 @@ class EmailDeliveryTests(TestCase):
         self.assertIn(url, message.body)
         self.assertIn(url.replace('&', '&amp;'), message.alternatives[0].content)
         self.assertIn('A &amp; B &lt; C', message.alternatives[0].content)
+
+    def test_committed_events_and_selected_reminders_use_the_current_address(self):
+        sub = self.subscription()
+        new_email = 'new@example.test'
+        with self.captureOnCommitCallbacks(execute=True):
+            create_notification(recipient=self.user, event_type='test', title='Address changed', send_email_alert=True)
+            User.objects.filter(pk=self.user.pk).update(email=new_email)
+        self.assertTrue(NotificationService.send_renewal_reminder(sub))
+        self.assertEqual([m.to for m in mail.outbox], [[new_email], [new_email]])
+
+    def test_deactivation_suppresses_pending_alerts_and_renewals(self):
+        sub = self.subscription()
+        notification = self.notification()
+        NotificationDelivery.objects.create(notification=notification, email=True, deliver_after=timezone.now())
+        with self.captureOnCommitCallbacks(execute=True):
+            create_notification(recipient=self.user, event_type='test', title='Pending', send_email_alert=True)
+            User.objects.filter(pk=self.user.pk).update(is_active=False)
+        deliver_queued()
+        self.assertFalse(NotificationService.send_renewal_reminder(sub))
+        self.assertFalse(NotificationDelivery.objects.exists())
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_reminder_rechecks_subscription_changes_after_selection(self):
+        for changes in ({'reminders_enabled': False}, {'status': 'cancelled'},
+                        {'start_date': timezone.localdate() + timedelta(days=8)}):
+            with self.subTest(changes=changes):
+                sub = self.subscription()
+                Subscription.objects.filter(pk=sub.pk).update(**changes)
+                self.assertFalse(NotificationService.send_renewal_reminder(sub))
+        self.assertFalse(NotificationLog.objects.exists())
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_changed_offsets_invalidate_a_previously_selected_reminder(self):
+        sub = self.subscription()
+        sub.offsets.create(days_before=3)
+        batches = NotificationService.get_subscriptions_due_for_notification()
+        self.assertEqual(len(batches), 1)
+        sub.offsets.update(days_before=1)
+        self.assertFalse(NotificationService.send_renewal_reminder(*batches[0]))
+        self.assertFalse(NotificationLog.objects.exists())
 
     def test_renewal_formats_headers_text_html_and_destination(self):
         sub = self.subscription()
@@ -258,6 +298,23 @@ class EmailDeliveryTests(TestCase):
             self.assertEqual(send_digests(), 1)
         self.assertIn('Arrived during send', mail.outbox[0].body)
         self.assertNotIn('First alert', mail.outbox[0].body)
+
+    def test_digest_rechecks_opt_out_during_batch(self):
+        other = User.objects.create_user('second@example.test')
+        users = [self.user, other]
+        now = datetime(2026, 11, 24, 12, tzinfo=UTC)
+        with patch('finance.delivery.timezone.now', return_value=now):
+            for user in users:
+                self.notification(recipient=user)
+                NotificationPreference.objects.create(user=user, digest='daily')
+
+            def send_and_opt_out(subject, message, sender, recipients, **kwargs):
+                NotificationPreference.objects.exclude(user__email=recipients[0]).update(email_enabled=False)
+                return mail.send_mail(subject, message, sender, recipients, **kwargs)
+
+            with patch('finance.delivery.send_mail', side_effect=send_and_opt_out):
+                self.assertEqual(send_digests(), 1)
+        self.assertEqual(len(mail.outbox), 1)
 
     def test_daily_digest_runs_next_morning_after_a_late_previous_run(self):
         now = datetime(2026, 11, 24, 9, tzinfo=UTC)

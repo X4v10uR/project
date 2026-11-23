@@ -51,10 +51,10 @@ def parse_invoice(text):
     for pattern in patterns:
         match = re.search(pattern, text, re.I)
         if match:
-            result['currency'] = {'$': 'USD', '€': 'EUR', '£': 'GBP'}.get(match[1], match[1].upper())
             value = Decimal(match[2].replace(',', ''))
             if 0 <= value < Decimal('10000000000'):
                 result['amount'] = value
+                result['currency'] = {'$': 'USD', '€': 'EUR', '£': 'GBP'}.get(match[1], match[1].upper())
             break
     match = re.search(r'\b(20\d{2}-\d{2}-\d{2})\b', text)
     if match:
@@ -65,7 +65,7 @@ def parse_invoice(text):
     return result
 
 
-def extract_receipt(receipt):
+def extract_receipt(receipt, *, fallback=None):
     text = ''
     status = 'manual'
     try:
@@ -86,7 +86,7 @@ def extract_receipt(receipt):
         status = 'failed'
     receipt.extracted_text = text
     receipt.extraction_status = status
-    for key, value in parse_invoice(text).items():
+    for key, value in {**(fallback or {}), **parse_invoice(text)}.items():
         if getattr(receipt, key) in (None, ''):
             setattr(receipt, key, value)
     receipt.save()

@@ -7,7 +7,7 @@ import re
 import secrets
 import unicodedata
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from email.utils import parseaddr, parsedate_to_datetime
 from email.header import decode_header, make_header
@@ -37,7 +37,9 @@ from .permissions import log_activity
 
 
 class ProviderError(Exception):
-    pass
+    def __init__(self, message, *, status_code=None):
+        super().__init__(message)
+        self.status_code = status_code
 
 
 def encrypt_tokens(tokens):
@@ -60,7 +62,9 @@ def provider_request(method, url, **kwargs):
         return response.json()
     except (requests.RequestException, ValueError) as exc:
         # Do not expose provider responses, access tokens or mail content in logs/errors.
-        raise ProviderError('The provider request failed. Try syncing again or reconnect the account.') from exc
+        status = getattr(getattr(exc, 'response', None), 'status_code', None)
+        raise ProviderError('The provider request failed. Try syncing again or reconnect the account.',
+                            status_code=status) from exc
 
 
 def plaid(path, **body):
@@ -270,83 +274,127 @@ def mail_parts(payload):
         yield from mail_parts(part)
 
 
-def sync_gmail(connection):
-    headers = {'Authorization': 'Bearer ' + gmail_token(connection)}
-    root = 'https://gmail.googleapis.com/gmail/v1/users/me/messages'
-    page = None
+def gmail_message_ids(connection, root, headers):
+    page = connection.cursor
+    initial_page = page
     processed = 0
     for _ in range(20):
         params = {'q': 'newer_than:90d (subject:receipt OR subject:invoice OR subject:subscription OR subject:renewal)', 'maxResults': 100}
         if page:
             params['pageToken'] = page
-        result = provider_request('GET', root, headers=headers, params=params)
-        for message in result.get('messages', []):
-            if ImportedMessage.objects.filter(connection=connection, remote_id=message['id']).exists():
+        try:
+            result = provider_request('GET', root, headers=headers, params=params)
+        except ProviderError as exc:
+            if not initial_page or page != initial_page or exc.status_code != 400:
+                raise
+            # A saved page token can expire between syncs. Restart the search
+            # once; captured message IDs still prevent duplicate imports.
+            initial_page = page = connection.cursor = ''
+            connection.save(update_fields=['cursor'])
+            continue
+        ids = [message['id'] for message in result.get('messages', [])]
+        captured = set(ImportedMessage.objects.filter(connection=connection, remote_id__in=ids)
+                       .values_list('remote_id', flat=True))
+        for message_id in ids:
+            if message_id in captured:
                 continue
-            mail = provider_request('GET', root + '/' + message['id'], headers=headers, params={'format': 'full'})
-            payload = mail.get('payload', {})
-            mail_headers = {}
-            for header in payload.get('headers', []):
-                name = header['name'].lower()
-                # Parse address structure before decoding an encoded display
-                # name, which can itself contain commas and other separators.
-                mail_headers[name] = header['value'] if name == 'from' else mail_header(header['value'])
-            def load_body(attachment_id):
-                return provider_request('GET', root + '/' + message['id'] + '/attachments/' + attachment_id,
-                    headers=headers)
-
-            text = '\n'.join(mail_text(payload, load_body=load_body))[:100000]
-            parsed = parse_invoice(text)
-            try:
-                day = parsedate_to_datetime(mail_headers.get('date', '')).date()
-            except (TypeError, ValueError):
-                day = timezone.localdate()
-            sender, address = parseaddr(mail_headers.get('from', ''))
-            sender = mail_header(sender)
-            merchant = (sender or address or mail_headers.get('subject', 'Email receipt'))[:100]
-            for part in mail_parts(payload):
-                filename = part.get('filename', '')
-                body = part.get('body', {})
-                if not filename.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')) or body.get('size', 0) > MAX_FILE_SIZE:
-                    continue
-                note = f'Captured from Gmail connection {connection.pk}, message {message["id"]}, file {filename}'[:500]
-                existing = Receipt.objects.filter(user=connection.user, note=note).first()
-                if existing:
-                    if existing.amount is not None and existing.currency and 'amount' not in parsed:
-                        parsed.update(amount=existing.amount, currency=existing.currency)
-                    continue
-                raw = body.get('data')
-                if not raw and body.get('attachmentId'):
-                    attachment = provider_request('GET', root + '/' + message['id'] + '/attachments/' + body['attachmentId'], headers=headers)
-                    raw = attachment.get('data')
-                if not raw:
-                    continue
-                data = mail_bytes(raw)
-                if not data:
-                    continue
-                file = ContentFile(data, name=filename)
-                try:
-                    kind = validate_file(file)
-                except ValidationError:
-                    continue
-                receipt = Receipt.objects.create(user=connection.user, file=file, filename=filename[:255], content_type=kind,
-                    merchant=merchant, amount=parsed.get('amount'), currency=parsed.get('currency', ''), issued_on=parsed.get('issued_on', day), note=note)
-                extract_receipt(receipt)
-                if receipt.amount is not None and receipt.currency and 'amount' not in parsed:
-                    parsed.update(amount=receipt.amount, currency=receipt.currency)
-            if 'amount' in parsed and parsed.get('currency'):
-                ImportedPayment.objects.update_or_create(connection=connection, remote_id=message['id'], defaults={'merchant': merchant,
-                    'amount': parsed['amount'], 'currency': parsed['currency'], 'paid_on': parsed.get('issued_on', day),
-                    'description': mail_headers.get('subject', '')[:500]})
-            ImportedMessage.objects.get_or_create(connection=connection, remote_id=message['id'])
-            processed += 1
-            if processed >= 50:
-                # Subsequent runs skip captured messages and continue the initial scan.
+            if processed == 50:
                 return
-        page = result.get('nextPageToken')
-        if not page:
+            yield message_id
+            processed += 1
+            captured.add(message_id)
+        page = result.get('nextPageToken', '')
+        if page != connection.cursor:
+            connection.cursor = page
+            connection.save(update_fields=['cursor'])
+        if not page or processed == 50:
             return
-    raise ProviderError('The first 2,000 matching messages were scanned. Narrow your mailbox or sync again after archiving older mail.')
+
+
+def gmail_message_date(date_header, internal_date):
+    try:
+        return parsedate_to_datetime(date_header).date()
+    except (TypeError, ValueError, OverflowError):
+        try:
+            return datetime.fromtimestamp(int(internal_date) // 1000, UTC).date()
+        except (TypeError, ValueError, OverflowError, OSError):
+            return timezone.localdate()
+
+
+def gmail_receipts(connection, message_id, payload, load_body, parsed, merchant, day):
+    source = f'Captured from Gmail connection {connection.pk}, message {message_id}'
+    notes = set()
+    for index, part in enumerate(mail_parts(payload)):
+        filename = part.get('filename', '')
+        body = part.get('body', {})
+        if not filename.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')) or body.get('size', 0) > MAX_FILE_SIZE:
+            continue
+        note = f'{source}, file {filename}'[:500]
+        if note in notes:
+            note = f'{source}, part {index}, file {filename}'[:500]
+        notes.add(note)
+        existing = Receipt.objects.filter(user=connection.user, note=note).first()
+        if existing:
+            yield existing
+            continue
+        raw = body.get('data')
+        if not raw and body.get('attachmentId'):
+            attachment = load_body(body['attachmentId'])
+            raw = attachment.get('data')
+        if not raw:
+            continue
+        data = mail_bytes(raw)
+        if not data:
+            continue
+        filename = filename.replace('\\', '/').rsplit('/', 1)[-1]
+        file = ContentFile(data, name=filename)
+        try:
+            kind = validate_file(file)
+        except ValidationError:
+            continue
+        receipt = Receipt.objects.create(user=connection.user, file=file, filename=filename[:255],
+            content_type=kind, merchant=merchant, note=note)
+        extract_receipt(receipt, fallback={'issued_on': day, **parsed})
+        yield receipt
+
+
+def sync_gmail(connection):
+    headers = {'Authorization': 'Bearer ' + gmail_token(connection)}
+    root = 'https://gmail.googleapis.com/gmail/v1/users/me/messages'
+    for message_id in gmail_message_ids(connection, root, headers):
+        message_url = root + '/' + message_id
+        try:
+            mail = provider_request('GET', message_url, headers=headers, params={'format': 'full'})
+        except ProviderError as exc:
+            if exc.status_code == 404:
+                continue
+            raise
+        payload = mail.get('payload', {})
+        mail_headers = {}
+        for header in payload.get('headers', []):
+            name = header['name'].lower()
+            # Parse address structure before decoding an encoded display
+            # name, which can itself contain commas and other separators.
+            mail_headers[name] = header['value'] if name == 'from' else mail_header(header['value'])
+
+        def load_body(attachment_id):
+            return provider_request('GET', message_url + '/attachments/' + attachment_id, headers=headers)
+
+        text = '\n'.join(mail_text(payload, load_body=load_body))[:100000]
+        parsed = parse_invoice(text)
+        day = gmail_message_date(mail_headers.get('date', ''), mail.get('internalDate'))
+        sender, address = parseaddr(mail_headers.get('from', ''))
+        sender = mail_header(sender)
+        merchant = (sender or address or mail_headers.get('subject', 'Email receipt'))[:100]
+        payment = parsed.copy()
+        for receipt in gmail_receipts(connection, message_id, payload, load_body, parsed, merchant, day):
+            if receipt.amount is not None and receipt.currency and 'amount' not in payment:
+                payment.update(amount=receipt.amount, currency=receipt.currency, issued_on=receipt.issued_on or day)
+        if 'amount' in payment and payment.get('currency'):
+            ImportedPayment.objects.update_or_create(connection=connection, remote_id=message_id, defaults={'merchant': merchant,
+                'amount': payment['amount'], 'currency': payment['currency'], 'paid_on': payment.get('issued_on', day),
+                'description': mail_headers.get('subject', '')[:500]})
+        ImportedMessage.objects.get_or_create(connection=connection, remote_id=message_id)
 
 
 def sync_connection(connection):

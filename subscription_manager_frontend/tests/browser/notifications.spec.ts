@@ -63,7 +63,7 @@ test('older notifications stay accessible after refresh and opening one marks it
   await expect(page.getByRole('button', { name: 'Notifications, 54 unread', exact: true })).toBeVisible()
 })
 
-test('push can be disabled without browser push support', async ({ page }) => {
+test('email preferences and push can be changed independently without browser push support', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'serviceWorker', { value: undefined, configurable: true })
     delete (navigator as unknown as Record<string, unknown>).serviceWorker
@@ -82,6 +82,10 @@ test('push can be disabled without browser push support', async ({ page }) => {
   })
   await signup(page)
   await page.goto('/planning/alerts/')
+  await page.getByLabel('Email alerts enabled').uncheck()
+  await page.getByRole('button', { name: 'Save notification preferences' }).click()
+  await expect(page.getByRole('status')).toHaveText('Notification preferences saved.')
+  expect(update).toEqual({ email_enabled: false, digest: 'off', quiet_start: null, quiet_end: null })
   await page.getByRole('button', { name: 'Disable push notifications' }).click()
   await expect(page.getByRole('status')).toHaveText('Push notifications disabled.')
   expect(update).toEqual({ push_enabled: false })

@@ -5,7 +5,7 @@ You have been invited to join the team "{{ team.name }}" on Subly as {{ invite.g
 Accept invitation:
 {{ invite_url }}
 
-This secure link expires on {{ expires_at|date:"F d, Y g:i A" }} and can only be used once.
+This secure link expires on {{ expires_at|date:"F d, Y g:i A T" }} and can only be used once.
 
 For security reasons, no subscription credentials are ever included in email.
 

@@ -46,7 +46,6 @@ export function NotificationSettingsPage() {
         method: "PUT",
         body: JSON.stringify({
           email_enabled: form.has("email_enabled"),
-          push_enabled: data?.push_enabled ?? false,
           digest: form.get("digest"),
           quiet_start: form.get("quiet_start") || null,
           quiet_end: form.get("quiet_end") || null,

@@ -484,8 +484,9 @@ def invite_team_member(*, team, email, role, actor, send_invite):
         team=team,
         actor=actor,
         event_type='team.invite.sent',
-        title=f'Invitation sent to {email}',
-        body=f'{actor.email} invited {email} to {team.name}.',
+        title=f'Invitation sent to {email}' if email_sent else f'Invitation email failed for {email}',
+        body=(f'{actor.email} invited {email} to {team.name}.'
+              if email_sent else f'{actor.email} created an invitation to {team.name}, but the email could not be sent.'),
         link_url=reverse('accounts:team_detail', args=[team.pk]),
         metadata={'invite_id': invite.pk, 'email': email, 'role': role},
         send_email_alert=True,

@@ -148,8 +148,8 @@ class BillingService:
 
 def _recipients(subscription):
     if subscription.team_id:
-        return [member.user for member in subscription.team.memberships.all()]
-    return [subscription.user]
+        return [member.user for member in subscription.team.memberships.all() if member.user.is_active]
+    return [subscription.user] if subscription.user.is_active else []
 
 
 def _user_zone(user):
@@ -179,6 +179,34 @@ def _due_events(sub, user, offsets, instant, timed):
                 break
 
 
+def _reminder_subscriptions():
+    return Subscription.objects.filter(
+        Q(status='active') | Q(status='paused', resume_on__isnull=False),
+        reminders_enabled=True,
+    ).exclude(cancellation_state='confirmed').select_related('user', 'team')
+
+
+def _current_reminder(selected, kind, days_before):
+    # Sending can lag selection. Recheck the scope, schedule and opt-in before
+    # reserving an event, keeping the selected event date independent of billing's cursor.
+    sub = _reminder_subscriptions().filter(pk=selected.pk, user_id=selected.user_id, team_id=selected.team_id).first()
+    day = selected.renewal_date
+    if sub is None or day is None:
+        return None
+    if hasattr(selected, '_due_recipients'):
+        offsets = set(sub.offsets.values_list('days_before', flat=True)) or {settings.NOTIFICATION_DAYS_BEFORE}
+        if days_before not in offsets or selected.renewal_time != sub.renewal_time:
+            return None
+    if kind == 'cancellation_deadline':
+        if sub.cancel_by_date != day:
+            return None
+    elif not sub.bills_on(day) or sub.calculate_renewal_date(today=day) != day:
+        return None
+    sub.renewal_date = day
+    sub.cost = sub.price_on(day)
+    return sub
+
+
 class NotificationService:
     """Service for handling subscription notifications."""
 
@@ -187,16 +215,19 @@ class NotificationService:
         """Send a renewal reminder email for a subscription."""
         try:
             due_members = getattr(subscription, '_due_recipients', None)
+            kind = getattr(subscription, '_reminder_kind', 'renewal_reminder')
+            subscription = _current_reminder(subscription, kind, days_before)
+            if subscription is None:
+                return False
             if subscription.team_id:
-                members = subscription.team.memberships.select_related('user')
+                members = subscription.team.memberships.select_related('user').filter(user__is_active=True)
                 if due_members is not None:
                     members = members.filter(user_id__in=[user.pk for user in due_members])
                 recipients = [member.user for member in members]
             else:
-                recipients = [subscription.user]
-            if not subscription.reminders_enabled or not recipients:
+                recipients = [subscription.user] if subscription.user.is_active else []
+            if not recipients:
                 return False
-            kind = getattr(subscription, '_reminder_kind', 'renewal_reminder')
             if kind == 'cancellation_deadline':
                 label = 'Cancellation deadline'
             elif subscription.trial_end_date == subscription.renewal_date:
@@ -306,12 +337,10 @@ class NotificationService:
         horizon = days_before if days_before is not None else max(30, settings.NOTIFICATION_DAYS_BEFORE)
         # Billing can already have advanced the cursor while a recipient west of UTC
         # is still on their reminder day. Match the calendar schedule independently.
-        subscriptions = Subscription.objects.filter(
+        subscriptions = _reminder_subscriptions().filter(
             Q(start_date__lte=instant.date() + timedelta(days=horizon + 1)) |
             Q(cancel_by_date__lte=instant.date() + timedelta(days=horizon + 1)),
-            Q(status='active') | Q(status='paused', resume_on__isnull=False),
-            reminders_enabled=True,
-        ).select_related('user', 'team').prefetch_related('offsets', 'team__memberships__user')
+        ).prefetch_related('offsets', 'team__memberships__user')
         due = []
         for sub in subscriptions:
             offsets = {row.days_before for row in sub.offsets.all()} or {settings.NOTIFICATION_DAYS_BEFORE}

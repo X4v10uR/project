@@ -553,6 +553,34 @@ class FinanceTests(TestCase):
         sync_gmail(connection)
         self.assertEqual(Receipt.objects.count(), 1)
 
+    @patch('finance.connections.provider_request')
+    def test_gmail_resumes_same_name_attachments_with_their_own_amounts_and_dates(self, request):
+        import base64
+        from .connections import ProviderError
+
+        connection = Connection.objects.create(user=self.user, provider='gmail', external_id='mail',
+            encrypted_tokens=encrypt_tokens({'access_token': 'token', 'expires_at': time.time() + 3600}))
+        listing = {'messages': [{'id': 'two-invoices'}]}
+        first = base64.urlsafe_b64encode(self.pdf('2026-10-10 Total: EUR 7.00').read()).decode()
+        second = base64.urlsafe_b64encode(self.pdf('2026-10-12 Total: USD 9.00').read()).decode()
+        message = {'payload': {'parts': [
+            {'mimeType': 'text/plain', 'body': {'data': base64.urlsafe_b64encode(
+                b'Invoice summary dated 2026-10-15. Total: USD 16.00').decode()}},
+            {'filename': 'invoice.pdf', 'body': {'data': first}},
+            {'filename': 'invoice.pdf', 'body': {'attachmentId': 'second'}},
+        ]}}
+        request.side_effect = [listing, message, ProviderError('Temporary failure')]
+        with self.assertRaises(ProviderError):
+            sync_gmail(connection)
+        request.side_effect = [listing, message, {'data': second}]
+        sync_gmail(connection)
+        self.assertCountEqual(Receipt.objects.values_list('amount', 'currency', 'issued_on'), [
+            (Decimal('7.00'), 'EUR', date(2026, 10, 10)),
+            (Decimal('9.00'), 'USD', date(2026, 10, 12)),
+        ])
+        payment = ImportedPayment.objects.get()
+        self.assertEqual((payment.amount, payment.paid_on), (Decimal('16.00'), date(2026, 10, 15)))
+
     @patch('finance.connections.plaid')
     def test_failed_plaid_page_does_not_advance_cursor(self, plaid):
         from .connections import ProviderError

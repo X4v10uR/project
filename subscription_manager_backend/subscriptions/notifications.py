@@ -130,7 +130,10 @@ def _send_notification_email(notification):
         raise RuntimeError('Email backend did not send the notification.')
 
 
-def _deliver_notification(notification, *, send_email_alert):
+def _deliver_notification(notification_id, *, send_email_alert):
+    notification = InAppNotification.objects.select_related('recipient', 'team').filter(pk=notification_id).first()
+    if notification is None:
+        return
     push_created(notification)
     from finance.delivery import route_notification
     route_notification(notification, send_email_alert)
@@ -161,7 +164,7 @@ def create_notification(
         metadata=metadata or {},
     )
     transaction.on_commit(
-        partial(_deliver_notification, notification, send_email_alert=send_email_alert),
+        partial(_deliver_notification, notification.pk, send_email_alert=send_email_alert),
         using=notification._state.db,
     )
     return notification

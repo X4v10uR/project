@@ -1,4 +1,5 @@
 import base64
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -83,6 +84,60 @@ class GmailImportTests(TestCase):
         self.connection = Connection.objects.create(user=self.user, provider='gmail', external_id=self.user.email,
             label='Mail', encrypted_tokens=encrypt_tokens({'access_token': 'test-token',
                 'expires_at': timezone.now().timestamp() + 3600}))
+
+    @patch('finance.connections.provider_request')
+    def test_missing_date_uses_gmail_received_time(self, request):
+        received = datetime(2026, 1, 20, 2, tzinfo=UTC)
+        request.side_effect = [
+            {'messages': [{'id': 'invoice'}]},
+            {'internalDate': str(int(received.timestamp()) * 1000), 'payload': text_part('Total: USD 10.00')},
+        ]
+        sync_gmail(self.connection)
+        self.assertEqual(ImportedPayment.objects.get().paid_on, date(2026, 1, 20))
+
+    @patch('finance.connections.provider_request')
+    def test_large_mailbox_resumes_after_the_scan_limit(self, request):
+        ImportedMessage.objects.bulk_create([
+            ImportedMessage(connection=self.connection, remote_id=str(i)) for i in range(20)
+        ])
+        request.side_effect = [
+            {'messages': [{'id': str(i)}], 'nextPageToken': str(i + 1)} for i in range(20)
+        ]
+        sync_gmail(self.connection)
+        self.connection.refresh_from_db()
+        self.assertEqual(self.connection.cursor, '20')
+        request.side_effect = [{'messages': [{'id': 'older'}]}, {'payload': text_part('Total: USD 10.00')}]
+        sync_gmail(self.connection)
+        self.assertEqual(request.call_args_list[-2].kwargs['params']['pageToken'], '20')
+        self.assertTrue(ImportedMessage.objects.filter(remote_id='older').exists())
+        self.connection.refresh_from_db()
+        self.assertEqual(self.connection.cursor, '')
+
+    @patch('finance.connections.provider_request')
+    def test_batch_limit_resumes_in_the_middle_of_a_page(self, request):
+        listing = {'messages': [{'id': str(i)} for i in range(51)], 'nextPageToken': 'next'}
+        message = {'payload': text_part('Total: USD 10.00')}
+        request.side_effect = [listing] + [message] * 50
+        sync_gmail(self.connection)
+        self.assertEqual(ImportedMessage.objects.count(), 50)
+        request.side_effect = [listing, message, {'messages': []}]
+        sync_gmail(self.connection)
+        self.assertEqual(ImportedMessage.objects.count(), 51)
+        self.assertEqual(ImportedPayment.objects.count(), 51)
+
+    @patch('finance.connections.provider_request')
+    def test_expired_page_token_restarts_and_deleted_message_does_not_block_sync(self, request):
+        self.connection.cursor = 'expired'
+        self.connection.save(update_fields=['cursor'])
+        request.side_effect = [
+            ProviderError('Invalid page token', status_code=400),
+            {'messages': [{'id': 'deleted'}, {'id': 'kept'}]},
+            ProviderError('Message no longer exists', status_code=404),
+            {'payload': text_part('Total: USD 12.00')},
+        ]
+        sync_gmail(self.connection)
+        self.assertNotIn('pageToken', request.call_args_list[1].kwargs['params'])
+        self.assertEqual(ImportedPayment.objects.get().remote_id, 'kept')
 
     @patch('finance.connections.provider_request')
     def test_sender_names_are_decoded_and_bare_senders_remain_identifiable(self, request):
