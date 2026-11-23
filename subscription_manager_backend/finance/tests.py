@@ -624,7 +624,8 @@ class FinanceTests(TestCase):
         pref = NotificationPreference.objects.get(); pref.email_enabled = True; pref.digest = 'daily'; pref.save()
         route_notification(notification, True)
         self.assertEqual(len(mail.outbox), 0)
-        now = timezone.now().replace(hour=12)
+        # The digest cutoff must be after the alert, including afternoon runs.
+        now = timezone.now().replace(hour=12) + timedelta(days=1)
         with patch('finance.delivery.timezone.now', return_value=now):
             self.assertEqual(send_digests(), 1)
             self.assertEqual(send_digests(), 0)

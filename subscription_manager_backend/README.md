@@ -35,7 +35,7 @@ The API routes are under `/api/accounts/`, `/api/subscriptions/`, and `/api/dash
 .\.venv\Scripts\python.exe manage.py test
 ```
 
-The original Django page assets and browser scripts are in `legacy/`. Run their JavaScript tests with `node --test legacy/tests_js/dashboard_js.test.cjs`.
+The original Django page assets and browser scripts are in `legacy/`. Run their JavaScript tests with `node --test legacy/tests_js/*.test.cjs`.
 
 ## Deployment
 

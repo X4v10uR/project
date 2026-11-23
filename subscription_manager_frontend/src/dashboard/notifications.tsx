@@ -21,13 +21,16 @@ type UnreadCount = { unread_count: number };
 type NotificationList = UnreadCount & {
   notifications: Notification[];
   notifications_ws_enabled: boolean;
+  next: string | null;
 };
 
 type NotificationsState = {
   data: NotificationList | null;
   error: string;
   saving: boolean;
+  loadingOlder: boolean;
   refresh: () => Promise<void>;
+  loadOlder: () => Promise<void>;
   markRead: (id?: number) => Promise<void>;
 };
 
@@ -37,13 +40,23 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<NotificationList | null>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const socketOpen = useRef(false);
   const requestNumber = useRef(0);
+  const pageCount = useRef(1);
+  const loadingOlderRef = useRef(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
 
   const refresh = useCallback(async () => {
     const thisRequest = ++requestNumber.current;
     try {
-      const result = await api<NotificationList>(endpoint);
+      let result = await api<NotificationList>(endpoint);
+      for (let page = 1; page < pageCount.current && result.next; page++) {
+        if (thisRequest !== requestNumber.current) return;
+        // The API may return its backend origin when running behind Vite.
+        const query = new URL(result.next, window.location.origin).search;
+        const older = await api<NotificationList>(endpoint + query);
+        const notifications = [...new Map([...result.notifications, ...older.notifications].map((item) => [item.id, item])).values()];
+        result = { ...result, next: older.next, notifications };
+      }
       if (thisRequest !== requestNumber.current) return;
       setData(result);
       setError('');
@@ -54,11 +67,16 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void refresh();
-    const poll = window.setInterval(() => {
-      if (!socketOpen.current) void refresh();
-    }, 15000);
+    // Keep a fallback even with an open socket: timed snoozes and changes made
+    // by another process may not emit an event on an in-memory channel layer.
+    const poll = window.setInterval(() => void refresh(), 15000);
+    const onVisible = () => { if (!document.hidden) void refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', onVisible);
     return () => {
       window.clearInterval(poll);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', onVisible);
       requestNumber.current++;
     };
   }, [refresh]);
@@ -74,15 +92,18 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     let reconnectDelay = 4000;
 
     function connect() {
-      socket = new WebSocket(url);
+      try {
+        socket = new WebSocket(url);
+      } catch {
+        // Browser security settings can reject construction; polling continues.
+        return;
+      }
       socket.onopen = () => {
-        socketOpen.current = true;
         reconnectDelay = 4000;
         void refresh();
       };
       socket.onmessage = () => void refresh();
       socket.onclose = (event) => {
-        socketOpen.current = false;
         if (event.code === 4401) return;
         reconnectTimer = window.setTimeout(connect, reconnectDelay);
         reconnectDelay = Math.min(reconnectDelay * 2, 60000);
@@ -91,13 +112,25 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
     connect();
     return () => {
-      socketOpen.current = false;
       window.clearTimeout(reconnectTimer);
       if (!socket) return;
       socket.onopen = socket.onmessage = socket.onclose = null;
       socket.close();
     };
   }, [refresh, wsEnabled]);
+
+  async function loadOlder() {
+    if (!data?.next || loadingOlderRef.current) return;
+    loadingOlderRef.current = true;
+    setLoadingOlder(true);
+    pageCount.current++;
+    try {
+      await refresh();
+    } finally {
+      loadingOlderRef.current = false;
+      setLoadingOlder(false);
+    }
+  }
 
   async function markRead(id?: number) {
     setSaving(true);
@@ -122,7 +155,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <NotificationsContext.Provider value={{ data, error, saving, refresh, markRead }}>
+    <NotificationsContext.Provider value={{ data, error, saving, loadingOlder, refresh, loadOlder, markRead }}>
       {children}
     </NotificationsContext.Provider>
   );
@@ -225,7 +258,7 @@ export function NotificationBell() {
 }
 
 export function NotificationsPage() {
-  const { data, error, saving, markRead, refresh } = useNotifications();
+  const { data, error, saving, loadingOlder, markRead, refresh, loadOlder } = useNotifications();
   return (
     <section className="mx-auto w-[calc(100%-2rem)] max-w-4xl rounded-3xl border border-slate-200 bg-white p-5 sm:p-7">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -247,13 +280,14 @@ export function NotificationsPage() {
           <article className={`rounded-2xl border p-4 ${item.is_read ? 'border-slate-200 bg-white' : 'border-emerald-100 bg-emerald-50'}`} key={item.id}>
             <NotificationContents item={item} />
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-sm font-semibold text-emerald-800">
-              {item.link_url && <Link className="hover:underline" to={item.link_url}>Open</Link>}
+              {item.link_url && <Link className="hover:underline" onClick={() => { if (!item.is_read) void markRead(item.id); }} to={item.link_url}>Open</Link>}
               {!item.is_read && <button className="hover:underline disabled:opacity-50" disabled={saving} onClick={() => void markRead(item.id)} type="button">Mark as read</button>}
               {!item.is_read && <SnoozeButton id={item.id} onSnooze={() => void refresh()} />}
             </div>
           </article>
         ))}
       </div>
+      {data?.next && <button className="mt-4 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold disabled:opacity-50" disabled={loadingOlder} onClick={() => void loadOlder()} type="button">{loadingOlder ? 'Loading…' : 'Load older notifications'}</button>}
     </section>
   );
 }

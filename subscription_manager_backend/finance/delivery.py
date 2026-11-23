@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from importlib import import_module
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from cryptography.hazmat.primitives.asymmetric import ec
 from django.conf import settings
 from django.contrib.auth import BACKEND_SESSION_KEY, HASH_SESSION_KEY, SESSION_KEY
 from django.core.mail import send_mail
@@ -51,7 +52,7 @@ def immediate_email(user):
     return not pref or (pref.email_enabled and pref.digest == 'off' and not quiet_until(user, pref))
 
 
-def send_push(notification):
+def send_push(notification, *, delivered=None):
     from pywebpush import webpush, WebPushException
     from accounts.models import AccountSecurity
 
@@ -60,6 +61,7 @@ def send_push(notification):
     auth_hashes = [user.get_session_auth_hash(), *user.get_session_auth_fallback_hash()]
     security = AccountSecurity.objects.filter(user=user, enabled=True).first()
     success = True
+    delivered = delivered if delivered is not None else set()
     for sub in PushSubscription.objects.filter(user=user):
         session = session_store(session_key=sub.session_key).load()
         session_hash = session.get(HASH_SESSION_KEY)
@@ -74,10 +76,13 @@ def send_push(notification):
         if not authenticated or (security and session.get('mfa_revision') != security.revision):
             sub.delete()
             continue
+        if sub.pk in delivered:
+            continue
         try:
             webpush(subscription_info={'endpoint': sub.endpoint, 'keys': sub.keys},
                 data=json.dumps({'title': notification.title, 'body': notification.body, 'url': notification.link_url}),
                 vapid_private_key=settings.VAPID_PRIVATE_KEY, vapid_claims={'sub': settings.VAPID_SUBJECT}, timeout=10)
+            delivered.add(sub.pk)
         except WebPushException as exc:
             if exc.response is not None and exc.response.status_code in (404, 410):
                 sub.delete()
@@ -100,6 +105,7 @@ def route_notification(notification, send_email_alert):
         NotificationDelivery.objects.update_or_create(notification=notification, defaults={'email': email, 'push': push, 'deliver_after': quiet})
         return
     failed_email = failed_push = False
+    push_delivered = set()
     if email:
         try:
             _send_notification_email(notification)
@@ -108,13 +114,14 @@ def route_notification(notification, send_email_alert):
             logger.warning('Email delivery queued for notification %s', notification.pk)
     if push:
         try:
-            failed_push = not send_push(notification)
+            failed_push = not send_push(notification, delivered=push_delivered)
         except Exception:
             failed_push = True
             logger.warning('Push delivery queued for notification %s', notification.pk)
     if failed_email or failed_push:
         NotificationDelivery.objects.update_or_create(notification=notification,
-            defaults={'email': failed_email, 'push': failed_push, 'deliver_after': timezone.now() + timedelta(minutes=5)})
+            defaults={'email': failed_email, 'push': failed_push, 'push_delivered': sorted(push_delivered),
+                      'deliver_after': timezone.now() + timedelta(minutes=5)})
 
 
 def deliver_queued():
@@ -131,16 +138,16 @@ def deliver_queued():
                 row.delete()
                 continue
             pref = NotificationPreference.objects.filter(user=n.recipient).first()
-            quiet = quiet_until(n.recipient, pref)
-            if quiet:
-                row.deliver_after = quiet
-                row.save(update_fields=['deliver_after'])
-                continue
             if row.snoozed_until and (n.last_reminded_at is None or n.last_reminded_at < row.snoozed_until):
                 n.last_reminded_at = timezone.now()
                 n.save(update_fields=['last_reminded_at'])
                 from subscriptions.notifications import push_created
                 transaction.on_commit(lambda notification=n: push_created(notification))
+            quiet = quiet_until(n.recipient, pref)
+            if quiet:
+                row.deliver_after = quiet
+                row.save(update_fields=['deliver_after'])
+                continue
             if row.email and (not pref or (pref.email_enabled and pref.digest == 'off')):
                 try:
                     _send_notification_email(n)
@@ -150,10 +157,12 @@ def deliver_queued():
             else:
                 row.email = False
             if row.push and pref and pref.push_enabled:
+                push_delivered = set(row.push_delivered)
                 try:
-                    row.push = not send_push(n)
+                    row.push = not send_push(n, delivered=push_delivered)
                 except Exception:
                     logger.warning('Push delivery retry failed: %s', n.pk)
+                row.push_delivered = sorted(push_delivered)
             else:
                 row.push = False
             if row.email or row.push:
@@ -179,7 +188,12 @@ def send_digests():
                 continue
             if since and now.date() < since.astimezone(now.tzinfo).date() + interval:
                 continue
-            since = since or cutoff - interval
+            if since is None:
+                # Keep the first retry's window fixed even if delivery fails past
+                # tomorrow's rolling lookback window.
+                since = cutoff - interval
+                pref.last_digest_at = since
+                pref.save(update_fields=['last_digest_at'])
             from django.db.models import Q
             rows = InAppNotification.objects.filter(Q(created_at__gt=since) | Q(last_reminded_at__gt=since),
                 recipient=pref.user, is_read=False, created_at__lte=cutoff).filter(
@@ -207,7 +221,9 @@ class PreferenceInput(serializers.ModelSerializer):
         fields = ('email_enabled', 'push_enabled', 'digest', 'quiet_start', 'quiet_end')
 
     def validate(self, data):
-        if bool(data.get('quiet_start')) != bool(data.get('quiet_end')):
+        start = data.get('quiet_start', getattr(self.instance, 'quiet_start', None))
+        end = data.get('quiet_end', getattr(self.instance, 'quiet_end', None))
+        if (start is None) != (end is None):
             raise serializers.ValidationError('Set both quiet-hour times, or clear both.')
         return data
 
@@ -218,7 +234,7 @@ def preferences(request):
     if request.method == 'PUT':
         data = PreferenceInput(row, data=request.data)
         data.is_valid(raise_exception=True)
-        if data.validated_data.get('push_enabled') and not settings.VAPID_PUBLIC_KEY:
+        if data.validated_data.get('push_enabled') and not (settings.VAPID_PUBLIC_KEY and settings.VAPID_PRIVATE_KEY):
             raise serializers.ValidationError('The server has not configured browser push yet.')
         data.save()
     return Response({**PreferenceInput(row).data, 'vapid_public_key': settings.VAPID_PUBLIC_KEY,
@@ -226,9 +242,13 @@ def preferences(request):
 
 
 def validate_push(endpoint, keys):
-    parsed = urlsplit(endpoint)
+    try:
+        parsed = urlsplit(endpoint)
+        port = parsed.port
+    except ValueError:
+        raise serializers.ValidationError('Unsupported browser push service.')
     allowed = ('fcm.googleapis.com', 'push.services.mozilla.com', 'notify.windows.com', 'push.apple.com')
-    if parsed.scheme != 'https' or not parsed.hostname or not any(parsed.hostname == h or parsed.hostname.endswith('.' + h) for h in allowed) or parsed.username or parsed.password or parsed.port not in (None, 443):
+    if parsed.scheme != 'https' or not parsed.hostname or not any(parsed.hostname == h or parsed.hostname.endswith('.' + h) for h in allowed) or parsed.username or parsed.password or port not in (None, 443) or parsed.fragment:
         raise serializers.ValidationError('Unsupported browser push service.')
     for name, length in [('auth', 16), ('p256dh', 65)]:
         try:
@@ -236,6 +256,8 @@ def validate_push(endpoint, keys):
             value = base64.b64decode(raw + '=' * (-len(raw) % 4), altchars=b'-_', validate=True)
             if len(value) != length:
                 raise ValueError()
+            if name == 'p256dh':
+                ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), value)
         except (ValueError, KeyError, TypeError):
             raise serializers.ValidationError('Invalid browser subscription keys.')
 
@@ -261,12 +283,17 @@ def push_subscriptions(request):
 
 
 @api_view(['POST'])
+@transaction.atomic
 def snooze(request, pk):
     from django.shortcuts import get_object_or_404
-    notification = get_object_or_404(InAppNotification, pk=pk, recipient=request.user)
+    notification = get_object_or_404(InAppNotification.objects.select_for_update(), pk=pk, recipient=request.user)
     hours = serializers.IntegerField(min_value=1, max_value=168).run_validation(request.data.get('hours', 24))
     until = timezone.now() + timedelta(hours=hours)
-    NotificationDelivery.objects.update_or_create(notification=notification, defaults={'email': True, 'push': True, 'deliver_after': until, 'snoozed_until': until, 'attempts': 0})
+    NotificationDelivery.objects.update_or_create(notification=notification, defaults={'email': True, 'push': True,
+        'push_delivered': [], 'deliver_after': until, 'snoozed_until': until, 'attempts': 0})
+    notification.is_read = False
+    notification.read_at = None
+    notification.save(update_fields=['is_read', 'read_at'])
     from subscriptions.notifications import push_updated
-    push_updated(notification)
+    transaction.on_commit(lambda: push_updated(notification))
     return Response({'snoozed_until': until})

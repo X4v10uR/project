@@ -65,7 +65,7 @@ class EmailDeliveryTests(TestCase):
         with patch('subscriptions.notifications._send_notification_email', side_effect=SMTPException('Unavailable')):
             with patch('finance.delivery.send_push', return_value=True) as push:
                 self.assertEqual(deliver_queued(), 0)
-        push.assert_called_once_with(notification)
+        push.assert_called_once_with(notification, delivered=set())
         row.refresh_from_db()
         self.assertTrue(row.email)
         self.assertFalse(row.push)

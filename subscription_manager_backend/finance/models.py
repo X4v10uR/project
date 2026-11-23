@@ -143,6 +143,7 @@ class NotificationDelivery(models.Model):
     notification = models.OneToOneField('subscriptions.InAppNotification', on_delete=models.CASCADE)
     email = models.BooleanField(default=False)
     push = models.BooleanField(default=False)
+    push_delivered = models.JSONField(default=list, blank=True)
     deliver_after = models.DateTimeField()
     snoozed_until = models.DateTimeField(null=True, blank=True)
     attempts = models.PositiveSmallIntegerField(default=0)

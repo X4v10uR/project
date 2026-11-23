@@ -36,6 +36,7 @@
         this.unreadCount = 0;
         this.socket = null;
         this.pollTimer = null;
+        this.requestNumber = 0;
 
         if (!this.shell || !this.toggle || !this.panel || !this.listNode || !this.countNode) {
             return;
@@ -184,12 +185,13 @@
 
     NotificationBell.prototype.fetchList = function () {
         const self = this;
+        const requestNumber = ++this.requestNumber;
         return fetch('/dashboard/notifications/api/list/', {
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
         })
             .then(function (response) { return response.json(); })
             .then(function (payload) {
-                if (!payload.ok) {
+                if (!payload.ok || requestNumber !== self.requestNumber) {
                     return;
                 }
                 self.notifications = payload.notifications || [];
@@ -213,6 +215,7 @@
                 if (!payload.ok) {
                     return;
                 }
+                self.requestNumber += 1;
                 self.notifications = self.notifications.map(function (item) {
                     if (String(item.id) === String(notificationId)) {
                         return Object.assign({}, item, { is_read: true });
@@ -239,6 +242,7 @@
                 if (!payload.ok) {
                     return;
                 }
+                self.requestNumber += 1;
                 self.notifications = self.notifications.map(function (item) {
                     return Object.assign({}, item, { is_read: true });
                 });
@@ -262,48 +266,32 @@
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const url = protocol + '//' + window.location.host + '/ws/notifications/';
         const self = this;
-        this.socket = new WebSocket(url);
+        try {
+            this.socket = new WebSocket(url);
+        } catch (error) {
+            return;
+        }
 
         this.socket.onopen = function () {
-            self.stopPolling();
             self.fetchList();
         };
 
         this.socket.onmessage = function (event) {
             try {
                 const payload = JSON.parse(event.data);
-                if (payload.type === 'notification.created' && payload.notification) {
-                    self.notifications.unshift(payload.notification);
-                    self.notifications = self.notifications.slice(0, 20);
-                    self.setUnreadCount(payload.unread_count || 0);
-                    self.render();
-                    return;
-                }
-                if (payload.type === 'notification.updated') {
-                    self.notifications = self.notifications.map(function (item) {
-                        if (String(item.id) === String(payload.notification_id)) {
-                            return Object.assign({}, item, { is_read: payload.is_read });
-                        }
-                        return item;
-                    });
-                    self.setUnreadCount(payload.unread_count || 0);
-                    self.render();
-                    return;
-                }
-                if (payload.type === 'notification.bulk_read') {
-                    self.notifications = self.notifications.map(function (item) {
-                        return Object.assign({}, item, { is_read: true });
-                    });
-                    self.setUnreadCount(payload.unread_count || 0);
-                    self.render();
+                if (['notification.created', 'notification.updated', 'notification.bulk_read'].includes(payload.type)) {
+                    // A snooze can remove an item, and a reminder can reorder it.
+                    // Fetch the authoritative visible list rather than inserting duplicates.
+                    self.fetchList();
                 }
             } catch (error) {
                 return;
             }
         };
 
-        this.socket.onclose = function () {
+        this.socket.onclose = function (event) {
             self.startPolling();
+            if (event.code === 4401) return;
             window.setTimeout(function () {
                 self.connectSocket();
                 self.fetchList();
@@ -311,7 +299,10 @@
         };
     };
 
-    document.addEventListener('DOMContentLoaded', function () {
-        new NotificationBell();
-    });
+    if (typeof module !== 'undefined' && module.exports) module.exports = NotificationBell;
+    if (typeof document !== 'undefined') {
+        document.addEventListener('DOMContentLoaded', function () {
+            new NotificationBell();
+        });
+    }
 })();

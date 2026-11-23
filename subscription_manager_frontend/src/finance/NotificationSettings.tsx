@@ -66,22 +66,21 @@ export function NotificationSettingsPage() {
     setFailure("");
     setNotice("");
     try {
-      if (
+      if (enable && (
         !("serviceWorker" in navigator) ||
         !("PushManager" in window) ||
         !("Notification" in window)
-      )
+      ))
         throw new Error("This browser does not support push notifications.");
-      const registration = await navigator.serviceWorker.register(
-        "/notification-worker.js",
-      );
-      await navigator.serviceWorker.ready;
-      let subscription = await registration.pushManager.getSubscription();
       if (enable) {
+        // Request permission while this click still has user activation.
         if ((await Notification.requestPermission()) !== "granted")
           throw new Error(
             "Notification permission was not granted. Update this site’s browser permissions to try again.",
           );
+        await navigator.serviceWorker.register("/notification-worker.js");
+        const registration = await navigator.serviceWorker.ready;
+        let subscription = await registration.pushManager.getSubscription();
         subscription ??= await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: keyBytes(data.vapid_public_key),
@@ -90,16 +89,20 @@ export function NotificationSettingsPage() {
           method: "POST",
           body: JSON.stringify(subscription.toJSON()),
         });
-      } else if (subscription) {
-        await api(endpoint + "notifications/push/", {
-          method: "DELETE",
-          body: JSON.stringify({ endpoint: subscription.endpoint }),
-        });
-        await subscription.unsubscribe();
+      } else if ("serviceWorker" in navigator) {
+        const registration = await navigator.serviceWorker.getRegistration("/");
+        const subscription = await registration?.pushManager?.getSubscription();
+        if (subscription) {
+          await api(endpoint + "notifications/push/", {
+            method: "DELETE",
+            body: JSON.stringify({ endpoint: subscription.endpoint }),
+          });
+          await subscription.unsubscribe();
+        }
       }
       await api(endpoint + "notifications/preferences/", {
         method: "PUT",
-        body: JSON.stringify({ ...data, push_enabled: enable }),
+        body: JSON.stringify({ push_enabled: enable }),
       });
       setNotice(
         enable

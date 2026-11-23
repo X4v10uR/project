@@ -2,6 +2,7 @@ import json
 from decimal import Decimal, InvalidOperation
 
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
@@ -99,12 +100,13 @@ def adjust_balance(request):
 
 @login_required
 def notifications_page(request):
-    notifications = recent_notifications(request.user)[:50]
+    page = Paginator(recent_notifications(request.user), 50).get_page(request.GET.get('page'))
     return render(
         request,
         'dashboard/notifications.html',
         {
-            'notifications': notifications,
+            'notifications': page,
+            'page_obj': page,
         },
     )
 

@@ -232,9 +232,12 @@ def adjust_balance(request):
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def notifications(request):
-    recent = recent_notifications(request.user)[:50]
+    paginator = PageNumberPagination()
+    paginator.page_size = 50
+    recent = paginator.paginate_queryset(recent_notifications(request.user), request)
     return Response({
         'notifications': [serialize_notification(notification) for notification in recent],
+        'next': paginator.get_next_link(),
         'unread_count': notification_unread_count(request.user),
         **runtime_flags(request),
     })

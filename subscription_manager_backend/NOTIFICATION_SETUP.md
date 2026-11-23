@@ -115,6 +115,8 @@ python manage.py send_renewal_notifications
 3. Action: Start a program
 4. Program: `C:\path\to\subscription_manager\subscription_manager_backend\run_notifications.bat`
 
+The batch launcher uses the backend's `.venv`, falling back to a repository-level `.venv` or `python` on PATH. Arguments such as `--time-based` are passed to the scheduler. Failures return a nonzero exit status to Task Scheduler without waiting for keyboard input.
+
 ### Linux/Mac Cron Job
 
 ```bash

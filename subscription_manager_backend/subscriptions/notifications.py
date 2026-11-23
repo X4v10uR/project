@@ -10,7 +10,7 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency fallback
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import transaction
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, Greatest
 from django.template.loader import render_to_string
 from django.utils import timezone
 from subly.emailing import email_subject, frontend_url
@@ -28,7 +28,9 @@ def visible_notifications(user):
 
 def recent_notifications(user):
     return visible_notifications(user).select_related('team').annotate(
-        latest=Coalesce('last_reminded_at', 'created_at')
+        # An expired snooze is visible immediately, even between scheduler runs.
+        latest=Greatest(Coalesce('last_reminded_at', 'created_at'),
+                        Coalesce('notificationdelivery__snoozed_until', 'created_at'))
     ).order_by('-latest', '-pk')
 
 
@@ -50,18 +52,18 @@ def serialize_notification(notification):
         "body": notification.body,
         "link_url": notification.link_url,
         "is_read": notification.is_read,
-        "created_at": (notification.last_reminded_at or notification.created_at).isoformat(),
+        "created_at": (getattr(notification, 'latest', None) or notification.last_reminded_at or notification.created_at).isoformat(),
         "team": notification.team.name if notification.team_id else None,
         "subscription_id": notification.subscription_id,
     }
 
 
 def _send_group_event(user_id, event_type, payload):
-    channel_layer = get_channel_layer()
-    if not channel_layer:
-        return
-    group_name = f"notifications_user_{user_id}"
     try:
+        channel_layer = get_channel_layer()
+        if not channel_layer:
+            return
+        group_name = f"notifications_user_{user_id}"
         async_to_sync(channel_layer.group_send)(
             group_name,
             {
