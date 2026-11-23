@@ -27,15 +27,24 @@ EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
 EMAIL_USE_TLS=True
+EMAIL_USE_SSL=False
 EMAIL_HOST_USER=your-email@gmail.com
 EMAIL_HOST_PASSWORD=your-app-password
-DEFAULT_FROM_EMAIL=noreply@subly.com
+DEFAULT_FROM_EMAIL=your-email@gmail.com
 ACCOUNT_PASSWORD_ENCRYPTION_KEY=your-generated-fernet-key
 
 # Notification Settings
 NOTIFICATION_DAYS_BEFORE=3
 SITE_URL=https://your-domain.com
 ```
+
+For implicit SSL, set `EMAIL_PORT=465`, `EMAIL_USE_SSL=True`, and `EMAIL_USE_TLS=False`.
+The default port is 465 with SSL and 587 otherwise. `EMAIL_TIMEOUT` defaults to
+15 seconds. Use a sender address your SMTP provider permits.
+
+Team renewal reminders are sent individually. Successful recipients are recorded
+even if another address fails; subsequent runs retry only the failed recipients.
+Individual alert emails and summaries also retry when a backend accepts no message.
 
 ### 2. Gmail Setup (for Production)
 

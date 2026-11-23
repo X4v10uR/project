@@ -12,6 +12,7 @@ from django.db.models import Q
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
+from subly.emailing import email_subject, frontend_url
 
 from .models import ChargeShare, NotificationLog, Subscription, Transaction
 from .money import equal_share
@@ -225,64 +226,69 @@ class NotificationService:
             reservations = NotificationLog.objects.filter(**key, delivery_claim=claim)
             if not pending:
                 return False
-            recipient_emails = [user.email for user in pending]
             from finance.delivery import immediate_email
-            immediate_recipients = [user for user in pending if immediate_email(user)]
-            recipient_emails = [user.email for user in immediate_recipients]
-
-            context = {
-                'user': {'first_name': '', 'email': 'there'},
-                'subscription': subscription,
-                'event_label': label,
-                'site_url': getattr(settings, 'SITE_URL', 'http://localhost:8000'),
-            }
-            try:
-                delivered = not recipient_emails or send_mail(
-                    subject=render_to_string('emails/renewal_reminder_subject.txt', context).strip(),
-                    message=render_to_string('emails/renewal_reminder.txt', context),
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=recipient_emails,
-                    html_message=render_to_string('emails/renewal_reminder.html', context),
-                    fail_silently=False,
-                )
-            except Exception:
-                reservations.delete()
-                raise
-            if not delivered:
-                reservations.delete()
-                return False
-
             if subscription.team_id:
                 link_url = reverse('accounts:team_detail', args=[subscription.team_id])
             else:
                 link_url = reverse('subscriptions:update', args=[subscription.pk])
 
-            with transaction.atomic():
-                confirmed = set(reservations.select_for_update().values_list('recipient_id', flat=True))
-                reservations.update(delivery_claim=None, sent_at=timezone.now())
-                for recipient in pending:
-                    if recipient.pk not in confirmed:
+            failure = None
+            delivered = False
+            for recipient in pending:
+                reservation = reservations.filter(recipient=recipient)
+                try:
+                    # Large teams may outlive the original claim window. Send
+                    # only while we still own this recipient's reservation.
+                    if not reservation.update(sent_at=timezone.now()):
                         continue
-                    create_notification(
-                        recipient=recipient,
-                        team=subscription.team,
-                        subscription=subscription,
-                        event_type='cancellation.reminder' if kind == 'cancellation_deadline' else 'renewal.reminder',
-                        title=f"{label}: {subscription.service_name}",
-                        body=f"{label} on {subscription.renewal_date:%Y-%m-%d}.",
-                        link_url=link_url,
-                        metadata={
-                            'days_before': days_before,
-                            'renewal_date': subscription.renewal_date.isoformat() if subscription.renewal_date else None,
-                        },
-                        send_email_alert=recipient not in immediate_recipients,
-                    )
+                    immediate = immediate_email(recipient)
+                    if immediate:
+                        context = {
+                            'user': recipient, 'subscription': subscription, 'event_label': label,
+                            'subscription_url': frontend_url(link_url),
+                            'preferences_url': frontend_url('/planning/alerts/'),
+                        }
+                        accepted = send_mail(
+                            subject=email_subject('emails/renewal_reminder_subject.txt', context),
+                            message=render_to_string('emails/renewal_reminder.txt', context),
+                            from_email=settings.DEFAULT_FROM_EMAIL,
+                            recipient_list=[recipient.email],
+                            html_message=render_to_string('emails/renewal_reminder.html', context),
+                            fail_silently=False,
+                        )
+                        if not accepted:
+                            raise RuntimeError('Email backend did not send the renewal reminder.')
+                    with transaction.atomic():
+                        if not reservation.select_for_update().exists():
+                            continue
+                        reservation.update(delivery_claim=None, sent_at=timezone.now())
+                        create_notification(
+                            recipient=recipient,
+                            team=subscription.team,
+                            subscription=subscription,
+                            event_type='cancellation.reminder' if kind == 'cancellation_deadline' else 'renewal.reminder',
+                            title=f"{label}: {subscription.service_name}",
+                            body=f"{label} on {subscription.renewal_date:%Y-%m-%d}.",
+                            link_url=link_url,
+                            metadata={
+                                'days_before': days_before,
+                                'renewal_date': subscription.renewal_date.isoformat(),
+                            },
+                            send_email_alert=not immediate,
+                        )
+                    delivered = True
+                except Exception as exc:
+                    # Keep successful members confirmed even if another address fails.
+                    reservation.delete()
+                    failure = failure or exc
+            if failure:
+                raise failure
 
             logger.info(
                 "Renewal reminder sent for %s",
                 subscription.service_name,
             )
-            return True
+            return delivered
 
         except Exception:
             logger.exception("Failed to send renewal reminder")

@@ -13,6 +13,7 @@ from django.db import transaction
 from django.db.models.functions import Coalesce
 from django.template.loader import render_to_string
 from django.utils import timezone
+from subly.emailing import email_subject, frontend_url
 
 from .models import InAppNotification
 
@@ -110,12 +111,12 @@ def _send_notification_email(notification):
     context = {
         "notification": notification,
         "recipient": recipient,
-        "site_url": getattr(settings, "SITE_URL", "http://localhost:8000"),
+        "notification_url": frontend_url(notification.link_url),
     }
-    subject = render_to_string("emails/subscription_event_subject.txt", context).strip()
+    subject = email_subject("emails/subscription_event_subject.txt", context)
     message = render_to_string("emails/subscription_event.txt", context)
     html_message = render_to_string("emails/subscription_event.html", context)
-    send_mail(
+    sent = send_mail(
         subject=subject,
         message=message,
         from_email=settings.DEFAULT_FROM_EMAIL,
@@ -123,6 +124,8 @@ def _send_notification_email(notification):
         html_message=html_message,
         fail_silently=False,
     )
+    if not sent:
+        raise RuntimeError('Email backend did not send the notification.')
 
 
 def _deliver_notification(notification, *, send_email_alert):

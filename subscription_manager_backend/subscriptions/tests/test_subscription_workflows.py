@@ -367,7 +367,7 @@ class NotificationServiceTest(TestCase):
             ).exists()
         )
 
-    def test_team_reminder_uses_single_email_send_for_all_members(self):
+    def test_team_reminder_sends_separately_to_each_member(self):
         team_owner = User.objects.create_user(email='owner-team-notify@example.com', password='password')
         team_member = User.objects.create_user(email='member-team-notify@example.com', password='password')
 
@@ -391,11 +391,10 @@ class NotificationServiceTest(TestCase):
             was_sent = NotificationService.send_renewal_reminder(subscription, days_before=3)
 
         self.assertTrue(was_sent)
-        self.assertEqual(mocked_send_mail.call_count, 1)
-        kwargs = mocked_send_mail.call_args.kwargs
+        self.assertEqual(mocked_send_mail.call_count, 2)
         self.assertCountEqual(
-            kwargs['recipient_list'],
-            [team_owner.email, team_member.email],
+            [call.kwargs['recipient_list'] for call in mocked_send_mail.call_args_list],
+            [[team_owner.email], [team_member.email]],
         )
         self.assertEqual(
             InAppNotification.objects.filter(

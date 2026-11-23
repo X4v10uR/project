@@ -1,1 +1,1 @@
-{{ event_label }}: {{ subscription.service_name }} on {{ subscription.renewal_date|date:"M j, Y" }}
+{% autoescape off %}{{ event_label }}: {{ subscription.service_name }} on {{ subscription.renewal_date|date:"M j, Y" }}{% endautoescape %}

@@ -1,1 +1,1 @@
-You’re invited to join {{ team.name }} on Subly
+{% autoescape off %}You’re invited to join {{ team.name }} on Subly{% endautoescape %}

@@ -123,7 +123,9 @@ Revoked/downgraded team access no longer exposes that team's budget spend.
 email opt-out, browser push and quiet hours in the user's profile timezone.
 Quiet hours can cross midnight. In-app notifications remain available while
 email/push delivery waits. Daily and weekly summaries replace individual alert
-emails and run after 9 AM, outside quiet hours. Security password-reset emails
+emails and run after 9 AM, outside quiet hours. Daily and weekly intervals use
+local calendar dates, including across daylight-saving changes. A late run does
+not delay the next summary past its eligible morning. Security password-reset emails
 and explicit team invitations retain their dedicated delivery paths.
 
 Generate VAPID keys once:

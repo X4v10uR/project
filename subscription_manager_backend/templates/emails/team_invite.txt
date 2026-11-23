@@ -1,4 +1,4 @@
-Hello,
+{% autoescape off %}Hello,
 
 You have been invited to join the team "{{ team.name }}" on Subly as {{ invite.get_role_display }}.
 
@@ -9,4 +9,4 @@ This secure link expires on {{ expires_at|date:"F d, Y g:i A" }} and can only be
 
 For security reasons, no subscription credentials are ever included in email.
 
-If you were not expecting this invitation, you can ignore this message.
+If you were not expecting this invitation, you can ignore this message.{% endautoescape %}

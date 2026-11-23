@@ -1,4 +1,4 @@
-Hi {{ recipient.first_name|default:recipient.email }},
+{% autoescape off %}Hi {{ recipient.first_name|default:recipient.email }},
 
 You have a new Subly notification:
 
@@ -8,6 +8,6 @@ You have a new Subly notification:
 {% if notification.team %}Team: {{ notification.team.name }}{% endif %}
 
 Open Subly:
-{{ site_url }}
+{{ notification_url }}
 
-Security note: this email never includes subscription credentials.
+Security note: this email never includes subscription credentials.{% endautoescape %}

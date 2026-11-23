@@ -1,7 +1,7 @@
 import base64
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from importlib import import_module
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -36,7 +36,14 @@ def quiet_until(user, preference):
     if start == end or not quiet:
         return None
     day = now.date() + timedelta(days=1 if start > end and current >= start else 0)
-    return datetime.combine(day, end, tzinfo=now.tzinfo)
+    until = datetime.combine(day, end, tzinfo=now.tzinfo)
+    # A clock change can skip this wall time; resume at the first valid minute.
+    while until.astimezone(UTC).astimezone(now.tzinfo).replace(tzinfo=None) != until.replace(tzinfo=None):
+        until = (until + timedelta(minutes=1)).replace(second=0, microsecond=0)
+    # During a repeated hour, the first occurrence may already have passed.
+    if until.astimezone(UTC) <= now.astimezone(UTC):
+        until = until.replace(fold=1)
+    return until
 
 
 def immediate_email(user):
@@ -100,7 +107,11 @@ def route_notification(notification, send_email_alert):
             failed_email = True
             logger.warning('Email delivery queued for notification %s', notification.pk)
     if push:
-        failed_push = not send_push(notification)
+        try:
+            failed_push = not send_push(notification)
+        except Exception:
+            failed_push = True
+            logger.warning('Push delivery queued for notification %s', notification.pk)
     if failed_email or failed_push:
         NotificationDelivery.objects.update_or_create(notification=notification,
             defaults={'email': failed_email, 'push': failed_push, 'deliver_after': timezone.now() + timedelta(minutes=5)})
@@ -130,18 +141,21 @@ def deliver_queued():
                 n.save(update_fields=['last_reminded_at'])
                 from subscriptions.notifications import push_created
                 transaction.on_commit(lambda notification=n: push_created(notification))
-            try:
-                if row.email and (not pref or (pref.email_enabled and pref.digest == 'off')):
+            if row.email and (not pref or (pref.email_enabled and pref.digest == 'off')):
+                try:
                     _send_notification_email(n)
                     row.email = False
-                else:
-                    row.email = False
-                if row.push and pref and pref.push_enabled:
+                except Exception:
+                    logger.warning('Email delivery retry failed: %s', n.pk)
+            else:
+                row.email = False
+            if row.push and pref and pref.push_enabled:
+                try:
                     row.push = not send_push(n)
-                else:
-                    row.push = False
-            except Exception:
-                logger.warning('Notification delivery retry failed: %s', n.pk)
+                except Exception:
+                    logger.warning('Push delivery retry failed: %s', n.pk)
+            else:
+                row.push = False
             if row.email or row.push:
                 row.attempts += 1
                 row.deliver_after = timezone.now() + timedelta(minutes=min(360, 5 * 2 ** row.attempts))
@@ -157,25 +171,32 @@ def send_digests():
     for pref_id in NotificationPreference.objects.filter(email_enabled=True).exclude(digest='off').values_list('pk', flat=True):
         with transaction.atomic():
             pref = NotificationPreference.objects.select_for_update().select_related('user').get(pk=pref_id)
+            cutoff = timezone.now()
             now = local_now(pref.user)
             since = pref.last_digest_at
+            interval = timedelta(days=1 if pref.digest == 'daily' else 7)
             if quiet_until(pref.user, pref) or now.hour < 9:
                 continue
-            if since and (now - since).total_seconds() < (86400 if pref.digest == 'daily' else 604800):
+            if since and now.date() < since.astimezone(now.tzinfo).date() + interval:
                 continue
-            since = since or timezone.now() - timedelta(days=1 if pref.digest == 'daily' else 7)
+            since = since or cutoff - interval
             from django.db.models import Q
-            rows = InAppNotification.objects.filter(Q(created_at__gt=since) | Q(last_reminded_at__gt=since), recipient=pref.user, is_read=False).exclude(notificationdelivery__snoozed_until__gt=timezone.now()).order_by('created_at', 'pk')
+            rows = InAppNotification.objects.filter(Q(created_at__gt=since) | Q(last_reminded_at__gt=since),
+                recipient=pref.user, is_read=False, created_at__lte=cutoff).filter(
+                Q(last_reminded_at__isnull=True) | Q(last_reminded_at__lte=cutoff)
+            ).exclude(notificationdelivery__snoozed_until__gt=cutoff).order_by('created_at', 'pk')
             text = '\n\n'.join(f'{n.title}\n{n.body}' for n in rows.iterator())
             if text:
                 try:
-                    send_mail(f'Subly {pref.digest} summary', text + '\n\n' + settings.SITE_URL,
+                    accepted = send_mail(f'Subly {pref.digest} summary', text + '\n\n' + settings.SITE_URL,
                         settings.DEFAULT_FROM_EMAIL, [pref.user.email], fail_silently=False)
+                    if not accepted:
+                        raise RuntimeError('Email backend did not send the digest.')
                 except Exception:
                     logger.warning('Digest delivery failed for user %s', pref.user_id)
                     continue
                 sent += 1
-            pref.last_digest_at = timezone.now()
+            pref.last_digest_at = cutoff
             pref.save(update_fields=['last_digest_at'])
     return sent
 

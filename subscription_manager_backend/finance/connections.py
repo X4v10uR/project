@@ -1,5 +1,6 @@
 """Server-side Plaid/Gmail adapters. Imported data always goes through review."""
 import base64
+import binascii
 import hashlib
 import json
 import re
@@ -9,6 +10,9 @@ from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
 from email.utils import parseaddr, parsedate_to_datetime
+from email.header import decode_header, make_header
+from email.message import Message
+from html.parser import HTMLParser
 from urllib.parse import urlencode
 import requests
 from django.conf import settings
@@ -18,6 +22,7 @@ from django.db.models import Q
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.utils.crypto import constant_time_compare
 from rest_framework import serializers
 from rest_framework.decorators import api_view
 from rest_framework.exceptions import ValidationError
@@ -27,7 +32,7 @@ from accounts.security import require_recent
 from subscriptions.models import Subscription, Transaction
 from subscriptions.models import _account_password_encrypt_fernet, _account_password_decrypt_fernets
 from .models import Connection, ImportedPayment, ImportedMessage, Receipt
-from .documents import parse_invoice, validate_file, extract_receipt
+from .documents import MAX_FILE_SIZE, parse_invoice, validate_file, extract_receipt
 from .permissions import log_activity
 
 
@@ -119,7 +124,7 @@ def gmail_start(request):
 @api_view(['GET'])
 def gmail_callback(request):
     saved = request.session.pop('gmail_oauth', {})
-    if not saved or saved.get('user') != request.user.pk or timezone.now().timestamp() - saved.get('at', 0) > 600 or not secrets.compare_digest(saved.get('state', ''), request.query_params.get('state', '')):
+    if not saved or saved.get('user') != request.user.pk or timezone.now().timestamp() - saved.get('at', 0) > 600 or not constant_time_compare(saved.get('state', ''), request.query_params.get('state', '')):
         raise ValidationError('The connection request expired or is invalid. Start again from Connections.')
     if request.query_params.get('error'):
         return HttpResponseRedirect(settings.SITE_URL.rstrip('/') + '/planning/connections/?connection=cancelled')
@@ -182,14 +187,80 @@ def gmail_token(connection):
     return tokens['access_token']
 
 
-def mail_text(payload):
+class _MailHTMLText(HTMLParser):
+    boundaries = {'br', 'hr', 'p', 'div', 'section', 'table', 'tr', 'td', 'th', 'li',
+                  'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'head', 'script', 'style'}
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.text = []
+        self.ignored = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ('head', 'script', 'style'):
+            self.ignored += 1
+        if not self.ignored and tag in self.boundaries:
+            self.text.append(' ')
+
+    def handle_endtag(self, tag):
+        if tag in ('head', 'script', 'style'):
+            self.ignored = max(0, self.ignored - 1)
+        if not self.ignored and tag in self.boundaries:
+            self.text.append(' ')
+
+    def handle_data(self, data):
+        if not self.ignored:
+            self.text.append(data)
+
+
+def mail_bytes(raw):
+    try:
+        return base64.b64decode(raw + '=' * (-len(raw) % 4), altchars=b'-_', validate=True)
+    except (binascii.Error, ValueError):
+        # One malformed MIME part must not prevent the rest of a mailbox syncing.
+        return b''
+
+
+def mail_header(value):
+    try:
+        return str(make_header(decode_header(value)))
+    except (LookupError, UnicodeError):
+        return value
+
+
+def mail_text(payload, *, load_body=None):
+    if payload.get('filename'):
+        return []
+    kind = payload.get('mimeType', '').lower()
     texts = []
-    if payload.get('mimeType', '').startswith('text/') and payload.get('body', {}).get('data'):
-        raw = payload['body']['data']
-        text = base64.urlsafe_b64decode(raw + '=' * (-len(raw) % 4)).decode(errors='replace')[:100000]
-        texts.append(re.sub('<[^>]+>', ' ', text))
-    for part in payload.get('parts', []):
-        texts.extend(mail_text(part))
+    body = payload.get('body', {})
+    raw = body.get('data')
+    if (kind in ('text/plain', 'text/html') and not raw and load_body
+            and body.get('attachmentId') and body.get('size', 0) <= MAX_FILE_SIZE):
+        raw = load_body(body['attachmentId']).get('data')
+    if kind in ('text/plain', 'text/html') and raw:
+        raw = raw[:140000]
+        content_type = Message()
+        content_type['Content-Type'] = next((h['value'] for h in payload.get('headers', [])
+            if h['name'].lower() == 'content-type'), kind)
+        data = mail_bytes(raw)
+        try:
+            text = data.decode(content_type.get_content_charset() or 'utf-8', errors='replace')
+        except (LookupError, UnicodeError):
+            text = data.decode('utf-8', errors='replace')
+        if kind == 'text/html':
+            parser = _MailHTMLText()
+            parser.feed(text)
+            text = ''.join(parser.text)
+        if text.strip():
+            texts.append(text[:100000])
+    parts = payload.get('parts', [])
+    if kind == 'multipart/alternative':
+        # Prefer plain text, retaining HTML for receipts whose plain version
+        # contains only a link rather than the invoice details.
+        parts = sorted(parts, key=lambda part: part.get('mimeType') != 'text/plain')
+    for part in parts:
+        texts.extend(mail_text(part, load_body=load_body))
     return texts
 
 
@@ -214,19 +285,29 @@ def sync_gmail(connection):
                 continue
             mail = provider_request('GET', root + '/' + message['id'], headers=headers, params={'format': 'full'})
             payload = mail.get('payload', {})
-            mail_headers = {h['name'].lower(): h['value'] for h in payload.get('headers', [])}
-            text = '\n'.join(mail_text(payload))[:100000]
+            mail_headers = {}
+            for header in payload.get('headers', []):
+                name = header['name'].lower()
+                # Parse address structure before decoding an encoded display
+                # name, which can itself contain commas and other separators.
+                mail_headers[name] = header['value'] if name == 'from' else mail_header(header['value'])
+            def load_body(attachment_id):
+                return provider_request('GET', root + '/' + message['id'] + '/attachments/' + attachment_id,
+                    headers=headers)
+
+            text = '\n'.join(mail_text(payload, load_body=load_body))[:100000]
             parsed = parse_invoice(text)
             try:
                 day = parsedate_to_datetime(mail_headers.get('date', '')).date()
             except (TypeError, ValueError):
                 day = timezone.localdate()
-            sender, _ = parseaddr(mail_headers.get('from', ''))
-            merchant = (sender or mail_headers.get('subject', 'Email receipt'))[:100]
+            sender, address = parseaddr(mail_headers.get('from', ''))
+            sender = mail_header(sender)
+            merchant = (sender or address or mail_headers.get('subject', 'Email receipt'))[:100]
             for part in mail_parts(payload):
                 filename = part.get('filename', '')
                 body = part.get('body', {})
-                if not filename.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')) or body.get('size', 0) > 10 * 1024 * 1024:
+                if not filename.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')) or body.get('size', 0) > MAX_FILE_SIZE:
                     continue
                 note = f'Captured from Gmail connection {connection.pk}, message {message["id"]}, file {filename}'[:500]
                 existing = Receipt.objects.filter(user=connection.user, note=note).first()
@@ -240,7 +321,10 @@ def sync_gmail(connection):
                     raw = attachment.get('data')
                 if not raw:
                     continue
-                file = ContentFile(base64.urlsafe_b64decode(raw + '=' * (-len(raw) % 4)), name=filename)
+                data = mail_bytes(raw)
+                if not data:
+                    continue
+                file = ContentFile(data, name=filename)
                 try:
                     kind = validate_file(file)
                 except ValidationError:

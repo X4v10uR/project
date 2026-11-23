@@ -650,11 +650,11 @@ class FinanceTests(TestCase):
     def test_digest_includes_every_eligible_notification(self):
         now = timezone.now().replace(hour=12)
         NotificationPreference.objects.create(user=self.user, digest='daily', last_digest_at=now - timedelta(days=1))
-        InAppNotification.objects.bulk_create([
-            InAppNotification(recipient=self.user, title=f'Renewal {index}', event_type='renewal')
-            for index in range(101)
-        ])
         with patch('finance.delivery.timezone.now', return_value=now):
+            InAppNotification.objects.bulk_create([
+                InAppNotification(recipient=self.user, title=f'Renewal {index}', event_type='renewal')
+                for index in range(101)
+            ])
             self.assertEqual(send_digests(), 1)
             self.assertEqual(send_digests(), 0)
         self.assertEqual(len(mail.outbox), 1)

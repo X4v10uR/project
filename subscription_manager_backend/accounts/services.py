@@ -7,6 +7,7 @@ from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
+from subly.emailing import email_subject, frontend_url
 
 from .models import TeamInvite, TeamMembership
 
@@ -44,9 +45,8 @@ def create_team_invite(*, team, email, role, invited_by, validity_hours=48):
 
 
 def invite_accept_url(raw_token):
-    base_url = getattr(settings, "SITE_URL", "http://localhost:8000").rstrip("/")
     path = reverse("accounts:invite_accept", args=[raw_token])
-    return f"{base_url}{path}"
+    return frontend_url(path)
 
 
 def send_team_invite_email(invite, raw_token):
@@ -56,7 +56,7 @@ def send_team_invite_email(invite, raw_token):
         "invite_url": invite_accept_url(raw_token),
         "expires_at": invite.expires_at,
     }
-    subject = render_to_string("emails/team_invite_subject.txt", context).strip()
+    subject = email_subject("emails/team_invite_subject.txt", context)
     body = render_to_string("emails/team_invite.txt", context)
     html_body = render_to_string("emails/team_invite.html", context)
     sent = send_mail(

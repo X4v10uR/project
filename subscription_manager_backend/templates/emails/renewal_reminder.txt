@@ -1,4 +1,4 @@
-Hi {{ user.first_name|default:user.email }},
+{% autoescape off %}Hi {{ user.first_name|default:user.email }},
 
 {{ event_label }} for {{ subscription.service_name }} on {{ subscription.renewal_date|date:"F j, Y" }}.
 
@@ -10,7 +10,7 @@ Subscription Details:
 - Date: {{ subscription.renewal_date|date:"F d, Y" }}{% if subscription.renewal_time %} at {{ subscription.renewal_time|time:"g:i A" }}{% endif %}
 
 If you want to cancel or modify this subscription, please log in to your Subly dashboard:
-{{ site_url }}
+{{ subscription_url }}
 
 Thanks for using Subly to manage your subscriptions!
 
@@ -19,4 +19,5 @@ The Subly Team
 
 ---
 This is an automated reminder. If you no longer wish to receive these notifications, 
-you can update your preferences in your Subly dashboard.
+you can update your preferences in your Subly dashboard:
+{{ preferences_url }}{% endautoescape %}
