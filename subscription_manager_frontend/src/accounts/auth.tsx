@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refresh])
 
   // The public landing page remains available while the API is offline.
-  if (error && pathname !== '/') {
+  if (error && !['/', '/landing-v2', '/landing-v2/'].includes(pathname)) {
     return (
       <main className="mx-auto max-w-lg p-8 text-center">
         <p role="alert" className="mb-4 text-red-800">{error}</p>

@@ -37,7 +37,7 @@ function animateStatement(page: HTMLElement) {
   }
 }
 
-export function useLandingMotion(enabled: boolean) {
+export function useLandingMotion(enabled: boolean, rootMargin = '0px 0px 24px 0px') {
   const pageRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -69,18 +69,33 @@ export function useLandingMotion(enabled: boolean) {
           observer?.unobserve(target)
           revealed.add(target)
 
-          // Animate on entry without leaving content hidden while waiting for JS.
-          // Individual translate preserves the existing rotations on the artwork.
+          if (target.matches(':focus-within')) continue
+
+          // The resting layout stays visible if motion is unavailable. Individual
+          // transforms also preserve the rotations used to position the artwork.
+          const style = getComputedStyle(target)
           const animation = target.animate([
-            { opacity: 0, translate: '0 12px' },
-            { opacity: 1, translate: '0 0' },
-          ], { duration: 480, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' })
+            {
+              opacity: 0,
+              translate: style.getPropertyValue('--reveal-from').trim() || '0 12px',
+              scale: style.getPropertyValue('--reveal-scale').trim() || '1',
+            },
+            { opacity: 1, translate: '0 0', scale: '1' },
+          ], {
+            duration: parseFloat(style.getPropertyValue('--reveal-duration')) || 480,
+            delay: parseFloat(style.getPropertyValue('--reveal-delay')) || 0,
+            easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+            fill: 'backwards',
+          })
           animations.add(animation)
           animation.onfinish = () => animations.delete(animation)
         }
-      }, { rootMargin: '0px 0px 24px 0px' })
+      }, { rootMargin })
 
+      const scrollDriven = CSS.supports('animation-timeline: view()') &&
+        CSS.supports('animation-range: cover 0% cover 24%')
       page?.querySelectorAll('[data-lp-reveal]').forEach(element => {
+        if (scrollDriven && element.getAttribute('data-lp-reveal') === 'scroll') return
         if (!revealed.has(element)) observer?.observe(element)
       })
     }
@@ -91,7 +106,7 @@ export function useLandingMotion(enabled: boolean) {
       reducedMotion.removeEventListener('change', updateMotion)
       stopMotion()
     }
-  }, [enabled])
+  }, [enabled, rootMargin])
 
   return pageRef
 }

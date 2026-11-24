@@ -24,6 +24,7 @@ import { ConnectionsPage } from './finance/ConnectionsPage'
 import { NotificationSettingsPage } from './finance/NotificationSettings'
 import { DataPage } from './finance/DataPage'
 import { LandingPage } from './landing/LandingPage'
+import { LandingPageV2 } from './landing/LandingPageV2'
 
 function Brand() {
   return (
@@ -135,6 +136,7 @@ export function App() {
   return (
     <Routes>
       <Route index element={<LandingPage />} />
+      <Route path="landing-v2/" element={<LandingPageV2 />} />
       <Route element={<PublicLayout />}>
         <Route path="accounts/login/" element={<LoginPage />} />
         <Route path="accounts/signup/" element={<SignupPage />} />

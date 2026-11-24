@@ -216,6 +216,11 @@ export function LandingPage() {
 
     <LandingNavigation pageRef={pageRef}/>
 
-    <footer className="lp-footer"><div className="lp-footer-top lp-container"><div><Logo/><p>Small subscriptions.<br/>Big picture.</p></div><div><span className="lp-eyebrow">EXPLORE DUES</span><a href="#features">The good stuff</a><a href="#how-it-works">How it works</a><a href="#pricing">Free. Really.</a></div><div><span className="lp-eyebrow">GET YOURSELF SORTED</span><Link to="/accounts/signup/">Create an account</Link><Link to="/accounts/login/">Log in</Link><a href="#preview">Try the demo</a><a href="#questions">Good questions</a></div><div className="lp-footer-note"><span className="lp-eyebrow">LESS LIFE ADMIN.</span><p>Your music. Your movies.<br/>Your people. Your call.</p><a href="#questions">A little more clarity<Plus size={14} aria-hidden="true"/></a></div></div><div className="lp-footer-wordmark lp-container" aria-hidden="true"><Zap fill="currentColor" strokeWidth={2.5}/><span>DUES<span>.</span></span></div><div className="lp-footer-bottom lp-container"><span>© {new Date().getFullYear()} DUES</span><span>Made for a little peace of mind.</span><a href="#top">Back to top</a></div></footer>
+    <LandingFooter/>
   </div>
+}
+
+// Shared verbatim by both landing pages so the comparison keeps the existing footer.
+export function LandingFooter() {
+  return <footer className="lp-footer"><div className="lp-footer-top lp-container"><div><Logo/><p>Small subscriptions.<br/>Big picture.</p></div><div><span className="lp-eyebrow">EXPLORE DUES</span><a href="#features">The good stuff</a><a href="#how-it-works">How it works</a><a href="#pricing">Free. Really.</a></div><div><span className="lp-eyebrow">GET YOURSELF SORTED</span><Link to="/accounts/signup/">Create an account</Link><Link to="/accounts/login/">Log in</Link><a href="#preview">Try the demo</a><a href="#questions">Good questions</a></div><div className="lp-footer-note"><span className="lp-eyebrow">LESS LIFE ADMIN.</span><p>Your music. Your movies.<br/>Your people. Your call.</p><a href="#questions">A little more clarity<Plus size={14} aria-hidden="true"/></a></div></div><div className="lp-footer-wordmark lp-container" aria-hidden="true"><Zap fill="currentColor" strokeWidth={2.5}/><span>DUES<span>.</span></span></div><div className="lp-footer-bottom lp-container"><span>© {new Date().getFullYear()} DUES</span><span>Made for a little peace of mind.</span><a href="#top">Back to top</a></div></footer>
 }

@@ -13,6 +13,10 @@ npm run dev
 
 Open [DUES](http://127.0.0.1:5173). If Django is listening on a different address, copy `.env.example` to `.env` and set `BACKEND_URL`. Vite proxies the Django routes and WebSocket connection from the frontend origin so sessions and CSRF work in the browser.
 
+### Compare landing pages
+
+The original landing page is at `/`. The reference-inspired blue landing page is at `/landing-v2/` and remains accessible while signed in. Both use the same unchanged footer. Its carousel, FAQ, and subscription demo work without a backend connection; account actions use the existing app routes.
+
 ## Build
 
 ```powershell
