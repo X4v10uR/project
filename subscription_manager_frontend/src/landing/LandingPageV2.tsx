@@ -1,19 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  CalendarDays, Check, ChevronDown, FileText, LayoutGrid,
-  Menu, Plus, ShieldCheck, X, Zap,
+  CalendarDays, Check, ChevronDown, Files, LayoutGrid, Menu, Plus, ShieldCheck, UsersRound, X, Zap,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../accounts'
 import { ServiceIcon } from '../ServiceIcon'
 import { LandingFooter } from './LandingPage'
+import { LandingFeatures } from './LandingFeatures'
 import { useLandingMotion } from './useLandingMotion'
 import { useSmoothPageScroll } from './useSmoothPageScroll'
 import './landing-v2.css'
 
 const asset = `${import.meta.env.BASE_URL}landing-v2/campaign.webp`
 const heroImage = `${import.meta.env.BASE_URL}landing-v2/hero-hand.webp`
-const featurePortrait = `${import.meta.env.BASE_URL}landing-v2/feature-portrait.webp`
 const teamPortrait = `${import.meta.env.BASE_URL}landing-v2/team-portrait.webp`
 
 // The campaign sheet contains two square photos. This viewport isolates the
@@ -22,23 +21,23 @@ function LifestylePhoto({ className, alt }: { className: string; alt?: string })
   return <svg className={className} viewBox="100 0 100 100" preserveAspectRatio="xMidYMid slice" role={alt ? 'img' : undefined} aria-label={alt} aria-hidden={!alt}><image href={asset} width="200" height="100"/></svg>
 }
 const personal = [
-  { name: 'Netflix', plan: 'Standard', amount: 15.49, day: 24 },
-  { name: 'Spotify', plan: 'Premium Individual', amount: 11.99, day: 25 },
-  { name: 'Figma', plan: 'Professional', amount: 12, day: 27 },
-  { name: 'Notion', plan: 'Plus', amount: 10, day: 28 },
-  { name: 'iCloud+', plan: '200 GB', amount: 2.99, day: 30 },
+  { name: 'Netflix', amount: 15.49, day: 24 },
+  { name: 'Spotify', amount: 11.99, day: 25 },
+  { name: 'Figma', amount: 12, day: 27 },
+  { name: 'Notion', amount: 10, day: 28 },
+  { name: 'iCloud+', amount: 2.99, day: 30 },
 ]
 const team = [
-  { name: 'Figma', plan: 'Professional · 3 people', amount: 45, day: 24 },
-  { name: 'Notion', plan: 'Plus · 3 people', amount: 30, day: 28 },
-  { name: 'Spotify', plan: 'Duo · 2 people', amount: 16.99, day: 30 },
+  { name: 'Figma', amount: 45, day: 24 },
+  { name: 'Notion', amount: 30, day: 28 },
+  { name: 'Spotify', amount: 16.99, day: 30 },
 ]
 
 function Brand() {
   return <a className="lv-brand" href="#top" aria-label="DUES home"><span><Zap size={18} fill="currentColor"/></span>DUES<b>.</b></a>
 }
 
-const headlineServices = ['Netflix', 'Spotify', 'YouTube', 'hulu', 'HBO Max', 'Dropbox', 'Paramount+', 'AppleTV+', 'Prime Video']
+const headlineServices = ['iCloud','Netflix', 'Spotify', 'YouTube', 'hulu', 'HBO Max', 'Dropbox', 'Paramount+', 'AppleTV+', 'Prime Video', 'adobe-creative-cloud' ,'AWS', 'Google One', 'cloudflare']
 
 function RotatingServiceLogo() {
   const [activeIndex, setActiveIndex] = useState(0)
@@ -98,24 +97,72 @@ function Phone() {
         {calendar && <div className="lv-calendar" role="img" aria-label={`November 2026 example renewals: ${services.map(s => `${s.name} on November ${s.day}`).join(', ')}`}><div>{['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => <b key={i}>{d}</b>)}{Array.from({ length: 6 }, (_, i) => <span key={`blank-${i}`}/>)}{Array.from({ length: 30 }, (_, i) => <span className={services.some(s => s.day === i + 1) ? 'is-renewal' : ''} key={i}>{i + 1}</span>)}</div></div>}
       </div>
       <div className="lv-phone-list-title"><strong>Upcoming payments</strong><span>November</span></div>
-      <div className="lv-phone-services">{services.slice(0, 3).map(s => <div key={s.name}><ServiceIcon name={s.name}/><span className="lv-phone-service-name"><strong>{s.name}</strong><small>{s.plan}</small></span><b>${s.amount.toFixed(2)}<small>Nov {s.day}</small></b></div>)}</div>
+      <div className="lv-phone-services">
+        {services.slice(0, 2).map(s => <div key={s.name}>
+          <ServiceIcon name={s.name}/><strong>{s.name}</strong><b>${s.amount.toFixed(2)}<small>Nov {s.day}</small></b>
+        </div>)}
+      </div>
       <div className="lv-phone-nav" role="group" aria-label="Demo views"><button type="button" aria-pressed={!calendar} onClick={() => setCalendar(false)}><LayoutGrid size={16}/>Overview</button><button type="button" aria-pressed={calendar} onClick={() => setCalendar(true)}><CalendarDays size={16}/>Calendar</button></div>
-      <span className="lv-demo-label">Illustrative demo · USD</span>
     </div>
     <div className="lv-phone-home"/>
   </div>
 }
 
 const featureSlides = [
-  { title: 'Smarter subscription management.', body: 'Your streaming, software, and everyday essentials. Track every plan, cost, and renewal in one place.', label: 'Your subscriptions', services: ['Netflix', 'Spotify', 'Notion'], kind: 'subscriptions' },
-  { title: 'A little notice. A lot less surprise.', body: 'Get a heads-up before renewals, trial endings, and cancellation deadlines. Choose the reminders that work for you.', label: 'Your reminders', services: ['Spotify', 'Netflix', 'Figma'], kind: 'reminders' },
-  { title: 'Shared plans. Clearer shares.', body: 'Bring your team or your people together. Split costs, record payments, and keep track of repayments.', label: 'Your shared workspace', services: ['Figma', 'Notion', 'Spotify'], kind: 'teams' },
+  {
+    kind: 'spending', label: 'Spending', icon: LayoutGrid, anchor: '#spending', action: 'Explore spending',
+    title: 'See where your money goes.',
+    body: 'Bring your plans into one view. Set a budget and see how much you’re committed to spending.',
+    metric: '$52.47', detail: 'Monthly commitment',
+    rows: [['Netflix', '$15.49'], ['Spotify', '$11.99']],
+  },
+  {
+    kind: 'renewals', label: 'Renewals', icon: CalendarDays, anchor: '#renewals', action: 'Explore renewals',
+    title: 'Know what’s due next.',
+    body: 'See upcoming bills, trial endings, and price changes in time to decide what to keep.',
+    metric: 'Nov 24', detail: 'Next renewal',
+    rows: [['Netflix', 'Nov 24'], ['Spotify', 'Nov 25']],
+  },
+  {
+    kind: 'teams', label: 'Shared costs', icon: UsersRound, anchor: '#shared-plans', action: 'Explore shared costs',
+    title: 'See who owes what.',
+    body: 'Split shared plans, record repayments, and see what’s still outstanding for each person.',
+    metric: '$25.00', detail: 'Still owed to you',
+    rows: [['Alex', '$15.00'], ['Morgan', '$10.00']],
+  },
+  {
+    kind: 'discovery', label: 'Discovery', icon: Files, anchor: '#discovery', action: 'Explore discovery',
+    title: 'Find recurring payments.',
+    body: 'Bring in a statement or connect an account. Review what DUES finds before you add a plan.',
+    metric: '2 matches', detail: 'Recurring payments to review',
+    rows: [['Netflix', 'Monthly'], ['Spotify', 'Monthly']],
+  },
+  {
+    kind: 'records', label: 'Records & security', icon: ShieldCheck, anchor: '#records-security', action: 'Explore records',
+    title: 'Keep the proof of payment.',
+    body: 'Attach private receipts, export filtered charge reports, and back up your records.',
+    metric: '2 receipts', detail: 'Linked to charges',
+    rows: [['Figma', 'PDF'], ['Notion', 'PDF']],
+  },
 ]
 
-function FeaturePortrait({ kind }: { kind: string }) {
-  return kind === 'reminders'
-    ? <LifestylePhoto className="lv-feature-portrait lv-feature-portrait-music"/>
-    : <img className={`lv-feature-portrait lv-feature-portrait-${kind}`} src={kind === 'teams' ? teamPortrait : featurePortrait} alt="" width="1086" height="1448" loading="lazy"/>
+function FeaturePreview({ feature }: { feature: (typeof featureSlides)[number] }) {
+  const Icon = feature.icon
+
+  return <div className={`lv-slide-visual lv-slide-${feature.kind}`}>
+    <div className="lv-preview-card">
+      <div className="lv-preview-header"><Icon size={18} aria-hidden="true"/><span>{feature.label}</span></div>
+      <div className="lv-preview-metric"><span>{feature.detail}</span><strong>{feature.metric}</strong></div>
+      {feature.kind === 'spending' && <Bars small/>}
+      <ul className="lv-preview-rows">{feature.rows.map(([name, value]) => (
+        <li key={name}>
+          {feature.kind === 'teams' ? <span className="lv-preview-initial" aria-hidden="true">{name[0]}</span> : <ServiceIcon name={name}/>}
+          <span>{name}</span><b>{value}</b>
+        </li>
+      ))}</ul>
+      <small>Example data</small>
+    </div>
+  </div>
 }
 
 function FeatureCarousel({ slide, onChange }: { slide: number; onChange: (index: number) => void }) {
@@ -124,26 +171,46 @@ function FeatureCarousel({ slide, onChange }: { slide: number; onChange: (index:
     <div className="lv-carousel" role="region" aria-roledescription="carousel" aria-label="DUES features">
       {[-2, -1, 1, 2].map(offset => {
         const index = (slide + offset + featureSlides.length) % featureSlides.length
-        return <button key={offset} type="button" data-lp-reveal className={`lv-carousel-peek lv-peek-${offset < 0 ? 'left' : 'right'}${Math.abs(offset) === 2 ? ' lv-peek-outer' : ''}`} onClick={() => onChange(index)} aria-label={`Show ${featureSlides[index].label.toLowerCase()}`}><FeaturePortrait kind={featureSlides[index].kind}/></button>
+        const feature = featureSlides[index]
+        const Icon = feature.icon
+        return <button
+          key={offset}
+          type="button"
+          data-lp-reveal="scroll"
+          className={`lv-carousel-peek lv-slide-${feature.kind} lv-peek-${offset < 0 ? 'left' : 'right'}${Math.abs(offset) === 2 ? ' lv-peek-outer' : ''}`}
+          onClick={() => onChange(index)}
+          aria-label={`Show ${feature.label.toLowerCase()}`}
+        >
+          <Icon size={20} aria-hidden="true"/>
+          <span>{feature.label}</span>
+        </button>
       })}
-      <article className="lv-feature-slide" data-lp-reveal aria-live="polite" aria-atomic="true">
-        <div key={current.kind} className="lv-feature-slide-copy">
+      <article className="lv-feature-slide" data-lp-reveal="scroll" aria-live="polite" aria-atomic="true">
+        <div key={`copy-${current.kind}`} className="lv-feature-slide-copy">
           <h3>{current.title}</h3><p>{current.body}</p>
-          <div className="lv-feature-slide-footer"><span>{current.label}</span><a href={slide === 2 ? '#planning' : '#preview'} className="lv-text-link">{slide === 2 ? 'Explore planning tools' : 'Take a closer look'}</a></div>
+          <a href={current.anchor} className="lv-text-link">{current.action}</a>
         </div>
-        <div className={`lv-slide-visual lv-slide-${current.kind}`}><FeaturePortrait key={current.kind} kind={current.kind}/></div>
+        <FeaturePreview key={current.kind} feature={current}/>
       </article>
     </div>
-    <div className="lv-carousel-controls" data-lp-reveal role="group" aria-label="Choose a feature">{featureSlides.map((s, i) => <button type="button" key={s.kind} aria-label={`View ${s.label.toLowerCase()}`} aria-pressed={slide === i} onClick={() => onChange(i)}><span/></button>)}</div>
+    <div className="lv-carousel-controls" data-lp-reveal="scroll" role="group" aria-label="Choose a feature">
+      {featureSlides.map((feature, index) => (
+        <button type="button" key={feature.kind} aria-pressed={slide === index} onClick={() => onChange(index)}>
+          {feature.label}
+        </button>
+      ))}
+    </div>
   </>
 }
 
 const questions = [
   ['Is DUES really free?', 'Yes. Subscription tracking, reminders, budgets, planning tools, and shared workspaces are all free. No payment card is needed to create an account.'],
-  ['Do I need to connect my bank?', 'No. Add subscriptions with Quick add or import a CSV. Optional bank, email, and statement discovery tools can help you find recurring payments when configured.'],
+  ['How can I bring my subscriptions into DUES?', 'Use Quick add, the full subscription form, or a CSV import. You can also import a bank statement and review recurring-payment suggestions. Plaid bank connections and read-only Gmail receipt discovery are available when configured for your deployment.'],
   ['Can I manage subscriptions with other people?', 'Yes. Create a team, invite members, assign roles, split subscription costs, and record payments and partial repayments. Personal and team workspaces stay separate.'],
-  ['What about different currencies?', 'DUES tracks subscriptions, spending, forecasts, and budgets by currency. Combined totals are available in Planning when exchange rates are configured.'],
+  ['What about different currencies?', 'DUES tracks subscriptions, spending, forecasts, budgets, and settlements by currency. Spending insights can also show estimated combined commitments in your preferred base currency using saved reference exchange rates, with dates and sources shown.'],
   ['Will DUES cancel subscriptions for me?', 'DUES tracks cancellation requests, trial endings, and cancel-by dates. You make any cancellation or pause directly with the provider, then record it in DUES.'],
+  ['Can I take my data with me?', 'Export subscription lists, download filtered charge reports as CSV or PDF, or create a finance backup with receipts, history, budgets, and repayments. Restore lets you preview the archive before adding copies of its records.'],
+  ['How do reminders fit around my day?', 'Choose reminder offsets, individual emails or daily and weekly summaries, and quiet hours in your time zone. In-app notifications remain available, and you can snooze unread reminders until tomorrow. Browser push depends on deployment setup, permission, and device support.'],
 ]
 
 export function LandingPageV2() {
@@ -180,16 +247,16 @@ export function LandingPageV2() {
       <div className="lv-hero">
         <header className="lv-header"><nav ref={menuRef} className="lv-nav" aria-label="Primary navigation" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setMenuOpen(false) }}>
           <Brand/>
-          <div className="lv-nav-links"><a href="#top">Home</a><a href="#features">Features</a><a href="#how-it-works">How it works</a><Link to="/">Original design</Link></div>
+          <div className="lv-nav-links"><a href="#top">Home</a><a href="#features">Features</a><a href="#how-it-works">How it works</a><a href="#all-features">Every feature</a></div>
           <div className="lv-nav-actions"><Link className="lv-button lv-button-dark" to={start}>{user ? 'Open DUES' : 'Get started'}</Link><button ref={toggleRef} type="button" className="lv-menu-toggle" aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={menuOpen} aria-controls="lv-mobile-menu" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X size={20}/> : <Menu size={20}/>}</button></div>
-          {menuOpen && <div className="lv-mobile-menu" id="lv-mobile-menu"><a href="#features" onClick={() => setMenuOpen(false)}>Features</a><a href="#how-it-works" onClick={() => setMenuOpen(false)}>How it works</a><a href="#pricing" onClick={() => setMenuOpen(false)}>Free plan</a><a href="#questions" onClick={() => setMenuOpen(false)}>Questions</a><Link to="/">Original design</Link><Link to="/accounts/login/">Log in</Link></div>}
+          {menuOpen && <div className="lv-mobile-menu" id="lv-mobile-menu"><a href="#features" onClick={() => setMenuOpen(false)}>Features</a><a href="#how-it-works" onClick={() => setMenuOpen(false)}>How it works</a><a href="#pricing" onClick={() => setMenuOpen(false)}>Free plan</a><a href="#questions" onClick={() => setMenuOpen(false)}>Questions</a><a href="#all-features">Every feature</a><Link to="/accounts/login/">Log in</Link></div>}
         </nav></header>
         <section className="lv-hero-copy" aria-labelledby="lv-title">
             <h1 id="lv-title">
               <span className="lv-title-line"><span data-lp-reveal>You Can Take Control Of</span></span>{' '}
               <span className="lv-title-line"><span data-lp-reveal>Every <RotatingServiceLogo/> Subscription</span></span>
             </h1>
-            <p data-lp-reveal>Track spending, plan for renewals, and see what you pay<br className="lv-desktop-break"/> for your subscriptions with DUES.</p>
+            <p data-lp-reveal>Track every plan, see what you spend, and share costs.<br className="lv-desktop-break"/> Make room for more with DUES.</p>
             <div className="lv-hero-actions" data-lp-reveal>
               <Link to={start} className="lv-button lv-button-white">{user ? 'Open your dashboard' : 'Get started free'}<span className="lv-button-mark"><Zap size={15} fill="currentColor"/></span></Link>
               <a href="#how-it-works" className="lv-button lv-button-glass">See how it works</a>
@@ -266,7 +333,7 @@ export function LandingPageV2() {
           <div className="lv-process-grid">
             <div id="preview" className="lv-interactive-preview" data-lp-reveal>
               <Phone/>
-              <p>Try the demo. Switch workspaces or open the calendar.</p>
+              <p>Try the demo. Switch workspaces or open the calendar. Example amounts in USD.</p>
             </div>
             <div className="lv-steps">
               <article data-lp-reveal="scroll"><span>01</span><div><h3>Add your subscriptions</h3><p>Enter a plan with Quick add or import your list from a CSV file.</p><Link to={user ? '/subscriptions/quick-add/' : start} className="lv-text-link">Add your first subscription<Plus size={14}/></Link></div></article>
@@ -276,9 +343,9 @@ export function LandingPageV2() {
           </div>
         </section>
 
-        <section className="lv-planning lv-container" id="planning" aria-labelledby="lv-planning-title"><div className="lv-planning-intro" data-lp-reveal="scroll"><span className="lv-eyebrow">BEYOND THE NEXT PAYMENT</span><h2 id="lv-planning-title">All the little details.<br/>Already thought of.</h2><p>From the first bill to your next subscription review, your planning tools are right here.</p></div><div className="lv-planning-grid"><article data-lp-reveal="scroll"><CalendarDays/><h3>A calendar that keeps up.</h3><p>See renewals, trials, and deadlines. Export to your calendar or subscribe to a live feed.</p></article><article data-lp-reveal="scroll"><FileText/><h3>Records worth keeping.</h3><p>Keep private receipts, track charge history, and export reports. Bring statement payments into the picture.</p></article><article data-lp-reveal="scroll"><LayoutGrid/><h3>A moment to review.</h3><p>Spot duplicate plans, record usage, review price changes, and plan pauses or cancellations.</p></article><article data-lp-reveal="scroll"><ShieldCheck/><h3>Your space. Your control.</h3><p>Optional authenticator security, team roles, protected credentials, and portable backups.</p></article></div></section>
+        <LandingFeatures signedIn={Boolean(user)}/>
 
-        <section className="lv-free lv-container" data-lp-reveal="scroll" id="pricing" aria-labelledby="lv-free-title"><div><span className="lv-eyebrow">ONE LESS SUBSCRIPTION</span><h2 id="lv-free-title">More clarity.<br/>No monthly bill.</h2><p>Subscriptions, reminders, budgets, shared workspaces,<br className="lv-desktop-break"/> and planning. The whole good thing, free.</p><Link to={start} className="lv-button lv-button-dark">{user ? 'Go to dashboard' : 'Start organizing for free'}</Link></div><div className="lv-free-price"><span>THE DUES PLAN</span><strong>$0<span>/ month</span></strong><p>No credit card. No extra subscription.</p><div><span><Check/>Personal & teams</span><span><Check/>All planning tools</span></div></div></section>
+        <section className="lv-free lv-container" data-lp-reveal="scroll" id="pricing" aria-labelledby="lv-free-title"><div><span className="lv-eyebrow">ONE LESS SUBSCRIPTION</span><h2 id="lv-free-title">More clarity.<br/>No monthly bill.</h2><p>Tracking, discovery, budgets, teams, reports, and backups.<br className="lv-desktop-break"/> Every current feature is included.</p><Link to={start} className="lv-button lv-button-dark">{user ? 'Go to dashboard' : 'Start organizing for free'}</Link></div><div className="lv-free-price"><span>THE DUES PLAN</span><strong>$0<span>/ month</span></strong><p>No credit card. No extra subscription.</p><div><span><Check/>Personal & teams</span><span><Check/>Every current feature</span></div></div></section>
 
         <section className="lv-questions lv-container" id="questions" aria-labelledby="lv-questions-title"><div className="lv-section-heading" data-lp-reveal="scroll"><span className="lv-eyebrow">A LITTLE MORE CLARITY</span><h2 id="lv-questions-title">Good questions.</h2></div><div className="lv-faqs">{questions.map(([question, answer], index) => <details data-lp-reveal="scroll" key={question} open={index === 0 ? true : undefined}><summary>{question}<Plus size={18}/></summary><p>{answer}</p></details>)}</div></section>
         <section className="lv-last-call" data-lp-reveal="scroll"><span className="lv-eyebrow">LESS LIFE ADMIN. MORE LIVING.</span><h2>Keep what you love.<br/>Know what you pay.</h2><p>A little more in control feels good.</p><Link to={start} className="lv-button lv-button-dark">{user ? 'Open DUES' : 'Get started with DUES'}<span className="lv-button-mark"><Zap size={15} fill="currentColor"/></span></Link></section>
