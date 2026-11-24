@@ -1,6 +1,6 @@
 import {
-  ChartNoAxesCombined, CreditCard, LayoutGrid, List, LogOut,
-  ReceiptText, UserRound, UsersRound,
+  CalendarRange, ChartNoAxesCombined, CreditCard, LayoutGrid, List,
+  ReceiptText, UsersRound,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
@@ -87,7 +87,7 @@ function AppLayout() {
     { label: 'Cards', to: '/subscriptions/cards/', active: inCards, icon: CreditCard },
     { label: 'Teams', to: '/accounts/teams/', active: path.startsWith('/accounts/teams/'), icon: UsersRound },
     { label: 'History', to: '/dashboard/history/', active: path === '/dashboard/history/', icon: ReceiptText },
-    { label: 'Planning', to: '/planning/insights/', active: path.startsWith('/planning/'), icon: ChartNoAxesCombined },
+    { label: 'Planning', to: '/planning/insights/', active: path.startsWith('/planning/'), icon: CalendarRange },
   ]
 
   async function signOut() {
@@ -102,32 +102,7 @@ function AppLayout() {
     }
   }
 
-  const profileName = user.first_name || 'Profile'
-  const profileActive = path === '/accounts/settings/'
-
   const isDashboard = path === '/dashboard/'
-  const navigation = (
-    <div className="app-dock-wrap">
-      <nav className="app-dock" aria-label="Application navigation">
-        <Link className="app-dock-link" to="/accounts/settings/" aria-current={profileActive ? 'page' : undefined} title={profileName}>
-          {user.avatar_url ? (
-            <img className="size-6 rounded-lg object-contain" src={user.avatar_url} alt="" style={{ backgroundColor: user.avatar_background_color }} />
-          ) : <UserRound size={19} aria-hidden="true" />}
-          <span className="max-w-18 truncate">{profileName}</span>
-        </Link>
-        {tabs.map(({ label, to, active, icon: Icon }) => (
-          <Link className="app-dock-link" key={to} to={to} aria-current={active ? 'page' : undefined}>
-            <Icon size={19} aria-hidden="true" />
-            <span>{label}</span>
-          </Link>
-        ))}
-        <button type="button" className="app-dock-link" onClick={() => void signOut()} disabled={signingOut}>
-          <LogOut size={19} aria-hidden="true" />
-          <span>{signingOut ? 'Logging out…' : 'Log out'}</span>
-        </button>
-      </nav>
-    </div>
-  )
 
   return (
     <NotificationsProvider>
@@ -137,9 +112,8 @@ function AppLayout() {
           <NotificationBell />
         </header>}
         {error && <p className="mx-auto max-w-6xl px-5 text-red-700" role="alert">{error}</p>}
-        {isDashboard && <DashboardNavigation tabs={tabs} signingOut={signingOut} onSignOut={signOut} />}
         <main id="app-content"><Outlet /></main>
-        {!isDashboard && navigation}
+        <DashboardNavigation tabs={tabs} signingOut={signingOut} onSignOut={signOut} />
       </div>
     </NotificationsProvider>
   )

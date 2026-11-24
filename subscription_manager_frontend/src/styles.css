@@ -58,6 +58,10 @@
   padding-bottom: calc(90px + env(safe-area-inset-bottom));
 }
 
+html:has(.app-shell) {
+  scroll-padding-bottom: calc(100px + env(safe-area-inset-bottom));
+}
+
 .app-shell-header {
   display: flex;
   align-items: center;
@@ -66,79 +70,4 @@
   width: min(100%, 1280px);
   margin-inline: auto;
   padding: 12px 20px 4px;
-}
-
-.app-dock-wrap {
-  position: fixed;
-  z-index: 30;
-  inset: auto 10px calc(12px + env(safe-area-inset-bottom));
-  display: grid;
-  justify-items: center;
-  pointer-events: none;
-}
-
-.app-dock {
-  pointer-events: auto;
-  display: flex;
-  align-items: stretch;
-  gap: 2px;
-  max-width: 100%;
-  overflow-x: auto;
-  padding: 5px;
-  border: 1px solid white;
-  border-radius: 24px;
-  background: rgb(255 255 255 / 88%);
-  box-shadow: 0 12px 40px rgb(15 23 42 / 15%);
-  backdrop-filter: blur(14px);
-}
-
-.app-dock-link {
-  display: inline-flex;
-  flex: 0 0 auto;
-  min-width: 62px;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  padding: 7px 9px;
-  border-radius: 18px;
-  color: #475569;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.app-dock-link:hover {
-  background: #f1f5f9;
-}
-
-.app-dock-link[aria-current="page"] {
-  color: #e8f542;
-  background: #181b22;
-}
-
-.app-dock-link:focus-visible {
-  outline-offset: -2px;
-}
-
-.app-dock-link:disabled {
-  opacity: 0.6;
-}
-
-@media (max-width: 580px) {
-  .app-shell {
-    padding-bottom: calc(132px + env(safe-area-inset-bottom));
-  }
-
-  .app-dock {
-    display: grid;
-    width: min(100%, 400px);
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-
-  .app-dock-link {
-    min-width: 0;
-    min-height: 44px;
-    padding-inline: 2px;
-  }
 }

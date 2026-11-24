@@ -1,0 +1,14 @@
+.capsule-glass {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(5px) saturate(145%);
+  backdrop-filter: var(--capsule-refraction, blur(5px)) saturate(145%);
+}
+
+.capsule-glass-definitions { position: absolute; }
+
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  .capsule-glass { display: none; }
+}

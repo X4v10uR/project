@@ -12,6 +12,47 @@ async function signUp(page: Page) {
   return email
 }
 
+test('the glass dock follows desktop hover and keeps tools reachable on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await signUp(page)
+  const dock = page.getByRole('navigation', { name: 'Application navigation' })
+  const dashboard = dock.getByRole('link', { name: 'Dashboard', exact: true })
+  const history = dock.getByRole('link', { name: 'History', exact: true })
+  const shape = await dock.evaluate(element => ({
+    height: element.offsetHeight, radius: parseFloat(getComputedStyle(element).borderRadius),
+  }))
+  expect(shape.radius).toBeGreaterThanOrEqual(shape.height / 2)
+  const restingX = await dashboard.evaluate(item => (item as HTMLElement).offsetLeft)
+  const historyX = await history.evaluate(item => (item as HTMLElement).offsetLeft)
+  const lens = () => dock.evaluate(element => parseFloat(element.style.getPropertyValue('--lens-x')))
+  await expect.poll(lens).toBe(restingX)
+  await history.hover()
+  await expect.poll(lens).toBeCloseTo(historyX, 0)
+  await page.getByRole('heading', { name: 'Overview' }).hover()
+  await expect.poll(lens).toBe(restingX)
+  await expect(dashboard).toHaveAttribute('aria-current', 'page')
+  await dashboard.focus()
+  await page.keyboard.press('Tab')
+  const subscriptions = dock.getByRole('link', { name: 'Subscriptions', exact: true })
+  await expect(subscriptions).toBeFocused()
+  await expect.poll(lens).toBe(await subscriptions.evaluate(item => (item as HTMLElement).offsetLeft))
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await history.hover()
+  await expect(dock.locator('.dock-lens')).toHaveCSS('transition-duration', '0s')
+  await expect.poll(() => history.evaluate(item => item.style.getPropertyValue('--icon-scale'))).toBe('1')
+
+  await page.setViewportSize({ width: 320, height: 650 })
+  await dock.getByRole('button', { name: 'More' }).click()
+  const tools = page.getByRole('dialog', { name: 'Workspace tools' })
+  await expect(tools.getByRole('link', { name: 'Teams' })).toBeVisible()
+  await tools.getByRole('link', { name: 'Teams' }).click()
+  await expect(tools).toBeHidden()
+  await expect(dock.getByRole('button', { name: 'More, current section Teams' })).toBeVisible()
+  await history.click()
+  await expect(page).toHaveURL(/\/dashboard\/history\//)
+  await expect(history).toHaveAttribute('aria-current', 'page')
+})
+
 test('public pages show local brand marks and recover from a missing image', async ({ page }) => {
   await page.route(url => url.protocol === 'https:', route => route.abort())
   await page.goto('/')
@@ -39,7 +80,8 @@ test('create a card and team, open notifications, and sign back in', async ({ pa
   await expect(page.getByRole('heading', { name: 'Design team' })).toBeVisible()
   await page.goto('/dashboard/notifications/')
   await expect(page.getByRole('heading', { name: 'Notifications', exact: true }).first()).toBeVisible()
-  await page.getByRole('button', { name: 'Log out' }).click()
+  await page.getByRole('navigation', { name: 'Application navigation' }).getByRole('button', { name: 'More' }).click()
+  await page.getByRole('dialog', { name: 'Workspace tools' }).getByRole('button', { name: 'Log out' }).click()
   await expect(page).toHaveURL(/accounts\/login\//)
   await page.locator('[name=email]').fill(email)
   await page.locator('[name=password]').fill('Browser-Example42!')

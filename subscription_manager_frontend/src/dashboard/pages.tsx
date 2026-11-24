@@ -215,7 +215,7 @@ function WorkspaceHeader({ scope, data }: { scope: Scope; data?: Dashboard }) {
     setParams(next);
   }
   return <header className="dash-topbar">
-    <div className="dash-mobile-brand"><DashboardBrand /></div>
+    <DashboardBrand />
     <label className="workspace-picker">
       <PanelsTopLeft size={17} aria-hidden />
       <select aria-label="Workspace" value={scope} onChange={event => changeScope(event.target.value)}>
@@ -284,7 +284,7 @@ function FundingCard({ data, scope, onUpdate }: { data: Dashboard; scope: Scope;
 
 function SpendingSummary({ data, scope }: { data: Dashboard; scope: Scope }) {
   const currency = data.balance_currency;
-  return <section className="spend-hero" aria-labelledby="monthly-spending">
+  return <section className="spend-hero" data-dock-surface="dark" aria-labelledby="monthly-spending">
     <div className="spend-art" aria-hidden="true" />
     <div className="spend-hero-copy">
       <h2 id="monthly-spending"><Wallet size={17} aria-hidden />Monthly Spending</h2>
