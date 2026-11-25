@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { ServiceIcon } from '../ServiceIcon'
+import { LandingAvatar } from './LandingAvatar'
 import './landing-features.css'
 
 const featureGroups = [
@@ -194,9 +195,9 @@ export function LandingFeatures({ signedIn }: { signedIn: boolean }) {
         <div className="lv-team-example" data-lp-reveal="scroll">
           <div className="lv-example-heading"><span><UsersRound size={20} aria-hidden="true"/>Design team</span><span>3 members</span></div>
           <div className="lv-team-plan"><ServiceIcon name="Figma"/><div><strong>Figma Professional</strong><span>$45.00 / month · Equal split</span></div><span className="lv-event-tag">Paid</span></div>
-          <div className="lv-split-row"><span className="lv-person-avatar">Y</span><div><strong>You</strong><small>Paid the provider</small></div><b>$15.00 share</b></div>
-          <div className="lv-split-row"><span className="lv-person-avatar">A</span><div><strong>Alex</strong><small>Awaiting repayment</small></div><b>$15.00</b></div>
-          <div className="lv-split-row"><span className="lv-person-avatar">M</span><div><strong>Morgan</strong><small>$5.00 repaid</small></div><b>$10.00 left</b></div>
+          <div className="lv-split-row"><LandingAvatar person="You" className="lv-person-avatar"/><div><strong>You</strong><small>Paid the provider</small></div><b>$15.00 share</b></div>
+          <div className="lv-split-row"><LandingAvatar person="Alex" className="lv-person-avatar"/><div><strong>Alex</strong><small>Awaiting repayment</small></div><b>$15.00</b></div>
+          <div className="lv-split-row"><LandingAvatar person="Morgan" className="lv-person-avatar"/><div><strong>Morgan</strong><small>$5.00 repaid</small></div><b>$10.00 left</b></div>
           <div className="lv-settlement-total"><span>Still owed to you</span><strong>$25.00</strong></div>
           <small className="lv-example-caption">Illustrative team and repayments · USD</small>
         </div>

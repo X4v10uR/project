@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  CalendarDays, Check, ChevronDown, Files, LayoutGrid, Menu, Plus, ShieldCheck, UsersRound, X, Zap,
+  CalendarDays, Check, Files, LayoutGrid, Menu, Plus, ShieldCheck, UsersRound, X, Zap,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../accounts'
 import { ServiceIcon } from '../ServiceIcon'
 import { LandingFooter } from './LandingPage'
 import { LandingFeatures } from './LandingFeatures'
+import { ProductDemo } from './ProductDemo'
+import { LandingAvatar } from './LandingAvatar'
 import { useLandingMotion } from './useLandingMotion'
 import { useSmoothPageScroll } from './useSmoothPageScroll'
 import './landing-v2.css'
@@ -20,19 +22,6 @@ const teamPortrait = `${import.meta.env.BASE_URL}landing-v2/team-portrait.webp`
 function LifestylePhoto({ className, alt }: { className: string; alt?: string }) {
   return <svg className={className} viewBox="100 0 100 100" preserveAspectRatio="xMidYMid slice" role={alt ? 'img' : undefined} aria-label={alt} aria-hidden={!alt}><image href={asset} width="200" height="100"/></svg>
 }
-const personal = [
-  { name: 'Netflix', amount: 15.49, day: 24 },
-  { name: 'Spotify', amount: 11.99, day: 25 },
-  { name: 'Figma', amount: 12, day: 27 },
-  { name: 'Notion', amount: 10, day: 28 },
-  { name: 'iCloud+', amount: 2.99, day: 30 },
-]
-const team = [
-  { name: 'Figma', amount: 45, day: 24 },
-  { name: 'Notion', amount: 30, day: 28 },
-  { name: 'Spotify', amount: 16.99, day: 30 },
-]
-
 function Brand() {
   return <a className="lv-brand" href="#top" aria-label="DUES home"><span><Zap size={18} fill="currentColor"/></span>DUES<b>.</b></a>
 }
@@ -76,36 +65,6 @@ function SpendingCard() {
 
 function Payment({ name, amount, className }: { name: string; amount: string; className: string }) {
   return <div className={`lv-payment ${className}`} data-lp-reveal><ServiceIcon name={name}/><div><strong>{name}</strong><span>Subscription</span></div><b>{amount}<small>/mo</small></b></div>
-}
-
-function Phone() {
-  const [workspace, setWorkspace] = useState<'personal' | 'team'>('personal')
-  const [calendar, setCalendar] = useState(false)
-  const [annual, setAnnual] = useState(false)
-  const services = workspace === 'personal' ? personal : team
-  const total = services.reduce((sum, service) => sum + service.amount, 0)
-
-  return <div className="lv-phone">
-    <div className="lv-phone-status" aria-hidden="true"><span>9:41</span><i/><span>▮▮▮ ▰</span></div>
-    <div className="lv-phone-body">
-      <div className="lv-phone-title"><strong>{calendar ? 'Renewals' : 'Insights'}</strong><LayoutGrid size={18}/></div>
-      <div className="lv-workspaces" role="group" aria-label="Demo workspace"><button type="button" aria-pressed={workspace === 'personal'} onClick={() => setWorkspace('personal')}>Personal</button><button type="button" aria-pressed={workspace === 'team'} onClick={() => setWorkspace('team')}>Team</button></div>
-      <div className="lv-phone-summary" aria-live="polite" aria-atomic="true">
-        <button type="button" onClick={() => setAnnual(!annual)} aria-label={`Show ${annual ? 'monthly' : 'yearly'} spending`}>{annual ? 'Yearly' : 'Monthly'} spending <ChevronDown size={13}/></button>
-        <strong>${(total * (annual ? 12 : 1)).toFixed(2)}</strong><small>{services.length} subscriptions · {annual ? 'per year' : 'per month'}</small>
-        {!calendar && <Bars/>}
-        {calendar && <div className="lv-calendar" role="img" aria-label={`November 2026 example renewals: ${services.map(s => `${s.name} on November ${s.day}`).join(', ')}`}><div>{['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => <b key={i}>{d}</b>)}{Array.from({ length: 6 }, (_, i) => <span key={`blank-${i}`}/>)}{Array.from({ length: 30 }, (_, i) => <span className={services.some(s => s.day === i + 1) ? 'is-renewal' : ''} key={i}>{i + 1}</span>)}</div></div>}
-      </div>
-      <div className="lv-phone-list-title"><strong>Upcoming payments</strong><span>November</span></div>
-      <div className="lv-phone-services">
-        {services.slice(0, 2).map(s => <div key={s.name}>
-          <ServiceIcon name={s.name}/><strong>{s.name}</strong><b>${s.amount.toFixed(2)}<small>Nov {s.day}</small></b>
-        </div>)}
-      </div>
-      <div className="lv-phone-nav" role="group" aria-label="Demo views"><button type="button" aria-pressed={!calendar} onClick={() => setCalendar(false)}><LayoutGrid size={16}/>Overview</button><button type="button" aria-pressed={calendar} onClick={() => setCalendar(true)}><CalendarDays size={16}/>Calendar</button></div>
-    </div>
-    <div className="lv-phone-home"/>
-  </div>
 }
 
 const featureSlides = [
@@ -156,7 +115,7 @@ function FeaturePreview({ feature }: { feature: (typeof featureSlides)[number] }
       {feature.kind === 'spending' && <Bars small/>}
       <ul className="lv-preview-rows">{feature.rows.map(([name, value]) => (
         <li key={name}>
-          {feature.kind === 'teams' ? <span className="lv-preview-initial" aria-hidden="true">{name[0]}</span> : <ServiceIcon name={name}/>}
+          {feature.kind === 'teams' ? <LandingAvatar person={name === 'Alex' ? 'Alex' : 'Morgan'} className="lv-preview-initial"/> : <ServiceIcon name={name}/>}
           <span>{name}</span><b>{value}</b>
         </li>
       ))}</ul>
@@ -247,9 +206,9 @@ export function LandingPageV2() {
       <div className="lv-hero">
         <header className="lv-header"><nav ref={menuRef} className="lv-nav" aria-label="Primary navigation" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setMenuOpen(false) }}>
           <Brand/>
-          <div className="lv-nav-links"><a href="#top">Home</a><a href="#features">Features</a><a href="#how-it-works">How it works</a><a href="#all-features">Every feature</a></div>
+          <div className="lv-nav-links"><a href="#top">Home</a><a href="#features">Features</a><a href="#product-demo">Try the demo</a><a href="#all-features">Every feature</a></div>
           <div className="lv-nav-actions"><Link className="lv-button lv-button-dark" to={start}>{user ? 'Open DUES' : 'Get started'}</Link><button ref={toggleRef} type="button" className="lv-menu-toggle" aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={menuOpen} aria-controls="lv-mobile-menu" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X size={20}/> : <Menu size={20}/>}</button></div>
-          {menuOpen && <div className="lv-mobile-menu" id="lv-mobile-menu"><a href="#features" onClick={() => setMenuOpen(false)}>Features</a><a href="#how-it-works" onClick={() => setMenuOpen(false)}>How it works</a><a href="#pricing" onClick={() => setMenuOpen(false)}>Free plan</a><a href="#questions" onClick={() => setMenuOpen(false)}>Questions</a><a href="#all-features">Every feature</a><Link to="/accounts/login/">Log in</Link></div>}
+          {menuOpen && <div className="lv-mobile-menu" id="lv-mobile-menu" data-lenis-prevent><a href="#features" onClick={() => setMenuOpen(false)}>Features</a><a href="#product-demo" onClick={() => setMenuOpen(false)}>Try the demo</a><a href="#pricing" onClick={() => setMenuOpen(false)}>Free plan</a><a href="#questions" onClick={() => setMenuOpen(false)}>Questions</a><a href="#all-features">Every feature</a><Link to="/accounts/login/">Log in</Link></div>}
         </nav></header>
         <section className="lv-hero-copy" aria-labelledby="lv-title">
             <h1 id="lv-title">
@@ -259,7 +218,7 @@ export function LandingPageV2() {
             <p data-lp-reveal>Track every plan, see what you spend, and share costs.<br className="lv-desktop-break"/> Make room for more with DUES.</p>
             <div className="lv-hero-actions" data-lp-reveal>
               <Link to={start} className="lv-button lv-button-white">{user ? 'Open your dashboard' : 'Get started free'}<span className="lv-button-mark"><Zap size={15} fill="currentColor"/></span></Link>
-              <a href="#how-it-works" className="lv-button lv-button-glass">See how it works</a>
+              <a href="#product-demo" className="lv-button lv-button-glass">Try the demo</a>
             </div>
         </section>
         <div className="lv-hero-art" aria-label="An illustrative preview of subscription spending in DUES" role="img">
@@ -328,20 +287,7 @@ export function LandingPageV2() {
           <FeatureCarousel slide={slide} onChange={setSlide}/>
         </section>
 
-        <section className="lv-process lv-container" id="how-it-works" aria-labelledby="lv-process-title">
-          <div className="lv-section-heading" data-lp-reveal="scroll"><h2 id="lv-process-title">From Subscription Chaos To<br/>Clarity In 3 Steps.</h2></div>
-          <div className="lv-process-grid">
-            <div id="preview" className="lv-interactive-preview" data-lp-reveal>
-              <Phone/>
-              <p>Try the demo. Switch workspaces or open the calendar. Example amounts in USD.</p>
-            </div>
-            <div className="lv-steps">
-              <article data-lp-reveal="scroll"><span>01</span><div><h3>Add your subscriptions</h3><p>Enter a plan with Quick add or import your list from a CSV file.</p><Link to={user ? '/subscriptions/quick-add/' : start} className="lv-text-link">Add your first subscription<Plus size={14}/></Link></div></article>
-              <article data-lp-reveal="scroll"><span>02</span><div><h3>Review your spending</h3><p>See your monthly commitment and set a budget for personal or shared plans.</p></div></article>
-              <article data-lp-reveal="scroll"><span>03</span><div><h3>Set renewal reminders</h3><p>Choose when to hear about renewals and trial endings, or add the dates to your calendar.</p></div></article>
-            </div>
-          </div>
-        </section>
+        <ProductDemo/>
 
         <LandingFeatures signedIn={Boolean(user)}/>
 

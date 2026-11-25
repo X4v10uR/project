@@ -21,8 +21,8 @@
 .lv-hero {
   position: relative;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
-  height: clamp(620px, min(86vw, 100svh), 1100px);
+  grid-template-rows: auto auto minmax(clamp(18rem, 42svh, 34rem), 1fr);
+  min-height: 100svh;
   isolation: isolate;
   overflow: hidden;
   padding-top: clamp(16px, 2.4svh, 32px);
@@ -38,7 +38,7 @@
   mask-image: linear-gradient(black, transparent);
 }
 .lv-header { position: relative; z-index: 5; padding-inline: 22px; }
-.lv-nav { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 20px; width: min(100%, clamp(590px, 72svh, 680px)); margin-inline: auto; padding: 7px 8px 7px 15px; border: 1px solid #ffffffb3; border-radius: 100px; background: #fbfcfd; box-shadow: 0 4px 7px #07182330; }
+.lv-nav { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 20px; width: min(100%, 680px); margin-inline: auto; padding: 7px 8px 7px 15px; border: 1px solid #ffffffb3; border-radius: 100px; background: #fbfcfd; box-shadow: 0 4px 7px #07182330; }
 .lv-brand { display: inline-flex; align-items: center; gap: 6px; color: #111; font-size: 1.25rem; font-weight: 800; letter-spacing: -.065em; }
 .lv-brand > span { display: grid; place-items: center; width: 28px; height: 28px; margin-right: 1px; border: 1px solid #acd9e9; border-radius: 50%; color: white; background: linear-gradient(135deg, #87d4e8, #10789e); box-shadow: 0 0 0 3px #e6f5fb; }
 .lv-brand > b { margin-left: -5px; color: #f64b1a; }
@@ -48,7 +48,7 @@
 .lv-nav-login { font-size: .875rem; }
 .lv-nav .lv-button { min-height: 35px; padding: 8px 18px; font-size: .875rem; }
 .lv-menu-toggle { display: none; place-items: center; width: 38px; height: 38px; border-radius: 50%; }
-.lv-mobile-menu { position: absolute; z-index: 5; top: calc(100% + 12px); left: 0; right: 0; display: grid; padding: 12px; border: 1px solid #d4e2e9; border-radius: 22px; color: #14232a; background: #fff; box-shadow: 0 12px 40px #06253e22; }
+.lv-mobile-menu { position: absolute; z-index: 5; top: calc(100% + 12px); left: 0; right: 0; display: grid; max-height: calc(100svh - 110px); overflow-y: auto; overscroll-behavior-y: contain; padding: 12px; border: 1px solid #d4e2e9; border-radius: 22px; color: #14232a; background: #fff; box-shadow: 0 12px 40px #06253e22; }
 .lv-mobile-menu a { padding: 12px 16px; border-radius: 12px; }
 .lv-mobile-menu a:hover { background: #edf5f9; }
 .lv-hero-copy { position: relative; z-index: 2; padding: clamp(28px, min(6vw, 6.4svh), 84px) 20px 0; text-align: center; color: white; }
@@ -78,7 +78,7 @@
 }
 .lv-title-logo .is-current { opacity: 1; transform: scale(1); }
 .lv-hero-copy > p { margin: clamp(12px, 1.8svh, 20px) auto 0; color: #f8fafc; font-size: clamp(1rem, min(1.3vw, 2.1svh), 1.18rem); line-height: 1.5; }
-.lv-hero-actions { display: flex; justify-content: center; gap: 12px; margin-top: clamp(20px, 3.3svh, 38px); }
+.lv-hero-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: clamp(20px, 3.3svh, 38px); }
 .lv-hero-art { position: relative; container-type: size; margin-top: clamp(16px, 3.2svh, 40px); }
 .lv-hero-illustration { position: relative; height: 100%; width: min(63vw, 148cqh, 860px); margin-inline: auto; }
 .lv-hero-photo {
@@ -486,7 +486,7 @@
   .lv-hero {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto 1fr;
-    height: max(360px, 100svh);
+    min-height: max(360px, 100svh);
     padding: 12px 4vw 0;
     background: linear-gradient(180deg, #0a2c48, #395b72 45%, #526d80 73%, white 100%);
   }
@@ -498,7 +498,7 @@
   .lv-hero-actions { gap: 6px; margin-top: 16px; flex-wrap: wrap; }
   .lv-hero-actions .lv-button { min-height: 40px; padding: 9px 14px; font-size: .8125rem; }
   .lv-hero-actions .lv-button-white { padding-right: 22px; }
-  .lv-hero-art { height: auto; margin: 9px 0 0; }
+  .lv-hero-art { height: auto; min-height: clamp(220px, 65svh, 360px); margin: 9px 0 0; }
   .lv-hero-illustration { width: min(100%, 150cqh); mask-image: linear-gradient(black 74%, transparent 100%); }
   .lv-hero-art::after { display: none; }
   .lv-payment { width: min(47%, 180px); padding: 9px; gap: 6px; }
