@@ -50,13 +50,13 @@ function SubscriptionCard({ subscription, details, onSelect }: { subscription: S
     <button type="button" onClick={onSelect} className={`flex min-h-43 w-full flex-col rounded-2xl p-5 text-left transition hover:-translate-y-0.5 hover:shadow-md ${foreground}`} style={{ backgroundColor: details.card_color }}>
       <span className="flex w-full items-center justify-between gap-3">
         <ServiceIcon name={subscription.service_name} />
-        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusColors[subscription.status] ?? 'bg-white/60'}`}>{subscription.status}</span>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusColors[subscription.current_status] ?? 'bg-white/60'}`}>{subscription.current_status}</span>
       </span>
       <span className="mt-4 text-lg font-bold">{subscription.service_name}</span>
       <span className="text-sm font-medium opacity-85">{subscription.plan_name || subscription.category}</span>
       <span className="mt-4 flex w-full flex-wrap items-end justify-between gap-x-4 gap-y-1">
         <span className="text-xl font-bold">{currencyAmount(subscription.current_user_cost, subscription.currency)} <span className="text-xs font-medium opacity-85">{displayCycle(subscription.billing_cycle)}</span></span>
-        <span className="text-xs font-medium opacity-85">{displayDate(subscription.renewal_date)}</span>
+        <span className="text-xs font-medium opacity-85">{displayDate(details.renewal_date || null)}</span>
       </span>
     </button>
   )
@@ -105,7 +105,7 @@ function Detail({ subscription, details, onClose, onUpdated, initiallyDeleting }
               {subscription.cancel_by_date && <div><dt>Cancel by</dt><dd>{displayDate(subscription.cancel_by_date)}</dd></div>}
               <div><dt className="text-slate-500">Your cost</dt><dd className="font-semibold">{currencyAmount(subscription.current_user_cost, subscription.currency)}</dd></div>
               <div><dt className="text-slate-500">Billing cycle</dt><dd className="font-semibold">{details.billing_cycle_detail}</dd></div>
-              <div><dt className="text-slate-500">Renewal date</dt><dd className="font-semibold">{displayDate(subscription.renewal_date)}</dd></div>
+              <div><dt className="text-slate-500">Renewal date</dt><dd className="font-semibold">{displayDate(details.renewal_date || null)}</dd></div>
               <div><dt className="text-slate-500">Payment card</dt><dd className="font-semibold">{details.card_last4 ? `${subscription.card_nickname} · ${details.card_last4}` : 'Unassigned'}</dd></div>
               {subscription.is_shared && <div><dt className="text-slate-500">Total cost</dt><dd className="font-semibold">{currencyAmount(subscription.current_cost, subscription.currency)}</dd></div>}
               {subscription.account_email && <div><dt className="text-slate-500">Account email</dt><dd className="break-all font-semibold">{subscription.account_email}</dd></div>}
@@ -124,7 +124,7 @@ function Detail({ subscription, details, onClose, onUpdated, initiallyDeleting }
               {details.history.length ? <ul className="divide-y divide-slate-100 text-sm">{details.history.map((payment) => <li key={payment.charged_for_date} className="flex justify-between gap-3 py-2"><span>{payment.charged_for_date_display} · {payment.payment_status}</span><span className="font-semibold">{payment.amount_display}</span></li>)}</ul> : <p className="text-sm text-slate-500">No recorded payments yet.</p>}
             </div>
             <Field label="Status">
-              <select className={inputClass} value={subscription.status} disabled={busy} onChange={(event) => {
+              <select className={inputClass} value={subscription.current_status} disabled={busy} onChange={(event) => {
                 const status = event.target.value
                 void run(async () => {
                   await api(`${url}status/`, { method: 'POST', body: JSON.stringify({ status }) })

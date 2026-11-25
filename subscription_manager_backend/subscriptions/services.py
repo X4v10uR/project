@@ -15,7 +15,6 @@ from django.utils import timezone
 from subly.emailing import email_subject, frontend_url
 
 from .models import ChargeShare, NotificationLog, Subscription, Transaction
-from .money import equal_share
 from .notifications import create_notification
 
 logger = logging.getLogger(__name__)
@@ -66,12 +65,11 @@ def _record_charge(subscription, day):
     )
 
     if created and subscription.is_shared:
-        people = list(subscription.participants.order_by('pk'))
         price = subscription.price_on(day)
         ChargeShare.objects.bulk_create([
             ChargeShare(charge=charge, name=person.name, member_id=person.member_id,
-                        amount=equal_share(price, len(people) + 1, index) if subscription.split_type == 'equal' else person.share_amount or 0)
-            for index, person in enumerate(people, 1)
+                        amount=share)
+            for person, share in subscription.participant_shares(price)
         ])
     return charge, created
 

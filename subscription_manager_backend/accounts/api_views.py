@@ -225,7 +225,7 @@ def team_subscription(subscription):
         'billing_cycle': subscription.billing_cycle,
         'trial_end_date': subscription.trial_end_date,
         'cancel_by_date': subscription.cancel_by_date,
-        'status': subscription.status,
+        'status': subscription.current_status,
         'icon': subscription.get_fallback_icon(),
         'account_email': subscription.account_email,
         'has_password': bool(subscription.account_password),

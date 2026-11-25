@@ -104,19 +104,20 @@ function normalizeCard(rawCard = {}) {
 function normalizeSubscription(rawSub = {}) {
   const baseColor = safeCssColor(rawSub.color, '#AFC0DE');
   const monthlyPrice = Number(rawSub.monthlyPrice);
-  const daysLeft = Number(rawSub.daysLeft);
+  const daysLeft = rawSub.daysLeft == null ? NaN : Number(rawSub.daysLeft);
 
   return {
     id: safeToken(rawSub.id),
     name: String(rawSub.name || ''),
     monthlyPrice: Number.isFinite(monthlyPrice) ? monthlyPrice : 0,
+    currency: /^[A-Z]{3}$/.test(rawSub.currency) ? rawSub.currency : "USD",
     billingCycle: String(rawSub.billingCycle || ''),
     cardId: safeToken(rawSub.cardId),
     color: baseColor,
     iconBg: safeCssColor(rawSub.iconBg, baseColor),
     iconLabel: String(rawSub.iconLabel || 'S').slice(0, 2),
     nextBillingDate: String(rawSub.nextBillingDate || ''),
-    daysLeft: Number.isFinite(daysLeft) ? Math.max(0, Math.trunc(daysLeft)) : 0,
+    daysLeft: Number.isFinite(daysLeft) ? Math.max(0, Math.trunc(daysLeft)) : null,
     plan: String(rawSub.plan || ''),
   };
 }
@@ -229,8 +230,17 @@ function hydrateState(serverState, { keepSearch = true, keepSelected = true } = 
 }
 
 function getCardSubs(cardId) { return state.subscriptions.filter(s => String(s.cardId) === String(cardId)); }
-function getMonthlySpend(cardId) { return getCardSubs(cardId).reduce((sum,s) => sum + Number(s.monthlyPrice || 0), 0); }
-function totalMonthly() { return state.subscriptions.reduce((sum,s) => sum + Number(s.monthlyPrice || 0), 0); }
+function formatMoney(amount, currency) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
+}
+
+function formatSpend(subscriptions, months = 1) {
+  const totals = new Map();
+  for (const sub of subscriptions) {
+    totals.set(sub.currency, (totals.get(sub.currency) || 0) + sub.monthlyPrice * months);
+  }
+  return Array.from(totals, ([currency, amount]) => formatMoney(amount, currency)).join(' + ') || formatMoney(0, 'USD');
+}
 function primaryCard() { return state.cards.find(c => c.isPrimary); }
 
 // ─────────────────────────────────────────────
@@ -397,7 +407,7 @@ function renderHeader() {
 function renderStats() {
   const total = state.cards.length;
   const primaryCount = state.cards.filter(c => c.isPrimary).length;
-  const monthly = totalMonthly();
+  const monthly = formatSpend(state.subscriptions);
   const pc = primaryCard();
   const primaryNickname = pc ? escHtml(pc.nickname) : '—';
   const primaryLast4 = pc ? escHtml(pc.last4) : '';
@@ -420,7 +430,7 @@ function renderStats() {
           </div>
           <span style="color:#6B7280;font-size:0.75rem;font-weight:500;">Monthly Spend</span>
         </div>
-        <p style="color:#111827;font-size:1.5rem;font-weight:700;margin:0;">$${monthly.toFixed(0)}</p>
+        <p style="color:#111827;font-size:1.5rem;font-weight:700;margin:0;">${monthly}</p>
         <p style="color:#9CA3AF;font-size:0.75rem;margin:2px 0 0;">across all cards</p>
       </div>
       <div class="stat-card">
@@ -470,7 +480,7 @@ function renderCardsGrid() {
   const cols = 'repeat(auto-fill, minmax(220px, 1fr))';
   const cards = filtered.map(card => {
     const subs = getCardSubs(card.id);
-    const spend = getMonthlySpend(card.id);
+    const spend = formatSpend(subs);
     const isSelected = String(state.selectedCardId) === String(card.id);
 
     const subsChips = isSelected && subs.length > 0 ? `
@@ -500,7 +510,7 @@ function renderCardsGrid() {
               <div style="width:6px;height:6px;border-radius:50%;background:#16A34A;"></div>
               <span style="color:#4B5563;font-size:0.75rem;font-weight:500;">${subs.length} sub${subs.length !== 1 ? 's' : ''}</span>
             </div>
-            ${subs.length > 0 ? `<div style="display:flex;align-items:center;gap:4px;font-size:0.75rem;color:#6B7280;font-weight:500;"><i data-lucide="trending-up" style="width:11px;height:11px;"></i><span>$${spend.toFixed(0)}/mo</span></div>` : ''}
+            ${subs.length > 0 ? `<div style="display:flex;align-items:center;gap:4px;font-size:0.75rem;color:#6B7280;font-weight:500;"><i data-lucide="trending-up" style="width:11px;height:11px;"></i><span>${spend}/mo</span></div>` : ''}
           </div>
           ${miniIcons}
         </div>
@@ -530,8 +540,8 @@ function renderDetailPanel() {
   const card = state.cards.find(c => String(c.id) === String(state.selectedCardId));
   if (!card) return '';
   const subs = getCardSubs(card.id);
-  const monthly = subs.reduce((s,sub) => s + Number(sub.monthlyPrice || 0), 0);
-  const yearly = monthly * 12;
+  const monthly = formatSpend(subs);
+  const yearly = formatSpend(subs, 12);
 
   const subItems = subs.length === 0
     ? `<div style="background:#F8F9FB;border-radius:16px;padding:24px;border:1px solid #E8EBF0;text-align:center;"><i data-lucide="credit-card" style="width:24px;height:24px;color:#D1D5DB;margin:0 auto 8px;display:block;"></i><p style="color:#9CA3AF;font-size:0.875rem;margin:0;">No subscriptions linked</p></div>`
@@ -542,12 +552,8 @@ function renderDetailPanel() {
       const label = escHtml(sub.iconLabel || 'S');
       const name = escHtml(sub.name);
       const plan = escHtml(sub.plan);
-      const monthlyPrice = Number.isFinite(Number(sub.monthlyPrice))
-        ? Number(sub.monthlyPrice).toFixed(2)
-        : '0.00';
-      const daysLeft = Number.isFinite(Number(sub.daysLeft))
-        ? Math.max(0, Math.trunc(Number(sub.daysLeft)))
-        : 0;
+      const monthlyPrice = formatMoney(sub.monthlyPrice, sub.currency);
+      const renewalLabel = sub.daysLeft === null ? 'No renewal scheduled' : `${sub.daysLeft}d left`;
 
       return `
       <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #E8EBF0;background:${rowBg};transition:border-color 0.15s;box-shadow:0 1px 3px rgba(0,0,0,0.04);" onmouseover="this.style.borderColor='#C4C9D4'" onmouseout="this.style.borderColor='#E8EBF0'">
@@ -557,8 +563,8 @@ function renderDetailPanel() {
           <p style="color:#9CA3AF;font-size:0.75rem;margin:0;">${plan}</p>
         </div>
         <div style="text-align:right;flex-shrink:0;">
-          <p style="color:#111827;font-size:0.875rem;font-weight:600;margin:0;">$${monthlyPrice}/mo</p>
-          <p style="color:#9CA3AF;font-size:0.75rem;margin:0;">${daysLeft}d left</p>
+          <p style="color:#111827;font-size:0.875rem;font-weight:600;margin:0;">${monthlyPrice}/mo</p>
+          <p style="color:#9CA3AF;font-size:0.75rem;margin:0;">${renewalLabel}</p>
         </div>
       </div>`;
     }).join('');
@@ -614,7 +620,7 @@ function detailPanelContent(card, subs, monthly, yearly, subItems, mobile=false)
             </div>
             <span style="color:#6B7280;font-size:0.75rem;">Monthly</span>
           </div>
-          <p style="color:#111827;font-size:1.125rem;font-weight:700;margin:0;">$${monthly.toFixed(2)}</p>
+          <p style="color:#111827;font-size:1.125rem;font-weight:700;margin:0;">${monthly}</p>
         </div>
         <div class="stat-card">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
@@ -623,7 +629,7 @@ function detailPanelContent(card, subs, monthly, yearly, subItems, mobile=false)
             </div>
             <span style="color:#6B7280;font-size:0.75rem;">Yearly</span>
           </div>
-          <p style="color:#111827;font-size:1.125rem;font-weight:700;margin:0;">$${yearly.toFixed(0)}</p>
+          <p style="color:#111827;font-size:1.125rem;font-weight:700;margin:0;">${yearly}</p>
         </div>
       </div>
       <div>
@@ -786,10 +792,8 @@ function renderDeleteModal() {
             ${subs.map(s => {
               const color = safeCssColor(s.color, '#AFC0DE');
               const name = escHtml(s.name);
-              const monthlyPrice = Number.isFinite(Number(s.monthlyPrice))
-                ? Number(s.monthlyPrice).toFixed(2)
-                : '0.00';
-              return `<div style="display:flex;align-items:center;gap:8px;color:#78350F;font-size:0.75rem;margin-bottom:4px;"><div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;"></div>${name} — $${monthlyPrice}/mo</div>`;
+              const monthlyPrice = formatMoney(s.monthlyPrice, s.currency);
+              return `<div style="display:flex;align-items:center;gap:8px;color:#78350F;font-size:0.75rem;margin-bottom:4px;"><div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;"></div>${name} — ${monthlyPrice}/mo</div>`;
             }).join('')}
           </div>
         </div>

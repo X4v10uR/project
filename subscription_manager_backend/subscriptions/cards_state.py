@@ -7,6 +7,7 @@ from django.utils import timezone
 from dashboard.constants import CARD_COLOR_PALETTE, SERVICE_COLOR_PREFERENCES
 
 from .money import monthly_equivalent
+from .services import next_billing_date
 from .models import Card, Subscription
 from .color_utils import normalize_subscription_display_color
 
@@ -153,7 +154,8 @@ def build_card_options(user):
 def build_cards_page_state(user):
     today = timezone.localdate()
     subscriptions = (
-        Subscription.objects.filter(status="active", card__user=user)
+        Subscription.objects.filter(card__user=user).exclude(cancellation_state='confirmed')
+        .filter(Q(status='active') | Q(status='paused', resume_on__lte=today))
         .filter(Q(user=user, team__isnull=True) | Q(team__memberships__user=user))
         .prefetch_related("price_changes", "participants")
         .order_by("renewal_date", "service_name")
@@ -164,9 +166,8 @@ def build_cards_page_state(user):
         amount = subscription.share_on(today) if subscription.bills_on(today) else 0
         monthly_price = monthly_equivalent(amount, subscription.billing_cycle)
         color = _service_color(subscription)
-        days_left = 0
-        if subscription.renewal_date:
-            days_left = max((subscription.renewal_date - today).days, 0)
+        renewal = next_billing_date(subscription, today)
+        days_left = (renewal - today).days if renewal else None
 
         subscriptions_payload.append(
             {
@@ -180,7 +181,7 @@ def build_cards_page_state(user):
                 "color": color,
                 "iconBg": _service_icon_bg(subscription.service_name, color),
                 "iconLabel": _service_icon_label(subscription.service_name),
-                "nextBillingDate": _format_display_date(subscription.renewal_date),
+                "nextBillingDate": _format_display_date(renewal),
                 "daysLeft": days_left,
                 "plan": subscription.plan_name or subscription.billing_cycle.title(),
             }

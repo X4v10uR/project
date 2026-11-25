@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.validators import DecimalValidator
+from django.db.models import prefetch_related_objects
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -20,7 +21,6 @@ from .color_utils import (
 from .forms import SubscriptionForm
 from .list_context import build_subscription_list_context, filter_personal_subscriptions
 from .models import ReminderOffset, Subscription
-from .money import equal_share
 from .workflows import change_subscription_status, remove_subscription, save_subscription
 
 
@@ -42,6 +42,7 @@ CSV_FORMULA_PREFIXES = ('=', '+', '-', '@')
 def _parse_participants_data(request):
     participant_names = request.POST.getlist('participant_name')
     participant_shares = request.POST.getlist('participant_share')
+    member_ids = request.POST.getlist('participant_member_id')
 
     participants_data = []
     for i, raw_name in enumerate(participant_names):
@@ -67,7 +68,10 @@ def _parse_participants_data(request):
         except ValidationError as exc:
             return None, exc.messages[0]
 
-        participants_data.append({'name': name, 'share': share})
+        member_id = member_ids[i] if i < len(member_ids) else ''
+        if member_id and (not member_id.isascii() or not member_id.isdigit() or len(member_id) > 19):
+            return None, 'Choose a valid team member.'
+        participants_data.append({'name': name, 'share': share, 'member_id': int(member_id) if member_id else None})
 
     if not participants_data:
         return None, 'Please add at least one participant for shared subscriptions.'
@@ -138,6 +142,7 @@ def _build_participant_seed(*, subscription=None, post_data=None):
     if post_data is not None:
         participant_names = post_data.getlist("participant_name")
         participant_shares = post_data.getlist("participant_share")
+        member_ids = post_data.getlist('participant_member_id')
 
         seed = []
         for idx, raw_name in enumerate(participant_names):
@@ -149,13 +154,14 @@ def _build_participant_seed(*, subscription=None, post_data=None):
             share = (raw_share or "").strip()
             if not name and not share:
                 continue
-            seed.append({"name": name, "share": share})
+            seed.append({"name": name, "share": share, "member_id": member_ids[idx] if idx < len(member_ids) else None})
         return seed
 
     if subscription and subscription.pk:
         return [
             {
                 "name": participant.name,
+                "member_id": participant.member_id,
                 "share": _string_value(participant.share_amount),
             }
             for participant in subscription.participants.all()
@@ -190,7 +196,7 @@ def _build_subscription_form_context(request, form, title, *, subscription=None,
     else:
         is_shared_selected = bool(getattr(instance, "is_shared", False))
         split_type_selected = getattr(instance, "split_type", None) or "equal"
-        status_selected = getattr(instance, "status", None) or "active"
+        status_selected = getattr(instance, "configured_status", None) or "active"
         reminders_enabled_selected = bool(
             getattr(instance, "reminders_enabled", True)
         )
@@ -330,7 +336,7 @@ def subscription_export_csv(request):
 
 def build_subscription_csv(request):
     subscriptions, _ = filter_personal_subscriptions(request)
-    subscriptions = subscriptions.prefetch_related('participants', 'offsets', 'price_changes')
+    prefetch_related_objects(subscriptions, 'offsets')
     today = timezone.localdate()
 
     response = HttpResponse(content_type='text/csv')
@@ -365,12 +371,11 @@ def build_subscription_csv(request):
 
     for subscription in subscriptions:
         price = subscription.regular_price_on(today)
-        people = sorted(subscription.participants.all(), key=lambda person: person.pk)
-        participant_names = ', '.join(sorted(person.name for person in people))
-        participant_shares = []
-        for index, person in enumerate(people, 1):
-            share = equal_share(price, len(people) + 1, index) if subscription.split_type == 'equal' else person.share_amount or 0
-            participant_shares.append({'name': person.name, 'share': str(share)})
+        participant_shares = [
+            {'name': person.name, 'share': str(share)}
+            for person, share in subscription.participant_shares(price)
+        ]
+        participant_names = ', '.join(sorted(row['name'] for row in participant_shares))
         writer.writerow(
             [
                 _sanitize_csv_cell(subscription.service_name),

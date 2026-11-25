@@ -204,7 +204,7 @@
     {% if subscriptions %}
       <div class="subscriptions-grid">
         {% for sub in subscriptions %}
-        <article class="subscription-card card-hover" style="--subscription-accent: {{ sub.card_color }}; --subscription-accent-soft: {{ sub.card_color }}22;" data-subscription-id="{{ sub.pk }}" data-status="{{ sub.status }}" tabindex="0" role="button" aria-label="Open details for {{ sub.service_name }}">
+        <article class="subscription-card card-hover" style="--subscription-accent: {{ sub.card_color }}; --subscription-accent-soft: {{ sub.card_color }}22;" data-subscription-id="{{ sub.pk }}" data-status="{{ sub.current_status }}" tabindex="0" role="button" aria-label="Open details for {{ sub.service_name }}">
           <div class="subscription-card-top">
             <div class="subscription-brand-lockup">
               <div class="subscription-icon">
@@ -217,9 +217,9 @@
             <div class="subscription-card-amount">
               <p class="subscription-card-price">
                 {% if sub.currency == 'USD' %}
-                  ${{ sub.user_cost|floatformat:2 }}
+                  ${{ sub.current_share|floatformat:2 }}
                 {% else %}
-                  {{ sub.currency }} {{ sub.user_cost|floatformat:2 }}
+                  {{ sub.currency }} {{ sub.current_share|floatformat:2 }}
                 {% endif %}
                 {% if sub.currency == 'USD' %}
                   <span class="subscription-card-price-unit">USD</span>
@@ -228,7 +228,7 @@
               <div class="subscription-card-cycle">{{ sub.get_billing_cycle_display }}</div>
               {% if sub.is_shared %}
                 <div class="subscription-card-share">
-                  of {% if sub.currency == 'USD' %}${{ sub.cost|floatformat:2 }}{% else %}{{ sub.currency }} {{ sub.cost|floatformat:2 }}{% endif %} total
+                  of {% if sub.currency == 'USD' %}${{ sub.current_price|floatformat:2 }}{% else %}{{ sub.currency }} {{ sub.current_price|floatformat:2 }}{% endif %} total
                 </div>
               {% endif %}
             </div>
@@ -262,7 +262,7 @@
                 </span>
                 <div>
                   <p class="subscription-renewal-label">Next renewal</p>
-                  <p class="subscription-renewal-date">{{ sub.renewal_date|date:"M d, Y" }}</p>
+                  <p class="subscription-renewal-date">{{ sub.next_payment_date|date:"M d, Y"|default:"No date set" }}</p>
                 </div>
               </div>
               {% if sub.days_until_renewal is not None %}
@@ -306,10 +306,10 @@
                 {% else %}
                   <span class="subscription-card-pill">No card linked</span>
                 {% endif %}
-                <div class="status-dropdown-wrapper" data-subscription-id="{{ sub.pk }}" data-status="{{ sub.status }}" data-status-url="{% url 'subscriptions:update_status' sub.pk %}">
-                  <button type="button" class="status-btn subscriptions-status-button" data-current-status="{{ sub.status }}">
+                <div class="status-dropdown-wrapper" data-subscription-id="{{ sub.pk }}" data-status="{{ sub.current_status }}" data-status-url="{% url 'subscriptions:update_status' sub.pk %}">
+                  <button type="button" class="status-btn subscriptions-status-button" data-current-status="{{ sub.current_status }}">
                     <span class="status-dot w-1.5 h-1.5 rounded-full"></span>
-                    <span class="status-text">{{ sub.get_status_display }}</span>
+                    <span class="status-text">{{ sub.current_status|title }}</span>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <polyline points="6 9 12 15 18 9"></polyline>
                     </svg>

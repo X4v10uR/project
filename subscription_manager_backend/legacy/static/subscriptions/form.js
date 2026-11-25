@@ -637,7 +637,7 @@
         toggleSharedSettings();
     }
 
-    function createParticipantRow(name, share) {
+    function createParticipantRow(name, share, memberId) {
         if (!participantsList) {
             return null;
         }
@@ -667,6 +667,11 @@
         leftWrap.appendChild(avatar);
         leftWrap.appendChild(label);
         leftWrap.appendChild(hiddenNameInput);
+        const memberInput = document.createElement("input");
+        memberInput.type = "hidden";
+        memberInput.name = "participant_member_id";
+        memberInput.value = memberId || "";
+        leftWrap.appendChild(memberInput);
 
         const shareWrap = document.createElement("div");
         shareWrap.className = "participant-share-wrap flex items-center gap-1";
@@ -827,7 +832,7 @@
         }
 
         participantSeed.forEach(function (participant) {
-            createParticipantRow(participant.name || "", participant.share || "");
+            createParticipantRow(participant.name || "", participant.share || "", participant.member_id);
         });
 
         addParticipantButton.addEventListener("click", function () {

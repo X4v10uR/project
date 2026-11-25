@@ -115,8 +115,8 @@
                                 </td>
                                 <td>{{ sub.currency }} {{ sub.cost }} / {{ sub.billing_cycle }}</td>
                                 <td>
-                                    <span class="teams-table-status {% if sub.status == 'active' %}teams-status-active{% elif sub.status == 'cancelled' or sub.status == 'paused' %}teams-status-cancelled{% else %}teams-status-default{% endif %}">
-                                        {{ sub.status|title }}
+                                    <span class="teams-table-status {% if sub.current_status == 'active' %}teams-status-active{% elif sub.current_status == 'cancelled' or sub.current_status == 'paused' %}teams-status-cancelled{% else %}teams-status-default{% endif %}">
+                                        {{ sub.current_status|title }}
                                     </span>
                                 </td>
                                 <td>

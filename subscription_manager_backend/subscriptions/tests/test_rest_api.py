@@ -114,11 +114,60 @@ class SubscriptionApiTest(TestCase):
         detail = self.client.get(detail_url).json()
         self.assertEqual(detail['details']['cost'], detail['current_cost'])
         self.assertEqual(detail['details']['user_cost'], detail['current_user_cost'])
+        self.assertEqual([p['share_amount'] for p in detail['participants']], ['8.00', '8.00'])
+        old_charge = Transaction.objects.get(subscription_id=pk)
+        self.assertEqual(list(old_charge.shares.values_list('amount', flat=True)), [Decimal('6'), Decimal('6')])
         portfolio = self.client.get(self.collection).json()
         self.assertEqual(portfolio['details'][str(pk)], detail['details'])
 
         Subscription.objects.filter(pk=pk).update(pause_from=today)
-        self.assertEqual(self.client.get(card_url).json()['state']['subscriptions'][0]['monthlyPrice'], 0)
+        paused_card = self.client.get(card_url).json()['state']['subscriptions'][0]
+        self.assertEqual(paused_card['monthlyPrice'], 0)
+        self.assertIsNone(paused_card['daysLeft'])
+
+        paused = self.client.get(self.collection, {'status': 'paused'}).json()
+        self.assertEqual([sub['current_status'] for sub in paused['subscriptions']], ['paused'])
+        self.assertEqual(paused['stats']['paused'], 1)
+
+        Subscription.objects.filter(pk=pk).update(status='paused', pause_from=today - timedelta(days=7), resume_on=today)
+        resumed = self.client.get(self.collection, {'status': 'active'}).json()
+        self.assertEqual([sub['id'] for sub in resumed['subscriptions']], [pk])
+        self.assertEqual(resumed['subscriptions'][0]['current_status'], 'active')
+        self.assertEqual(resumed['stats']['active'], 1)
+        self.assertEqual(Decimal(str(resumed['stats']['monthly_spend'])), Decimal('8'))
+        self.assertEqual(Decimal(str(resumed['burn_metrics']['active_monthly_spend'])), Decimal('8'))
+        self.assertEqual(self.client.get(self.collection, {'status': 'paused'}).json()['subscriptions'], [])
+        self.assertEqual(self.client.get(card_url).json()['state']['subscriptions'][0]['monthlyPrice'], 8)
+
+    def test_full_edit_reactivates_confirmed_cancellation(self):
+        create = self.client.post(self.collection, self.payload, content_type='application/json')
+        self.assertEqual(create.status_code, 201, create.content)
+        url = reverse('subscriptions_api:detail', args=[create.json()['id']])
+        fields = self.client.get(url).json()
+        result = self.client.put(url, {**fields, 'cancellation_state': 'confirmed'}, content_type='application/json')
+        self.assertEqual(result.status_code, 200, result.content)
+        self.assertEqual(result.json()['status'], 'cancelled')
+        fields = self.client.get(url).json()
+        result = self.client.put(url, {**fields, 'notes': 'Keep record'}, content_type='application/json')
+        self.assertEqual(result.json()['current_status'], 'cancelled')
+        result = self.client.put(url, {**result.json(), 'status': 'active'}, content_type='application/json')
+        self.assertEqual(result.status_code, 200, result.content)
+        self.assertEqual(result.json()['current_status'], 'active')
+        self.assertEqual(result.json()['cancellation_state'], 'none')
+
+    def test_old_confirmed_plan_can_be_edited_and_paused(self):
+        create = self.client.post(self.collection, self.payload, content_type='application/json')
+        pk = create.json()['id']
+        url = reverse('subscriptions_api:detail', args=[pk])
+        Subscription.objects.filter(pk=pk).update(status='active', cancellation_state='confirmed')
+        fields = self.client.get(url).json()
+        self.assertEqual(fields['status'], 'cancelled')
+        save = self.client.put(url, {**fields, 'notes': 'Still cancelled'}, content_type='application/json')
+        self.assertEqual(save.json()['current_status'], 'cancelled')
+        pause = self.client.post(f'{url}status/', {'status': 'paused'}, content_type='application/json')
+        self.assertEqual(pause.status_code, 200, pause.content)
+        self.assertEqual(self.client.get(url).json()['current_status'], 'paused')
+        self.assertEqual(Subscription.objects.get(pk=pk).cancellation_state, 'none')
 
     def test_team_member_submits_request_without_saving_credentials(self):
         owner = get_user_model().objects.create_user(email='owner@example.com', password='example-password')

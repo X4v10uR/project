@@ -215,18 +215,22 @@ def review_action(request):
     data.is_valid(raise_exception=True)
     fields = data.validated_data
     subs = [_subscription_for(request.user, pk) for pk in set(fields['ids'])]
+    today = timezone.localdate()
     for sub in subs:
         if fields['action'] == 'pause':
-            sub.pause_from = timezone.localdate()
+            sub.pause_from = today
             sub.resume_on = None
             change_subscription_status(sub, actor=request.user, status='paused')
         else:
-            sub.last_reviewed_on = timezone.localdate()
+            sub.last_reviewed_on = today
             sub.usage_rating = fields.get('usage_rating', sub.usage_rating)
             sub.save(update_fields=['last_reviewed_on', 'usage_rating'])
             from finance.permissions import log_activity
             log_activity(request.user, sub, 'subscription.reviewed', {'usage_rating': sub.usage_rating})
-    return Response({'updated': len(subs)})
+    result = {'updated': len(subs)}
+    if fields['action'] == 'review':
+        result['last_reviewed_on'] = today
+    return Response(result)
 
 
 class PriceInput(serializers.Serializer):
@@ -257,7 +261,8 @@ def price_changes(request, pk):
         previous_cost = changes[-1]['cost'] if changes else amount(change.previous_cost)
         changes.append({'id': change.pk, 'previous_cost': previous_cost,
                         'cost': amount(change.cost), 'effective_on': change.effective_on})
-    return Response({'changes': changes}, status=201 if request.method == 'POST' else 200)
+    return Response({'changes': changes, 'current_regular_cost': amount(sub.regular_price_on(timezone.localdate()))},
+                    status=201 if request.method == 'POST' else 200)
 
 
 @api_view(['GET'])

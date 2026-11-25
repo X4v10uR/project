@@ -21,6 +21,9 @@ with TemporaryDirectory(prefix='subly-browser-') as directory:
         VAPID_PUBLIC_KEY='', VAPID_PRIVATE_KEY='', TESSERACT_CMD='',
     )
     import django
+    from django.conf import settings
+    # This disposable server only contains browser-test accounts.
+    settings.PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
     django.setup()
     call_command('migrate', interactive=False, verbosity=0)
     call_command('runserver', '127.0.0.1:18183', use_reloader=False)

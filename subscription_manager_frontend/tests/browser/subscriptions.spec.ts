@@ -246,6 +246,9 @@ test('quick add, schedule a price change, review duplicates, and export the cale
   await expect.poll(() => logo.evaluate(image => image.naturalWidth)).toBeGreaterThan(0)
   await page.getByRole('button', { name: /Spotify/ }).click()
   await page.getByRole('link', { name: 'Edit subscription', exact: true }).click()
+  await page.getByRole('button', { name: 'Save check-in' }).click()
+  await expect(page.getByText('Review saved.', { exact: true })).toBeVisible()
+  await expect(page.getByText(/^Last reviewed /)).toBeVisible()
   await page.getByLabel('New full price (USD)').fill('15')
   const next = new Date(Date.now() + 40 * 86400000).toISOString().slice(0, 10)
   await page.getByLabel('Effective date', { exact: true }).fill(next)
@@ -295,9 +298,78 @@ test('confirm cancellation and keep access dates, then verify a stored password'
   await page.getByLabel('Confirmation notes').fill('Provider confirmed by email')
   await page.getByRole('button', { name: 'Save subscription', exact: true }).first().click()
   await page.getByRole('button', { name: /Private workspace/ }).click()
-  await expect(page.getByRole('dialog', { name: 'Private workspace' }).getByRole('combobox', { name: 'Status' })).toHaveValue('cancelled')
+  const drawer = page.getByRole('dialog', { name: 'Private workspace' })
+  await expect(drawer.getByRole('combobox', { name: 'Status' })).toHaveValue('cancelled')
+  await drawer.getByRole('link', { name: 'Edit subscription', exact: true }).click()
+  await page.getByRole('combobox', { name: 'Status', exact: true }).selectOption('active')
+  await page.getByRole('button', { name: 'Save subscription', exact: true }).first().click()
+  await page.getByRole('button', { name: /Private workspace/ }).click()
+  await expect(drawer.getByRole('combobox', { name: 'Status' })).toHaveValue('active')
   await page.goto('/accounts/settings/')
   await page.getByRole('button', { name: 'Security', exact: true }).click()
   await expect(page.getByText('credentials revealed')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Authenticator MFA: Off' })).toBeVisible()
+})
+
+test('selecting an adjacent-month calendar day shows its events', async ({ page }) => {
+  await signUp(page)
+  const now = new Date()
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+  const day = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}-01`
+  await page.route('**/api/subscriptions/calendar/?scope=personal', route => route.fulfill({ json: { events: [{
+    id: 'adjacent-payment', subscription_id: 1, team_id: null, service: 'Adjacent renewal',
+    date: day, kind: 'payment', amount: '15.00', currency: 'USD',
+  }] } }))
+  await page.goto('/planning/calendar/')
+  await page.getByRole('button', { name: /, 1 events$/ }).click()
+  await expect(page.getByRole('link', { name: 'Adjacent renewal', exact: true })).toBeVisible()
+  await expect(page.getByText('No scheduled events in this selection.')).toHaveCount(0)
+})
+
+test('saving an edit preserves a price change scheduled for today', async ({ page }) => {
+  await signUp(page)
+  await page.goto('/subscriptions/quick-add/')
+  await page.getByLabel('Service', { exact: true }).fill('Price regression')
+  await page.getByLabel('Cost (USD)').fill('30')
+  const today = new Date().toISOString().slice(0, 10)
+  await page.getByLabel('Next payment').fill(today)
+  await page.getByRole('button', { name: 'Add subscription', exact: true }).click()
+  await page.getByRole('button', { name: /Price regression/ }).click()
+  await page.getByRole('link', { name: 'Edit subscription', exact: true }).click()
+  const id = /\/subscriptions\/(\d+)\/edit\//.exec(page.url())![1]
+  await page.getByLabel('Service name').fill('Price regression renamed')
+  await page.getByLabel('New full price (USD)').fill('40')
+  await page.getByLabel('Effective date', { exact: true }).fill(today)
+  let releasePrice!: () => void
+  const priceGate = new Promise<void>(resolve => { releasePrice = resolve })
+  await page.route(`**/api/subscriptions/${id}/prices/`, async route => {
+    if (route.request().method() === 'POST') await priceGate
+    await route.continue()
+  })
+  await page.getByRole('button', { name: 'Schedule price change' }).click()
+  try {
+    await expect(page.getByRole('button', { name: 'Save subscription', exact: true }).first()).toBeDisabled()
+  } finally {
+    releasePrice()
+  }
+  await expect(page.getByText('$30.00 → $40.00')).toBeVisible()
+  await expect(page.getByLabel('Cost', { exact: true })).toHaveValue('40.00')
+  await expect(page.getByLabel('Service name')).toHaveValue('Price regression renamed')
+  await page.getByRole('button', { name: 'Save subscription', exact: true }).first().click()
+  await expect(page).toHaveURL(/\/subscriptions\/$/)
+  const saved = await page.request.get(`/api/subscriptions/${id}/`)
+  expect((await saved.json()).cost).toBe('40.00')
+
+  await page.goto(`/subscriptions/${id}/edit/`)
+  await page.getByLabel('Cost', { exact: true }).fill('45')
+  await page.getByLabel('New full price (USD)').fill('50')
+  const future = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10)
+  await page.getByLabel('Effective date', { exact: true }).fill(future)
+  await page.getByRole('button', { name: 'Schedule price change' }).click()
+  await expect(page.getByText('$40.00 → $50.00')).toBeVisible()
+  await expect(page.getByLabel('Cost', { exact: true })).toHaveValue('45')
+  await page.getByRole('button', { name: 'Save subscription', exact: true }).first().click()
+  await expect(page).toHaveURL(/\/subscriptions\/$/)
+  const prices = await page.request.get(`/api/subscriptions/${id}/prices/`)
+  expect((await prices.json()).changes.map((change: { cost: string }) => change.cost)).toEqual(['45.00', '50.00'])
 })

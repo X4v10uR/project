@@ -5,6 +5,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db.models import prefetch_related_objects
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import serializers, status
 from rest_framework.decorators import api_view, renderer_classes
 from rest_framework.exceptions import NotFound
@@ -104,7 +105,7 @@ def subscription_detail(request, pk):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     prefetch_related_objects([subscription], 'price_changes', 'participants', 'offsets')
-    subscription.participant_count = subscription.participants.count()
+    subscription.next_payment_date = next_billing_date(subscription, timezone.localdate())
     _apply_subscription_card_metadata([subscription])
     details = _build_subscription_drawer_data([subscription])[str(subscription.pk)]
     from finance.delivery import local_now

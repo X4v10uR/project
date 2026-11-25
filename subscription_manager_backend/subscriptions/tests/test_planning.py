@@ -167,6 +167,19 @@ class PlanningTests(TestCase):
         self.client.force_login(self.other)
         self.assertEqual(self.post(f'{sub.pk}/prices/', {'cost': '42', 'effective_on': str(self.today + timedelta(days=20))}).status_code, 404)
 
+    def test_price_history_reports_current_regular_cost_separately_from_intro_price(self):
+        sub = self.sub(introductory_cost='5', introductory_until=self.today + timedelta(days=7))
+        url = f'{sub.pk}/prices/'
+        result = self.post(url, {'cost': '40', 'effective_on': str(self.today)})
+        self.assertEqual(result.status_code, 201, result.content)
+        self.assertEqual(result.json()['current_regular_cost'], '40.00')
+        result = self.post(url, {'cost': '50', 'effective_on': str(self.today + timedelta(days=14))})
+        self.assertEqual(result.status_code, 201, result.content)
+        self.assertEqual(result.json()['current_regular_cost'], '40.00')
+        self.assertEqual(self.client.get('/api/subscriptions/' + url).json()['current_regular_cost'], '40.00')
+        sub.refresh_from_db()
+        self.assertEqual(sub.price_on(self.today), Decimal('5'))
+
     def test_edit_uses_regular_price_without_overwriting_discount_or_effective_increase(self):
         sub = self.sub(introductory_cost='5', introductory_until=self.today + timedelta(days=7))
         PriceChange.objects.create(subscription=sub, previous_cost=30, cost=40, effective_on=self.today)

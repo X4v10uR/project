@@ -11,6 +11,7 @@ from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 
+from finance.models import Activity, Receipt
 from subscriptions.models import InAppNotification, ReminderOffset, Subscription, SubscriptionParticipant, TeamSubscriptionRequest, Transaction
 from subscriptions.money import monthly_equivalent
 from subscriptions.notifications import create_notification, create_team_notifications
@@ -276,6 +277,8 @@ def create_subscription_from_request_payload(team_request, reviewer):
     for field in ('introductory_cost', 'cancellation_url', 'cancellation_state', 'cancellation_notes'):
         if payload.get(field) is not None:
             setattr(subscription, field, payload[field])
+    if subscription.cancellation_state == 'confirmed':
+        subscription.status = 'cancelled'
     subscription.save()
 
     participants = payload.get('participants') or []
@@ -396,8 +399,11 @@ def delete_user_account(user):
     member_team_ids = TeamMembership.objects.filter(user=user).values('team_id')
     subscription_team_ids = Subscription.objects.filter(user=user, team__isnull=False).values('team_id')
     charge_team_ids = Transaction.objects.filter(user=user, team__isnull=False).values('team_id')
+    receipt_team_ids = Receipt.objects.filter(user=user, team__isnull=False).values('team_id')
+    activity_team_ids = Activity.objects.filter(owner=user, team__isnull=False).values('team_id')
     teams = Team.objects.select_for_update().filter(
-        Q(created_by=user) | Q(pk__in=member_team_ids) | Q(pk__in=subscription_team_ids) | Q(pk__in=charge_team_ids),
+        Q(created_by=user) | Q(pk__in=member_team_ids) | Q(pk__in=subscription_team_ids)
+        | Q(pk__in=charge_team_ids) | Q(pk__in=receipt_team_ids) | Q(pk__in=activity_team_ids),
     ).order_by('pk')
     empty_team_ids = []
     for team in teams:
@@ -408,6 +414,8 @@ def delete_user_account(user):
         if next_owner_id is not None:
             Subscription.objects.filter(team=team, user=user).update(user_id=next_owner_id)
             Transaction.objects.filter(team=team, user=user).update(user_id=next_owner_id)
+            Receipt.objects.filter(team=team, user=user).update(user_id=next_owner_id)
+            Activity.objects.filter(team=team, owner=user).update(owner_id=next_owner_id)
             continue
         if remaining.exists():
             raise TeamActionError(

@@ -107,7 +107,9 @@ def _submit_team_request(subscription, actor, participants, reminder_offsets):
 
 
 def _adjust_pause_dates(subscription, previous_status, status, today):
-    if status == 'active' and previous_status == 'paused':
+    in_pause_window = (subscription.pause_from and subscription.pause_from <= today
+                       and (not subscription.resume_on or today < subscription.resume_on))
+    if status == 'active' and (previous_status == 'paused' or in_pause_window):
         subscription.pause_from = None
         subscription.resume_on = None
     elif status == 'paused' and subscription.resume_on and subscription.resume_on <= today:
@@ -139,9 +141,12 @@ def save_subscription(subscription, *, actor, participants, reminder_offsets):
         if not creating:
             today = timezone.localdate()
             catch_up_charges(subscription.pk, today - timedelta(days=1))
-            if (previous.status != subscription.status and previous.pause_from == subscription.pause_from
+            if (previous.configured_status != subscription.status and previous.pause_from == subscription.pause_from
                     and previous.resume_on == subscription.resume_on):
-                _adjust_pause_dates(subscription, previous.status, subscription.status, today)
+                _adjust_pause_dates(subscription, previous.configured_status, subscription.status, today)
+            if (subscription.status != 'cancelled'
+                    and previous.cancellation_state == subscription.cancellation_state == 'confirmed'):
+                subscription.cancellation_state = 'none'
             regular_price = previous.regular_price_on(today)
             if regular_price != subscription.cost:
                 existing_change = previous.price_changes.filter(effective_on=today).first()
@@ -151,10 +156,9 @@ def save_subscription(subscription, *, actor, participants, reminder_offsets):
                 if following:
                     following.previous_cost = subscription.cost
                     following.save(update_fields=['previous_cost'])
-        subscription.save()
-        if subscription.cancellation_state == 'confirmed' and subscription.status != 'cancelled':
+        if subscription.cancellation_state == 'confirmed':
             subscription.status = 'cancelled'
-            subscription.save(update_fields=['status', 'updated_at'])
+        subscription.save()
         if not creating:
             subscription.participants.all().delete()
         SubscriptionParticipant.objects.bulk_create(participants_to_create)
@@ -216,11 +220,11 @@ def remove_subscription(subscription, *, actor):
 @transaction.atomic
 def change_subscription_status(subscription, *, actor, status):
     from finance.permissions import log_activity
-    before_status = subscription.status
+    before_status = subscription.configured_status
     today = timezone.localdate()
     catch_up_charges(subscription.pk, today - timedelta(days=1))
     _adjust_pause_dates(subscription, before_status, status, today)
-    if status == 'active' and (before_status == 'cancelled' or subscription.cancellation_state == 'confirmed'):
+    if status != 'cancelled' and before_status == 'cancelled':
         subscription.cancellation_state = 'none'
     subscription.status = status
     subscription.save(update_fields=['status', 'renewal_date', 'updated_at', 'pause_from', 'resume_on', 'cancellation_state'])

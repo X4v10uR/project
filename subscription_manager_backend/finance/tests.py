@@ -16,7 +16,7 @@ from django.db import transaction
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from accounts.models import User, TeamMembership
-from accounts.team_workflows import create_team
+from accounts.team_workflows import create_team, delete_user_account
 from dashboard.models import BalanceAdjustment
 from subscriptions.models import Subscription, Transaction, PriceChange, ChargeShare, Repayment, InAppNotification
 from subscriptions.notifications import create_notification
@@ -129,6 +129,30 @@ class FinanceTests(TestCase):
         with self.captureOnCommitCallbacks(execute=True):
             self.assertEqual(self.client.delete(url).status_code, 204)
         self.assertFalse(row.file.storage.exists(row.file.name))
+
+    def test_deleting_former_member_preserves_team_receipt_and_activity(self):
+        team = create_team(name='Surviving team', user=self.other)
+        membership = TeamMembership.objects.create(team=team, user=self.user, role=TeamMembership.ROLE_ACCOUNTANT)
+        sub = self.sub(team=team, user=self.other)
+        upload = self.client.post('/api/finance/receipts/', {'file': self.pdf(), 'subscription': sub.pk})
+        self.assertEqual(upload.status_code, 201, upload.content)
+        receipt = Receipt.objects.get(pk=upload.json()['id'])
+        activity = Activity.objects.create(user=self.user, owner=self.user, team=team, action='receipt.uploaded')
+        personal = Receipt.objects.create(user=self.user, file=self.pdf(), filename='personal.pdf')
+        membership.delete()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            delete_user_account(self.user)
+        receipt.refresh_from_db()
+        activity.refresh_from_db()
+        self.assertEqual(receipt.user_id, self.other.pk)
+        self.assertEqual(activity.owner_id, self.other.pk)
+        self.assertIsNone(activity.user_id)
+        self.assertFalse(personal.file.storage.exists(personal.file.name))
+        self.client.force_login(self.other)
+        response = self.client.get(upload.json()['download_url'], HTTP_ACCEPT='application/pdf')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(b''.join(response.streaming_content).startswith(b'%PDF-'))
 
     def test_receipts_reject_disguised_html_and_foreign_subscription(self):
         result = self.client.post('/api/finance/receipts/', {'file': SimpleUploadedFile('invoice.pdf', b'<script>alert(1)</script>', 'application/pdf')})

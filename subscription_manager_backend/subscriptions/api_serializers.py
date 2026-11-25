@@ -5,7 +5,7 @@ from rest_framework import serializers
 from django.utils import timezone
 
 from .forms import SubscriptionForm
-from .models import Subscription, SubscriptionParticipant
+from .models import Subscription
 
 
 class ParticipantInput(serializers.Serializer):
@@ -37,18 +37,14 @@ class SubscriptionStatusInput(serializers.Serializer):
     status = serializers.ChoiceField(choices=Subscription.STATUS_CHOICES)
 
 
-class ParticipantSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = SubscriptionParticipant
-        fields = ('name', 'share_amount', 'member_id')
-
-
 class SubscriptionSerializer(serializers.ModelSerializer):
+    status = serializers.CharField(source='configured_status', read_only=True)
     cost = serializers.SerializerMethodField()
     current_cost = serializers.SerializerMethodField()
     current_user_cost = serializers.SerializerMethodField()
     has_password = serializers.SerializerMethodField()
-    participants = ParticipantSerializer(many=True)
+    participants = serializers.SerializerMethodField()
+    payer_id = serializers.IntegerField(source='user_id', read_only=True)
     reminder_offsets = serializers.SlugRelatedField(source='offsets', slug_field='days_before', many=True, read_only=True)
     card_nickname = serializers.CharField(source='card.nickname', default=None)
     icon_url = serializers.CharField(source='get_icon_url')
@@ -57,7 +53,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subscription
         fields = (
-            'id', 'team', 'service_name', 'display_color', 'plan_name', 'category', 'billing_cycle',
+            'id', 'team', 'payer_id', 'current_status', 'service_name', 'display_color', 'plan_name', 'category', 'billing_cycle',
             'cost', 'user_cost', 'currency', 'start_date', 'paid_through', 'trial_end_date', 'cancel_by_date', 'renewal_date', 'renewal_time',
             'status', 'reminders_enabled', 'reminder_offsets', 'card', 'card_nickname', 'notes',
             'is_shared', 'split_type', 'account_email', 'has_password', 'participants', 'icon_url', 'fallback_icon',
@@ -65,6 +61,12 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             'pause_from', 'resume_on', 'introductory_cost', 'introductory_until', 'last_reviewed_on', 'usage_rating',
             'current_cost', 'current_user_cost',
         )
+
+    def get_participants(self, instance):
+        return [
+            {'name': person.name, 'member_id': person.member_id, 'share_amount': format(share, '.2f')}
+            for person, share in instance.participant_shares(instance.price_on(timezone.localdate()))
+        ]
 
     def get_has_password(self, instance):
         return bool(instance.account_password)

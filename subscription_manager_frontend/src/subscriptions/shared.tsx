@@ -24,6 +24,8 @@ export interface Card {
 export interface Subscription {
   id: number
   team: number | null
+  payer_id: number
+  current_status: string
   service_name: string
   display_color: string
   plan_name: string | null
@@ -63,6 +65,7 @@ export interface Subscription {
 }
 
 export interface SubscriptionDetails {
+  renewal_date: string
   card_color: string
   card_text_is_light: boolean
   billing_cycle_detail: string

@@ -34,6 +34,7 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
   const navigate = useNavigate()
   const { user } = useAuth()
   const [serviceName, setServiceName] = useState(subscription?.service_name ?? options.prefill.service_name ?? '')
+  const [cost, setCost] = useState(subscription?.cost ?? '')
   const [shared, setShared] = useState(subscription?.is_shared ?? false)
   const [split, setSplit] = useState(subscription?.split_type ?? 'equal')
   const [color, setColor] = useState(subscription?.display_color ?? '')
@@ -44,6 +45,7 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
   const [nextParticipantId, setNextParticipantId] = useState(participants.length)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [priceSaving, setPriceSaving] = useState(false)
   const teamId = subscription?.team ?? options.team?.id
   const pending = !subscription && options.team && !options.team.can_create
   const backPath = teamId ? `/accounts/teams/${teamId}/` : subscriptionPath
@@ -74,6 +76,7 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (saving || priceSaving) return
     setError('')
     setSaving(true)
     const fields = Object.fromEntries(new FormData(event.currentTarget))
@@ -102,6 +105,7 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
   }
 
   return (
+    <>
     <form onSubmit={save} className="grid gap-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -109,7 +113,7 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
           <h1 className="text-3xl font-bold tracking-tight text-slate-950">{subscription ? 'Edit subscription' : 'Add subscription'}</h1>
           {options.team && <p className="mt-1 text-sm text-slate-600">{options.team.name}</p>}
         </div>
-        <button disabled={saving} className={primaryClass}>{saving ? 'Saving…' : pending ? 'Submit request' : 'Save subscription'}</button>
+        <button disabled={saving || priceSaving} className={primaryClass}>{saving ? 'Saving…' : pending ? 'Submit request' : 'Save subscription'}</button>
       </div>
       {pending && <p className="rounded-xl bg-indigo-50 p-3 text-sm text-indigo-800">A team owner must approve your subscription request. A payment card and password can be added after approval.</p>}
       <ErrorBanner message={error} />
@@ -128,7 +132,7 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
           <Field label="Plan name"><input name="plan_name" className={inputClass} maxLength={100} defaultValue={subscription?.plan_name ?? options.prefill.plan_name ?? ''} placeholder="e.g. Premium" /></Field>
           <Field label="Category"><input list="subscription-categories" name="category" className={inputClass} required maxLength={50} defaultValue={subscription?.category ?? options.prefill.category} placeholder="e.g. Streaming" /></Field>
           <datalist id="subscription-categories">{options.categories.map((category) => <option key={category} value={category} />)}</datalist>
-          <Field label="Status"><select name="status" className={inputClass} defaultValue={subscription?.status ?? 'active'}>{options.statuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+          <Field label={subscription && subscription.current_status !== subscription.status ? `Configured status (currently ${subscription.current_status})` : 'Status'}><select name="status" className={inputClass} defaultValue={subscription?.status ?? 'active'}>{options.statuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
         </div>
         <fieldset className="grid gap-2 text-sm">
           <legend className="mb-2 font-semibold text-slate-700">Card color</legend>
@@ -143,7 +147,7 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
       <section className={`${panelClass} grid gap-4`}>
         <h2 className="text-lg font-bold">Billing</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Cost"><input name="cost" className={inputClass} type="number" required min="0" step="0.01" defaultValue={subscription?.cost} placeholder="0.00" /></Field>
+          <Field label="Cost"><input name="cost" className={inputClass} type="number" required min="0" step="0.01" value={cost} onChange={event => setCost(event.target.value)} placeholder="0.00" /></Field>
           <Field label="Currency code"><input name="currency" className={inputClass} maxLength={3} pattern="[A-Za-z]{3}" required defaultValue={currency} /></Field>
           <Field label="Billing cycle"><select className={inputClass} name="billing_cycle" defaultValue={subscription?.billing_cycle ?? options.prefill.billing_cycle ?? 'monthly'}>{options.cycles.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
           <Field label="Start date"><input type="date" name="start_date" className={inputClass} required defaultValue={subscription?.start_date ?? localDate()} /></Field>
@@ -172,7 +176,7 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
               {participants.map((participant, index) => (
                 <div className="flex items-end gap-2" key={participant.id}>
                   <div className="min-w-0 flex-1"><Field label={`Participant ${index + 1}`}><input className={inputClass} value={participant.name} required maxLength={100} onChange={(event) => updateParticipant(participant.id, 'name', event.target.value)} /></Field></div>
-                  {teamId && <div className="min-w-0 flex-1"><Field label="Team member"><select className={inputClass} value={participant.member_id ?? ''} onChange={event => { const member = options.members.find(m => m.user_id === Number(event.target.value)); setParticipants(people => people.map(p => p.id === participant.id ? { ...p, member_id: member?.user_id ?? null, name: member?.email ?? p.name } : p)) }}><option value="">External participant</option>{options.members.filter(m => m.user_id !== user?.id).map(member => <option key={member.user_id} value={member.user_id}>{member.email}</option>)}</select></Field></div>}
+                  {teamId && <div className="min-w-0 flex-1"><Field label="Team member"><select className={inputClass} value={participant.member_id ?? ''} onChange={event => { const member = options.members.find(m => m.user_id === Number(event.target.value)); setParticipants(people => people.map(p => p.id === participant.id ? { ...p, member_id: member?.user_id ?? null, name: member?.email ?? p.name } : p)) }}><option value="">External participant</option>{options.members.filter(m => m.user_id !== (subscription?.payer_id ?? user?.id)).map(member => <option key={member.user_id} value={member.user_id}>{member.email}</option>)}</select></Field></div>}
                   {split === 'custom' && <div className="w-20 sm:w-28"><Field label="Share"><input className={inputClass} type="number" min="0" step="0.01" value={participant.share} onChange={(event) => updateParticipant(participant.id, 'share', event.target.value)} /></Field></div>}
                   <button type="button" className={buttonClass} aria-label={`Remove participant ${index + 1}`} onClick={() => setParticipants((people) => people.filter((person) => person.id !== participant.id))}><Trash2 size={16} /></button>
                 </div>
@@ -208,9 +212,14 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
       </div></details>
       <div className="flex flex-wrap justify-end gap-2">
         <Link className={buttonClass} to={backPath}>Cancel</Link>
-        <button disabled={saving} className={primaryClass}>{saving ? 'Saving…' : pending ? 'Submit request' : 'Save subscription'}</button>
+        <button disabled={saving || priceSaving} className={primaryClass}>{saving ? 'Saving…' : pending ? 'Submit request' : 'Save subscription'}</button>
       </div>
     </form>
+    {subscription && <>
+      <PriceChanges id={subscription.id} currency={subscription.currency} disabled={saving} onBusyChange={setPriceSaving} onCurrentCostChange={setCost} />
+      <UsageReview id={subscription.id} initialRating={subscription.usage_rating} lastReviewed={subscription.last_reviewed_on} />
+    </>}
+    </>
   )
 }
 
@@ -251,7 +260,7 @@ export function SubscriptionFormPage() {
     <section className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:py-8">
       <ErrorBanner message={error} />
       {!error && loaded?.key !== requestKey && <p role="status" className="text-sm text-slate-600">Loading subscription form…</p>}
-      {loaded?.key === requestKey && <><SubscriptionEditor key={requestKey} options={loaded.options} subscription={loaded.subscription} />{loaded.subscription && <><PriceChanges id={loaded.subscription.id} currency={loaded.subscription.currency} /><UsageReview id={loaded.subscription.id} initialRating={loaded.subscription.usage_rating} lastReviewed={loaded.subscription.last_reviewed_on} /></>}</>}
+      {loaded?.key === requestKey && <SubscriptionEditor key={requestKey} options={loaded.options} subscription={loaded.subscription} />}
     </section>
   )
 }

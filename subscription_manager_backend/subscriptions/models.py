@@ -254,12 +254,25 @@ class Subscription(models.Model):
             # Some legacy records may have a start date near the calendar limit.
             return None
 
-    def bills_on(self, day):
-        if self.status == 'cancelled' or self.cancellation_state == 'confirmed':
-            return False
+    @property
+    def configured_status(self):
+        return 'cancelled' if self.cancellation_state == 'confirmed' else self.status
+
+    def status_on(self, day):
+        if self.configured_status == 'cancelled':
+            return 'cancelled'
         if self.status == 'paused' and (not self.resume_on or day < self.resume_on):
-            return False
-        return not (self.pause_from and day >= self.pause_from and (not self.resume_on or day < self.resume_on))
+            return 'paused'
+        if self.pause_from and day >= self.pause_from and (not self.resume_on or day < self.resume_on):
+            return 'paused'
+        return 'active'
+
+    @property
+    def current_status(self):
+        return self.status_on(timezone.localdate())
+
+    def bills_on(self, day):
+        return self.status_on(day) == 'active'
 
     def regular_price_on(self, day):
         changes = sorted(self.price_changes.all(), key=lambda change: (change.effective_on, change.pk))
@@ -274,6 +287,15 @@ class Subscription(models.Model):
         if self.introductory_cost is not None and self.introductory_until and day < self.introductory_until:
             price = self.introductory_cost
         return price
+
+    def participant_shares(self, price):
+        people = sorted(self.participants.all(), key=lambda person: person.pk)
+        for position, person in enumerate(people, 1):
+            if self.split_type == 'equal':
+                share = equal_share(price, len(people) + 1, position)
+            else:
+                share = person.share_amount or Decimal('0')
+            yield person, share
 
     def share_on(self, day):
         return self.share_of(self.price_on(day))

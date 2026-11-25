@@ -1,7 +1,7 @@
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
-from django.db.models import Count, F, Window
+from django.db.models import F, Window
 from django.db.models.functions import RowNumber
 from django.urls import reverse
 from django.utils import timezone
@@ -9,6 +9,7 @@ from django.utils import timezone
 from .color_utils import normalize_subscription_display_color
 from .models import Subscription, Transaction
 from .money import monthly_equivalent
+from .services import next_billing_date
 
 
 SUBSCRIPTION_CARD_COLORS = [
@@ -45,7 +46,8 @@ ALLOWED_SORT_FIELDS = {"cost", "renewal_date", "service_name"}
 
 
 def _personal_subscription_queryset(request):
-    return Subscription.objects.filter(user=request.user, team__isnull=True)
+    return (Subscription.objects.filter(user=request.user, team__isnull=True)
+            .select_related('card').prefetch_related('price_changes', 'participants'))
 
 
 def filter_personal_subscriptions(request):
@@ -69,8 +71,6 @@ def filter_personal_subscriptions(request):
 
     if query:
         subscriptions = subscriptions.filter(service_name__icontains=query)
-    if status_filter:
-        subscriptions = subscriptions.filter(status=status_filter)
     if cycle_filter:
         subscriptions = subscriptions.filter(billing_cycle=cycle_filter)
     if shared_filter == 'true':
@@ -89,13 +89,19 @@ def filter_personal_subscriptions(request):
         except (TypeError, ValueError):
             due_within_days = None
 
+    today = timezone.localdate()
+    subscriptions = list(subscriptions.order_by(sort_by, 'pk'))
+    if status_filter:
+        subscriptions = [sub for sub in subscriptions if sub.status_on(today) == status_filter]
+    for sub in subscriptions:
+        sub.next_payment_date = next_billing_date(sub, today)
     if due_within_days is not None:
-        today = timezone.localdate()
-        subscriptions = subscriptions.filter(
-            renewal_date__range=[today, today + timedelta(days=due_within_days)]
-        )
-
-    subscriptions = subscriptions.order_by(sort_by, 'pk')
+        last = today + timedelta(days=due_within_days)
+        subscriptions = [sub for sub in subscriptions if sub.next_payment_date and sub.next_payment_date <= last]
+    if sort_by == 'renewal_date':
+        subscriptions.sort(key=lambda sub: (sub.next_payment_date or date.max, sub.pk))
+    elif sort_by == 'cost':
+        subscriptions.sort(key=lambda sub: (sub.price_on(today), sub.pk))
 
     filters = {
         'query': query,
@@ -110,13 +116,12 @@ def filter_personal_subscriptions(request):
 
 def build_subscription_list_context(request):
     subscriptions, filters = filter_personal_subscriptions(request)
-    subscriptions = list(subscriptions.select_related('card').prefetch_related('price_changes', 'participants').annotate(participant_count=Count('participants')))
     has_filters = any(
         filters[key] for key in ('query', 'status_filter', 'cycle_filter', 'shared_filter', 'due_within')
     )
     base_subscriptions = subscriptions
     if has_filters:
-        base_subscriptions = list(_personal_subscription_queryset(request).order_by().prefetch_related('price_changes', 'participants'))
+        base_subscriptions = list(_personal_subscription_queryset(request).order_by())
     _apply_subscription_card_metadata(subscriptions)
     drawer_payload = _build_subscription_drawer_data(subscriptions)
     stats = _calculate_subscription_stats(base_subscriptions)
@@ -179,8 +184,11 @@ def _apply_subscription_card_metadata(subscriptions):
         )
         subscription.card_badge_border_class = "border-white/20" if is_dark else "border-slate-200"
 
-        if subscription.renewal_date:
-            subscription.days_until_renewal = (subscription.renewal_date - today).days
+        subscription.participant_count = subscription.participants.count()
+        subscription.current_price = subscription.price_on(today)
+        subscription.current_share = subscription.share_of(subscription.current_price)
+        if subscription.next_payment_date:
+            subscription.days_until_renewal = (subscription.next_payment_date - today).days
         else:
             subscription.days_until_renewal = None
 
@@ -207,10 +215,11 @@ def _format_currency_amount(amount, currency):
 
 def _accumulate_monthly_spend_by_currency(subscriptions):
     totals = {}
+    today = timezone.localdate()
     for subscription in subscriptions:
         currency = _normalize_currency_code(subscription.currency)
         totals[currency] = totals.get(currency, Decimal("0")) + monthly_equivalent(
-            Decimal('0') if subscription.status == 'active' and not subscription.bills_on(timezone.localdate()) else subscription.share_on(timezone.localdate()),
+            subscription.share_on(today),
             subscription.billing_cycle,
         )
     return totals
@@ -228,12 +237,11 @@ def _format_spend_display(spend_by_currency):
 
 def _calculate_subscription_stats(subscriptions):
     total = len(subscriptions)
-    active = sum(1 for s in subscriptions if s.status == "active")
-    paused = sum(1 for s in subscriptions if s.status == "paused")
-    cancelled = sum(1 for s in subscriptions if s.status == "cancelled")
-    active_subscriptions = [
-        subscription for subscription in subscriptions if subscription.status == "active"
-    ]
+    today = timezone.localdate()
+    active_subscriptions = [sub for sub in subscriptions if sub.bills_on(today)]
+    active = len(active_subscriptions)
+    cancelled = sum(sub.status_on(today) == 'cancelled' for sub in subscriptions)
+    paused = total - active - cancelled
     spend_by_currency = _accumulate_monthly_spend_by_currency(active_subscriptions)
     is_mixed_currency = len(spend_by_currency) > 1
 
@@ -264,14 +272,16 @@ def _calculate_burn_rate_metrics(subscriptions):
     active_count = 0
     tracked_count = 0
 
+    today = timezone.localdate()
     for subscription in subscriptions:
-        if subscription.status == "cancelled":
+        status = subscription.status_on(today)
+        if status == "cancelled":
             continue
 
         tracked_subscriptions.append(subscription)
         tracked_count += 1
 
-        if subscription.status == "active":
+        if status == "active":
             active_subscriptions.append(subscription)
             active_count += 1
 
@@ -385,9 +395,11 @@ def _build_subscription_drawer_data(subscriptions):
     payload = {}
     for subscription in subscriptions:
         currency = _normalize_currency_code(subscription.currency)
-        total_cost = subscription.price_on(today)
-        user_cost = subscription.share_on(today)
-        participant_count = int(getattr(subscription, "participant_count", 0) or 0)
+        total_cost = subscription.current_price
+        user_cost = subscription.current_share
+        participant_count = subscription.participant_count
+        status = subscription.status_on(today)
+        renewal = subscription.next_payment_date
         total_people = 1 + participant_count if subscription.is_shared else 1
 
         share_percent = 0
@@ -398,13 +410,13 @@ def _build_subscription_drawer_data(subscriptions):
         share_percent = max(0, min(share_percent, 100))
 
         renewal_date_display = (
-            subscription.renewal_date.strftime("%b %d, %Y")
-            if subscription.renewal_date
+            renewal.strftime("%b %d, %Y")
+            if renewal
             else "No renewal date"
         )
         billing_cycle_display = subscription.get_billing_cycle_display()
-        if subscription.renewal_date:
-            renewal_day = subscription.renewal_date.day
+        if renewal:
+            renewal_day = renewal.day
             billing_cycle_detail = (
                 f"{billing_cycle_display}, {renewal_day}{_ordinal_suffix(renewal_day)}"
             )
@@ -426,8 +438,8 @@ def _build_subscription_drawer_data(subscriptions):
             "billing_cycle": subscription.billing_cycle,
             "billing_cycle_display": billing_cycle_display,
             "billing_cycle_detail": billing_cycle_detail,
-            "status": subscription.status,
-            "status_display": subscription.get_status_display(),
+            "status": status,
+            "status_display": dict(Subscription.STATUS_CHOICES)[status],
             "currency": currency,
             "cost": str(total_cost),
             "cost_display": _format_currency_amount(total_cost, currency),
@@ -438,8 +450,8 @@ def _build_subscription_drawer_data(subscriptions):
             "total_people": total_people,
             "share_percent": share_percent,
             "renewal_date": (
-                subscription.renewal_date.isoformat()
-                if subscription.renewal_date
+                renewal.isoformat()
+                if renewal
                 else ""
             ),
             "renewal_date_display": renewal_date_display,

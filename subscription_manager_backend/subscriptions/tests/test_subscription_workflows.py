@@ -76,6 +76,32 @@ class SubscriptionWorkflowSafetyTest(TestCase):
         self.assertEqual(participants[0].name, 'Alice')
         self.assertEqual(participants[0].share_amount, Decimal('5.00'))
 
+    def test_owner_edit_preserves_team_member_link_and_original_payer(self):
+        payer = User.objects.create_user(email='payer@example.com', password='password')
+        team = Team.objects.create(name='Shared plan', created_by=self.user)
+        TeamMembership.objects.create(team=team, user=self.user, role=TeamMembership.ROLE_OWNER)
+        TeamMembership.objects.create(team=team, user=payer, role=TeamMembership.ROLE_MEMBER)
+        today = timezone.localdate()
+        sub = Subscription.objects.create(team=team, user=payer, service_name='Music', category='Music',
+            start_date=today, cost=12, user_cost=6, billing_cycle='monthly', is_shared=True)
+        sub.participants.create(name=self.user.email, member=self.user, share_amount=6)
+        url = reverse('subscriptions:update', args=[sub.pk])
+        detail = self.client.get(reverse('subscriptions_api:detail', args=[sub.pk])).json()
+        self.assertEqual(detail['payer_id'], payer.pk)
+        seed = self.client.get(url).context['participant_seed'][0]
+        self.assertEqual(seed['member_id'], self.user.pk)
+        response = self.client.post(url, {
+            'service_name': 'Music Plus', 'category': 'Music', 'billing_cycle': 'monthly', 'cost': '12.00',
+            'currency': 'USD', 'start_date': today.isoformat(), 'renewal_time': '15:00', 'status': 'active',
+            'is_shared': 'True', 'split_type': 'equal', 'participant_name': seed['name'],
+            'participant_share': seed['share'], 'participant_member_id': seed['member_id'],
+        })
+        self.assertRedirects(response, reverse('accounts:team_detail', args=[team.pk]), fetch_redirect_response=False)
+        sub.refresh_from_db()
+        self.assertEqual(sub.service_name, 'Music Plus')
+        self.assertEqual(sub.user_id, payer.pk)
+        self.assertEqual(sub.participants.get().member_id, self.user.pk)
+
     def test_create_deduplicates_reminder_offsets(self):
         response = self.client.post(
             reverse('subscriptions:create'),
