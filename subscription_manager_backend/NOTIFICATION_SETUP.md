@@ -45,6 +45,9 @@ The default port is 465 with SSL and 587 otherwise. `EMAIL_TIMEOUT` defaults to
 Team renewal reminders are sent individually. Successful recipients are recorded
 even if another address fails; subsequent runs retry only the failed recipients.
 Individual alert emails and summaries also retry when a backend accepts no message.
+Deferred renewal and cancellation reminders recheck the current schedule, reminder
+settings, and team membership before sending email or push or entering a summary.
+Cancelled subscriptions and replaced reminder dates do not send stale alerts.
 
 ### 2. Gmail Setup (for Production)
 

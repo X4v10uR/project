@@ -97,7 +97,8 @@ def send_push(notification, *, delivered=None):
 
 def route_notification(notification, send_email_alert):
     from subscriptions.notifications import _send_notification_email
-    if not notification.recipient.is_active:
+    from subscriptions.services import reminder_is_current
+    if not notification.recipient.is_active or not reminder_is_current(notification):
         return
     pref = NotificationPreference.objects.filter(user=notification.recipient).first()
     email = send_email_alert and (not pref or (pref.email_enabled and pref.digest == 'off'))
@@ -128,6 +129,7 @@ def route_notification(notification, send_email_alert):
 
 def deliver_queued():
     from subscriptions.notifications import _send_notification_email
+    from subscriptions.services import reminder_is_current
     delivered = 0
     ids = list(NotificationDelivery.objects.filter(deliver_after__lte=timezone.now(), attempts__lt=10).values_list('pk', flat=True))
     for pk in ids:
@@ -136,7 +138,7 @@ def deliver_queued():
             if not row or row.deliver_after > timezone.now():
                 continue
             n = row.notification
-            if n.is_read or not n.recipient.is_active:
+            if n.is_read or not n.recipient.is_active or not reminder_is_current(n):
                 row.delete()
                 continue
             pref = NotificationPreference.objects.filter(user=n.recipient).first()
@@ -178,6 +180,7 @@ def deliver_queued():
 
 
 def send_digests():
+    from subscriptions.services import reminder_is_current
     sent = 0
     eligible = NotificationPreference.objects.filter(email_enabled=True, user__is_active=True).exclude(digest='off')
     for pref_id in eligible.values_list('pk', flat=True):
@@ -204,7 +207,7 @@ def send_digests():
                 recipient=pref.user, is_read=False, created_at__lte=cutoff).filter(
                 Q(last_reminded_at__isnull=True) | Q(last_reminded_at__lte=cutoff)
             ).exclude(notificationdelivery__snoozed_until__gt=cutoff).order_by('created_at', 'pk')
-            text = '\n\n'.join(f'{n.title}\n{n.body}' for n in rows.iterator())
+            text = '\n\n'.join(f'{n.title}\n{n.body}' for n in rows.iterator() if reminder_is_current(n))
             if text:
                 try:
                     accepted = send_mail(f'DUES {pref.digest} summary', text + '\n\n' + settings.SITE_URL,

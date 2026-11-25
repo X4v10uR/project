@@ -186,6 +186,38 @@ def _reminder_subscriptions():
     ).exclude(cancellation_state='confirmed').select_related('user', 'team')
 
 
+def _matches_reminder_event(sub, day, kind):
+    if kind == 'cancellation_deadline':
+        return sub.cancel_by_date == day
+    return sub.bills_on(day) and sub.calculate_renewal_date(today=day) == day
+
+
+def reminder_is_current(notification):
+    """Revalidate scheduled reminders after quiet hours, retries or digest delays."""
+    kinds = {'renewal.reminder': 'renewal_reminder', 'cancellation.reminder': 'cancellation_deadline'}
+    kind = kinds.get(notification.event_type)
+    if kind is None or notification.subscription_id is None:
+        return True
+    sub = _reminder_subscriptions().filter(pk=notification.subscription_id).first()
+    if sub is None or sub.team_id != notification.team_id:
+        return False
+    if sub.team_id:
+        if not sub.team.memberships.filter(user_id=notification.recipient_id).exists():
+            return False
+    elif sub.user_id != notification.recipient_id:
+        return False
+    metadata = notification.metadata
+    try:
+        day = date.fromisoformat(metadata['renewal_date'])
+    except (KeyError, TypeError, ValueError):
+        return False
+    offset = metadata.get('days_before')
+    if not isinstance(offset, int):
+        return False
+    offsets = set(sub.offsets.values_list('days_before', flat=True)) or {settings.NOTIFICATION_DAYS_BEFORE}
+    return offset in offsets and _matches_reminder_event(sub, day, kind)
+
+
 def _current_reminder(selected, kind, days_before):
     # Sending can lag selection. Recheck the scope, schedule and opt-in before
     # reserving an event, keeping the selected event date independent of billing's cursor.
@@ -197,10 +229,7 @@ def _current_reminder(selected, kind, days_before):
         offsets = set(sub.offsets.values_list('days_before', flat=True)) or {settings.NOTIFICATION_DAYS_BEFORE}
         if days_before not in offsets or selected.renewal_time != sub.renewal_time:
             return None
-    if kind == 'cancellation_deadline':
-        if sub.cancel_by_date != day:
-            return None
-    elif not sub.bills_on(day) or sub.calculate_renewal_date(today=day) != day:
+    if not _matches_reminder_event(sub, day, kind):
         return None
     sub.renewal_date = day
     sub.cost = sub.price_on(day)

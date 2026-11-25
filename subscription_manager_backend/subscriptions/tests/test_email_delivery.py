@@ -17,7 +17,7 @@ from subly import settings as project_settings
 from subly.emailing import frontend_url
 from subscriptions.models import InAppNotification, NotificationLog, Subscription
 from subscriptions.notifications import _send_notification_email, create_notification
-from subscriptions.services import NotificationService
+from subscriptions.services import BillingService, NotificationService
 
 
 @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
@@ -132,6 +132,97 @@ class EmailDeliveryTests(TestCase):
         sub.offsets.update(days_before=1)
         self.assertFalse(NotificationService.send_renewal_reminder(*batches[0]))
         self.assertFalse(NotificationLog.objects.exists())
+
+    def queued_reminder(self, sub, **changes):
+        notification = self.notification(**{
+            'subscription': sub, 'team': sub.team, 'event_type': 'renewal.reminder', 'metadata': {
+                'renewal_date': sub.renewal_date.isoformat(), 'days_before': 3,
+            }, **changes,
+        })
+        NotificationDelivery.objects.create(notification=notification, email=True, push=True,
+            deliver_after=timezone.now())
+        return notification
+
+    def test_deferred_reminders_recheck_subscription_settings_and_schedule(self):
+        NotificationPreference.objects.create(user=self.user, push_enabled=True)
+        for changes in ({'reminders_enabled': False}, {'status': 'cancelled'}, {'status': 'paused'},
+                        {'cancellation_state': 'confirmed'},
+                        {'start_date': timezone.localdate() + timedelta(days=8)}):
+            with self.subTest(changes=changes):
+                sub = self.subscription()
+                self.queued_reminder(sub)
+                Subscription.objects.filter(pk=sub.pk).update(**changes)
+                with patch('finance.delivery.send_push') as push:
+                    self.assertEqual(deliver_queued(), 0)
+                push.assert_not_called()
+                self.assertFalse(NotificationDelivery.objects.exists())
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_deferred_cancellation_reminder_rechecks_its_deadline(self):
+        deadline = timezone.localdate() + timedelta(days=2)
+        sub = self.subscription(cancel_by_date=deadline)
+        self.queued_reminder(sub, event_type='cancellation.reminder', metadata={
+            'renewal_date': deadline.isoformat(), 'days_before': 3,
+        })
+        Subscription.objects.filter(pk=sub.pk).update(cancel_by_date=deadline + timedelta(days=1))
+        self.assertEqual(deliver_queued(), 0)
+        self.assertFalse(NotificationDelivery.objects.exists())
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_current_deferred_reminder_survives_billing_cursor_advancement(self):
+        sub = self.subscription()
+        self.queued_reminder(sub)
+        BillingService.record_renewal_charges(sub.renewal_date)
+        self.assertEqual(deliver_queued(), 1)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_team_removal_notice_still_reaches_the_removed_member(self):
+        team = Team.objects.create(name='Team', created_by=self.user)
+        notification = self.notification(team=team, event_type='team.member.removed')
+        NotificationDelivery.objects.create(notification=notification, email=True, deliver_after=timezone.now())
+        self.assertEqual(deliver_queued(), 1)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_deferred_reminder_rechecks_changed_offsets(self):
+        sub = self.subscription()
+        sub.offsets.create(days_before=3)
+        self.queued_reminder(sub)
+        sub.offsets.update(days_before=1)
+        self.assertEqual(deliver_queued(), 0)
+        self.assertFalse(NotificationDelivery.objects.exists())
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_deferred_team_reminder_does_not_email_a_removed_member(self):
+        team = Team.objects.create(name='Team', created_by=self.user)
+        membership = TeamMembership.objects.create(team=team, user=self.user, role='member')
+        self.queued_reminder(self.subscription(team=team))
+        membership.delete()
+        self.assertEqual(deliver_queued(), 0)
+        self.assertFalse(NotificationDelivery.objects.exists())
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_digest_omits_obsolete_reminders_and_keeps_other_alerts(self):
+        now = datetime(2026, 11, 25, 12, tzinfo=UTC)
+        NotificationPreference.objects.create(user=self.user, digest='daily')
+        with patch('finance.delivery.timezone.now', return_value=now):
+            sub = self.subscription()
+            reminder = self.queued_reminder(sub, title='Obsolete reminder')
+            NotificationDelivery.objects.filter(notification=reminder).delete()
+            Subscription.objects.filter(pk=sub.pk).update(reminders_enabled=False)
+            self.notification(title='Current alert')
+            self.assertEqual(send_digests(), 1)
+        self.assertNotIn('Obsolete reminder', mail.outbox[0].body)
+        self.assertIn('Current alert', mail.outbox[0].body)
+
+    def test_changed_settings_before_commit_suppress_reminder_email(self):
+        sub = self.subscription()
+        with self.captureOnCommitCallbacks(execute=True):
+            create_notification(recipient=self.user, subscription=sub, event_type='renewal.reminder',
+                title='Pending reminder', metadata={
+                    'renewal_date': sub.renewal_date.isoformat(), 'days_before': 3,
+                }, send_email_alert=True)
+            Subscription.objects.filter(pk=sub.pk).update(reminders_enabled=False)
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_renewal_formats_headers_text_html_and_destination(self):
         sub = self.subscription()
