@@ -199,7 +199,77 @@ def review_inbox(request):
             items.append({'id': sub.pk, 'service': sub.service_name, 'currency': sub.currency, 'reasons': reasons,
                 'monthly_saving': amount(monthly_equivalent(sub.share_on(today), sub.billing_cycle)) if sub.bills_on(today) else '0.00',
                 'can_edit': sub.team_id is None or sub.team_id in owned})
-    return Response({'items': items})
+    options = (
+        list(comparable_subscriptions(request.user).order_by('service_name', 'pk').values(
+            'id', 'service_name', 'plan_name', 'currency',
+        ))
+        if query['scope'] == 'personal' else []
+    )
+    return Response({'items': items, 'comparison_options': options})
+
+
+def comparable_subscriptions(user):
+    return visible_subscriptions(user, 'personal').filter(
+        status='active', billing_cycle='monthly', is_shared=False,
+    ).exclude(cancellation_state='confirmed')
+
+
+class RenewalComparisonInput(serializers.Serializer):
+    option = serializers.ChoiceField(choices=['annual', 'downgrade', 'cancel'])
+    quoted_price = serializers.DecimalField(
+        max_digits=10, decimal_places=2, min_value=Decimal('0'), required=False,
+    )
+
+    def validate(self, data):
+        if data['option'] != 'cancel' and 'quoted_price' not in data:
+            raise serializers.ValidationError({'quoted_price': 'Enter the quoted price.'})
+        return data
+
+
+@api_view(['POST'])
+def renewal_comparison(request, pk):
+    sub = get_object_or_404(
+        comparable_subscriptions(request.user).prefetch_related('price_changes'), pk=pk,
+    )
+    fields = RenewalComparisonInput(data=request.data)
+    fields.is_valid(raise_exception=True)
+    option = fields.validated_data['option']
+    today = timezone.localdate()
+    end = today + relativedelta(years=1)
+    recorded = set(sub.transactions.filter(
+        source=Transaction.SOURCE_RENEWAL, charged_for_date__gte=today,
+        charged_for_date__lt=end,
+    ).values_list('charged_for_date', flat=True))
+    days = [
+        day for day in renewals_between(sub, today, end - timedelta(days=1))
+        if day not in recorded
+    ]
+    if not days:
+        raise serializers.ValidationError('There is no unrecorded renewal in the next 12 months.')
+    current = [(day, sub.share_on(day)) for day in days]
+    quoted_price = fields.validated_data.get('quoted_price')
+    if option == 'cancel':
+        alternative = []
+    elif option == 'annual':
+        alternative = [(days[0], quoted_price)]
+    else:
+        alternative = [(day, quoted_price) for day in days]
+
+    def summarize(charges):
+        day, next_amount = charges[0] if charges else (None, Decimal('0'))
+        return {
+            'next_date': day, 'next_amount': amount(next_amount),
+            'total': amount(sum((value for _, value in charges), Decimal('0'))),
+        }
+
+    keep, alternative = summarize(current), summarize(alternative)
+    return Response({
+        'option': option, 'currency': sub.currency, 'from_date': today, 'until_date': end,
+        'effective_on': days[0], 'cancel_by_date': sub.cancel_by_date,
+        'keep': keep, 'alternative': alternative,
+        'total_savings': amount(Decimal(keep['total']) - Decimal(alternative['total'])),
+        'next_payment_change': amount(Decimal(alternative['next_amount']) - Decimal(keep['next_amount'])),
+    })
 
 
 class ReviewAction(serializers.Serializer):

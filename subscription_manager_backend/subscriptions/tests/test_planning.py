@@ -1,5 +1,6 @@
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.core.cache import cache
 from django.test import TestCase, override_settings
@@ -257,3 +258,48 @@ class PlanningTests(TestCase):
         sub.refresh_from_db()
         self.assertEqual(sub.status, 'cancelled')
         self.assertEqual(list(renewals_between(sub, self.today, self.today + timedelta(days=30))), [])
+
+    @patch('subscriptions.planning.timezone.localdate', return_value=date(2026, 11, 26))
+    def test_renewal_comparison_uses_effective_prices_and_creates_no_records(self, _today):
+        sub = self.sub(start_date=date(2026, 12, 1), introductory_cost='30',
+            introductory_until=date(2027, 1, 1), cancel_by_date=date(2026, 11, 30), currency='USD')
+        PriceChange.objects.create(subscription=sub, previous_cost='30', cost='40', effective_on=date(2027, 1, 1))
+        before = Subscription.objects.values().get(pk=sub.pk)
+        result = self.post(f'{sub.pk}/renewal-comparison/', {'option': 'annual', 'quoted_price': '300'})
+        self.assertEqual(result.status_code, 200, result.content)
+        data = result.json()
+        self.assertEqual(data['keep'], {'next_date': '2026-12-01', 'next_amount': '30.00', 'total': '470.00'})
+        self.assertEqual(data['alternative'], {'next_date': '2026-12-01', 'next_amount': '300.00', 'total': '300.00'})
+        self.assertEqual((data['total_savings'], data['next_payment_change'], data['cancel_by_date']),
+            ('170.00', '270.00', '2026-11-30'))
+        self.assertEqual(Subscription.objects.values().get(pk=sub.pk), before)
+        self.assertEqual(sub.price_changes.count(), 1)
+        self.assertFalse(sub.transactions.exists())
+
+    @patch('subscriptions.planning.timezone.localdate', return_value=date(2027, 1, 31))
+    def test_renewal_comparison_skips_recorded_renewal_and_respects_window(self, _today):
+        sub = self.sub(start_date=date(2027, 1, 31), currency='USD')
+        Transaction.objects.create(user=self.user, subscription=sub, service_name_snapshot=sub.service_name,
+            charged_for_date=date(2027, 1, 31), amount=30, currency='USD')
+        data = self.post(f'{sub.pk}/renewal-comparison/', {'option': 'downgrade', 'quoted_price': '20'}).json()
+        self.assertEqual(data['effective_on'], '2027-02-28')
+        self.assertEqual(data['until_date'], '2028-01-31')
+        self.assertEqual(data['keep']['total'], '330.00')
+        self.assertEqual(data['alternative']['total'], '220.00')
+        self.assertIsNone(data['cancel_by_date'])
+        cancel = self.post(f'{sub.pk}/renewal-comparison/', {'option': 'cancel'}).json()
+        self.assertEqual(cancel['alternative'], {'next_date': None, 'next_amount': '0.00', 'total': '0.00'})
+        self.assertEqual(sub.transactions.count(), 1)
+
+    def test_renewal_comparison_permissions_options_and_amount_validation(self):
+        personal = self.sub(service_name='Eligible')
+        shared = self.sub(service_name='Shared', is_shared=True, split_type='equal')
+        other = self.sub(service_name='Private', user=self.other)
+        team = self.sub(service_name='Team', team=create_team(name='Studio', user=self.user))
+        options = self.client.get('/api/subscriptions/review/').json()['comparison_options']
+        self.assertEqual([row['id'] for row in options], [personal.pk])
+        for sub in [shared, other, team]:
+            self.assertEqual(self.post(f'{sub.pk}/renewal-comparison/', {'option': 'cancel'}).status_code, 404)
+        for invalid in [{}, {'quoted_price': '-0.01'}, {'quoted_price': '1.001'}]:
+            self.assertEqual(self.post(f'{personal.pk}/renewal-comparison/',
+                {'option': 'annual', **invalid}).status_code, 400)

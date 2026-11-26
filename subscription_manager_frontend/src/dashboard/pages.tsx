@@ -47,9 +47,10 @@ type Dashboard = Balance & {
   team_label: string;
   show_get_started: boolean;
   needs_attention: {
-    id: string; kind: 'deadline' | 'payment' | 'approval' | 'trial' | 'price' | 'decision';
+    id: string; kind: 'deadline' | 'payment' | 'approval' | 'trial' | 'price' | 'decision' | 'charge_difference';
     service: string; workspace: string | null; date: string; amount: string | null;
     currency: string | null; action: string; url: string;
+    difference?: { payment_id: number; expected: string; delta: string; price_url: string | null };
   }[];
   total_active: number;
   total_shared: number;
@@ -400,18 +401,57 @@ function ActiveSubscriptions({ data }: { data: Dashboard }) {
   </section>;
 }
 
-function NeedsAttention({ items }: { items: Dashboard['needs_attention'] }) {
+function ChargeDifferenceActions({ item, onDismiss }: { item: Dashboard['needs_attention'][number]; onDismiss: () => void }) {
+  const [status, setStatus] = useState<'idle' | 'busy' | 'done'>('idle');
+  const [failure, setFailure] = useState('');
+  async function dismiss(paymentId: number, delta: string) {
+    setStatus('busy');
+    setFailure('');
+    try {
+      await api(`/api/finance/charge-differences/${paymentId}/dismiss/`, {
+        method: 'POST',
+        body: JSON.stringify({ delta }),
+      });
+      setStatus('done');
+      onDismiss();
+    } catch (error) {
+      setStatus('idle');
+      setFailure(error instanceof Error ? error.message : 'Could not dismiss this payment difference.');
+    }
+  }
+  const difference = item.difference;
+  if (!difference) return null;
+  return <div className="flex flex-wrap items-center gap-2">
+    <Link className="secondary-link" to={item.url}>{item.action}</Link>
+    {difference.price_url && <Link className="secondary-link" to={difference.price_url}>Review price</Link>}
+    <button className="secondary-link" disabled={status !== 'idle'}
+      onClick={() => void dismiss(difference.payment_id, difference.delta)}>Dismiss as one-off</button>
+    {failure && <p role="alert" className="basis-full text-sm text-red-700">{failure}</p>}
+  </div>;
+}
+
+function NeedsAttention({ items, onDismiss }: { items: Dashboard['needs_attention']; onDismiss: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const visible = expanded ? items : items.slice(0, 5);
-  const labels = { deadline: 'Cancel by', payment: 'Failed payment', approval: 'Approval requested', trial: 'Trial ends', price: 'Price increases', decision: 'Renewal decision due' };
+  const labels = { deadline: 'Cancel by', payment: 'Failed payment', approval: 'Approval requested', trial: 'Trial ends', price: 'Price increases', decision: 'Renewal decision due', charge_difference: 'Payment amount differs' };
   return (
     <section className="detail-panel" aria-labelledby="attention-title">
       <h2 id="attention-title" className="text-lg font-bold text-slate-900">Needs attention</h2>
-      <p className="mt-1 text-sm text-slate-600">The next seven days, plus open payment failures and approval requests.</p>
+      <p className="mt-1 text-sm text-slate-600">The next seven days, plus open payment issues and approval requests.</p>
       {items.length ? <ul className="mt-2 divide-y divide-slate-100">{visible.map((item) => (
         <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
-          <div><strong>{item.service}</strong>{item.workspace && <span className="ml-2 text-sm text-slate-600">{item.workspace}</span>}<p className="text-sm text-slate-600">{labels[item.kind]} · <time dateTime={item.date}>{displayDate(item.date)}</time>{item.amount != null && item.currency && <> · {currencyAmount(item.amount, item.currency)}</>}</p></div>
-          <Link className="secondary-link" to={item.url}>{item.action}</Link>
+          <div>
+            <strong>{item.service}</strong>{item.workspace && <span className="ml-2 text-sm text-slate-600">{item.workspace}</span>}
+            <p className="text-sm text-slate-600">
+              {labels[item.kind]} · <time dateTime={item.date}>{displayDate(item.date)}</time>
+              {!item.difference && item.amount != null && item.currency && <> · {currencyAmount(item.amount, item.currency)}</>}
+            </p>
+            {item.difference && item.currency && item.amount != null && <p className="text-sm text-slate-700">
+              Expected {currencyAmount(item.difference.expected, item.currency, 2)} · Paid {currencyAmount(item.amount, item.currency, 2)}
+              {' · '}{currencyAmount(Math.abs(Number(item.difference.delta)), item.currency, 2)} {Number(item.difference.delta) > 0 ? 'more' : 'less'} than expected
+            </p>}
+          </div>
+          {item.difference ? <ChargeDifferenceActions item={item} onDismiss={onDismiss} /> : <Link className="secondary-link" to={item.url}>{item.action}</Link>}
         </li>
       ))}</ul> : <p className="mt-2 text-sm text-slate-600">Nothing needs your attention in this workspace.</p>}
       {items.length > 5 && <button className="secondary-link mt-2" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? 'Show fewer' : `Show all ${items.length} items`}</button>}
@@ -437,12 +477,12 @@ export function DashboardPage() {
             <Link className="secondary-link" to="/subscriptions/import/">Import a subscription list</Link><Link className="secondary-link" to="/accounts/teams/create/">Set up a team</Link></div>
         </section>}
         <div className="dash-grid hero-grid"><SpendingSummary data={data} scope={scope} /><WeekOutlook data={data} scope={scope} /></div>
-        {data.needs_attention.length > 0 && <NeedsAttention key={scope} items={data.needs_attention} />}
+        {data.needs_attention.length > 0 && <NeedsAttention key={scope} items={data.needs_attention} onDismiss={retry} />}
         <div className="dash-grid records-grid"><UpcomingBills data={data} key={query} scope={scope} /><SubscriptionMix data={data} /></div>
         <div className="dash-grid"><RecentTransactions transactions={data.recent_transactions} scope={scope} /><FundingCard key={query} data={data} onUpdate={updateBalance} scope={scope} /></div>
         <div className="dash-grid dashboard-management">
           <ActiveSubscriptions data={data} /><BudgetEditor data={data} key={query + '-budget'} scope={scope} reload={retry} />
-          {data.needs_attention.length === 0 && <NeedsAttention key={scope} items={data.needs_attention} />}
+          {data.needs_attention.length === 0 && <NeedsAttention key={scope} items={data.needs_attention} onDismiss={retry} />}
           {Object.keys(data.monthly_spend_by_currency).some(code => code !== data.balance_currency) &&
             <section className="detail-panel"><h2>Monthly spending by currency</h2>
               <ul className="mt-2 grid gap-1">{Object.entries(data.monthly_spend_by_currency).sort(([a], [b]) => a.localeCompare(b)).map(([code, amount]) =>

@@ -3,8 +3,8 @@ from django.conf import settings
 from datetime import date, time, timedelta
 from decimal import Decimal
 from dateutil.relativedelta import relativedelta
-from django.core.validators import MinLengthValidator, RegexValidator
-from django.core.exceptions import ImproperlyConfigured
+from django.core.validators import MaxValueValidator, MinLengthValidator, MinValueValidator, RegexValidator
+from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.utils import timezone
 import base64
 import hashlib
@@ -637,6 +637,20 @@ class TeamRenewal(models.Model):
     decided_at = models.DateTimeField(null=True, blank=True)
     decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
 
+
+    MAX_SEATS = 1_000_000
+    paid_seats = models.PositiveIntegerField(
+        null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(MAX_SEATS)],
+    )
+    needed_seats = models.PositiveIntegerField(null=True, blank=True, validators=[MaxValueValidator(MAX_SEATS)])
+    decision_reason = models.CharField(max_length=500, blank=True)
+
+    def clean(self):
+        super().clean()
+        if (self.paid_seats is None) != (self.needed_seats is None):
+            raise ValidationError('Enter both seat counts or leave both blank.')
+        if (self.paid_seats is not None or self.decision_reason) and not (self.decision and self.decision_for):
+            raise ValidationError('Seat counts and reasons require a dated renewal decision.')
 
 class SubscriptionParticipant(models.Model):
     """External participants for shared subscriptions"""

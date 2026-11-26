@@ -76,6 +76,7 @@ class ImportedPayment(models.Model):
     pending = models.BooleanField(default=False)
     removed = models.BooleanField(default=False)
     dismissed = models.BooleanField(default=False)
+    acknowledged_charge_difference = models.DecimalField(max_digits=13, decimal_places=2, null=True, blank=True)
     subscription = models.ForeignKey('subscriptions.Subscription', null=True, blank=True, on_delete=models.SET_NULL)
     charge = models.ForeignKey('subscriptions.Transaction', null=True, blank=True, on_delete=models.SET_NULL)
     created_at = models.DateTimeField(auto_now_add=True)

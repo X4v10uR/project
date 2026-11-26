@@ -4,6 +4,7 @@ from django.utils import timezone
 
 from accounts.models import TeamMembership
 from accounts.renewals import review_details
+from finance.charge_differences import attention_items
 from finance.delivery import local_now
 from subscriptions.models import TeamSubscriptionRequest, Transaction
 from subscriptions.planning import visible_subscriptions
@@ -64,5 +65,6 @@ def needs_attention(user, scope):
                           'amount': request.payload.get('cost'), 'currency': request.payload.get('currency'),
                           'action': 'Review request', 'url': f'/accounts/teams/{request.team_id}/#request-{request.pk}'})
 
-    priority = {'payment': 0, 'deadline': 1, 'decision': 2, 'trial': 3, 'price': 4, 'approval': 5}
+    items.extend(attention_items(user, scope))
+    priority = {'payment': 0, 'deadline': 1, 'decision': 2, 'trial': 3, 'price': 4, 'approval': 5, 'charge_difference': 6}
     return sorted(items, key=lambda item: (item['date'], priority[item['kind']], item['service'].casefold(), item['id']))

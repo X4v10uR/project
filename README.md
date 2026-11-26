@@ -105,6 +105,12 @@ In **Planning → Connections**, preview a bank statement CSV, map its columns, 
 
 Receipt lists support merchant and receipt-date filters. Use **Load older** in Receipts or Activity to continue through the full history.
 
+## Renewal decisions and charge differences
+
+- In **Planning → Review inbox**, compare an eligible personal monthly subscription with a quoted annual or monthly price, or preview cancelling before the next unrecorded renewal. DUES compares scheduled payments over the same 12-month window. The preview assumes no immediate charge, credit or termination fee. It does not edit the subscription or contact the provider.
+- In **Needs attention**, a confirmed same-currency statement CSV match can show the expected provider bill and the amount actually paid. Dismiss a one-off difference or open the subscription’s price history to record a recurring change yourself. The matching and original charge stay intact.
+- In **Teams**, record paid and needed seats with a keep, change or cancel decision. The estimated savings assume an even price per seat; confirm the actual quote with the provider.
+
 ## Notification delivery
 
 Operators can monitor failed or overdue jobs with `check_job_health` and restore the SQLite database and private receipts together with `recovery_snapshot`. See [scheduler monitoring and recovery](subscription_manager_backend/OPERATIONS.md).

@@ -44,6 +44,10 @@ type Renewal = {
   decided_at: string | null
   decided_by: string | null
   can_decide: boolean
+  paid_seats: number | null
+  needed_seats: number | null
+  seat_savings: string | null
+  decision_reason: string
 }
 
 type TeamSubscriptionDetail = TeamSubscription & { renewal: Renewal }
@@ -61,25 +65,64 @@ type Team = {
   pending_invites: PendingInvite[]
 }
 
-function RenewalPanel({ renewal, team, saving, onUpdate }: {
-  renewal: Renewal; team: Team; saving: boolean; onUpdate: (fields: RenewalFields) => void
+const renewalLabels = { '': 'Awaiting decision', keep: 'Keep', change: 'Change', cancel: 'Cancel' }
+
+function RenewalDecisionForm({ renewal, saving, onUpdate }: {
+  renewal: Renewal; saving: boolean; onUpdate: (fields: RenewalFields) => void
+}) {
+  const [decision, setDecision] = useState(renewal.decision)
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const data = new FormData(event.currentTarget)
+    onUpdate({
+      decision,
+      renewal_date: renewal.renewal_date,
+      paid_seats: data.get('paid_seats') || null,
+      needed_seats: data.get('needed_seats') || null,
+      decision_reason: data.get('decision_reason') || '',
+    })
+  }
+  return <form className="grid gap-2" onSubmit={submit}>
+    <Field label="Decision for this renewal"><select className={fieldClass} name="decision" value={decision}
+      onChange={event => setDecision(event.target.value as Renewal['decision'])}>
+      {Object.entries(renewalLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+    </select></Field>
+    {decision && <>
+      <fieldset className="grid gap-2">
+        <legend className="font-semibold">Seat review (optional)</legend>
+        <p className="text-xs text-zinc-600">Enter both counts, or leave both blank. Savings assume every seat costs the same and the provider lets you reduce seat count.</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Field label="Seats paid for"><input className={fieldClass} name="paid_seats" type="number" min="1" max="1000000" step="1" defaultValue={renewal.paid_seats ?? ''} /></Field>
+          <Field label="Seats needed"><input className={fieldClass} name="needed_seats" type="number" min="0" max="1000000" step="1" defaultValue={renewal.needed_seats ?? ''} /></Field>
+        </div>
+      </fieldset>
+      <Field label="Reason (optional)"><textarea className={fieldClass} name="decision_reason" rows={2} maxLength={500} defaultValue={renewal.decision_reason} /></Field>
+    </>}
+    <p className="text-xs text-zinc-600">Record the team's plan here. Complete seat reductions, plan changes or cancellation with the provider.</p>
+    <button className={secondaryClass + ' justify-self-start'} disabled={saving}>Save decision</button>
+  </form>
+}
+
+function RenewalPanel({ renewal, team, currency, saving, onUpdate }: {
+  renewal: Renewal; team: Team; currency: string; saving: boolean; onUpdate: (fields: RenewalFields) => void
 }) {
   const assignee = team.members.find(person => person.id === renewal.assignee_id)
-  const labels = { '': 'Awaiting decision', keep: 'Keep', change: 'Change', cancel: 'Cancel' }
   function assign(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     onUpdate({ assignee_id: new FormData(event.currentTarget).get('assignee_id') || null })
-  }
-  function decide(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    onUpdate({ decision: new FormData(event.currentTarget).get('decision'), renewal_date: renewal.renewal_date })
   }
   return <section className="grid gap-2 border-t border-zinc-200 pt-3 text-sm" aria-label="Renewal responsibility">
     <h4 className="font-bold">Renewal decision</h4>
     <p>Responsible person · {assignee?.email || 'Unassigned'}</p>
     {renewal.renewal_date ? <>
       <p>Renewal {displayDate(renewal.renewal_date)} · Decide by {displayDate(renewal.due_on)}</p>
-      <p className="font-semibold">{labels[renewal.decision]}</p>
+      <p className="font-semibold">{renewalLabels[renewal.decision]}</p>
+      {renewal.paid_seats !== null && renewal.needed_seats !== null && <div className="grid gap-1">
+        <p>{renewal.paid_seats} paid seats · {renewal.needed_seats} needed</p>
+        <p className="font-semibold">Estimated savings per renewal: {currency} {renewal.seat_savings}</p>
+        <p className="text-xs text-zinc-600">Based on the scheduled renewal price, assuming equal seat prices and no minimums or fees.</p>
+      </div>}
+      {renewal.decision_reason && <p className="break-words whitespace-pre-wrap"><strong>Reason:</strong> {renewal.decision_reason}</p>}
       {renewal.decided_at && <p className="text-zinc-600">Recorded {new Date(renewal.decided_at).toLocaleString()}{renewal.decided_by && ' by ' + renewal.decided_by}</p>}
     </> : <p>No upcoming payment scheduled.</p>}
     {team.role === 'owner' && <form className="grid gap-2" onSubmit={assign}>
@@ -89,13 +132,8 @@ function RenewalPanel({ renewal, team, saving, onUpdate }: {
       </select></Field>
       <button className={secondaryClass + ' justify-self-start'} disabled={saving}>Save assignment</button>
     </form>}
-    {renewal.can_decide && <form className="grid gap-2" onSubmit={decide}>
-      <Field label="Decision for this renewal"><select className={fieldClass} name="decision" key={renewal.renewal_date + renewal.decision} defaultValue={renewal.decision}>
-        {Object.entries(labels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-      </select></Field>
-      <p className="text-xs text-zinc-600">Record the team's plan here. Complete plan changes or cancellation with the provider.</p>
-      <button className={secondaryClass + ' justify-self-start'} disabled={saving}>Save decision</button>
-    </form>}
+    {renewal.can_decide && <RenewalDecisionForm key={JSON.stringify([renewal.renewal_date, renewal.decision, renewal.paid_seats, renewal.needed_seats, renewal.decision_reason])}
+      renewal={renewal} saving={saving} onUpdate={onUpdate} />}
   </section>
 }
 
@@ -128,7 +166,7 @@ function SubscriptionCard({ subscription, team, saving, onUpdate }: {
           </dd>
         </div>
       </dl>
-      <RenewalPanel renewal={subscription.renewal} team={team} saving={saving} onUpdate={onUpdate} />
+      <RenewalPanel renewal={subscription.renewal} team={team} currency={subscription.currency} saving={saving} onUpdate={onUpdate} />
       {team.role === 'owner' && <Link className="justify-self-start text-sm font-semibold underline underline-offset-3" to={'/subscriptions/' + subscription.id + '/edit/'}>Edit subscription</Link>}
     </article>
   )

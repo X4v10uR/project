@@ -378,3 +378,28 @@ test('saving an edit preserves a price change scheduled for today', async ({ pag
   const prices = await page.request.get(`/api/subscriptions/${id}/prices/`)
   expect((await prices.json()).changes.map((change: { cost: string }) => change.cost)).toEqual(['45.00', '50.00'])
 })
+
+test('compares renewal options without changing the current subscription', async ({ page }) => {
+  await signUp(page)
+  await page.goto('/subscriptions/quick-add/')
+  await page.getByLabel('Service', { exact: true }).fill('Comparison Test Plan')
+  await page.getByLabel('Cost (USD)').fill('30')
+  await page.getByLabel('Next payment').fill(new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10))
+  await page.getByRole('button', { name: 'Add subscription', exact: true }).click()
+  await expect(page).toHaveURL(/\/subscriptions\/(?!quick-add)/)
+  await page.goto('/planning/review/')
+  const comparison = page.getByRole('region', { name: 'Compare renewal options' })
+  await comparison.getByLabel('Subscription to compare').selectOption({ label: 'Comparison Test Plan (USD)' })
+  await comparison.getByLabel('Quoted annual price (USD)').fill('300')
+  await comparison.getByRole('button', { name: 'Compare costs' }).click()
+  await expect(comparison.getByRole('status')).toContainText(/270(?:\.00)? more/)
+  await expect(comparison.getByRole('status')).toContainText(/60(?:\.00)? less/)
+  await comparison.getByLabel('Alternative').selectOption('cancel')
+  await comparison.getByRole('button', { name: 'Compare costs' }).click()
+  await expect(comparison.getByText('Next payment: None in this preview')).toBeVisible()
+  await expect(comparison.getByRole('status')).toContainText(/360(?:\.00)? less/)
+  await page.reload()
+  await expect(comparison.getByLabel('Subscription to compare').locator('option')).toHaveText([
+    'Choose a subscription', 'Comparison Test Plan (USD)',
+  ])
+})

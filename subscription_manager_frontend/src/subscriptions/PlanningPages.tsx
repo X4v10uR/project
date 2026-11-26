@@ -3,6 +3,7 @@ import { ServiceIcon } from '../ServiceIcon'
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, NavLink, useLocation, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
+import { RenewalComparison, type ComparisonOption } from './RenewalComparison'
 import { CurrencySummary, LiveCalendar } from '../finance/common'
 import { buttonClass, currencyAmount as money, displayDate, ErrorBanner, Field, inputClass, panelClass, primaryClass, showError, subscriptionApi } from './shared'
 
@@ -69,7 +70,7 @@ export function RenewalCalendarPage() {
 
 type ReviewItem = { id: number; service: string; currency: string; reasons: string[]; monthly_saving: string; can_edit: boolean }
 export function ReviewInboxPage() {
-  const { data, error, reload, scope } = usePlanning<{ items: ReviewItem[] }>('review')
+  const { data, error, reload, scope } = usePlanning<{ items: ReviewItem[]; comparison_options: ComparisonOption[] }>('review')
   const [selected, setSelected] = useState<number[]>([])
   const [failure, setFailure] = useState('')
   const [notice, setNotice] = useState('')
@@ -83,6 +84,7 @@ export function ReviewInboxPage() {
     try { await api(`${subscriptionApi}review/action/`, { method: 'POST', body: JSON.stringify({ action, ids, usage_rating: usage }) }); setSelected([]); setNotice(`${action === 'pause' ? 'Paused tracking for' : 'Reviewed'} ${ids.length} subscription${ids.length === 1 ? '' : 's'}.`); reload() } catch (e) { setFailure(showError(e)) } finally { setBusy(false) }
   }
   return <PlanningLayout title="Subscription review inbox"><ErrorBanner message={error || failure} />{notice && <p role="status" className={panelClass}>{notice}</p>}<div className={panelClass}><h2 className="font-bold">Turn upcoming renewals into decisions</h2><p className="mt-2 text-sm text-slate-600">Review trials, duplicates, old subscriptions, and services you rarely use. Pausing here updates your tracking; arrange the pause with your provider too.</p><div className="mt-4 flex flex-wrap items-end gap-3"><Field label="Usage check-in"><select className={inputClass} value={usage} onChange={event => setUsage(event.target.value)}><option value="often">Often</option><option value="sometimes">Sometimes</option><option value="rarely">Rarely</option><option value="never">Never</option></select></Field><button className={buttonClass} disabled={!selected.length || busy} onClick={() => void act('review', selected)}>Mark selected reviewed</button><button className={primaryClass} disabled={!selected.length || busy} onClick={() => void act('pause', selected)}>Pause selected</button></div><p className="mt-3 text-sm font-semibold" aria-live="polite">Monthly commitment reduced by: {Object.entries(totals).map(([code, value]) => money(value, code)).join(' · ') || 'Select subscriptions to preview savings'}</p></div>
+  {data && scope === 'personal' && <RenewalComparison options={data.comparison_options} />}
   {!data && !error && <p role="status">Loading review tasks…</p>}{data && !data.items.length && <p className={panelClass}>You’re all caught up. New review tasks appear as deadlines approach.</p>}{data?.items.map(item => <article className={panelClass} key={item.id}><div className="flex items-start gap-3"><input aria-label={`Select ${item.service}`} type="checkbox" disabled={!item.can_edit || busy} checked={selected.includes(item.id)} onChange={event => setSelected(ids => event.target.checked ? [...ids, item.id] : ids.filter(id => id !== item.id))} className="mt-1 size-4" /><div className="flex-1"><h2 className="flex items-center gap-2 text-lg font-bold"><ServiceIcon name={item.service} className="size-7" />{item.service}</h2><ul className="mt-2 list-inside list-disc space-y-1 text-sm text-slate-600">{item.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul><p className="mt-3 text-sm font-semibold">{money(item.monthly_saving, item.currency)} / month potential saving</p><div className="mt-3 flex flex-wrap gap-2">{item.can_edit && <><Link className={buttonClass} to={`/subscriptions/${item.id}/edit/`}>Manage subscription</Link><button className={buttonClass} disabled={busy} onClick={() => void act('review', [item.id])}>Mark reviewed</button></>}</div></div></div></article>)}</PlanningLayout>
 }
 
