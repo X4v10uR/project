@@ -2,6 +2,7 @@ import hashlib
 import secrets
 import time
 from collections.abc import Mapping
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import pyotp
 from django import forms
@@ -11,6 +12,7 @@ from django.contrib.auth.views import LoginView
 from django.core.cache import cache
 from django.db import transaction
 from django.http import JsonResponse
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.decorators import api_view
 from rest_framework.exceptions import PermissionDenied
@@ -108,7 +110,14 @@ class SecurityMiddleware:
                         require_recent(request)
                     except PermissionDenied as exc:
                         return JsonResponse({'detail': str(exc)}, status=403)
-        return self.get_response(request)
+        user_timezone = timezone.get_default_timezone()
+        if request.user.is_authenticated:
+            try:
+                user_timezone = ZoneInfo(request.user.timezone)
+            except (ZoneInfoNotFoundError, ValueError):
+                pass
+        with timezone.override(user_timezone):
+            return self.get_response(request)
 
 
 class SecureAuthenticationForm(AuthenticationForm):

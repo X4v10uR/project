@@ -17,6 +17,14 @@ def text_part(text, kind='text/plain', encoding='utf-8', **extra):
 
 
 class MailTextTests(SimpleTestCase):
+    def test_receipt_amounts_consume_the_full_number(self):
+        for text in ('Total: EUR 1.234,56', 'Total: EUR 1,234.56', 'Total: EUR 1234,56'):
+            with self.subTest(text=text):
+                self.assertEqual(parse_invoice(text), {'currency': 'EUR', 'amount': Decimal('1234.56')})
+        for text in ('Total: EUR 12.345', 'Total: USD 1,23,45.67'):
+            with self.subTest(text=text):
+                self.assertNotIn('amount', parse_invoice(text))
+
     def test_plain_text_preserves_literal_angle_brackets(self):
         self.assertEqual(mail_text(text_part('Usage < 10; Total: USD 30.00')), ['Usage < 10; Total: USD 30.00'])
 
@@ -124,6 +132,15 @@ class GmailImportTests(TestCase):
         sync_gmail(self.connection)
         self.assertEqual(ImportedMessage.objects.count(), 51)
         self.assertEqual(ImportedPayment.objects.count(), 51)
+
+    @patch('finance.connections.provider_request')
+    def test_deleted_messages_do_not_starve_the_rest_of_a_page(self, request):
+        listing = {'messages': [{'id': str(i)} for i in range(51)]}
+        request.side_effect = [listing] + [ProviderError('Gone', status_code=404)] * 50
+        sync_gmail(self.connection)
+        request.side_effect = [listing, {'payload': text_part('Total: USD 12.00')}]
+        sync_gmail(self.connection)
+        self.assertEqual(ImportedPayment.objects.get().remote_id, '50')
 
     @patch('finance.connections.provider_request')
     def test_expired_page_token_restarts_and_deleted_message_does_not_block_sync(self, request):

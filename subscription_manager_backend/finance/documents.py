@@ -45,13 +45,20 @@ def validate_file(file):
 def parse_invoice(text):
     text = text[:100000]
     # Prefer an explicitly labelled total; never guess a payment status from text.
-    patterns = [r'(?<!sub[ -])\b(?:grand total|amount paid|total paid|total|amount due)\s*[:\-]?\s*(USD|EUR|GBP|PKR|CAD|AUD|INR|JPY|CHF|\$|€|£)\s*([\d,]+\.\d{2})',
-                r'\b(USD|EUR|GBP|PKR|CAD|AUD|INR|JPY|CHF)\s*([\d,]+\.\d{2})\b']
+    codes = r'USD|EUR|GBP|PKR|CAD|AUD|INR|JPY|CHF'
+    amount = r'((?:\d+|\d{1,3}(?:,\d{3})+)\.\d{2}|(?:\d+|\d{1,3}(?:\.\d{3})+),\d{2})(?!\d|[.,]\d)'
+    patterns = [
+        rf'(?<!sub[ -])\b(?:grand total|amount paid|total paid|total|amount due)\s*[:\-]?\s*({codes}|\$|€|£)\s*{amount}',
+        rf'\b({codes})\s*{amount}',
+    ]
     result = {}
     for pattern in patterns:
         match = re.search(pattern, text, re.I)
         if match:
-            value = Decimal(match[2].replace(',', ''))
+            raw = match[2]
+            if raw[-3] == ',':
+                raw = raw.replace('.', '').replace(',', '.')
+            value = Decimal(raw.replace(',', ''))
             if 0 <= value < Decimal('10000000000'):
                 result['amount'] = value
                 result['currency'] = {'$': 'USD', '€': 'EUR', '£': 'GBP'}.get(match[1], match[1].upper())

@@ -3,7 +3,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from urllib.parse import urlencode
 
 from django.urls import reverse
-from django.utils import timezone
+from finance.delivery import local_now
 
 from subscriptions.models import Subscription, Transaction
 from subscriptions.money import monthly_equivalent
@@ -143,7 +143,7 @@ def _monthly_spend_by_currency(subscriptions, today):
 
 def monthly_spend_for_scope(user, scope, currency):
     subscriptions, _ = _subscriptions_for_scope(user, scope)
-    today = timezone.localdate()
+    today = local_now(user).date()
     plans = subscriptions.filter(currency__iexact=currency).exclude(status='cancelled')
     return _quantize_money(sum((_monthly_cost(sub, today) for sub in plans if sub.bills_on(today)), Decimal('0')))
 
@@ -378,7 +378,7 @@ def _build_transaction_item(transaction, index, service_color_map):
 
 
 def build_dashboard_view_model(user, today=None, scope='personal', selected_currency=None):
-    today = today or timezone.localdate()
+    today = today or local_now(user).date()
     window_end = today + timedelta(days=29)
 
     user_subs, scope = _subscriptions_for_scope(user, scope)

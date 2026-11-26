@@ -213,7 +213,7 @@ class AvatarView(AccountView):
         })
 
 
-def team_subscription(subscription):
+def team_subscription(subscription, today):
     return {
         'id': subscription.pk,
         'team_id': subscription.team_id,
@@ -221,11 +221,11 @@ def team_subscription(subscription):
         'service_name': subscription.service_name,
         'category': subscription.category,
         'currency': subscription.currency,
-        'cost': str(subscription.price_on(timezone.localdate())),
+        'cost': str(subscription.price_on(today)),
         'billing_cycle': subscription.billing_cycle,
         'trial_end_date': subscription.trial_end_date,
         'cancel_by_date': subscription.cancel_by_date,
-        'status': subscription.current_status,
+        'status': subscription.status_on(today),
         'icon': subscription.get_fallback_icon(),
         'account_email': subscription.account_email,
         'has_password': bool(subscription.account_password),
@@ -248,7 +248,7 @@ class TeamsView(AccountView):
             ],
             'subscriptions': [
                 {
-                    **team_subscription(row['subscription']),
+                    **team_subscription(row['subscription'], data['as_of_date']),
                     'accent_color': row['accent_color'],
                 }
                 for row in data['team_subscription_rows']
@@ -285,7 +285,7 @@ class TeamDetailView(AccountView):
             'can_view_credentials': data['membership'].may_view_credentials,
             'accent_color': data['team_accent_color'],
             'subscriptions': [
-                {**team_subscription(sub), 'renewal': review_details(sub, data['membership'], today)}
+                {**team_subscription(sub, today), 'renewal': review_details(sub, data['membership'], today)}
                 for sub in data['team_subscriptions']
             ],
             'members': [

@@ -141,19 +141,24 @@ export function CurrencySummary() {
   const [params] = useSearchParams(),
     [base, setBase] = useState(""),
     [busy, setBusy] = useState(false),
-    [failure, setFailure] = useState("");
-  const [updated, setUpdated] = useState<Converted | null>(null);
+    [failure, setFailure] = useState<{ path: string; message: string } | null>(null);
+  const [updated, setUpdated] = useState<{ path: string; data: Converted } | null>(null);
   const path = `conversion/?scope=${params.get("scope") === "teams" ? "teams" : "personal"}${base ? "&base=" + encodeURIComponent(base) : ""}`;
   const { data, error } = useFinance<Converted>(path);
-  useEffect(() => setUpdated(null), [path]);
-  const value = updated ?? data;
+  useEffect(() => {
+    setUpdated(null);
+    setFailure(null);
+  }, [path]);
+  const value = updated?.path === path ? updated.data : data;
   async function refresh() {
+    if (busy) return;
     setBusy(true);
-    setFailure("");
+    setFailure(null);
     try {
-      setUpdated(await api<Converted>(endpoint + path, { method: "POST" }));
+      const data = await api<Converted>(endpoint + path, { method: "POST" });
+      setUpdated({ path, data });
     } catch (e) {
-      setFailure(showError(e));
+      setFailure({ path, message: showError(e) });
     } finally {
       setBusy(false);
     }
@@ -186,7 +191,7 @@ export function CurrencySummary() {
           {busy ? "Refreshing…" : "Refresh exchange rates"}
         </button>
       </div>
-      <ErrorBanner message={error || failure || value?.error || ""} />
+      <ErrorBanner message={error || (failure?.path === path ? failure.message : "") || value?.error || ""} />
       {value && (
         <>
           <strong className="text-2xl">
@@ -219,39 +224,43 @@ export function LiveCalendar() {
     "calendar/feeds/",
   );
   const [params] = useSearchParams(),
-    [url, setUrl] = useState(""),
-    [failure, setFailure] = useState(""),
+    [created, setCreated] = useState<{ id: number; scope: string; url: string } | null>(null),
+    [failure, setFailure] = useState<{ scope: string; message: string } | null>(null),
     [busy, setBusy] = useState(false);
+  const scope = params.get("scope") === "teams" ? "teams" : "personal";
+  const url = created?.scope === scope ? created.url : "";
   async function create() {
+    if (busy) return;
     setBusy(true);
-    setFailure("");
+    setFailure(null);
     try {
-      const reply = await api<{ url: string }>(endpoint + "calendar/feeds/", {
+      const reply = await api<{ id: number; url: string }>(endpoint + "calendar/feeds/", {
         method: "POST",
         body: JSON.stringify({
-          scope: params.get("scope") === "teams" ? "teams" : "personal",
+          scope,
         }),
       });
-      setUrl(reply.url);
+      setCreated({ ...reply, scope });
       reload();
     } catch (e) {
-      setFailure(showError(e));
+      setFailure({ scope, message: showError(e) });
     } finally {
       setBusy(false);
     }
   }
   async function remove(id: number) {
+    if (busy) return;
     setBusy(true);
-    setFailure("");
+    setFailure(null);
     try {
       await api(endpoint + "calendar/feeds/", {
         method: "DELETE",
         body: JSON.stringify({ id }),
       });
-      setUrl("");
+      setCreated(current => current?.id === id ? null : current);
       reload();
     } catch (e) {
-      setFailure(showError(e));
+      setFailure({ scope, message: showError(e) });
     } finally {
       setBusy(false);
     }
@@ -264,7 +273,7 @@ export function LiveCalendar() {
         using “Subscribe by URL”. Changes appear when your calendar refreshes.
         Anyone with the URL can read its events; revoke it below to stop access.
       </p>
-      <ErrorBanner message={error || failure} />
+      <ErrorBanner message={error || (failure?.scope === scope ? failure.message : "")} />
       <button
         className={buttonClass}
         disabled={busy}

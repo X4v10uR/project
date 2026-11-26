@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { api, downloadFile } from "../api";
 import { useAuth, type AccountUser } from "../accounts/auth";
 import { PlanningLayout } from "../subscriptions/PlanningPages";
@@ -21,8 +21,9 @@ type Preview = {
 };
 export function DataPage() {
   const { setUser } = useAuth();
+  const selectedFile = useRef<File | null>(null);
   const [file, setFile] = useState<File | null>(null),
-    [preview, setPreview] = useState<Preview | null>(null),
+    [preview, setPreview] = useState<(Preview & { file: File }) | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState(""),
@@ -42,7 +43,8 @@ export function DataPage() {
   }
   async function restore(event: FormEvent<HTMLFormElement>, commit = false) {
     event.preventDefault();
-    if (!file) return;
+    if (busy || !file || (commit && (!confirmed || preview?.file !== file))) return;
+    const restoringFile = file;
     setBusy(true);
     setError("");
     setNotice("");
@@ -54,6 +56,7 @@ export function DataPage() {
         endpoint + "backup/restore/",
         { method: "POST", body: fields },
       );
+      if (selectedFile.current !== restoringFile) return;
       if (reply.restored) {
         if (reply.user) setUser(reply.user);
         setNotice(
@@ -62,11 +65,11 @@ export function DataPage() {
         setPreview(null);
         setConfirmed(false);
       } else {
-        setPreview(reply);
+        setPreview({ ...reply, file: restoringFile });
         setConfirmed(false);
       }
     } catch (e) {
-      setError(showError(e));
+      if (selectedFile.current === restoringFile) setError(showError(e));
     } finally {
       setBusy(false);
     }
@@ -108,10 +111,14 @@ export function DataPage() {
             type="file"
             accept=".zip,application/zip"
             required
+            disabled={busy && confirmed}
             onChange={(e) => {
-              setFile(e.target.files?.[0] ?? null);
+              selectedFile.current = e.target.files?.[0] ?? null;
+              setFile(selectedFile.current);
               setPreview(null);
               setConfirmed(false);
+              setError("");
+              setNotice("");
             }}
           />
         </Field>
@@ -145,6 +152,7 @@ export function DataPage() {
               type="checkbox"
               className="mt-1"
               checked={confirmed}
+              disabled={busy}
               onChange={(e) => setConfirmed(e.target.checked)}
               required
             />

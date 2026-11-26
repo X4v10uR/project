@@ -294,7 +294,8 @@ def feed_calendar(request, token):
     feed = get_object_or_404(CalendarFeed.objects.select_related('user'), token_hash=hashlib.sha256(token.encode()).hexdigest())
     # Build a fresh calendar on every fetch, respecting current membership.
     from subscriptions.planning import calendar_events, visible_subscriptions, fold_ical, ical_text
-    today = timezone.localdate()
+    from .delivery import local_now
+    today = local_now(feed.user).date()
     events = calendar_events(visible_subscriptions(feed.user, feed.scope).prefetch_related('participants', 'price_changes'), today - timedelta(days=30), today + relativedelta(years=1))
     lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//DUES//Live renewals//EN', 'X-WR-CALNAME:DUES renewals', 'REFRESH-INTERVAL;VALUE=DURATION:PT6H', 'X-PUBLISHED-TTL:PT6H']
     for event in events:

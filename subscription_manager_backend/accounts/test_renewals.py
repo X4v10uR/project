@@ -1,5 +1,6 @@
-from datetime import timedelta
+from datetime import date, datetime, timedelta, timezone as dt_timezone
 from io import BytesIO
+from unittest.mock import patch
 from zipfile import ZipFile
 import json
 
@@ -34,6 +35,34 @@ class TeamRenewalTests(TestCase):
     def update(self, user, **values):
         self.client.force_authenticate(user)
         return self.client.patch(self.endpoint, values, format='json')
+
+    def test_team_and_dashboard_agree_when_pause_begins_at_local_midnight(self):
+        self.owner.timezone = 'Asia/Karachi'
+        self.owner.save(update_fields=['timezone'])
+        Subscription.objects.filter(pk=self.sub.pk).update(
+            start_date=date(2026, 1, 1), pause_from=date(2026, 1, 2),
+        )
+        self.client.force_login(self.owner)
+        personal = Subscription.objects.create(
+            user=self.owner, service_name='Personal software', cost=9,
+            category='Software', billing_cycle='monthly', start_date=date(2026, 1, 1),
+            pause_from=date(2026, 1, 2),
+        )
+        with patch('django.utils.timezone.now', return_value=datetime(2026, 1, 1, 20, tzinfo=dt_timezone.utc)):
+            dashboard = self.client.get('/api/dashboard/?scope=teams').json()
+            overview = self.client.get('/api/accounts/teams/').json()
+            detail = self.client.get(reverse('accounts_api:team_detail', args=[self.team.pk])).json()
+            subscriptions = self.client.get('/api/subscriptions/?status=paused').json()
+            subscription = self.client.get(f'/api/subscriptions/{personal.pk}/').json()
+        self.assertEqual(dashboard['as_of_date'], '2026-01-02')
+        self.assertEqual(dashboard['total_paused'], 1)
+        self.assertEqual(overview['monthly_spend_by_currency'], {})
+        self.assertEqual(overview['subscriptions'][0]['status'], 'paused')
+        self.assertEqual(detail['subscriptions'][0]['status'], 'paused')
+        self.assertEqual(subscriptions['stats']['paused'], 1)
+        self.assertEqual(subscriptions['subscriptions'][0]['current_status'], 'paused')
+        self.assertEqual(subscription['current_status'], 'paused')
+        self.assertEqual(timezone.get_current_timezone_name(), 'UTC')
 
     def test_assigned_member_records_decision_for_one_renewal(self):
         result = self.update(self.owner, assignee_id=self.assignee.pk)

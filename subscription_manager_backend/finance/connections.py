@@ -367,6 +367,9 @@ def sync_gmail(connection):
             mail = provider_request('GET', message_url, headers=headers, params={'format': 'full'})
         except ProviderError as exc:
             if exc.status_code == 404:
+                # Remember deleted messages so a full batch of them cannot
+                # consume every subsequent sync before newer IDs are reached.
+                ImportedMessage.objects.get_or_create(connection=connection, remote_id=message_id)
                 continue
             raise
         payload = mail.get('payload', {})

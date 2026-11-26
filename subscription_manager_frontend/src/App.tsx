@@ -64,7 +64,7 @@ function RequireAuth() {
   const location = useLocation()
   if (loading) return <p className="p-8 text-center text-slate-600" role="status">Loading DUES…</p>
   if (!user) {
-    const next = encodeURIComponent(location.pathname + location.search)
+    const next = encodeURIComponent(location.pathname + location.search + location.hash)
     return <Navigate replace to={`/accounts/login/?next=${next}`} />
   }
   return <Outlet />

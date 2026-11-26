@@ -153,9 +153,73 @@ test('calendar subscriptions can be created and revoked', async ({ page }) => {
   const path = new URL(url).pathname
   expect((await page.request.get(path)).status()).toBe(200)
   expect(await (await page.request.get(path)).text()).toContain('Studio')
+  await page.getByRole('combobox', { name: 'Workspace', exact: true }).selectOption('teams')
+  await expect(field).toHaveCount(0)
+  await page.getByRole('button', { name: 'Create private calendar URL' }).click()
+  await expect(field).toBeVisible()
+  const teamUrl = await field.inputValue()
+  expect(teamUrl).not.toBe(url)
+  const personalFeed = page.locator('li').filter({ hasText: 'personal · Created' })
+  await personalFeed.getByRole('button', { name: 'Revoke', exact: true }).click()
+  await expect(personalFeed).toHaveCount(0)
+  await expect(field).toHaveValue(teamUrl)
+  expect((await page.request.get(path)).status()).toBe(404)
   await page.getByRole('button', { name: 'Revoke', exact: true }).click()
   await expect(page.getByLabel('New calendar subscription URL')).toHaveCount(0)
-  expect((await page.request.get(path)).status()).toBe(404)
+  expect((await page.request.get(new URL(teamUrl).pathname)).status()).toBe(404)
+})
+
+test('an exchange rate refresh follows its original workspace and currency', async ({ page }) => {
+  await signup(page)
+  let releaseRefresh = () => {}
+  const refreshing = new Promise<void>(resolve => { releaseRefresh = resolve })
+  await page.route('**/api/finance/conversion/**', async route => {
+    const query = new URL(route.request().url()).searchParams
+    if (route.request().method() === 'POST') await refreshing
+    await route.fulfill({ json: {
+      base: query.get('base') || 'USD',
+      monthly_total: query.get('scope') === 'teams' ? '55.00' : '30.00',
+      complete: true, missing: [], rates: [], error: '',
+    } })
+  })
+  await page.goto('/planning/insights/')
+  await expect(page.getByText('USD 30.00', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Refresh exchange rates' }).click()
+  await expect(page.getByRole('button', { name: 'Refreshing…' })).toBeVisible()
+  await page.getByRole('combobox', { name: 'Workspace', exact: true }).selectOption('teams')
+  await page.getByLabel('Display currency', { exact: true }).fill('EUR')
+  await expect(page.getByText('EUR 55.00', { exact: true })).toBeVisible()
+  const response = page.waitForResponse(r => r.url().includes('/api/finance/conversion/') && r.request().method() === 'POST')
+  releaseRefresh()
+  await response
+  await expect(page.getByRole('button', { name: 'Refresh exchange rates' })).toBeEnabled()
+  await expect(page.getByText('EUR 55.00', { exact: true })).toBeVisible()
+  await expect(page.getByText('USD 30.00', { exact: true })).toHaveCount(0)
+})
+
+test('changing the backup file invalidates an in-flight preview', async ({ page }) => {
+  await signup(page)
+  let releasePreview = () => {}
+  const previewing = new Promise<void>(resolve => { releasePreview = resolve })
+  await page.route('**/api/finance/backup/restore/', async route => {
+    await previewing
+    await route.fulfill({ json: {
+      preview: { subscriptions: 1 }, exported_at: '2026-01-01T00:00:00Z',
+      account_email: 'previous-archive@example.test', notice: 'Restore adds new copies.',
+    } })
+  })
+  await page.goto('/planning/data/')
+  const input = page.getByLabel('DUES backup ZIP')
+  await input.setInputFiles({ name: 'first.zip', mimeType: 'application/zip', buffer: Buffer.from('first') })
+  await page.getByRole('button', { name: 'Preview backup', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Preview backup', exact: true })).toBeDisabled()
+  await input.setInputFiles({ name: 'second.zip', mimeType: 'application/zip', buffer: Buffer.from('second') })
+  const response = page.waitForResponse('**/api/finance/backup/restore/')
+  releasePreview()
+  await response
+  await expect(page.getByRole('button', { name: 'Preview backup', exact: true })).toBeEnabled()
+  await expect(page.getByRole('heading', { name: 'Archive from previous-archive@example.test' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Restore as new copies' })).toHaveCount(0)
 })
 
 test('backup can be previewed and restored without losing history', async ({ page }) => {

@@ -11,6 +11,7 @@ from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 
+from finance.delivery import local_now
 from finance.models import Activity, Receipt
 from subscriptions.models import InAppNotification, ReminderOffset, Subscription, SubscriptionParticipant, TeamSubscriptionRequest, Transaction
 from subscriptions.money import monthly_equivalent
@@ -181,7 +182,7 @@ def teams_overview_data(user):
         membership.team_id: team_accent_color(membership.team_id) for membership in memberships
     }
     monthly_spend_by_currency = {}
-    today = timezone.localdate()
+    today = local_now(user).date()
     for sub in team_subscriptions:
         if not sub.bills_on(today):
             continue
@@ -208,6 +209,7 @@ def teams_overview_data(user):
         'team_color_map': team_color_map,
         'teams_monthly_spend': monthly_spend_by_currency.get('USD', Decimal('0.00')),
         'teams_monthly_spend_by_currency': monthly_spend_by_currency,
+        'as_of_date': today,
     }
 
 def team_detail_data(user, team_id):
