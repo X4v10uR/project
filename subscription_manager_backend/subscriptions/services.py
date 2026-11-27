@@ -157,6 +157,10 @@ def _user_zone(user):
         return ZoneInfo('UTC')
 
 
+def _reminder_event_instant(sub, day, zone):
+    return datetime.combine(day, sub.renewal_time or time(15), zone).astimezone(UTC)
+
+
 def _due_events(sub, user, offsets, instant, timed):
     """Recover the most recent due offset for each still-actionable event."""
     zone = _user_zone(user)
@@ -166,12 +170,11 @@ def _due_events(sub, user, offsets, instant, timed):
     if sub.cancel_by_date and today <= sub.cancel_by_date <= last:
         events.append((sub.cancel_by_date, 'cancellation_deadline'))
     for day, kind in events:
-        local_time = sub.renewal_time or time(15)
-        if datetime.combine(day, local_time, zone).astimezone(UTC) < instant:
+        if _reminder_event_instant(sub, day, zone) < instant:
             continue
         for offset in sorted(offsets):
             due_day = day - timedelta(days=offset)
-            due_at = datetime.combine(due_day, local_time, zone).astimezone(UTC)
+            due_at = _reminder_event_instant(sub, due_day, zone)
             if (timed and due_at <= instant) or (not timed and due_day <= today):
                 yield day, kind, offset
                 break
@@ -214,6 +217,8 @@ def reminder_is_current(notification):
         return False
     offset = metadata.get('days_before')
     if not isinstance(offset, int):
+        return False
+    if _reminder_event_instant(sub, day, _user_zone(notification.recipient)) < timezone.now():
         return False
     offsets = set(sub.offsets.values_list('days_before', flat=True)) or {settings.NOTIFICATION_DAYS_BEFORE}
     return offset in offsets and _matches_reminder_event(sub, day, kind)

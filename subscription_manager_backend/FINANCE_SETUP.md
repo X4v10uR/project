@@ -149,6 +149,8 @@ Logging out removes the current session's push subscription on the server.
 **Remind me tomorrow** hides an unread notification for 24 hours, then queues a
 reminder using the current delivery preferences. Queued delivery retries with
 backoff up to ten attempts; worker errors are logged without provider secrets.
+Queued reminders and digests skip renewal and cancellation events that have
+already passed in the recipient's time zone. The in-app history is kept.
 
 ## Scheduling
 
@@ -172,6 +174,8 @@ charge/reminder jobs enabled too. No jobs are installed into the operating
 system automatically.
 
 Django admin → Finance → Scheduled job statuses shows each job’s last result, completion time, and last successful completion. Billing, dashboard budget checks, finance sync, and renewal reminders report independently. A failed job lets the scheduler finish the other jobs and makes it exit with status 1. Dry runs leave these timestamps unchanged. The standalone finance command records a separate status for notifications-only runs.
+SMTP rejections for queued alerts and digests mark the finance run as failed
+without discarding retry state or interrupting delivery to other recipients.
 
 ## Live calendars
 

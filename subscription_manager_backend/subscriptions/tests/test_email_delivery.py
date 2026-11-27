@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 import os
 import runpy
 from smtplib import SMTPException
@@ -169,6 +169,23 @@ class EmailDeliveryTests(TestCase):
         self.assertFalse(NotificationDelivery.objects.exists())
         self.assertEqual(len(mail.outbox), 0)
 
+    def test_queue_drops_expired_cancellation_in_recipients_timezone(self):
+        self.user.timezone = 'Asia/Karachi'
+        self.user.save(update_fields=['timezone'])
+        day = date(2026, 12, 1)
+        morning = datetime(2026, 12, 1, 6, tzinfo=UTC)
+        with patch('django.utils.timezone.now', return_value=morning):
+            sub = self.subscription(start_date=day + timedelta(days=1), cancel_by_date=day, renewal_time=time(15))
+            at_deadline = self.queued_reminder(sub, event_type='cancellation.reminder', metadata={
+                'renewal_date': day.isoformat(), 'days_before': 3,
+            })
+        # December 1, 15:01 in Lahore. The server still sees 10:01 UTC.
+        with patch('django.utils.timezone.now', return_value=datetime(2026, 12, 1, 10, 1, tzinfo=UTC)):
+            self.assertEqual(deliver_queued(), 0)
+        self.assertFalse(NotificationDelivery.objects.filter(notification=at_deadline).exists())
+        self.assertTrue(InAppNotification.objects.filter(pk=at_deadline.pk).exists())
+        self.assertEqual(len(mail.outbox), 0)
+
     def test_current_deferred_reminder_survives_billing_cursor_advancement(self):
         sub = self.subscription()
         self.queued_reminder(sub)
@@ -213,6 +230,21 @@ class EmailDeliveryTests(TestCase):
             self.assertEqual(send_digests(), 1)
         self.assertNotIn('Obsolete reminder', mail.outbox[0].body)
         self.assertIn('Current alert', mail.outbox[0].body)
+
+    def test_digest_omits_elapsed_renewal_but_includes_upcoming_one(self):
+        now = datetime(2026, 12, 1, 16, tzinfo=UTC)
+        NotificationPreference.objects.create(user=self.user, digest='daily')
+        with patch('django.utils.timezone.now', return_value=now - timedelta(hours=2)):
+            for offset, title in ((0, 'Expired renewal'), (1, 'Upcoming renewal')):
+                day = now.date() + timedelta(days=offset)
+                sub = self.subscription(start_date=day, renewal_time=time(15))
+                self.notification(subscription=sub, event_type='renewal.reminder', title=title,
+                    metadata={'renewal_date': day.isoformat(), 'days_before': 3})
+        with patch('django.utils.timezone.now', return_value=now):
+            self.assertEqual(send_digests(), 1)
+        [message] = mail.outbox
+        self.assertNotIn('Expired renewal', message.body)
+        self.assertIn('Upcoming renewal', message.body)
 
     def test_changed_settings_before_commit_suppress_reminder_email(self):
         sub = self.subscription()
