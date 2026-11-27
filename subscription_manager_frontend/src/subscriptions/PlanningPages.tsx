@@ -1,30 +1,14 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { ServiceIcon } from '../ServiceIcon'
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { Link, NavLink, useLocation, useSearchParams } from 'react-router-dom'
+import { useEffect, useState, type FormEvent } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
+import { PlanningLayout } from './PlanningLayout'
 import { RenewalComparison, type ComparisonOption } from './RenewalComparison'
 import { CurrencySummary, LiveCalendar } from '../finance/common'
 import { buttonClass, currencyAmount as money, displayDate, ErrorBanner, Field, inputClass, panelClass, primaryClass, showError, subscriptionApi } from './shared'
 
 type Scope = 'personal' | 'teams'
-export function PlanningLayout({ title, children, workspace = true }: { title: string; children: ReactNode; workspace?: boolean }) {
-  const [params, setParams] = useSearchParams()
-  const { pathname } = useLocation()
-  const nav = useRef<HTMLElement>(null)
-  useEffect(() => {
-    const active = nav.current?.querySelector<HTMLElement>('[aria-current="page"]')
-    if (active && nav.current) nav.current.scrollLeft = active.offsetLeft - nav.current.offsetLeft - 8
-  }, [pathname])
-  const scope = params.get('scope') === 'teams' ? 'teams' : 'personal'
-  return <div className="mx-auto grid w-full min-w-0 max-w-6xl gap-5 px-4 py-8 pb-28 sm:px-8">
-    <header className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-sm font-semibold text-indigo-700">Make room for what matters</p><h1 className="mt-1 text-3xl font-bold tracking-tight">{title}</h1></div><Link className={primaryClass} to="/subscriptions/quick-add/">Quick add</Link></header>
-    <div className="flex min-w-0 max-w-full flex-wrap items-center justify-between gap-4"><nav ref={nav} aria-label="Planning tools" className="flex min-w-0 max-w-full w-full gap-2 overflow-x-auto pb-2">{[['insights', 'Insights'], ['calendar', 'Renewal calendar'], ['review', 'Review inbox'], ['settlements', 'Settlements'], ['budgets', 'Budgets'], ['receipts', 'Receipts'], ['reports', 'Reports'], ['connections', 'Connections'], ['alerts', 'Alert settings'], ['data', 'Backup & restore'], ['activity', 'Activity']].map(([path, label]) => <NavLink className={({ isActive }) => `${buttonClass} shrink-0 whitespace-nowrap ${isActive ? 'border-indigo-300 bg-indigo-50 text-indigo-800' : ''}`} key={path} to={`/planning/${path}/?scope=${scope}`}>{label}</NavLink>)}</nav>
-    {workspace && <Field label="Workspace"><select className={inputClass} value={scope} onChange={event => { const next = new URLSearchParams(params); next.set('scope', event.target.value); setParams(next) }}><option value="personal">Personal</option><option value="teams">Teams</option></select></Field>}</div>
-    {children}
-  </div>
-}
-
 function usePlanning<T>(path: string) {
   const [params] = useSearchParams()
   const scope: Scope = params.get('scope') === 'teams' ? 'teams' : 'personal'
@@ -45,9 +29,9 @@ export function InsightsPage() {
   const { data, error } = usePlanning<InsightData>('insights')
   return <PlanningLayout title="Spending insights"><CurrencySummary /><ErrorBanner message={error} />{!data && !error && <p role="status">Loading insights…</p>}{data && <>
     {!data.totals.length && <div className={panelClass}><h2 className="text-xl font-bold">Start with your first subscription</h2><p className="mt-2 text-slate-600">Add a service to see your commitment and forecast.</p></div>}
-    {data.totals.map(row => <section key={row.currency} className="grid gap-4"><h2 className="text-lg font-bold">{row.currency} spending</h2><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[['Monthly commitment', row.monthly_commitment], ['Next 12 months scheduled', row.annual_projection], ['This month scheduled', row.month_scheduled], ['This month confirmed paid', row.month_paid]].map(([label, value]) => <div className={panelClass} key={label}><p className="text-sm text-slate-600">{label}</p><p className="mt-2 text-2xl font-bold">{money(value, row.currency)}</p></div>)}</div>
+    {data.totals.map(row => <section key={row.currency} className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4"><h2 className="text-lg font-bold">{row.currency} spending</h2><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[['Monthly commitment', row.monthly_commitment], ['Next 12 months scheduled', row.annual_projection], ['This month scheduled', row.month_scheduled], ['This month confirmed paid', row.month_paid]].map(([label, value]) => <div className={panelClass} key={label}><p className="text-sm text-slate-600">{label}</p><p className="mt-2 text-2xl font-bold">{money(value, row.currency)}</p></div>)}</div>
     <div className="grid gap-4 md:grid-cols-2"><article className={panelClass}><h3 className="font-bold">Monthly category breakdown</h3><ul className="mt-4 grid gap-3">{data.categories.filter(c => c.currency === row.currency).map(c => <li key={c.category}><div className="flex justify-between gap-3 text-sm"><span>{c.category}</span><strong>{money(c.monthly, row.currency)}</strong></div><div className="mt-1 h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-indigo-500" style={{ width: `${Number(row.monthly_commitment) ? Number(c.monthly) / Number(row.monthly_commitment) * 100 : 0}%` }} /></div></li>)}</ul></article>
-    <article className={panelClass}><h3 className="font-bold">What changed this month</h3><p className="mt-2 text-2xl font-bold">{Number(row.change) >= 0 ? '+' : ''}{money(row.change, row.currency)}</p><p className="mt-1 text-sm text-slate-600">Previous month: {money(row.previous_scheduled, row.currency)} scheduled · {money(row.previous_paid, row.currency)} paid</p><ul className="mt-4 grid gap-2 text-sm">{row.reasons.map(reason => <li className="flex justify-between gap-3" key={reason.service}><span className="inline-flex items-center gap-2"><ServiceIcon name={reason.service} className="size-6" />{reason.service}</span><strong>{Number(reason.change) >= 0 ? '+' : ''}{money(reason.change, row.currency)}</strong></li>)}</ul></article></div></section>)}
+    <article className={panelClass}><h3 className="font-bold">What changed this month</h3><p className="mt-2 text-2xl font-bold">{Number(row.change) >= 0 ? '+' : ''}{money(row.change, row.currency)}</p><p className="mt-1 text-sm text-slate-600">Previous month: {money(row.previous_scheduled, row.currency)} scheduled · {money(row.previous_paid, row.currency)} paid</p><ul className="mt-4 grid gap-2 text-sm">{row.reasons.map(reason => <li className="flex justify-between gap-3" key={reason.service}><span className="inline-flex min-w-0 items-start gap-2"><ServiceIcon name={reason.service} className="size-6 shrink-0" /><span className="[overflow-wrap:anywhere]">{reason.service}</span></span><strong>{Number(reason.change) >= 0 ? '+' : ''}{money(reason.change, row.currency)}</strong></li>)}</ul></article></div></section>)}
     <p className="text-sm text-slate-600">{data.explanation} Projections include known price changes and pauses. Currencies are kept separate.</p>
   </>}</PlanningLayout>
 }
@@ -55,17 +39,51 @@ export function InsightsPage() {
 type CalendarEvent = { id: string; subscription_id: number; team_id: number | null; service: string; date: string; kind: string; amount: string | null; currency: string }
 const eventLabels: Record<string, string> = { payment: 'Payment', trial: 'Trial ends', deadline: 'Cancel by', pause: 'Pause begins', resume: 'Resume' }
 function dateKey(date: Date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` }
+type CalendarData = { start: string; end: string; events: CalendarEvent[] }
+function calendarMonth(date: string) {
+  const [year, month] = date.split('-').map(Number)
+  return new Date(year, month - 1, 1)
+}
+
 export function RenewalCalendarPage() {
-  const { data, error, scope } = usePlanning<{ events: CalendarEvent[] }>('calendar')
-  const [month, setMonth] = useState(() => { const now = new Date(); return new Date(now.getFullYear(), now.getMonth(), 1) })
+  const { data, error, scope } = usePlanning<CalendarData>('calendar')
+  const [monthKey, setMonthKey] = useState('')
   const [selected, setSelected] = useState('')
-  const start = new Date(month.getFullYear(), month.getMonth(), 1 - month.getDay())
-  const monthEvents = data?.events.filter(e => e.date.startsWith(dateKey(month).slice(0, 7))) ?? []
-  const shown = selected ? data?.events.filter(e => e.date === selected) ?? [] : monthEvents
-  function move(delta: number) { setMonth(new Date(month.getFullYear(), month.getMonth() + delta, 1)); setSelected('') }
+  const firstMonth = data?.start.slice(0, 7) ?? ''
+  const lastMonth = data?.end.slice(0, 7) ?? ''
+  // The backend’s default forecast starts on its billing day, not the browser’s.
+  // ISO month keys keep the selected month stable when the workspace is changed.
+  const key = monthKey >= firstMonth && monthKey <= lastMonth ? monthKey : firstMonth
+  const month = key ? calendarMonth(key) : null
+  const label = month?.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+  const start = month ? new Date(month.getFullYear(), month.getMonth(), 1 - month.getDay()) : null
+  const visibleSelection = selected.startsWith(key) ? selected : ''
+  const eventsByDay = new Map<string, CalendarEvent[]>()
+  const shown: CalendarEvent[] = []
+  for (const event of data?.events ?? []) {
+    const day = eventsByDay.get(event.date) ?? []
+    day.push(event)
+    eventsByDay.set(event.date, day)
+    if (visibleSelection ? event.date === visibleSelection : event.date.startsWith(key)) shown.push(event)
+  }
+  function move(delta: number) {
+    if (!month) return
+    setMonthKey(dateKey(new Date(month.getFullYear(), month.getMonth() + delta, 1)).slice(0, 7))
+    setSelected('')
+  }
   return <PlanningLayout title="Renewal calendar"><LiveCalendar /><ErrorBanner message={error} /><div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-600">Payments, trials, and cancellation deadlines for the next 12 months.</p><a className={buttonClass} href={`${subscriptionApi}calendar/export/?scope=${scope}`}>Export calendar (.ics)</a></div>
-  <section className={panelClass}><div className="mb-5 flex items-center justify-between gap-2"><button className={buttonClass} aria-label="Previous month" disabled={month <= new Date(new Date().getFullYear(), new Date().getMonth(), 1)} onClick={() => move(-1)}><ChevronLeft size={18} aria-hidden /></button><h2 className="text-xl font-bold">{month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</h2><button className={buttonClass} aria-label="Next month" disabled={month >= new Date(new Date().getFullYear() + 1, new Date().getMonth(), 1)} onClick={() => move(1)}><ChevronRight size={18} aria-hidden /></button></div><div className="grid grid-cols-7">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => <div key={day} className="pb-2 text-center text-xs font-bold text-slate-500">{day}</div>)}{Array.from({ length: 42 }, (_, index) => { const day = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index); const key = dateKey(day); const events = data?.events.filter(e => e.date === key) ?? []; return <button key={key} aria-label={`${displayDate(key)}, ${events.length} events`} aria-pressed={selected === key} onClick={() => setSelected(selected === key ? '' : key)} className={`min-h-20 min-w-0 border border-slate-100 p-1 text-left sm:p-2 ${day.getMonth() !== month.getMonth() ? 'text-slate-300' : ''} ${selected === key ? 'bg-indigo-50 ring-1 ring-indigo-400' : ''}`}><span className="text-sm">{day.getDate()}</span>{events.slice(0, 2).map(event => <span key={event.id} className={`mt-1 block truncate rounded px-1 text-[10px] sm:text-xs ${event.kind === 'payment' ? 'bg-indigo-50 text-indigo-800' : 'bg-amber-50 text-amber-800'}`}>{event.service}</span>)}{events.length > 2 && <span className="text-xs">+{events.length - 2}</span>}</button> })}</div></section>
-  <section className={panelClass}><h2 className="mb-3 font-bold">{selected ? displayDate(selected) : 'This month'}</h2>{!data && !error && <p role="status">Loading renewals…</p>}{data && !shown.length && <p className="text-sm text-slate-600">No scheduled events in this selection.</p>}<ul className="divide-y divide-slate-100">{shown.map(event => <li key={event.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><Link className="inline-flex items-center gap-2 font-semibold underline" to={event.team_id ? `/accounts/teams/${event.team_id}/` : `/subscriptions/${event.subscription_id}/edit/`}><ServiceIcon name={event.service} className="size-6" />{event.service}</Link><p className="text-sm text-slate-500">{displayDate(event.date)} · {eventLabels[event.kind]}</p></div>{event.amount !== null && <strong>{money(event.amount, event.currency)}</strong>}</li>)}</ul></section></PlanningLayout>
+    {!data && !error && <p role="status">Loading renewals…</p>}
+    {data && month && start && <>
+      <section className={panelClass}><div className="mb-5 flex items-center justify-between gap-2"><button className={buttonClass} aria-label="Previous month" disabled={key <= firstMonth} onClick={() => move(-1)}><ChevronLeft size={18} aria-hidden /></button><h2 className="text-center text-xl font-bold" aria-live="polite">{label}</h2><button className={buttonClass} aria-label="Next month" disabled={key >= lastMonth} onClick={() => move(1)}><ChevronRight size={18} aria-hidden /></button></div><div className="grid grid-cols-7">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => <div key={day} className="pb-2 text-center text-xs font-bold text-slate-500">{day}</div>)}{Array.from({ length: 42 }, (_, index) => {
+        const day = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index)
+        const dayKey = dateKey(day)
+        const events = eventsByDay.get(dayKey) ?? []
+        const isSelected = visibleSelection === dayKey
+        return <button key={dayKey} type="button" aria-label={`${displayDate(dayKey)}, ${events.length} events`} aria-pressed={isSelected} disabled={dayKey < data.start || dayKey > data.end} onClick={() => { setMonthKey(dayKey.slice(0, 7)); setSelected(isSelected ? '' : dayKey) }} className={`min-h-20 min-w-0 border border-slate-100 p-1 text-left disabled:text-slate-400 sm:p-2 ${day.getMonth() !== month.getMonth() ? 'text-slate-500' : ''} ${isSelected ? 'bg-indigo-50 ring-1 ring-indigo-400' : ''}`}><span className="text-sm">{day.getDate()}</span>{events.slice(0, 2).map(event => <span key={event.id} className={`mt-1 block truncate rounded px-1 text-[10px] sm:text-xs ${event.kind === 'payment' ? 'bg-indigo-50 text-indigo-800' : 'bg-amber-50 text-amber-800'}`}>{event.service}</span>)}{events.length > 2 && <span className="text-xs">+{events.length - 2}</span>}</button>
+      })}</div></section>
+      <section className={panelClass}><h2 className="mb-3 font-bold">{visibleSelection ? displayDate(visibleSelection) : `Events in ${label}`}</h2>{!shown.length && <p className="text-sm text-slate-600">No scheduled events in this selection.</p>}<ul className="divide-y divide-slate-100">{shown.map(event => <li key={event.id} className="flex flex-wrap items-start justify-between gap-3 py-3"><div className="min-w-0 max-w-full"><Link className="inline-flex min-w-0 max-w-full items-start gap-2 font-semibold underline" to={event.team_id ? `/accounts/teams/${event.team_id}/` : `/subscriptions/${event.subscription_id}/edit/`}><ServiceIcon name={event.service} className="size-6 shrink-0" /><span className="[overflow-wrap:anywhere]">{event.service}</span></Link><p className="text-sm text-slate-500">{displayDate(event.date)} · {eventLabels[event.kind]}</p></div>{event.amount !== null && <strong>{money(event.amount, event.currency)}</strong>}</li>)}</ul></section>
+    </>}
+  </PlanningLayout>
 }
 
 type ReviewItem = { id: number; service: string; currency: string; reasons: string[]; monthly_saving: string; can_edit: boolean }
@@ -85,7 +103,7 @@ export function ReviewInboxPage() {
   }
   return <PlanningLayout title="Subscription review inbox"><ErrorBanner message={error || failure} />{notice && <p role="status" className={panelClass}>{notice}</p>}<div className={panelClass}><h2 className="font-bold">Turn upcoming renewals into decisions</h2><p className="mt-2 text-sm text-slate-600">Review trials, duplicates, old subscriptions, and services you rarely use. Pausing here updates your tracking; arrange the pause with your provider too.</p><div className="mt-4 flex flex-wrap items-end gap-3"><Field label="Usage check-in"><select className={inputClass} value={usage} onChange={event => setUsage(event.target.value)}><option value="often">Often</option><option value="sometimes">Sometimes</option><option value="rarely">Rarely</option><option value="never">Never</option></select></Field><button className={buttonClass} disabled={!selected.length || busy} onClick={() => void act('review', selected)}>Mark selected reviewed</button><button className={primaryClass} disabled={!selected.length || busy} onClick={() => void act('pause', selected)}>Pause selected</button></div><p className="mt-3 text-sm font-semibold" aria-live="polite">Monthly commitment reduced by: {Object.entries(totals).map(([code, value]) => money(value, code)).join(' · ') || 'Select subscriptions to preview savings'}</p></div>
   {data && scope === 'personal' && <RenewalComparison options={data.comparison_options} />}
-  {!data && !error && <p role="status">Loading review tasks…</p>}{data && !data.items.length && <p className={panelClass}>You’re all caught up. New review tasks appear as deadlines approach.</p>}{data?.items.map(item => <article className={panelClass} key={item.id}><div className="flex items-start gap-3"><input aria-label={`Select ${item.service}`} type="checkbox" disabled={!item.can_edit || busy} checked={selected.includes(item.id)} onChange={event => setSelected(ids => event.target.checked ? [...ids, item.id] : ids.filter(id => id !== item.id))} className="mt-1 size-4" /><div className="flex-1"><h2 className="flex items-center gap-2 text-lg font-bold"><ServiceIcon name={item.service} className="size-7" />{item.service}</h2><ul className="mt-2 list-inside list-disc space-y-1 text-sm text-slate-600">{item.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul><p className="mt-3 text-sm font-semibold">{money(item.monthly_saving, item.currency)} / month potential saving</p><div className="mt-3 flex flex-wrap gap-2">{item.can_edit && <><Link className={buttonClass} to={`/subscriptions/${item.id}/edit/`}>Manage subscription</Link><button className={buttonClass} disabled={busy} onClick={() => void act('review', [item.id])}>Mark reviewed</button></>}</div></div></div></article>)}</PlanningLayout>
+  {!data && !error && <p role="status">Loading review tasks…</p>}{data && !data.items.length && <p className={panelClass}>You’re all caught up. New review tasks appear as deadlines approach.</p>}{data?.items.map(item => <article className={panelClass} key={item.id}><div className="flex items-start gap-3"><input aria-label={`Select ${item.service}`} type="checkbox" disabled={!item.can_edit || busy} checked={selected.includes(item.id)} onChange={event => setSelected(ids => event.target.checked ? [...ids, item.id] : ids.filter(id => id !== item.id))} className="mt-1 size-4" /><div className="min-w-0 flex-1"><h2 className="flex items-start gap-2 text-lg font-bold"><ServiceIcon name={item.service} className="size-7 shrink-0" /><span className="[overflow-wrap:anywhere]">{item.service}</span></h2><ul className="mt-2 list-inside list-disc space-y-1 text-sm text-slate-600">{item.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul><p className="mt-3 text-sm font-semibold">{money(item.monthly_saving, item.currency)} / month potential saving</p><div className="mt-3 flex flex-wrap gap-2">{item.can_edit && <><Link className={buttonClass} to={`/subscriptions/${item.id}/edit/`}>Manage subscription</Link><button className={buttonClass} disabled={busy} onClick={() => void act('review', [item.id])}>Mark reviewed</button></>}</div></div></div></article>)}</PlanningLayout>
 }
 
 type Balance = { debtor: string; creditor: string; team: string | null; currency: string; total: string; repaid: string; outstanding: string; shares: { id: number; service: string; date: string; outstanding: string; can_edit: boolean; repayments: { amount: string; note: string; date: string }[] }[] }

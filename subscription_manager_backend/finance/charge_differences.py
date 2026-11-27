@@ -30,16 +30,19 @@ def eligible_payments(user):
     ).select_related('charge__subscription', 'charge__team').prefetch_related('charge__shares')
 
 
-def difference_for(payment):
-    charge = payment.charge
+def expected_provider_amount(charge):
     shares = list(charge.shares.all())
     if not charge.shares_captured and (shares or (charge.subscription and charge.subscription.is_shared)):
         # A legacy split may not have a complete snapshot of the full bill.
         return None
     # Transaction.amount is the payer's share. A bank payment reflects the
     # full provider bill, so add the share snapshots, not today's split.
-    expected = charge.amount + sum((share.amount for share in shares), Decimal('0'))
-    return expected, payment.amount - expected
+    return charge.amount + sum((share.amount for share in shares), Decimal('0'))
+
+
+def difference_for(payment):
+    expected = expected_provider_amount(payment.charge)
+    return None if expected is None else (expected, payment.amount - expected)
 
 
 def attention_items(user, scope):

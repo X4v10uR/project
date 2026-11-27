@@ -1,7 +1,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { api, downloadFile } from "../api";
 import { useAuth, type AccountUser } from "../accounts/auth";
-import { PlanningLayout } from "../subscriptions/PlanningPages";
+import { PlanningLayout } from "../subscriptions/PlanningLayout";
 import {
   buttonClass,
   ErrorBanner,

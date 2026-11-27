@@ -88,6 +88,18 @@ class PlanningTests(TestCase):
         self.client.force_login(self.other)
         self.assertEqual(self.client.get('/api/subscriptions/calendar/').json()['events'], [])
 
+    @patch('django.utils.timezone.now', return_value=datetime(2026, 12, 1, 0, 30, tzinfo=UTC))
+    def test_calendar_reports_the_accounts_resolved_forecast_bounds(self, _now):
+        self.user.timezone = 'America/Los_Angeles'
+        self.user.save(update_fields=['timezone'])
+        self.sub(start_date=date(2026, 11, 30), cancel_by_date=date(2026, 11, 30))
+        url = '/api/subscriptions/calendar/'
+        result = self.client.get(url).json()
+        self.assertEqual((result['start'], result['end']), ('2026-11-30', '2027-11-29'))
+        self.assertEqual(result['events'][0]['date'], '2026-11-30')
+        result = self.client.get(url, {'start': '2027-03-01', 'end': '2027-03-31'}).json()
+        self.assertEqual((result['start'], result['end']), ('2027-03-01', '2027-03-31'))
+
     def test_insights_separate_currencies_and_scheduled_from_paid(self):
         sub = self.sub(start_date=self.today + timedelta(days=1))
         self.sub(service_name='Second', currency='PKR', cost=100, start_date=self.today + timedelta(days=1))

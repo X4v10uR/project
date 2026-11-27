@@ -321,7 +321,8 @@ test('selecting an adjacent-month calendar day shows its events', async ({ page 
   const now = new Date()
   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
   const day = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}-01`
-  await page.route('**/api/subscriptions/calendar/?scope=personal', route => route.fulfill({ json: { events: [{
+  const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+  await page.route('**/api/subscriptions/calendar/?scope=personal', route => route.fulfill({ json: { start, end: day, events: [{
     id: 'adjacent-payment', subscription_id: 1, team_id: null, service: 'Adjacent renewal',
     date: day, kind: 'payment', amount: '15.00', currency: 'USD',
   }] } }))

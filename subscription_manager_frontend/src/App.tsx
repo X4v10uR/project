@@ -2,29 +2,41 @@ import {
   CalendarRange, ChartNoAxesCombined, CreditCard, LayoutGrid, List,
   ReceiptText, UsersRound,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
-import {
-  InviteAcceptPage, LoginPage, SettingsPage, SignupPage, TeamCreatePage, TeamDetailPage,
-  TeamsPage, useAuth,
-} from './accounts'
+import { useAuth } from './accounts/auth'
 import { NotificationBell, NotificationsPage, NotificationsProvider } from './dashboard/notifications'
-import { HistoryPage } from './dashboard/HistoryPage'
 import { DashboardNavigation } from './dashboard/DashboardNavigation'
-import { ImportPage } from './subscriptions/ImportPage'
-import { BalanceStatsPage, DashboardPage } from './dashboard/pages'
-import { CardsPage } from './subscriptions/CardsPage'
-import { SubscriptionFormPage } from './subscriptions/SubscriptionFormPage'
-import { SubscriptionsPage } from './subscriptions/SubscriptionsPage'
 import { MissingPage } from './MissingPage'
-import { InsightsPage, RenewalCalendarPage, ReviewInboxPage, SettlementsPage } from './subscriptions/PlanningPages'
-import { QuickAddPage } from './subscriptions/QuickAddPage'
-import { ActivityPage, BudgetsPage, ReceiptsPage, ReportsPage } from './finance/FinancePages'
-import { ConnectionsPage } from './finance/ConnectionsPage'
-import { NotificationSettingsPage } from './finance/NotificationSettings'
-import { DataPage } from './finance/DataPage'
 import { LandingPage } from './landing/LandingPage'
 import { LandingPageV2 } from './landing/LandingPageV2'
+
+const LoginPage = lazy(() => import('./accounts/PublicPages').then(m => ({ default: m.LoginPage })))
+const SignupPage = lazy(() => import('./accounts/PublicPages').then(m => ({ default: m.SignupPage })))
+const InviteAcceptPage = lazy(() => import('./accounts/PublicPages').then(m => ({ default: m.InviteAcceptPage })))
+const SettingsPage = lazy(() => import('./accounts/SettingsPage').then(m => ({ default: m.SettingsPage })))
+const TeamDetailPage = lazy(() => import('./accounts/TeamDetailPage').then(m => ({ default: m.TeamDetailPage })))
+const TeamsPage = lazy(() => import('./accounts/TeamPages').then(m => ({ default: m.TeamsPage })))
+const TeamCreatePage = lazy(() => import('./accounts/TeamPages').then(m => ({ default: m.TeamCreatePage })))
+const HistoryPage = lazy(() => import('./dashboard/HistoryPage').then(m => ({ default: m.HistoryPage })))
+const DashboardPage = lazy(() => import('./dashboard/pages').then(m => ({ default: m.DashboardPage })))
+const BalanceStatsPage = lazy(() => import('./dashboard/pages').then(m => ({ default: m.BalanceStatsPage })))
+const ImportPage = lazy(() => import('./subscriptions/ImportPage').then(m => ({ default: m.ImportPage })))
+const CardsPage = lazy(() => import('./subscriptions/CardsPage').then(m => ({ default: m.CardsPage })))
+const SubscriptionFormPage = lazy(() => import('./subscriptions/SubscriptionFormPage').then(m => ({ default: m.SubscriptionFormPage })))
+const SubscriptionsPage = lazy(() => import('./subscriptions/SubscriptionsPage').then(m => ({ default: m.SubscriptionsPage })))
+const QuickAddPage = lazy(() => import('./subscriptions/QuickAddPage').then(m => ({ default: m.QuickAddPage })))
+const InsightsPage = lazy(() => import('./subscriptions/PlanningPages').then(m => ({ default: m.InsightsPage })))
+const RenewalCalendarPage = lazy(() => import('./subscriptions/PlanningPages').then(m => ({ default: m.RenewalCalendarPage })))
+const ReviewInboxPage = lazy(() => import('./subscriptions/PlanningPages').then(m => ({ default: m.ReviewInboxPage })))
+const SettlementsPage = lazy(() => import('./subscriptions/PlanningPages').then(m => ({ default: m.SettlementsPage })))
+const ActivityPage = lazy(() => import('./finance/FinancePages').then(m => ({ default: m.ActivityPage })))
+const BudgetsPage = lazy(() => import('./finance/FinancePages').then(m => ({ default: m.BudgetsPage })))
+const ReceiptsPage = lazy(() => import('./finance/FinancePages').then(m => ({ default: m.ReceiptsPage })))
+const ReportsPage = lazy(() => import('./finance/FinancePages').then(m => ({ default: m.ReportsPage })))
+const ConnectionsPage = lazy(() => import('./finance/ConnectionsPage').then(m => ({ default: m.ConnectionsPage })))
+const NotificationSettingsPage = lazy(() => import('./finance/NotificationSettings').then(m => ({ default: m.NotificationSettingsPage })))
+const DataPage = lazy(() => import('./finance/DataPage').then(m => ({ default: m.DataPage })))
 
 function Brand() {
   return (
@@ -37,10 +49,28 @@ function Brand() {
   )
 }
 
+function SkipToContent() {
+  return <a className="fixed left-3 top-3 z-[100] -translate-y-40 rounded-lg bg-white px-4 py-3 font-semibold text-indigo-800 shadow focus:translate-y-0" href="#app-content" onClick={event => {
+    event.preventDefault()
+    const content = document.getElementById('app-content')
+    content?.focus({ preventScroll: true })
+    content?.scrollIntoView()
+  }}>Skip to content</a>
+}
+
+function PageContent() {
+  return <main id="app-content" tabIndex={-1}>
+    <Suspense fallback={<p className="p-8 text-center text-slate-600" role="status">Loading page…</p>}>
+      <Outlet />
+    </Suspense>
+  </main>
+}
+
 function PublicLayout() {
   const { user } = useAuth()
   return (
     <>
+      <SkipToContent />
       <header className="border-b border-slate-200/80 bg-white/75">
         <nav aria-label="Primary navigation" className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-3 px-5">
           <Brand />
@@ -54,7 +84,7 @@ function PublicLayout() {
           )}
         </nav>
       </header>
-      <main><Outlet /></main>
+      <PageContent />
     </>
   )
 }
@@ -108,12 +138,13 @@ function AppLayout() {
   return (
     <NotificationsProvider>
       <div className={isDashboard ? 'app-shell dashboard-shell' : 'app-shell'}>
+        <SkipToContent />
         {!isDashboard && <header className="app-shell-header">
           <Brand />
           <NotificationBell />
         </header>}
         {error && <p className="mx-auto max-w-6xl px-5 text-red-700" role="alert">{error}</p>}
-        <main id="app-content"><Outlet /></main>
+        <PageContent />
         <DashboardNavigation tabs={tabs} signingOut={signingOut} onSignOut={signOut} />
       </div>
     </NotificationsProvider>
@@ -127,11 +158,39 @@ function CardRoute({ action }: { action: 'add' | 'edit' | 'delete' }) {
   return <Navigate replace to={`/subscriptions/cards/?${params}`} />
 }
 
+const pageTitles: Record<string, string> = {
+  '/': 'Subscription manager', '/landing-v2': 'Subscription manager',
+  '/accounts/login': 'Log in', '/accounts/signup': 'Sign up', '/accounts/settings': 'Account settings',
+  '/accounts/teams': 'Teams', '/accounts/teams/create': 'Create a team',
+  '/dashboard': 'Dashboard', '/dashboard/history': 'Charge history', '/dashboard/balance-stats': 'Balance stats',
+  '/dashboard/notifications': 'Notifications', '/subscriptions': 'Subscriptions', '/subscriptions/add': 'Add subscription',
+  '/subscriptions/quick-add': 'Quick add', '/subscriptions/cards': 'Payment cards', '/subscriptions/import': 'Import subscriptions',
+  '/planning/insights': 'Spending insights', '/planning/calendar': 'Renewal calendar', '/planning/review': 'Subscription review inbox',
+  '/planning/settlements': 'Shared settlement balances', '/planning/budgets': 'Budgets', '/planning/receipts': 'Receipts',
+  '/planning/reports': 'Reports', '/planning/connections': 'Connections', '/planning/alerts': 'Alert settings',
+  '/planning/data': 'Backup & restore', '/planning/activity': 'Activity',
+}
+
+function titleFor(path: string) {
+  if (pageTitles[path]) return pageTitles[path]
+  if (/^\/accounts\/teams\/[^/]+$/.test(path)) return 'Team workspace'
+  if (/^\/accounts\/invites\/accept\/[^/]+$/.test(path)) return 'Team invitation'
+  if (/^\/subscriptions\/[^/]+\/edit$/.test(path)) return 'Edit subscription'
+  return 'Page not found'
+}
+
 export function App() {
-  const { pathname } = useLocation()
+  const { pathname, hash } = useLocation()
+  const previousPath = useRef(pathname)
   useEffect(() => {
-    window.scrollTo(0, 0)
-  }, [pathname])
+    document.title = `${titleFor(pathname.replace(/\/+$/, '') || '/')} | DUES`
+    if (previousPath.current !== pathname && !hash) {
+      window.scrollTo(0, 0)
+      // A route change should move keyboard and screen reader users out of the dock.
+      document.querySelector<HTMLElement>('main[tabindex="-1"]')?.focus({ preventScroll: true })
+    }
+    previousPath.current = pathname
+  }, [pathname, hash])
 
   return (
     <Routes>

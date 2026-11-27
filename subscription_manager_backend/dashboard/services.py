@@ -2,12 +2,13 @@ from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from urllib.parse import urlencode
 
+from dateutil.relativedelta import relativedelta
 from django.urls import reverse
 from finance.delivery import local_now
 
 from subscriptions.models import Subscription, Transaction
 from subscriptions.money import monthly_equivalent
-from subscriptions.services import effective_renewal_date, renewals_between
+from subscriptions.services import effective_renewal_date, scheduled_occurrences
 
 from .constants import (
     CARD_THEME_ROTATION,
@@ -240,17 +241,17 @@ def _subscription_destination_url(subscription):
     return reverse('subscriptions:update', args=[subscription.pk])
 
 
-def _build_upcoming_item(subscription, renewal_date, today, service_color_map):
-    effective_cost = subscription.share_on(renewal_date)
+def _build_upcoming_item(occurrence, today, service_color_map):
+    renewal_date, subscription, effective_cost, currency, service = occurrence
     return {
         'date': renewal_date.isoformat(),
         'id': subscription.pk,
         'is_placeholder': False,
         'bg_class': '',
-        'bg_style': service_background_style(subscription.service_name, service_color_map),
-        'service_name': subscription.service_name,
-        'amount': _format_money(effective_cost, subscription.currency),
-        'currency': (subscription.currency or 'USD').upper(),
+        'bg_style': service_background_style(service, service_color_map),
+        'service_name': service,
+        'amount': _format_money(effective_cost, currency),
+        'currency': (currency or 'USD').upper(),
         'description': subscription.plan_name or subscription.category or subscription.get_billing_cycle_display(),
         'payment_card': (
             f"{subscription.card.brand or 'Card'} ••{subscription.card.last4}" if subscription.card else ''
@@ -377,7 +378,7 @@ def _build_transaction_item(transaction, index, service_color_map):
     }
 
 
-def build_dashboard_view_model(user, today=None, scope='personal', selected_currency=None):
+def build_dashboard_view_model(user, today=None, scope='personal', selected_currency=None, preview=False):
     today = today or local_now(user).date()
     window_end = today + timedelta(days=29)
 
@@ -402,11 +403,13 @@ def build_dashboard_view_model(user, today=None, scope='personal', selected_curr
     ))
     active_subs_qs = user_subs.filter(pk__in=[sub.pk for sub in active_subs])
     shared_subs = active_subs_qs.filter(is_shared=True)
+    annual_end = today + relativedelta(years=1) - timedelta(days=1)
+    annual_occurrences = list(scheduled_occurrences(active_subs + paused_subs, today, annual_end))
     occurrences = sorted(
-        ((day, sub) for sub in active_subs + paused_subs for day in renewals_between(sub, today, window_end)),
-        key=lambda event: (event[0], event[1].service_name.lower(), event[1].pk),
+        (row for row in annual_occurrences if row.day <= window_end),
+        key=lambda row: (row.day, row.service.casefold(), row.subscription.pk),
     )
-    upcoming_renewals = [sub for _, sub in occurrences]
+    upcoming_renewals = [row.subscription for row in occurrences]
 
     monthly_spend_by_currency = _monthly_spend_by_currency(active_subs, today)
     paused_spend_by_currency = _monthly_spend_by_currency(paused_subs, today)
@@ -414,15 +417,19 @@ def build_dashboard_view_model(user, today=None, scope='personal', selected_curr
     upcoming_total_by_currency = {}
     balance_currency = selected_currency or 'USD'
     week_total = Decimal('0.00')
+    week_days = [{'count': 0, 'items': []} for _ in range(7)]
     next_week_bill = None
-    for day, sub in occurrences:
-        currency = (sub.currency or 'USD').upper()
-        charge_amount = sub.share_on(day)
+    for day, sub, charge_amount, currency, service in occurrences:
+        currency = (currency or 'USD').upper()
         if currency == balance_currency and day < today + timedelta(days=7):
             week_total += charge_amount
+            entry = week_days[(day - today).days]
+            entry['count'] += 1
+            if len(entry['items']) < 3:
+                entry['items'].append(f'{service} {_format_money(charge_amount, currency)}')
             if next_week_bill is None:
                 next_week_bill = {
-                    'service': sub.service_name, 'days_until': (day - today).days,
+                    'service': service, 'days_until': (day - today).days,
                     'reminders_enabled': sub.reminders_enabled,
                 }
         upcoming_total_by_currency[currency] = (
@@ -436,7 +443,7 @@ def build_dashboard_view_model(user, today=None, scope='personal', selected_curr
             )
 
     monthly_spend = monthly_spend_by_currency.get(balance_currency, Decimal('0.00'))
-    yearly_spend = monthly_spend * Decimal('12')
+    yearly_spend = sum((row.amount for row in annual_occurrences if row.currency.upper() == balance_currency), Decimal('0'))
     active_count = len(active_subs)
     currency_active_count = sum(
         1 for sub in active_subs if (sub.currency or 'USD').upper() == balance_currency
@@ -457,8 +464,8 @@ def build_dashboard_view_model(user, today=None, scope='personal', selected_curr
     service_color_map = build_service_color_map(active_subs + upcoming_renewals, recent_transactions_qs)
 
     upcoming_items = [
-        _build_upcoming_item(sub, day, today, service_color_map)
-        for day, sub in occurrences
+        _build_upcoming_item(row, today, service_color_map)
+        for row in (occurrences[:25] if preview else occurrences)
     ]
     subscription_panel_items = [
         _build_subscription_panel_item(sub, today, service_color_map)
@@ -466,7 +473,7 @@ def build_dashboard_view_model(user, today=None, scope='personal', selected_curr
     ]
     active_panel_items = [
         _build_active_item(sub, today, service_color_map)
-        for sub in active_subs
+        for sub in (active_subs[:12] if preview else active_subs)
     ]
     recent_transaction_items = [
         _build_transaction_item(txn, index, service_color_map)
@@ -538,6 +545,8 @@ def build_dashboard_view_model(user, today=None, scope='personal', selected_curr
         # Dashboard sections
         'upcoming_bills': upcoming_bills,
         'upcoming_week': {'amount': _format_money(week_total, balance_currency), 'next_bill': next_week_bill},
+        'upcoming_week_count': sum(day['count'] for day in week_days),
+        'upcoming_week_days': week_days,
         'subscriptions_panel': subscriptions_panel,
         'active_subscriptions_panel': active_subscriptions_panel,
         'recent_transactions': recent_transactions,

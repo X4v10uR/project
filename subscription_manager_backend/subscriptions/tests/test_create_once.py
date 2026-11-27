@@ -56,6 +56,26 @@ class SubscriptionCreationTests(TestCase):
         self.assertEqual(self.submit(key=str(uuid4())).status_code, 201)
         self.assertEqual(Subscription.objects.count(), 2)
 
+    def test_signing_key_rotation_preserves_a_replay_and_refreshes_its_digest(self):
+        with override_settings(SECRET_KEY='synthetic-previous-key', SECRET_KEY_FALLBACKS=[]):
+            self.client.force_login(self.user)
+            self.assertEqual(self.submit().status_code, 201)
+            original = SubscriptionCreationReceipt.objects.get(user=self.user).request_digest
+
+        with override_settings(SECRET_KEY='synthetic-current-key', SECRET_KEY_FALLBACKS=['synthetic-previous-key']):
+            changed = self.submit({**INPUT, 'cost': '40.00'})
+            self.assertEqual(changed.status_code, 409)
+            self.assertEqual(SubscriptionCreationReceipt.objects.get(user=self.user).request_digest, original)
+            replayed = self.submit()
+            self.assertEqual(replayed.status_code, 201)
+            self.assertEqual(replayed.headers['Idempotency-Replayed'], 'true')
+            self.assertNotEqual(SubscriptionCreationReceipt.objects.get(user=self.user).request_digest, original)
+
+        with override_settings(SECRET_KEY='synthetic-current-key', SECRET_KEY_FALLBACKS=[]):
+            self.assertEqual(self.submit().headers['Idempotency-Replayed'], 'true')
+        self.assertEqual(Subscription.objects.filter(user=self.user).count(), 1)
+        self.assertEqual(Transaction.objects.filter(user=self.user).count(), 1)
+
     def test_key_is_scoped_to_user_and_invalid_submission_can_be_corrected(self):
         self.assertEqual(self.submit(key='invalid').status_code, 400)
         self.assertEqual(self.submit({**INPUT, 'cost': '-1.00'}).status_code, 400)

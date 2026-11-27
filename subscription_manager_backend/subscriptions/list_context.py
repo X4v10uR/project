@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 from decimal import Decimal
 
+from django.core.paginator import Paginator
 from django.db.models import F, Window
 from django.db.models.functions import RowNumber
 from django.urls import reverse
@@ -114,7 +115,10 @@ def filter_personal_subscriptions(request):
     return subscriptions, filters
 
 
-def build_subscription_list_context(request):
+SUBSCRIPTION_PAGE_SIZE = 24
+
+
+def build_subscription_list_context(request, *, page_number=None):
     subscriptions, filters = filter_personal_subscriptions(request)
     has_filters = any(
         filters[key] for key in ('query', 'status_filter', 'cycle_filter', 'shared_filter', 'due_within')
@@ -122,15 +126,21 @@ def build_subscription_list_context(request):
     base_subscriptions = subscriptions
     if has_filters:
         base_subscriptions = list(_personal_subscription_queryset(request).order_by())
-    _apply_subscription_card_metadata(subscriptions)
-    drawer_payload = _build_subscription_drawer_data(subscriptions)
+    filtered_total = len(subscriptions)
+    page = None
+    if page_number is not None:
+        page = Paginator(subscriptions, SUBSCRIPTION_PAGE_SIZE).get_page(page_number)
+        subscriptions = page.object_list
+    _apply_subscription_card_metadata(subscriptions, start_index=page.start_index() - 1 if subscriptions and page else 0)
+    drawer_payload = _build_subscription_drawer_data(subscriptions) if page is None else {}
     stats = _calculate_subscription_stats(base_subscriptions)
     burn_metrics = _calculate_burn_rate_metrics(base_subscriptions)
     filters_active = has_filters or filters['sort_by'] != 'renewal_date'
     return {
         'subscriptions': subscriptions,
         'subscriptions_total': len(base_subscriptions),
-        'subscriptions_filtered_total': len(subscriptions),
+        'subscriptions_filtered_total': filtered_total,
+        'page': page,
         'subscriptions_stats': stats,
         'subscriptions_burn_metrics': burn_metrics,
         'subscription_drawer_data': drawer_payload,
@@ -164,9 +174,25 @@ def _is_dark_color(value):
     return luminance < 0.6
 
 
-def _apply_subscription_card_metadata(subscriptions):
+def build_subscription_cards(subscriptions):
+    return [{
+        'id': sub.pk,
+        'service_name': sub.service_name,
+        'plan_name': sub.plan_name,
+        'category': sub.category,
+        'billing_cycle': sub.billing_cycle,
+        'current_status': sub.current_status,
+        'current_user_cost': format(sub.current_share, '.2f'),
+        'currency': sub.currency,
+        'card_color': sub.card_color,
+        'card_text_is_light': sub.card_text_is_light,
+        'renewal_date': sub.next_payment_date.isoformat() if sub.next_payment_date else None,
+    } for sub in subscriptions]
+
+
+def _apply_subscription_card_metadata(subscriptions, *, start_index=0):
     today = timezone.localdate()
-    for index, subscription in enumerate(subscriptions):
+    for index, subscription in enumerate(subscriptions, start=start_index):
         category_key = (subscription.category or "").strip().lower()
         color = normalize_subscription_display_color(getattr(subscription, "display_color", ""))
         if not color:

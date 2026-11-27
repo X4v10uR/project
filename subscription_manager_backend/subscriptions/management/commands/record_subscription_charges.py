@@ -2,7 +2,6 @@ from datetime import date
 
 from django.core.management.base import CommandError
 from finance.jobs import TrackedJobCommand
-from django.utils import timezone
 
 from subscriptions.services import BillingService
 
@@ -15,7 +14,7 @@ class Command(TrackedJobCommand):
         parser.add_argument(
             "--date",
             type=str,
-            help="Charge date in YYYY-MM-DD format (defaults to today).",
+            help="Charge date in YYYY-MM-DD format (defaults to each payer’s local date).",
         )
         parser.add_argument(
             "--dry-run",
@@ -24,7 +23,7 @@ class Command(TrackedJobCommand):
         )
 
     def handle(self, *args, **options):
-        target_date = timezone.localdate()
+        target_date = None
         input_date = options.get("date")
         if input_date:
             try:
@@ -41,7 +40,8 @@ class Command(TrackedJobCommand):
 
         mode_label = "DRY RUN" if options["dry_run"] else "LIVE RUN"
         self.stdout.write(self.style.SUCCESS(f"[{mode_label}] Renewal charge processing"))
-        self.stdout.write(f"Date: {results['date']}")
+        date_label = results['date'] if target_date else f"payer-local (UTC run date: {results['date']})"
+        self.stdout.write(f"Date: {date_label}")
         self.stdout.write(f"Total due renewals: {results['total']}")
         self.stdout.write(f"Transactions created: {results['created']}")
         self.stdout.write(f"Already existing: {results['existing']}")

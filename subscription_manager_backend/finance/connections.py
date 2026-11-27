@@ -31,6 +31,7 @@ from rest_framework.response import Response
 from accounts.security import require_recent
 from subscriptions.models import Subscription, Transaction
 from subscriptions.models import _account_password_encrypt_fernet, _account_password_decrypt_fernets
+from .charge_differences import expected_provider_amount
 from .models import Connection, ImportedPayment, ImportedMessage, Receipt
 from .documents import MAX_FILE_SIZE, parse_invoice, validate_file, extract_receipt
 from .permissions import log_activity
@@ -563,11 +564,20 @@ def manual_charge_options(request, pk):
         charges = charges.filter(Q(service_name_snapshot__icontains=query) | Q(team__name__icontains=query))
     pages = PageNumberPagination()
     pages.page_size = 25
-    choices = pages.paginate_queryset(charges.select_related('team').order_by('-charged_for_date', '-pk'), request)
-    return Response({'next': pages.get_next_link(), 'charges': [
-        {'id': charge.pk, 'service': charge.service_name_snapshot, 'date': charge.charged_for_date,
-         'amount': charge.amount, 'currency': charge.currency, 'team': charge.team.name if charge.team_id else None}
-        for charge in choices]})
+    choices = pages.paginate_queryset(
+        charges.select_related('team', 'subscription').prefetch_related('shares').order_by('-charged_for_date', '-pk'),
+        request,
+    )
+    results = []
+    for charge in choices:
+        expected = expected_provider_amount(charge)
+        results.append({
+            'id': charge.pk, 'service': charge.service_name_snapshot, 'date': charge.charged_for_date,
+            'amount': charge.amount, 'expected_provider_amount': str(expected) if expected is not None else None,
+            'payer_share': str(charge.amount) if expected is None or charge.shares.all() else None,
+            'currency': charge.currency, 'team': charge.team.name if charge.team_id else None,
+        })
+    return Response({'next': pages.get_next_link(), 'charges': results})
 
 
 @api_view(['POST'])

@@ -64,7 +64,6 @@ export function HistoryPage() {
   const [result, setResult] = useState<{ query: string; data?: History; error?: string }>()
   const [retry, setRetry] = useState(0)
   const current = result?.query === query ? result : undefined
-  const page = Number(params.get('page') || 1)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -83,10 +82,8 @@ export function HistoryPage() {
     setParams(next)
   }
 
-  function goToPage(number: number) {
-    const next = new URLSearchParams(params)
-    next.set('page', String(number))
-    setParams(next)
+  function goToPage(link: string | null) {
+    if (link) setParams(new URL(link, window.location.origin).searchParams)
   }
 
   return (
@@ -124,8 +121,8 @@ export function HistoryPage() {
             </tr>)}</tbody>
           </table></div>
           {(current.data.previous || current.data.next) && <nav aria-label="History pages" className="mt-4 flex items-center justify-between gap-3">
-            <button className={buttonClass} disabled={!current.data.previous} onClick={() => goToPage(page - 1)}>Previous</button>
-            <span>Page {page}</span><button className={buttonClass} disabled={!current.data.next} onClick={() => goToPage(page + 1)}>Next</button>
+            <button className={buttonClass} disabled={!current.data.previous} onClick={() => goToPage(current.data?.previous ?? null)}>Previous</button>
+            <button className={buttonClass} disabled={!current.data.next} onClick={() => goToPage(current.data?.next ?? null)}>Next</button>
           </nav>}
         </>}
       </div>}

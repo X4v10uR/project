@@ -2,7 +2,7 @@ import { ServiceIcon } from '../ServiceIcon'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { api } from '../api'
+import { api, ApiError } from '../api'
 import { createSubscription } from './createOnce'
 import { useAuth } from '../accounts/auth'
 import { PriceChanges, UsageReview } from './PriceChanges'
@@ -45,6 +45,8 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
   const [participants, setParticipants] = useState(() => (subscription?.participants ?? []).map((person, id) => ({ id, name: person.name, share: person.share_amount ?? '', member_id: person.member_id ?? null as number | null })))
   const [nextParticipantId, setNextParticipantId] = useState(participants.length)
   const [error, setError] = useState('')
+  const [stale, setStale] = useState(false)
+  const [revision, setRevision] = useState(subscription?.edit_revision)
   const [saving, setSaving] = useState(false)
   const inFlight = useRef(false)
   const [priceSaving, setPriceSaving] = useState(false)
@@ -97,11 +99,14 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
     try {
       const body = JSON.stringify(payload)
       const response = subscription
-        ? await api<Subscription>(`${subscriptionApi}${subscription.id}/`, { method: 'PUT', body })
+        ? await api<Subscription>(`${subscriptionApi}${subscription.id}/`, {
+          method: 'PUT', body, headers: revision ? { 'If-Match': `"${revision}"` } : undefined,
+        })
         : await createSubscription<Subscription | { request_id: number }>(`full:${user?.id}:${teamId ?? 'personal'}`, body)
       navigate(backPath, { state: { savedSubscriptionId: !subscription && 'id' in response ? response.id : undefined, notice: 'request_id' in response ? 'Subscription request submitted.' : 'Subscription saved.' } })
     } catch (error) {
       setError(showError(error))
+      if (error instanceof ApiError && error.status === 412) setStale(true)
     } finally {
       inFlight.current = false
       setSaving(false)
@@ -117,7 +122,7 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
           <h1 className="text-3xl font-bold tracking-tight text-slate-950">{subscription ? 'Edit subscription' : 'Add subscription'}</h1>
           {options.team && <p className="mt-1 text-sm text-slate-600">{options.team.name}</p>}
         </div>
-        <button disabled={saving || priceSaving} className={primaryClass}>{saving ? 'Saving…' : pending ? 'Submit request' : 'Save subscription'}</button>
+        <button disabled={saving || priceSaving || stale} className={primaryClass}>{saving ? 'Saving…' : pending ? 'Submit request' : 'Save subscription'}</button>
       </div>
       {pending && <p className="rounded-xl bg-indigo-50 p-3 text-sm text-indigo-800">A team owner must approve your subscription request. A payment card and password can be added after approval.</p>}
       <ErrorBanner message={error} />
@@ -216,11 +221,13 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
       </div></details>
       <div className="flex flex-wrap justify-end gap-2">
         <Link className={buttonClass} to={backPath}>Cancel</Link>
-        <button disabled={saving || priceSaving} className={primaryClass}>{saving ? 'Saving…' : pending ? 'Submit request' : 'Save subscription'}</button>
+        {stale && <button type="button" className={buttonClass} onClick={() => window.location.reload()}>Reload latest subscription</button>}
+        <button disabled={saving || priceSaving || stale} className={primaryClass}>{saving ? 'Saving…' : pending ? 'Submit request' : 'Save subscription'}</button>
       </div>
     </form>
     {subscription && <>
-      <PriceChanges id={subscription.id} currency={subscription.currency} disabled={saving} onBusyChange={setPriceSaving} onCurrentCostChange={setCost} />
+      <PriceChanges id={subscription.id} currency={subscription.currency} disabled={saving || stale} onBusyChange={setPriceSaving}
+        onCurrentCostChange={setCost} editRevision={revision} onRevisionChange={setRevision} onStale={() => setStale(true)} />
       <UsageReview id={subscription.id} initialRating={subscription.usage_rating} lastReviewed={subscription.last_reviewed_on} />
     </>}
     </>

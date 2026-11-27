@@ -261,4 +261,4 @@ Potential improvements you could add:
 
 ---
 
-Run the time-based job hourly. It also rechecks configured spending caps. Billing also recovers missed charges from each active subscription’s stored next renewal through the run date. Repeating the job preserves one charge per scheduled date.
+Run the time-based job hourly. It also rechecks configured spending caps. Billing also recovers missed charges from each active subscription’s stored next renewal through the payer’s current local date. Team subscriptions use the payer’s time zone, not each member’s. An explicit `record_subscription_charges --date YYYY-MM-DD` uses that date for all payers when backfilling. Repeating the job preserves one charge per scheduled date.

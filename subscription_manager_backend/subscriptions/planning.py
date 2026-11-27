@@ -17,9 +17,10 @@ from rest_framework.response import Response
 from accounts.models import TeamMembership
 from subly.renderers import CalendarRenderer
 from .api_views import _subscription_for
+from .editing import StaleSubscriptionEdit, edit_revision, require_edit_revision
 from .models import ChargeShare, PriceChange, Repayment, Subscription, Transaction
 from .money import monthly_equivalent
-from .services import renewals_between
+from .services import renewals_between, scheduled_occurrences
 from .workflows import change_subscription_status
 
 
@@ -96,7 +97,11 @@ def calendar_events(subscriptions, start, end):
 def calendar(request):
     query = selection(request)
     subs = visible_subscriptions(request.user, query['scope']).prefetch_related('price_changes', 'participants')
-    return Response({'events': calendar_events(subs, query['start'], query['end'])})
+    return Response({
+        'start': query['start'].isoformat(),
+        'end': query['end'].isoformat(),
+        'events': calendar_events(subs, query['start'], query['end']),
+    })
 
 
 def ical_text(value):
@@ -147,20 +152,19 @@ def insights(request):
     else:
         charges = Transaction.objects.filter(team__memberships__user=request.user).distinct()
     categories, totals, service_current, service_previous = defaultdict(Decimal), defaultdict(lambda: defaultdict(Decimal)), defaultdict(Decimal), defaultdict(Decimal)
+    month_charges = list(charges.filter(charged_for_date__gte=previous, charged_for_date__lt=next_month))
+    recorded = {(charge.subscription_id, charge.charged_for_date) for charge in month_charges}
     for sub in subs:
         if sub.bills_on(today):
             rate = monthly_equivalent(sub.share_on(today), sub.billing_cycle)
             categories[(sub.currency, sub.category)] += rate
             totals[sub.currency]['monthly_commitment'] += rate
-        for day in renewals_between(sub, today, year_end):
-            totals[sub.currency]['annual_projection'] += sub.share_on(day)
-        for day in renewals_between(sub, max(today, month), next_month - timedelta(days=1)):
-            # Today's charge may already be recorded; include it exactly once.
-            if not charges.filter(subscription=sub, charged_for_date=day).exists():
-                value = sub.share_on(day)
-                totals[sub.currency]['month_scheduled'] += value
-                service_current[(sub.currency, sub.service_name)] += value
-    for charge in charges.filter(charged_for_date__gte=previous, charged_for_date__lt=next_month):
+    for row in scheduled_occurrences(subs, today, year_end):
+        totals[row.currency]['annual_projection'] += row.amount
+        if row.day < next_month and (row.subscription.pk, row.day) not in recorded:
+            totals[row.currency]['month_scheduled'] += row.amount
+            service_current[(row.currency, row.service)] += row.amount
+    for charge in month_charges:
         current = charge.charged_for_date >= month
         key = 'month_scheduled' if current else 'previous_scheduled'
         if charge.payment_status != 'refunded':
@@ -333,6 +337,10 @@ def price_changes(request, pk):
     sub = _subscription_for(request.user, pk)
     if request.method == 'POST':
         sub = Subscription.objects.select_for_update().get(pk=sub.pk)
+        try:
+            require_edit_revision(sub, request.headers.get('If-Match', '').strip('"') if 'If-Match' in request.headers else None)
+        except StaleSubscriptionEdit as exc:
+            return Response({'detail': str(exc), 'code': 'stale_subscription'}, status=412)
         data = PriceInput(data=request.data)
         data.is_valid(raise_exception=True)
         fields = data.validated_data
@@ -350,7 +358,8 @@ def price_changes(request, pk):
         previous_cost = changes[-1]['cost'] if changes else amount(change.previous_cost)
         changes.append({'id': change.pk, 'previous_cost': previous_cost,
                         'cost': amount(change.cost), 'effective_on': change.effective_on})
-    return Response({'changes': changes, 'current_regular_cost': amount(sub.regular_price_on(timezone.localdate()))},
+    return Response({'changes': changes, 'current_regular_cost': amount(sub.regular_price_on(timezone.localdate())),
+                     'edit_revision': edit_revision(sub)},
                     status=201 if request.method == 'POST' else 200)
 
 

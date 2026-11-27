@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Bell } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
-import { SnoozeButton } from '../finance/NotificationSettings';
+import { SnoozeButton } from '../finance/SnoozeButton';
 
 const endpoint = '/api/dashboard/notifications/';
 const pagePath = '/dashboard/notifications/';

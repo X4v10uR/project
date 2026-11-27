@@ -50,6 +50,7 @@ test('a new account adds its first bill and reconciles a statement payment', asy
   await page.getByRole('button', { name: 'Import 1 payment', exact: false }).click()
   await page.getByRole('button', { name: 'Match manually' }).click()
   await page.getByLabel('Charge to match').selectOption({ index: 1 })
+  await expect(page.getByText(/Link the .*payment from/)).toContainText('Expected provider charge: $30.00')
   await page.getByRole('button', { name: 'Confirm manual match' }).click()
   await expect(page.getByText('Payment matched.', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Preview statement' }).click()

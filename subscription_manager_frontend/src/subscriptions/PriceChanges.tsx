@@ -1,12 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { api } from '../api'
+import { api, ApiError } from '../api'
 import { buttonClass, currencyAmount, displayDate, ErrorBanner, Field, inputClass, panelClass, showError } from './shared'
 
 type Change = { id: number; previous_cost: string; cost: string; effective_on: string }
-type PriceHistory = { changes: Change[]; current_regular_cost: string }
-export function PriceChanges({ id, currency, disabled, onBusyChange, onCurrentCostChange }: {
+type PriceHistory = { changes: Change[]; current_regular_cost: string; edit_revision?: string }
+export function PriceChanges({ id, currency, disabled, onBusyChange, onCurrentCostChange, editRevision, onRevisionChange, onStale }: {
   id: number; currency: string; disabled: boolean;
   onBusyChange: (busy: boolean) => void; onCurrentCostChange: (cost: string) => void;
+  editRevision?: string; onRevisionChange: (revision: string) => void; onStale: () => void;
 }) {
   const [history, setHistory] = useState<PriceHistory>(); const [error, setError] = useState(''); const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -32,11 +33,16 @@ export function PriceChanges({ id, currency, disabled, onBusyChange, onCurrentCo
     try {
       const data = await api<PriceHistory>(`/api/subscriptions/${id}/prices/`, {
         method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(form))),
+        headers: editRevision ? { 'If-Match': `"${editRevision}"` } : undefined,
       })
       if (data.current_regular_cost !== history?.current_regular_cost) onCurrentCostChange(data.current_regular_cost)
+      if (data.edit_revision) onRevisionChange(data.edit_revision)
       setHistory(data)
       form.reset()
-    } catch (e) { setError(showError(e)) } finally { setBusy(false); onBusyChange(false) }
+    } catch (e) {
+      setError(showError(e))
+      if (e instanceof ApiError && e.status === 412) onStale()
+    } finally { setBusy(false); onBusyChange(false) }
   }
   return (
     <section id="price-history" className={`${panelClass} mt-5`}>

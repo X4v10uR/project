@@ -52,6 +52,7 @@ type Dashboard = Balance & {
     currency: string | null; action: string; url: string;
     difference?: { payment_id: number; expected: string; delta: string; price_url: string | null };
   }[];
+  needs_attention_count?: number;
   total_active: number;
   total_shared: number;
   total_paused: number;
@@ -60,6 +61,9 @@ type Dashboard = Balance & {
     amount: string;
     next_bill: { service: string; days_until: number; reminders_enabled: boolean } | null;
   };
+  upcoming_week_count?: number;
+  upcoming_week_days?: { count: number; items: string[] }[];
+  upcoming_count?: number;
   subscriptions_view_all_url: string;
   upcoming_bills: UpcomingBill[];
   active_subscriptions_panel: ActiveSubscription[];
@@ -90,18 +94,22 @@ function useDashboard() {
   const query = new URLSearchParams({ scope, currency }).toString();
   const [loaded, setLoaded] = useState<{ query: string; data?: Dashboard; error?: string }>();
   const [request, setRequest] = useState(0);
+  const [fullQuery, setFullQuery] = useState('');
 
   useEffect(() => {
     const controller = new AbortController();
-    api<Dashboard>(`/api/dashboard/?${query}`, { signal: controller.signal })
+    api<Dashboard>(`/api/dashboard/?${query}${fullQuery === query ? '' : '&preview=1'}`, { signal: controller.signal })
       .then((data) => {
         if (!controller.signal.aborted) setLoaded({ query, data });
       })
       .catch((error: unknown) => {
-        if (!controller.signal.aborted) setLoaded({ query, error: error instanceof Error ? error.message : 'Could not load your dashboard.' });
+        if (!controller.signal.aborted) setLoaded(previous => ({
+          query, data: previous?.query === query ? previous.data : undefined,
+          error: error instanceof Error ? error.message : 'Could not load your dashboard.',
+        }));
       });
     return () => controller.abort();
-  }, [query, request]);
+  }, [query, request, fullQuery]);
 
   function updateBalance(balance: Balance) {
     setLoaded((current) => current?.query === query && current.data
@@ -113,6 +121,7 @@ function useDashboard() {
     data: loaded?.query === query ? loaded.data : undefined,
     error: loaded?.query === query ? loaded.error : undefined,
     updateBalance,
+    loadFull: () => setFullQuery(query),
     retry: () => setRequest((count) => count + 1),
   };
 }
@@ -302,6 +311,7 @@ function SpendingSummary({ data, scope }: { data: Dashboard; scope: Scope }) {
 function WeekOutlook({ data, scope }: { data: Dashboard; scope: Scope }) {
   const bills = data.upcoming_bills.filter(bill => !bill.is_placeholder && bill.currency === data.balance_currency && bill.days_until >= 0 && bill.days_until < 7);
   const nextBill = data.upcoming_week.next_bill;
+  const count = data.upcoming_week_count ?? bills.length;
   const firstDay = new Date(data.as_of_date + 'T12:00:00Z');
   const weekday = new Intl.DateTimeFormat(undefined, { weekday: 'short', timeZone: 'UTC' });
   const dateLabel = new Intl.DateTimeFormat(undefined, { dateStyle: 'long', timeZone: 'UTC' });
@@ -309,15 +319,17 @@ function WeekOutlook({ data, scope }: { data: Dashboard; scope: Scope }) {
     <div className="panel-heading"><h2 id="week-title"><CalendarDays size={17} aria-hidden />Next 7 days</h2>
       <Link className="round-link" aria-label="Open renewal calendar" to={`/planning/calendar/?scope=${scope}`}><ArrowUpRight size={16} aria-hidden /></Link>
     </div>
-    <div className="week-summary"><strong>{data.upcoming_week.amount}</strong><span>{bills.length} {bills.length === 1 ? 'payment' : 'payments'}</span></div>
+    <div className="week-summary"><strong>{data.upcoming_week.amount}</strong><span>{count} {count === 1 ? 'payment' : 'payments'}</span></div>
     {nextBill && <p className="week-next">Next up <strong>{nextBill.service}</strong> · {dueIn(nextBill.days_until).toLowerCase()}</p>}
     <ol className="week-strip" aria-label="Renewals over the next seven days">
       {Array.from({ length: 7 }, (_, offset) => {
         const day = new Date(firstDay);
         day.setUTCDate(day.getUTCDate() + offset);
         const due = bills.filter(bill => bill.days_until === offset);
-        const label = dateLabel.format(day) + ' · ' + (due.length ? due.map(bill => bill.service_name + ' ' + bill.amount).join(', ') : 'No renewals');
-        return <li key={offset} className={due.length ? 'has-renewal' : ''} title={label} aria-label={label}>
+        const summary = data.upcoming_week_days?.[offset] ?? { count: due.length, items: due.map(bill => bill.service_name + ' ' + bill.amount) };
+        const more = summary.count - summary.items.length;
+        const label = dateLabel.format(day) + ' · ' + (summary.count ? summary.items.join(', ') + (more > 0 ? ` and ${more} more` : '') : 'No renewals');
+        return <li key={offset} className={summary.count ? 'has-renewal' : ''} title={label} aria-label={label}>
           <small aria-hidden>{weekday.format(day)}</small>
           <time dateTime={day.toISOString().slice(0, 10)} aria-hidden>{day.getUTCDate()}</time>
           <i aria-hidden />
@@ -356,10 +368,11 @@ function SubscriptionMix({ data }: { data: Dashboard }) {
   </section>;
 }
 
-function UpcomingBills({ data, scope }: { data: Dashboard; scope: Scope }) {
+function UpcomingBills({ data, scope, loadFull }: { data: Dashboard; scope: Scope; loadFull: () => void }) {
   const bills = data.upcoming_bills.filter(bill => !bill.is_placeholder);
   const [expanded, setExpanded] = useState(false);
   const visible = expanded ? bills : bills.slice(0, 4);
+  const total = data.upcoming_count ?? bills.length;
   return <section className="dash-panel renewals-card" aria-labelledby="renewals-heading">
     <div className="panel-heading"><h2 id="renewals-heading">Upcoming renewals</h2>
       <Link className="dash-text-link" to={`/planning/calendar/?scope=${scope}`}>Calendar <ArrowUpRight size={14} aria-hidden /></Link>
@@ -372,7 +385,10 @@ function UpcomingBills({ data, scope }: { data: Dashboard; scope: Scope }) {
           <span className="bill-date"><time dateTime={bill.date}>{new Date(bill.date + 'T12:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })}</time><small>{dueIn(bill.days_until)}</small></span>
           <strong className="bill-amount">{bill.amount}</strong>
         </Link></li>)}</ul>
-      {bills.length > 4 && <button type="button" className="list-toggle" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? 'Show fewer' : `View all ${bills.length} renewals`}</button>}
+      {total > 4 && <button type="button" className="list-toggle" aria-expanded={expanded} onClick={() => {
+        if (!expanded && total > bills.length) loadFull();
+        setExpanded(!expanded);
+      }}>{expanded ? 'Show fewer' : `View all ${total} renewals`}</button>}
     </> : <p className="dash-empty">No bills due in the next 30 days.</p>}
   </section>;
 }
@@ -430,7 +446,9 @@ function ChargeDifferenceActions({ item, onDismiss }: { item: Dashboard['needs_a
   </div>;
 }
 
-function NeedsAttention({ items, onDismiss }: { items: Dashboard['needs_attention']; onDismiss: () => void }) {
+function NeedsAttention({ items, total, onDismiss, loadFull }: {
+  items: Dashboard['needs_attention']; total: number; onDismiss: () => void; loadFull: () => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const visible = expanded ? items : items.slice(0, 5);
   const labels = { deadline: 'Cancel by', payment: 'Failed payment', approval: 'Approval requested', trial: 'Trial ends', price: 'Price increases', decision: 'Renewal decision due', charge_difference: 'Payment amount differs' };
@@ -454,13 +472,16 @@ function NeedsAttention({ items, onDismiss }: { items: Dashboard['needs_attentio
           {item.difference ? <ChargeDifferenceActions item={item} onDismiss={onDismiss} /> : <Link className="secondary-link" to={item.url}>{item.action}</Link>}
         </li>
       ))}</ul> : <p className="mt-2 text-sm text-slate-600">Nothing needs your attention in this workspace.</p>}
-      {items.length > 5 && <button className="secondary-link mt-2" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? 'Show fewer' : `Show all ${items.length} items`}</button>}
+      {total > 5 && <button className="secondary-link mt-2" aria-expanded={expanded} onClick={() => {
+        if (!expanded && total > items.length) loadFull();
+        setExpanded(!expanded);
+      }}>{expanded ? 'Show fewer' : `Show all ${total} items`}</button>}
     </section>
   );
 }
 
 export function DashboardPage() {
-  const { data, error, retry, scope, query, updateBalance } = useDashboard();
+  const { data, error, retry, scope, query, updateBalance, loadFull } = useDashboard();
   const today = data && new Date(data.as_of_date + 'T12:00:00Z');
   return <>
     <WorkspaceHeader data={data} scope={scope} />
@@ -477,12 +498,12 @@ export function DashboardPage() {
             <Link className="secondary-link" to="/subscriptions/import/">Import a subscription list</Link><Link className="secondary-link" to="/accounts/teams/create/">Set up a team</Link></div>
         </section>}
         <div className="dash-grid hero-grid"><SpendingSummary data={data} scope={scope} /><WeekOutlook data={data} scope={scope} /></div>
-        {data.needs_attention.length > 0 && <NeedsAttention key={scope} items={data.needs_attention} onDismiss={retry} />}
-        <div className="dash-grid records-grid"><UpcomingBills data={data} key={query} scope={scope} /><SubscriptionMix data={data} /></div>
+        {data.needs_attention.length > 0 && <NeedsAttention key={scope} items={data.needs_attention} total={data.needs_attention_count ?? data.needs_attention.length} onDismiss={retry} loadFull={loadFull} />}
+        <div className="dash-grid records-grid"><UpcomingBills data={data} key={query} scope={scope} loadFull={loadFull} /><SubscriptionMix data={data} /></div>
         <div className="dash-grid"><RecentTransactions transactions={data.recent_transactions} scope={scope} /><FundingCard key={query} data={data} onUpdate={updateBalance} scope={scope} /></div>
         <div className="dash-grid dashboard-management">
           <ActiveSubscriptions data={data} /><BudgetEditor data={data} key={query + '-budget'} scope={scope} reload={retry} />
-          {data.needs_attention.length === 0 && <NeedsAttention key={scope} items={data.needs_attention} onDismiss={retry} />}
+          {data.needs_attention.length === 0 && <NeedsAttention key={scope} items={data.needs_attention} total={0} onDismiss={retry} loadFull={loadFull} />}
           {Object.keys(data.monthly_spend_by_currency).some(code => code !== data.balance_currency) &&
             <section className="detail-panel"><h2>Monthly spending by currency</h2>
               <ul className="mt-2 grid gap-1">{Object.entries(data.monthly_spend_by_currency).sort(([a], [b]) => a.localeCompare(b)).map(([code, amount]) =>

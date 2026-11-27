@@ -1,7 +1,7 @@
 import { ServiceIcon } from '../ServiceIcon'
 import { useState, type FormEvent } from "react";
 import { api } from "../api";
-import { PlanningLayout } from "../subscriptions/PlanningPages";
+import { PlanningLayout } from "../subscriptions/PlanningLayout";
 import {
   billingCycles,
   buttonClass,

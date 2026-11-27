@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from accounts.models import TeamMembership
 from accounts.services import is_team_owner
+from .editing import require_edit_revision
 
 from .models import PriceChange, ReminderOffset, Subscription, SubscriptionParticipant, TeamSubscriptionRequest
 from .money import equal_share
@@ -117,7 +118,7 @@ def _adjust_pause_dates(subscription, previous_status, status, today):
         subscription.resume_on = None
 
 
-def save_subscription(subscription, *, actor, participants, reminder_offsets):
+def save_subscription(subscription, *, actor, participants, reminder_offsets, expected_revision=None):
     creating = subscription.pk is None
     from finance.permissions import log_activity
     from finance.backup import SUB_FIELDS
@@ -132,6 +133,12 @@ def save_subscription(subscription, *, actor, participants, reminder_offsets):
     with transaction.atomic():
         if not creating:
             previous = Subscription.objects.select_for_update().get(pk=subscription.pk)
+            require_edit_revision(previous, expected_revision)
+            if previous.currency != subscription.currency:
+                if previous.price_changes.exists():
+                    raise ValidationError({'currency': 'This subscription has price history. Create a replacement in the new currency to preserve its prices.'})
+                if previous.introductory_cost is not None and subscription.introductory_cost is not None:
+                    raise ValidationError({'currency': 'Clear the old introductory price and end date before changing currency, then add a new introductory price if needed.'})
             before = {field: str(getattr(previous, field)) for field in SUB_FIELDS}
             before_participants = [{'name': p.name, 'share': str(p.share_amount), 'member_id': p.member_id} for p in previous.participants.all()]
             before_offsets = list(previous.offsets.values_list('days_before', flat=True))
@@ -148,7 +155,7 @@ def save_subscription(subscription, *, actor, participants, reminder_offsets):
                     and previous.cancellation_state == subscription.cancellation_state == 'confirmed'):
                 subscription.cancellation_state = 'none'
             regular_price = previous.regular_price_on(today)
-            if regular_price != subscription.cost:
+            if previous.currency == subscription.currency and regular_price != subscription.cost:
                 existing_change = previous.price_changes.filter(effective_on=today).first()
                 PriceChange.objects.update_or_create(subscription=subscription, effective_on=today,
                     defaults={'previous_cost': existing_change.previous_cost if existing_change else regular_price, 'cost': subscription.cost})

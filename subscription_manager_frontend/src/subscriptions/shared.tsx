@@ -22,6 +22,7 @@ export interface Card {
 }
 
 export interface Subscription {
+  edit_revision?: string
   id: number
   team: number | null
   payer_id: number

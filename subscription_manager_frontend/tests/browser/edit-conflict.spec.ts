@@ -1,0 +1,36 @@
+import { expect, test } from '@playwright/test'
+
+test('a stale tab cannot overwrite a newer subscription price', async ({ page, context }) => {
+  await context.route(url => url.protocol === 'https:', route => route.abort())
+  await page.goto('/accounts/signup/')
+  await page.locator('[name=email]').fill(`edit-${crypto.randomUUID()}@example.test`)
+  await page.locator('[name=password1]').fill('Browser-Example42!')
+  await page.locator('[name=password2]').fill('Browser-Example42!')
+  await page.getByRole('button', { name: 'Create account' }).click()
+  await expect(page.getByRole('heading', { name: 'Monthly Spending' })).toBeVisible()
+  await page.goto('/subscriptions/quick-add/')
+  await page.getByLabel('Service', { exact: true }).fill('Concurrent plan')
+  await page.getByLabel('Cost (USD)').fill('30')
+  await page.getByLabel('Next payment').fill(new Date(Date.now() + 86400000).toISOString().slice(0, 10))
+  await page.getByRole('button', { name: 'Add subscription' }).click()
+  await expect(page).toHaveURL(/\/subscriptions\/$/)
+  const list = await (await page.request.get('/api/subscriptions/')).json()
+  const id = list.subscriptions[0].id
+  const edit = `/subscriptions/${id}/edit/`
+  const second = await context.newPage()
+  await page.goto(edit)
+  await second.goto(edit)
+  await expect(second.getByLabel('Cost', { exact: true })).toHaveValue('30.00')
+  await page.getByLabel('Cost', { exact: true }).fill('40')
+  await page.getByRole('button', { name: 'Save subscription', exact: true }).first().click()
+  await expect(page).toHaveURL(/\/subscriptions\/$/)
+
+  await second.getByLabel('Service name').fill('Stale rename')
+  await second.getByRole('button', { name: 'Save subscription', exact: true }).first().click()
+  await expect(second.getByRole('alert')).toContainText('This subscription changed after you opened it.')
+  await expect(second.getByRole('button', { name: 'Reload latest subscription' })).toBeVisible()
+  await expect(second.getByRole('button', { name: 'Save subscription', exact: true }).first()).toBeDisabled()
+  const saved = await (await page.request.get(`/api/subscriptions/${id}/`)).json()
+  expect(saved.cost).toBe('40.00')
+  expect(saved.service_name).toBe('Concurrent plan')
+})

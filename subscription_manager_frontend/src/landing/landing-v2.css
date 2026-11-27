@@ -165,9 +165,9 @@
 .lv-life-small img { position: absolute; top: 4%; left: 50%; width: 155%; max-width: none; transform: translateX(-50%) rotate(-23deg); }
 
 .lv-section-heading { text-align: center; }
-.lv-section-heading > .lv-eyebrow { margin-bottom: 20px; color: #6a7e85; font-size: .6875rem; }
+.lv-section-heading > .lv-eyebrow { margin-bottom: 20px; color: #536971; font-size: .6875rem; }
 .lv-section-heading h2 { font-size: clamp(2rem, 3vw, 2.8rem); }
-.lv-section-heading > p { margin-top: 20px; color: #788286; font-size: .9375rem; line-height: 1.6; }
+.lv-section-heading > p { margin-top: 20px; color: #536971; font-size: .9375rem; line-height: 1.6; }
 .lv-benefits { padding-block: clamp(72px, 8vw, 116px); background: #f6f6f5; }
 .lv-benefits .lv-section-heading h2 { max-width: 15em; margin-inline: auto; }
 .lv-benefits .lv-section-heading > p { max-width: 29em; margin: 17px auto 0; color: #526168; }
@@ -344,13 +344,13 @@
 .lv-steps .lv-text-link { margin-top: 12px; font-size: .75rem; }
 
 .lv-free { display: grid; grid-template-columns: 1.2fr 1fr; align-items: center; gap: 40px; padding: 55px 60px; border-radius: 30px; background: #eff6f9; }
-.lv-free .lv-eyebrow { color: #64838f; font-size: .6875rem; }
-.lv-free h2 { margin-top: 20px; font-size: 2.6rem; }.lv-free p { margin-top: 20px; color: #6c8089; font-size: 1rem; line-height: 1.7; }
+.lv-free .lv-eyebrow { color: #496774; font-size: .6875rem; }
+.lv-free h2 { margin-top: 20px; font-size: 2.6rem; }.lv-free p { margin-top: 20px; color: #4e6670; font-size: 1rem; line-height: 1.7; }
 .lv-free .lv-button { margin-top: 26px; }
 .lv-free-price { padding-left: 45px; border-left: 1px solid #cedde4; }
-.lv-free-price > span { color: #69818d; font-size: .6875rem; letter-spacing: .08em; }
+.lv-free-price > span { color: #4d6673; font-size: .6875rem; letter-spacing: .08em; }
 .lv-free-price > strong { display: block; font-size: 5.5rem; letter-spacing: -.08em; line-height: 1.2; font-weight: 500; }
-.lv-free-price > strong > span { color: #6c8794; font-size: 1rem; letter-spacing: -.02em; }
+.lv-free-price > strong > span { color: #4d6875; font-size: 1rem; letter-spacing: -.02em; }
 .lv-free-price > p { margin-top: 7px; font-size: .8125rem; }
 .lv-free-price > div { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 30px; }
 .lv-free-price > div > span { display: flex; align-items: center; gap: 6px; font-size: .6875rem; }.lv-free-price svg { width: 13px; height: 13px; color: #41839b; }
@@ -360,7 +360,7 @@
 .lv-faqs summary { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 70px; padding-block: 20px; font-size: 1rem; font-weight: 500; list-style: none; cursor: pointer; }
 .lv-faqs summary::-webkit-details-marker { display: none; }.lv-faqs summary::marker { content: ''; }
 .lv-faqs summary > svg { flex-shrink: 0; color: #70909e; transition: transform .2s; }.lv-faqs details[open] summary > svg { transform: rotate(45deg); }
-.lv-faqs details p { max-width: 650px; padding: 0 35px 25px 0; color: #74868e; font-size: 1rem; line-height: 1.8; }
+.lv-faqs details p { max-width: 650px; padding: 0 35px 25px 0; color: #536971; font-size: 1rem; line-height: 1.8; }
 .lv-last-call { padding: 75px 24px 95px; text-align: center; background: linear-gradient(white, #eaf2f6); }
 .lv-last-call > .lv-eyebrow { color: #648895; font-size: .6875rem; }.lv-last-call h2 { margin-top: 24px; font-size: 3.5rem; }
 .lv-last-call > p { margin-top: 20px; color: #74858c; font-size: .9375rem; }.lv-last-call > .lv-button { margin-top: 27px; padding-right: 20px; }

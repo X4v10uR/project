@@ -183,6 +183,7 @@ def _build_reminder_seed(*, subscription=None, post_data=None):
 
 
 def _build_subscription_form_context(request, form, title, *, subscription=None, team_context=None):
+    from .editing import edit_revision
     post_data = request.POST if request.method == "POST" else None
     is_edit_mode = bool(subscription and subscription.pk)
     instance = subscription if is_edit_mode else form.instance
@@ -250,6 +251,8 @@ def _build_subscription_form_context(request, form, title, *, subscription=None,
             subscription=subscription, post_data=post_data
         ),
         "category_suggestions": CATEGORY_SUGGESTIONS,
+        "edit_revision": (post_data.get("edit_revision", "") if post_data is not None
+                          else edit_revision(subscription)) if is_edit_mode else "",
         "team_context": team_context,
         "owner_context_label": team_context.name if team_context else "Personal",
         "can_create_direct_subscription": (
@@ -412,6 +415,7 @@ def build_subscription_csv(request):
     return response
 
 def _save_subscription_form(request, form, team_context):
+    from .editing import StaleSubscriptionEdit
     subscription = form.save(commit=False)
     if form.data.get('account_password'):
         subscription.set_account_password(form.cleaned_data['account_password'])
@@ -430,7 +434,11 @@ def _save_subscription_form(request, form, team_context):
             actor=request.user,
             participants=participants,
             reminder_offsets=_parse_reminder_offsets(request.POST.getlist("reminder_offsets")),
+            expected_revision=request.POST.get("edit_revision"),
         )
+    except StaleSubscriptionEdit as exc:
+        form.add_error(None, str(exc))
+        return False
     except ValidationError as exc:
         form.add_error(None, exc)
         return False

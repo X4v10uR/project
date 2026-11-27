@@ -7,7 +7,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 
 from accounts.models import Team, TeamMembership, User
-from subscriptions.models import Transaction
+from subscriptions.models import Subscription, Transaction
 from .backup import build_archive, restore_archive
 from .models import Connection, ImportedPayment
 
@@ -58,6 +58,33 @@ class StatementPaymentTests(TestCase):
         self.assertEqual(str(charge.amount), '12.00')
         self.assertEqual(charge.payment_status, 'paid')
         self.assertEqual(ImportedPayment.objects.get().charge_id, charge.pk)
+
+    def test_manual_options_distinguish_provider_total_payer_share_and_legacy_unknown(self):
+        self.upload('date,merchant,amount\n2026-11-21,Vendor LLC,85.00\n', 'confirm')
+        payment = ImportedPayment.objects.get()
+        shared = Subscription.objects.create(user=self.user, service_name='Shared', cost='85.00',
+            is_shared=True, start_date=date(2026, 10, 21), billing_cycle='monthly')
+        captured = Transaction.objects.create(user=self.user, subscription=shared, amount='25.00',
+            service_name_snapshot='Shared', charged_for_date=date(2026, 11, 21), shares_captured=True)
+        captured.shares.create(name='Other', amount='60.00', reimbursed=True, repaid_amount='60.00')
+        legacy = Transaction.objects.create(user=self.user, subscription=shared, amount='25.00',
+            service_name_snapshot='Shared', charged_for_date=date(2026, 10, 21))
+        solo = Transaction.objects.create(user=self.user, amount='85.00',
+            service_name_snapshot='Solo', charged_for_date=date(2026, 11, 21))
+        path = f'/api/finance/discoveries/{payment.pk}/'
+        options = {row['id']: row for row in self.client.get(path + 'charges/').json()['charges']}
+        self.assertEqual((options[captured.pk]['expected_provider_amount'], options[captured.pk]['payer_share']),
+                         ('85.00', '25.00'))
+        self.assertEqual((options[legacy.pk]['expected_provider_amount'], options[legacy.pk]['payer_share']),
+                         (None, '25.00'))
+        self.assertEqual((options[solo.pk]['expected_provider_amount'], options[solo.pk]['payer_share']),
+                         ('85.00', None))
+        self.assertEqual(self.client.post(path, {'action': 'manual_match', 'charge': captured.pk},
+                                          content_type='application/json').status_code, 200)
+        captured.refresh_from_db()
+        self.assertEqual(str(captured.amount), '25.00')
+        self.assertEqual(captured.payment_status, 'paid')
+        self.assertEqual(str(captured.shares.get().amount), '60.00')
 
     def test_conflicting_transaction_references_are_reported_before_import(self):
         header = 'date,merchant,amount,reference\n'
