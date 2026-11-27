@@ -83,12 +83,12 @@ function RenewalDecisionForm({ renewal, saving, onUpdate }: {
     })
   }
   return <form className="grid gap-2" onSubmit={submit}>
-    <Field label="Decision for this renewal"><select className={fieldClass} name="decision" value={decision}
+    <Field label="Decision for this renewal"><select className={fieldClass} name="decision" value={decision} disabled={saving}
       onChange={event => setDecision(event.target.value as Renewal['decision'])}>
       {Object.entries(renewalLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
     </select></Field>
-    {decision && <>
-      <fieldset className="grid gap-2">
+    <div hidden={!decision}>
+      <fieldset className="grid gap-2" disabled={!decision || saving}>
         <legend className="font-semibold">Seat review (optional)</legend>
         <p className="text-xs text-zinc-600">Enter both counts, or leave both blank. Savings assume every seat costs the same and the provider lets you reduce seat count.</p>
         <div className="grid gap-2 sm:grid-cols-2">
@@ -96,8 +96,8 @@ function RenewalDecisionForm({ renewal, saving, onUpdate }: {
           <Field label="Seats needed"><input className={fieldClass} name="needed_seats" type="number" min="0" max="1000000" step="1" defaultValue={renewal.needed_seats ?? ''} /></Field>
         </div>
       </fieldset>
-      <Field label="Reason (optional)"><textarea className={fieldClass} name="decision_reason" rows={2} maxLength={500} defaultValue={renewal.decision_reason} /></Field>
-    </>}
+      <div className="mt-2"><Field label="Reason (optional)"><textarea className={fieldClass} name="decision_reason" rows={2} maxLength={500} disabled={!decision || saving} defaultValue={renewal.decision_reason} /></Field></div>
+    </div>
     <p className="text-xs text-zinc-600">Record the team's plan here. Complete seat reductions, plan changes or cancellation with the provider.</p>
     <button className={secondaryClass + ' justify-self-start'} disabled={saving}>Save decision</button>
   </form>

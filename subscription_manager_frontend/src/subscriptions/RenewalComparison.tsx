@@ -27,6 +27,8 @@ export function RenewalComparison({ options }: { options: ComparisonOption[] }) 
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const selected = options.find(item => String(item.id) === id)
+  const missedCancellationDeadline = result?.option === 'cancel' && result.cancel_by_date !== null &&
+    result.cancel_by_date < result.from_date
 
   function resetResult() { setResult(null); setError('') }
 
@@ -65,14 +67,24 @@ export function RenewalComparison({ options }: { options: ComparisonOption[] }) 
       </form>}
     <ErrorBanner message={error} />
     {result && <div className="mt-4 grid gap-3" role="status">
-      <p className="text-sm text-slate-600">From {displayDate(result.from_date)} up to (not including) {displayDate(result.until_date)}. Assumed change date: {displayDate(result.effective_on)}.</p>
-      <div className="grid gap-3 sm:grid-cols-2">{([['Keep current plan', result.keep], [labels[result.option], result.alternative]] as const).map(([label, scenario]) =>
+      <p className="text-sm text-slate-600">From {displayDate(result.from_date)} up to (not including) {displayDate(result.until_date)}.
+        {!missedCancellationDeadline && <> Assumed change date: {displayDate(result.effective_on)}.</>}
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2">{([['Keep current plan', result.keep], [labels[result.option], result.alternative]] as const)
+        .slice(0, missedCancellationDeadline ? 1 : 2).map(([label, scenario]) =>
         <div className="rounded-xl border border-slate-200 p-3" key={label}><h3 className="font-semibold">{label}</h3>
           <p className="text-sm">Next payment: {scenario.next_date ? `${money(scenario.next_amount, result.currency, 2)} on ${displayDate(scenario.next_date)}` : 'None in this preview'}</p>
           <p className="text-sm">12-month scheduled cost: <strong>{money(scenario.total, result.currency, 2)}</strong></p>
-        </div>)}</div>
-      <p className="text-sm"><strong>Next payment:</strong> {difference(result.next_payment_change, result.currency, 'more', 'less')}. <strong>Over 12 months:</strong> {difference(result.total_savings, result.currency, 'less', 'more')}.</p>
-      <p className="text-sm text-slate-600">{result.cancel_by_date ? `Recorded cancellation deadline: ${displayDate(result.cancel_by_date)}. ` : 'No cancellation deadline recorded. '}Confirm actual timing, fees, and eligibility with your provider.</p>
+        </div>)}
+        {missedCancellationDeadline && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-950">
+          <h3 className="font-semibold">Cancellation timing unconfirmed</h3>
+          <p className="text-sm">The recorded cancellation deadline has passed ({displayDate(result.cancel_by_date)}). Your next payment of {money(result.keep.next_amount, result.currency, 2)} on {displayDate(result.effective_on)} may still be due. Confirm the cancellation date with your provider before counting on any savings.</p>
+        </div>}
+      </div>
+      {!missedCancellationDeadline && <>
+        <p className="text-sm"><strong>Next payment:</strong> {difference(result.next_payment_change, result.currency, 'more', 'less')}. <strong>Over 12 months:</strong> {difference(result.total_savings, result.currency, 'less', 'more')}.</p>
+        <p className="text-sm text-slate-600">{result.cancel_by_date ? `Recorded cancellation deadline: ${displayDate(result.cancel_by_date)}. ` : 'No cancellation deadline recorded. '}Confirm actual timing, fees, and eligibility with your provider.</p>
+      </>}
     </div>}
   </section>
 }
