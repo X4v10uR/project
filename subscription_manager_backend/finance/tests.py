@@ -10,6 +10,7 @@ from unittest.mock import patch, Mock
 from django.conf import settings
 from django.core import mail
 from django.core.cache import cache
+from django.core.management import call_command
 from django.core.files.storage import FileSystemStorage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import transaction
@@ -174,6 +175,37 @@ class FinanceTests(TestCase):
         TeamMembership.objects.create(team=team, user=self.user, role='viewer')
         self.assertEqual(self.post('budgets/', {'team_id': team.pk, 'currency': 'USD', 'monthly_limit': '20'}).status_code, 403)
 
+    def test_scheduler_and_budget_api_use_account_date_at_local_midnight(self):
+        self.user.timezone = 'Asia/Karachi'
+        self.user.save(update_fields=['timezone'])
+        self.sub(start_date=date(2026, 11, 1), pause_from=date(2026, 12, 1))
+        budget = SpendingBudget.objects.create(user=self.user, currency='USD', monthly_limit='20')
+        before_midnight = datetime(2026, 11, 30, 18, 59, tzinfo=dt_timezone.utc)
+        after_midnight = before_midnight + timedelta(minutes=2)
+        for instant, spend, level, alerts in (
+                (after_midnight, '0.00', 0, 0), (before_midnight, '30.00', 2, 1),
+                (after_midnight, '0.00', 0, 1)):
+            with self.subTest(instant=instant), patch('django.utils.timezone.now', return_value=instant):
+                rows = self.client.get('/api/finance/budgets/').json()['budgets']
+                self.assertEqual(rows[0]['spend'], spend)
+                call_command('sync_finance', '--notifications-only', stdout=io.StringIO())
+                budget.refresh_from_db()
+                self.assertEqual(budget.last_level, level)
+                self.assertEqual(InAppNotification.objects.filter(event_type='budget.warning').count(), alerts)
+
+    def test_category_case_updates_budget_without_merging_currency_or_workspace(self):
+        team = create_team(name='Studio team', user=self.user)
+        self.sub()
+        for scope in ({}, {'team_id': team.pk}):
+            with self.subTest(scope=scope):
+                first = self.post('budgets/', {**scope, 'currency': 'USD', 'category': 'Software', 'monthly_limit': '25'})
+                second = self.post('budgets/', {**scope, 'currency': 'usd', 'category': 'software', 'monthly_limit': '20'})
+                self.assertEqual((first.status_code, second.status_code), (201, 201))
+                self.assertEqual(first.json()['id'], second.json()['id'])
+                self.assertEqual(second.json()['monthly_limit'], '20.00')
+        self.assertEqual(self.post('budgets/', {'currency': 'PKR', 'category': 'SOFTWARE', 'monthly_limit': '5000'}).status_code, 201)
+        self.assertEqual(SpendingBudget.objects.count(), 3)
+
     def test_conversion_does_not_hide_missing_currencies(self):
         self.sub(currency='USD', cost=30)
         self.sub(currency='EUR', cost=20)
@@ -226,6 +258,30 @@ class FinanceTests(TestCase):
         revoked = self.client.get(url, HTTP_ACCEPT='text/calendar')
         self.assertEqual(revoked.status_code, 404)
         self.assertIn('detail', revoked.json())
+
+    def test_restored_reminders_stay_in_history_but_are_not_emailed(self):
+        sub = self.sub(start_date=date(2026, 11, 1), status='cancelled', cancellation_state='confirmed')
+        NotificationPreference.objects.create(user=self.user, email_enabled=True, digest='daily')
+        created = datetime(2026, 11, 30, 10, tzinfo=dt_timezone.utc)
+        with patch('django.utils.timezone.now', return_value=created):
+            for kind in ('renewal.reminder', 'cancellation.reminder'):
+                InAppNotification.objects.create(recipient=self.user, subscription=sub, event_type=kind,
+                    title=f'Archived {kind}', metadata={'renewal_date': '2026-12-01', 'days_before': 1})
+            data = build_archive(self.user)
+
+        result = self.client.post('/api/finance/backup/restore/', {
+            'file': SimpleUploadedFile('backup.zip', data), 'confirm': 'RESTORE',
+        })
+        self.assertEqual(result.status_code, 200, result.content)
+        archived = list(InAppNotification.objects.filter(recipient=self.user, subscription__isnull=True, is_read=False))
+        self.assertCountEqual([row.event_type for row in archived], ['renewal.reminder', 'cancellation.reminder'])
+        with patch('django.utils.timezone.now', return_value=created + timedelta(hours=1)):
+            # An ordinary current alert must still reach the digest.
+            InAppNotification.objects.create(recipient=self.user, event_type='budget.warning', title='Current alert')
+            self.assertEqual(send_digests(), 1)
+        [message] = mail.outbox
+        self.assertIn('Current alert', message.body)
+        self.assertNotIn('Archived', message.body)
 
     def test_backup_roundtrip_retains_financial_history_and_receipt(self):
         sub = self.sub()

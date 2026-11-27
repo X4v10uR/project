@@ -194,8 +194,11 @@ def reminder_is_current(notification):
     """Revalidate scheduled reminders after quiet hours, retries or digest delays."""
     kinds = {'renewal.reminder': 'renewal_reminder', 'cancellation.reminder': 'cancellation_deadline'}
     kind = kinds.get(notification.event_type)
-    if kind is None or notification.subscription_id is None:
+    if kind is None:
         return True
+    # Portable restores retain reminders as history, without a live subscription.
+    if notification.subscription_id is None:
+        return False
     sub = _reminder_subscriptions().filter(pk=notification.subscription_id).first()
     if sub is None or sub.team_id != notification.team_id:
         return False

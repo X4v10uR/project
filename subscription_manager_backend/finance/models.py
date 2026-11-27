@@ -2,6 +2,7 @@ import uuid
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
 from django.db import models
+from django.db.models.functions import Lower
 
 
 def private_storage():
@@ -104,8 +105,9 @@ class SpendingBudget(models.Model):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=['user', 'team', 'category', 'currency'], name='unique_team_spending_budget'),
-            models.UniqueConstraint(fields=['user', 'category', 'currency'], condition=models.Q(team__isnull=True),
+            models.UniqueConstraint('user', 'team', Lower('category'), 'currency',
+                                    condition=models.Q(team__isnull=False), name='unique_team_spending_budget'),
+            models.UniqueConstraint('user', Lower('category'), 'currency', condition=models.Q(team__isnull=True),
                                     name='unique_personal_spending_budget'),
         ]
 

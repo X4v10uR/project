@@ -1,11 +1,13 @@
 from decimal import Decimal
 from functools import partial
 from django.db import transaction
-from django.utils import timezone
+from django.db.models import Value
+from django.db.models.functions import Lower
 from rest_framework import serializers
 from subscriptions.models import Subscription
 from subscriptions.money import monthly_equivalent
 from subscriptions.notifications import create_notification
+from .delivery import local_now
 from .models import SpendingBudget
 from .permissions import require_team
 
@@ -28,10 +30,13 @@ class BudgetInput(serializers.ModelSerializer):
         return values
 
     def create(self, validated_data):
-        budget, _ = SpendingBudget.objects.update_or_create(
+        values = dict(validated_data)
+        category = values.pop('category', '')
+        match = SpendingBudget.objects.alias(category_key=Lower('category')).filter(category_key=Lower(Value(category)))
+        budget, _ = match.update_or_create(
             user=self.context['user'], team_id=validated_data.get('team_id'),
-            category=validated_data.get('category', ''), currency=validated_data['currency'],
-            defaults=validated_data,
+            currency=validated_data['currency'], defaults=values,
+            create_defaults={**values, 'category': category},
         )
         return budget
 
@@ -40,15 +45,15 @@ def spend(budget):
     subs = Subscription.objects.filter(currency=budget.currency)
     subs = subs.filter(team_id=budget.team_id) if budget.team_id else subs.filter(user=budget.user, team__isnull=True)
     if budget.category:
-        subs = subs.filter(category__iexact=budget.category)
-    today = timezone.localdate()
+        subs = subs.alias(category_key=Lower('category')).filter(category_key=Lower(Value(budget.category)))
+    today = local_now(budget.user).date()
     return sum((monthly_equivalent(s.price_on(today) if budget.team_id else s.share_on(today), s.billing_cycle)
         for s in subs.prefetch_related('price_changes', 'participants') if s.bills_on(today)), Decimal('0')).quantize(Decimal('.01'))
 
 
 @transaction.atomic
 def check_budget(pk):
-    budget = SpendingBudget.objects.select_for_update().filter(pk=pk).first()
+    budget = SpendingBudget.objects.select_for_update(of=('self',)).select_related('user').filter(pk=pk).first()
     if not budget:
         return
     from .permissions import team_permission

@@ -175,7 +175,7 @@ def budget_data(budget):
 @api_view(['GET', 'POST'])
 def budgets(request):
     if request.method == 'GET':
-        rows = SpendingBudget.objects.filter(user=request.user).filter(Q(team__isnull=True) | Q(team__memberships__user=request.user, team__memberships__role__in=['owner', 'accountant'])).distinct().select_related('team')
+        rows = SpendingBudget.objects.filter(user=request.user).filter(Q(team__isnull=True) | Q(team__memberships__user=request.user, team__memberships__role__in=['owner', 'accountant'])).distinct().select_related('team', 'user')
         return Response({'budgets': [budget_data(b) for b in rows],
             'teams': list(Team.objects.filter(memberships__user=request.user, memberships__role__in=['owner', 'accountant']).values('id', 'name')),
             'categories': sorted(set(subscriptions_for(request.user).values_list('category', flat=True)))})

@@ -112,9 +112,12 @@ are estimates, not bank-settled amounts or historical conversion accounting.
 Detailed budgets are separate from existing dashboard limits. Set a currency,
 optional category, optional individual team, monthly limit and warning threshold
 from 1–99%. Personal budgets use your share; team budgets use the full provider
-price. Saving the same workspace/category/currency updates the limit. Alerts
+price. Saving the same workspace/category/currency updates the limit regardless
+of category letter casing. The upgrade keeps the most recently created budget
+when older entries differ only by category casing. Alerts
 fire when crossing the warning or full-limit threshold; dropping below a
-threshold rearms it. The scheduler rechecks budgets as dated prices change.
+threshold rearms it. The scheduler rechecks budgets using the budget owner's
+local date as scheduled prices and pauses take effect.
 Revoked/downgraded team access no longer exposes that team's budget spend.
 
 ## Email preferences, push, quiet hours and snoozing
@@ -201,7 +204,8 @@ snapshots are exported; restored teams initially contain only the restoring
 user as Owner, and that user becomes payer of restored charges. Re-invite other
 members explicitly. Participant names and repayment amounts remain historical
 snapshots. Connections restore as archived ledgers with no access tokens; connect
-providers again for live sync. Push remains off after restore. Existing balance
+providers again for live sync. Restored renewal and cancellation reminders stay
+in notification history and are not sent again. Push remains off after restore. Existing balance
 settings and notification preferences are restored for the current user.
 
 All database changes are transactional; invalid references roll back the
