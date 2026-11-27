@@ -206,8 +206,14 @@ test('record a payment and reimbursement, then set a currency-specific budget', 
   await page.getByRole('button', { name: 'Save', exact: true }).click()
   await expect(page.getByText('PKR 12.00', { exact: true })).toBeVisible()
   await page.getByRole('link', { name: 'Open stats' }).click()
-  await expect(page.getByLabel('Dashboard currency')).toHaveValue('PKR')
-  await page.getByLabel('Dashboard currency').selectOption('USD')
+  // Both screens have a currency picker. Wait for the destination before using it.
+  await expect(page.getByRole('heading', { name: 'Balance & Stats' })).toBeVisible()
+  await expect(page).toHaveURL(/\/dashboard\/balance-stats\/\?.*\bcurrency=PKR\b/)
+  const currencyPicker = page.getByLabel('Dashboard currency')
+  await expect(currencyPicker).toHaveValue('PKR')
+  await currencyPicker.selectOption('USD')
+  await expect(page).toHaveURL(/\/dashboard\/balance-stats\/\?.*\bcurrency=USD\b/)
+  await expect(currencyPicker).toHaveValue('USD')
   await expect(page.getByText('No scheduled USD charges in this period.')).toBeVisible()
 })
 
