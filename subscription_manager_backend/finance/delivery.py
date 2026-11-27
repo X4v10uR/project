@@ -1,6 +1,7 @@
 import base64
 import json
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from importlib import import_module
 from urllib.parse import urlsplit
@@ -19,6 +20,12 @@ from subscriptions.models import InAppNotification
 from .models import NotificationPreference, NotificationDelivery, PushSubscription
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class EmailDeliveryFailures:
+    queued: int = 0
+    digests: int = 0
 
 
 def local_now(user):
@@ -127,7 +134,7 @@ def route_notification(notification, send_email_alert):
                       'deliver_after': timezone.now() + timedelta(minutes=5)})
 
 
-def deliver_queued():
+def deliver_queued(*, email_failures=None):
     from subscriptions.notifications import _send_notification_email
     from subscriptions.services import reminder_is_current
     delivered = 0
@@ -157,6 +164,8 @@ def deliver_queued():
                     _send_notification_email(n)
                     row.email = False
                 except Exception:
+                    if email_failures is not None:
+                        email_failures.queued += 1
                     logger.warning('Email delivery retry failed: %s', n.pk)
             else:
                 row.email = False
@@ -179,7 +188,7 @@ def deliver_queued():
     return delivered
 
 
-def send_digests():
+def send_digests(*, email_failures=None):
     from subscriptions.services import reminder_is_current
     sent = 0
     eligible = NotificationPreference.objects.filter(email_enabled=True, user__is_active=True).exclude(digest='off')
@@ -215,6 +224,8 @@ def send_digests():
                     if not accepted:
                         raise RuntimeError('Email backend did not send the digest.')
                 except Exception:
+                    if email_failures is not None:
+                        email_failures.digests += 1
                     logger.warning('Digest delivery failed for user %s', pref.user_id)
                     continue
                 sent += 1

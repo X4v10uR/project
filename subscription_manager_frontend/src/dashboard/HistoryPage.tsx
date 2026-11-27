@@ -64,7 +64,6 @@ export function HistoryPage() {
   const [result, setResult] = useState<{ query: string; data?: History; error?: string }>()
   const [retry, setRetry] = useState(0)
   const current = result?.query === query ? result : undefined
-  const page = Number(params.get('page') || 1)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -83,14 +82,12 @@ export function HistoryPage() {
     setParams(next)
   }
 
-  function goToPage(number: number) {
-    const next = new URLSearchParams(params)
-    next.set('page', String(number))
-    setParams(next)
+  function goToPage(link: string | null) {
+    if (link) setParams(new URL(link, window.location.origin).searchParams)
   }
 
   return (
-    <section className="mx-auto grid max-w-5xl gap-5 px-4 py-6 sm:px-6">
+    <section className="mx-auto grid max-w-5xl grid-cols-1 gap-5 px-4 py-6 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-3xl font-bold tracking-tight">Charge history</h1><Link className={buttonClass} to={`/planning/reports/?${query}`}>Export charge history</Link></div>
       {params.has('charge') && <Link className="text-sm font-semibold underline" to={`/dashboard/history/?scope=${params.get('scope') === 'teams' ? 'teams' : 'personal'}`}>View all charges in this workspace</Link>}
       <form key={query} className={`${panelClass} grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-5`} onSubmit={filter}>
@@ -102,7 +99,7 @@ export function HistoryPage() {
       </form>
       {!current && <p role="status">Loading charges…</p>}
       {current?.error && <div className="grid justify-items-start gap-2"><ErrorBanner message={current.error} /><button className={buttonClass} onClick={() => setRetry(retry + 1)}>Try again</button></div>}
-      {current?.data && <div className={panelClass}>
+      {current?.data && <div className={`${panelClass} min-w-0`}>
         {current.data.count === 0 ? <p>No charges match these filters.</p> : <>
           <h2 className="text-sm font-semibold text-slate-600">Total scheduled for these filters</h2>
           <ul className="mb-3 flex flex-wrap gap-4 text-2xl font-bold">
@@ -112,19 +109,20 @@ export function HistoryPage() {
           </ul>
           {Object.keys(current.data.paid_by_currency).length > 0 && <p className="mb-3 text-sm font-semibold">Confirmed paid · {Object.entries(current.data.paid_by_currency).map(([code, value]) => currencyAmount(value, code)).join(' + ')}</p>}
           <p className="pb-3 text-sm text-slate-600">Charges are recorded from subscription schedules. Dates refer to the scheduled renewal.</p>
-          <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+          <div role="region" aria-label="Charge history table" tabIndex={0} className="overflow-x-auto rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+            <table className="w-full min-w-[32rem] text-left text-sm">
             <thead className="border-b text-slate-600"><tr><th className="p-2">Date</th><th className="p-2">Service</th><th className="p-2">Source</th><th className="p-2 text-right">Your amount</th><th className="p-2">Payment status</th></tr></thead>
             <tbody className="divide-y divide-slate-100">{current.data.results.map((charge) => <tr key={charge.id}>
               <td className="p-2"><time dateTime={charge.date}>{displayDate(charge.date)}</time></td>
-              <td className="p-2 font-semibold"><span className="inline-flex items-center gap-2"><ServiceIcon name={charge.service} className="size-6" />{charge.service}</span>{charge.team && <span className="block text-xs font-normal">{charge.team}</span>}<Link className="mt-1 block text-xs font-medium text-indigo-700 underline" to={`/planning/receipts/?charge=${charge.id}`}>Receipts</Link></td>
+              <td className="max-w-52 p-2 font-semibold"><span className="inline-flex min-w-0 items-start gap-2"><ServiceIcon name={charge.service} className="size-6 shrink-0" /><span className="min-w-0 [overflow-wrap:anywhere]">{charge.service}</span></span>{charge.team && <span className="block text-xs font-normal [overflow-wrap:anywhere]">{charge.team}</span>}<Link className="mt-1 block text-xs font-medium text-indigo-700 underline" to={`/planning/receipts/?charge=${charge.id}`}>Receipts</Link></td>
               <td className="p-2">Scheduled renewal</td>
               <td className="whitespace-nowrap p-2 text-right font-semibold">{currencyAmount(charge.amount, charge.currency)} <small>{charge.currency}</small></td>
               <td className="p-2"><ChargeControls charge={charge} reload={() => setRetry((value) => value + 1)} /></td>
             </tr>)}</tbody>
           </table></div>
           {(current.data.previous || current.data.next) && <nav aria-label="History pages" className="mt-4 flex items-center justify-between gap-3">
-            <button className={buttonClass} disabled={!current.data.previous} onClick={() => goToPage(page - 1)}>Previous</button>
-            <span>Page {page}</span><button className={buttonClass} disabled={!current.data.next} onClick={() => goToPage(page + 1)}>Next</button>
+            <button className={buttonClass} disabled={!current.data.previous} onClick={() => goToPage(current.data?.previous ?? null)}>Previous</button>
+            <button className={buttonClass} disabled={!current.data.next} onClick={() => goToPage(current.data?.next ?? null)}>Next</button>
           </nav>}
         </>}
       </div>}

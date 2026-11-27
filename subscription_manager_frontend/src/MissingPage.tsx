@@ -1,7 +1,7 @@
 import { ServiceIcon } from './ServiceIcon'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuth } from './accounts'
+import { useAuth } from './accounts/auth'
 import './MissingPage.css'
 
 const SERVICES = [
@@ -58,7 +58,7 @@ export function MissingPage() {
   }, [])
 
   return (
-    <main className="missing-page" aria-labelledby="missing-page-title">
+    <main tabIndex={-1} className="missing-page" aria-labelledby="missing-page-title">
       <div className="missing-page-content">
         <h1 id="missing-page-title" className="sr-only">404 - Page not found</h1>
         <div className="missing-page-art" aria-hidden="true">

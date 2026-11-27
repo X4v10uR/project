@@ -11,8 +11,12 @@ import {
   subscriptionStatuses, type Subscription, type SubscriptionDetails,
 } from './shared'
 
+type Card = Pick<Subscription, 'id' | 'service_name' | 'plan_name' | 'category' |
+  'billing_cycle' | 'current_status' | 'current_user_cost' | 'currency'> &
+  Pick<SubscriptionDetails, 'card_color' | 'card_text_is_light'> & { renewal_date: string | null }
+
 interface Portfolio {
-  subscriptions: Subscription[]
+  subscriptions: Card[]
   stats: { total: number; active: number; paused: number; monthly_spend_display: string }
   burn_metrics: {
     active_monthly_spend_display: string
@@ -22,7 +26,7 @@ interface Portfolio {
     spend_is_mixed: boolean
     active_share_percent: number
   }
-  details: Record<string, SubscriptionDetails>
+  pagination: { page: number; pages: number; count: number; start: number; end: number }
 }
 
 const statusColors: Record<string, string> = {
@@ -44,19 +48,19 @@ function FilterSelect({ label, name, selection, choices }: {
   )
 }
 
-function SubscriptionCard({ subscription, details, onSelect }: { subscription: Subscription; details: SubscriptionDetails; onSelect: () => void }) {
-  const foreground = details.card_text_is_light ? 'text-white' : 'text-slate-950'
+function SubscriptionCard({ subscription, onSelect }: { subscription: Card; onSelect: () => void }) {
+  const foreground = subscription.card_text_is_light ? 'text-white' : 'text-slate-950'
   return (
-    <button type="button" onClick={onSelect} className={`flex min-h-43 w-full flex-col rounded-2xl p-5 text-left transition hover:-translate-y-0.5 hover:shadow-md ${foreground}`} style={{ backgroundColor: details.card_color }}>
+    <button type="button" onClick={onSelect} className={`flex min-h-43 w-full min-w-0 flex-col rounded-2xl p-5 text-left transition hover:-translate-y-0.5 hover:shadow-md ${foreground}`} style={{ backgroundColor: subscription.card_color }}>
       <span className="flex w-full items-center justify-between gap-3">
         <ServiceIcon name={subscription.service_name} />
         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusColors[subscription.current_status] ?? 'bg-white/60'}`}>{subscription.current_status}</span>
       </span>
-      <span className="mt-4 text-lg font-bold">{subscription.service_name}</span>
-      <span className="text-sm font-medium opacity-85">{subscription.plan_name || subscription.category}</span>
+      <span className="mt-4 max-w-full text-lg font-bold [overflow-wrap:anywhere]">{subscription.service_name}</span>
+      <span className="max-w-full text-sm font-medium opacity-85 [overflow-wrap:anywhere]">{subscription.plan_name || subscription.category}</span>
       <span className="mt-4 flex w-full flex-wrap items-end justify-between gap-x-4 gap-y-1">
         <span className="text-xl font-bold">{currencyAmount(subscription.current_user_cost, subscription.currency)} <span className="text-xs font-medium opacity-85">{displayCycle(subscription.billing_cycle)}</span></span>
-        <span className="text-xs font-medium opacity-85">{displayDate(details.renewal_date || null)}</span>
+        <span className="text-xs font-medium opacity-85">{displayDate(subscription.renewal_date)}</span>
       </span>
     </button>
   )
@@ -83,7 +87,7 @@ function Detail({ subscription, details, onClose, onUpdated, initiallyDeleting }
   }
 
   return (
-    <Modal title={deleting ? `Delete ${subscription.service_name}?` : <span className="flex items-center gap-2"><ServiceIcon name={subscription.service_name} className="size-8" />{subscription.service_name}</span>} onClose={onClose}>
+    <Modal title={deleting ? `Delete ${subscription.service_name}?` : <span className="flex min-w-0 items-start gap-2"><ServiceIcon name={subscription.service_name} className="size-8 shrink-0" /><span className="min-w-0 [overflow-wrap:anywhere]">{subscription.service_name}</span></span>} onClose={onClose}>
       <div className="grid gap-4">
         <ErrorBanner message={error} />
         {deleting ? (
@@ -151,11 +155,18 @@ export function SubscriptionsPage() {
   const navigate = useNavigate()
   const [result, setResult] = useState<{ filters: string; portfolio?: Portfolio; error?: string }>()
   const [revision, setRevision] = useState(0)
-  const selectedId = Number(query.get('subscription'))
+  const [selection, setSelection] = useState<{ id: number; item?: Subscription & { details: SubscriptionDetails }; error?: string }>()
+  const requestedId = Number(query.get('subscription'))
+  const selectedId = Number.isSafeInteger(requestedId) && requestedId > 0 ? requestedId : null
   const filters = new URLSearchParams(query)
   filters.delete('subscription')
   filters.delete('action')
-  const queryString = filters.toString()
+  const exportFilters = new URLSearchParams(filters)
+  exportFilters.delete('page')
+  const filterString = exportFilters.toString()
+  const apiFilters = new URLSearchParams(filters)
+  apiFilters.set('page', filters.get('page') || '1')
+  const queryString = apiFilters.toString()
   const portfolio = result?.filters === queryString ? result.portfolio : undefined
   const error = result?.filters === queryString ? result.error : undefined
 
@@ -170,6 +181,26 @@ export function SubscriptionsPage() {
       })
     return () => controller.abort()
   }, [queryString, revision])
+
+  useEffect(() => {
+    if (selectedId === null) return
+    const controller = new AbortController()
+    api<Subscription & { details: SubscriptionDetails }>(`${subscriptionApi}${selectedId}/`, { signal: controller.signal })
+      .then((item) => {
+        if (!controller.signal.aborted) {
+          setSelection(item.team === null ? { id: selectedId, item } : { id: selectedId, error: 'Subscription not found.' })
+        }
+      }).catch((error) => {
+        if (!controller.signal.aborted) setSelection({ id: selectedId, error: showError(error) })
+      })
+    return () => controller.abort()
+  }, [selectedId, revision])
+
+  function goToPage(page: number) {
+    const params = new URLSearchParams(exportFilters)
+    if (page > 1) params.set('page', String(page))
+    setQuery(params)
+  }
 
   function openSubscription(id: number) {
     const params = new URLSearchParams(filters)
@@ -191,14 +222,14 @@ export function SubscriptionsPage() {
     setQuery(params)
   }
 
-  const selected = portfolio?.subscriptions.find((subscription) => subscription.id === selectedId)
+  const selected = selection?.id === selectedId ? selection : undefined
 
   return (
-    <section className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:py-8">
+    <section className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-6 sm:px-6 lg:py-8">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">Subscriptions</h1>
         <div className="flex flex-wrap gap-2">
-          <a className={`${buttonClass} gap-2`} href={`${subscriptionApi}export/csv/?${queryString}`}><Download size={16} /> Export CSV</a>
+          <a className={`${buttonClass} gap-2`} href={`${subscriptionApi}export/csv/?${filterString}`}><Download size={16} /> Export CSV</a>
           <Link className={`${buttonClass} gap-2`} to={`${subscriptionPath}import/`}><Upload size={18} aria-hidden />Import CSV</Link>
           <Link className={`${primaryClass} gap-2`} to={`${subscriptionPath}add/`}><Plus size={18} /> Add subscription</Link>
           <Link className={`${buttonClass} gap-2`} to="/subscriptions/quick-add/"><Zap size={18} aria-hidden />Quick add</Link>
@@ -211,7 +242,7 @@ export function SubscriptionsPage() {
         </div>
       )}
       {typeof location.state?.notice === 'string' && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">{location.state.notice}</p>}
-      {portfolio?.subscriptions.some(item => item.id === location.state?.savedSubscriptionId) && <SavedRenewal subscriptionId={location.state.savedSubscriptionId} />}
+      {typeof location.state?.savedSubscriptionId === 'number' && <SavedRenewal subscriptionId={location.state.savedSubscriptionId} />}
       {portfolio && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Subscription summary">
           {[
@@ -222,7 +253,7 @@ export function SubscriptionsPage() {
           ))}
         </div>
       )}
-      <form key={queryString} onSubmit={filter} className={`${panelClass} grid gap-3 sm:grid-cols-2 xl:grid-cols-[1.45fr_repeat(5,minmax(0,1fr))_auto]`}>
+      <form key={filterString} onSubmit={filter} className={`${panelClass} grid gap-3 sm:grid-cols-2 xl:grid-cols-[1.45fr_repeat(5,minmax(0,1fr))_auto]`}>
         <label className="relative">
           <span className="sr-only">Search subscriptions</span>
           <Search size={17} className="pointer-events-none absolute top-3 left-3 text-slate-400" />
@@ -239,16 +270,25 @@ export function SubscriptionsPage() {
       {portfolio && (
         <>
           {portfolio.subscriptions.length ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {portfolio.subscriptions.map((subscription) => (
-                <SubscriptionCard key={subscription.id} subscription={subscription} details={portfolio.details[subscription.id]} onSelect={() => openSubscription(subscription.id)} />
+                <SubscriptionCard key={subscription.id} subscription={subscription} onSelect={() => openSubscription(subscription.id)} />
               ))}
             </div>
           ) : (
             <div className={`${panelClass} grid justify-items-center gap-3 py-12`}>
-              <h2 className="text-lg font-bold">{queryString ? 'No matching subscriptions' : 'No subscriptions yet'}</h2>
-              {queryString ? <button className={buttonClass} onClick={() => setQuery({})}>Clear filters</button> : <Link className={primaryClass} to={`${subscriptionPath}add/`}>Add subscription</Link>}
+              <h2 className="text-lg font-bold">{filterString ? 'No matching subscriptions' : 'No subscriptions yet'}</h2>
+              {filterString ? <button className={buttonClass} onClick={() => setQuery({})}>Clear filters</button> : <Link className={primaryClass} to={`${subscriptionPath}add/`}>Add subscription</Link>}
             </div>
+          )}
+          {portfolio.pagination.pages > 1 && (
+            <nav aria-label="Subscription pages" className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-slate-600">Showing {portfolio.pagination.start}–{portfolio.pagination.end} of {portfolio.pagination.count} subscriptions</p>
+              <div className="flex gap-2">
+                <button type="button" className={buttonClass} disabled={portfolio.pagination.page <= 1} onClick={() => goToPage(portfolio.pagination.page - 1)}>Previous</button>
+                <button type="button" className={buttonClass} disabled={portfolio.pagination.page >= portfolio.pagination.pages} onClick={() => goToPage(portfolio.pagination.page + 1)}>Next</button>
+              </div>
+            </nav>
           )}
           {portfolio.burn_metrics.tracked_count > 0 && (
             <div className={panelClass}>
@@ -262,7 +302,10 @@ export function SubscriptionsPage() {
           )}
         </>
       )}
-      {selected && portfolio?.details[selected.id] && <Detail key={selected.id} subscription={selected} details={portfolio.details[selected.id]} initiallyDeleting={query.get('action') === 'delete'} onClose={closeSubscription} onUpdated={() => setRevision((value) => value + 1)} />}
+      {selected?.item && <Detail key={`${selected.id}:${query.get('action')}`} subscription={selected.item} details={selected.item.details} initiallyDeleting={query.get('action') === 'delete'} onClose={closeSubscription} onUpdated={() => setRevision((value) => value + 1)} />}
+      {selectedId !== null && !selected?.item && <Modal title="Subscription details" onClose={closeSubscription}>
+        {selected?.error ? <ErrorBanner message={selected.error} /> : <p role="status">Loading subscription details…</p>}
+      </Modal>}
     </section>
   )
 }

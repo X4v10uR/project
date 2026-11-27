@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, connections, delivery, backup, statements
+from . import views, connections, delivery, backup, statements, charge_differences
 
 urlpatterns = [
     path('receipts/', views.receipts),
@@ -24,6 +24,7 @@ urlpatterns = [
     path('connections/plaid/exchange/', connections.plaid_exchange),
     path('connections/gmail/start/', connections.gmail_start),
     path('connections/gmail/callback/', connections.gmail_callback),
+    path('charge-differences/<int:pk>/dismiss/', charge_differences.dismiss),
     path('discoveries/', connections.discoveries),
     path('discoveries/<int:pk>/charges/', connections.manual_charge_options),
     path('discoveries/<int:pk>/', connections.discovery_action),

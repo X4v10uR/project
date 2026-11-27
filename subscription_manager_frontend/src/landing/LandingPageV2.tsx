@@ -3,7 +3,7 @@ import {
   CalendarDays, Check, Files, LayoutGrid, Menu, Plus, ShieldCheck, UsersRound, X, Zap,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useAuth } from '../accounts'
+import { useAuth } from '../accounts/auth'
 import { ServiceIcon } from '../ServiceIcon'
 import { LandingFooter } from './LandingPage'
 import { LandingFeatures } from './LandingFeatures'
@@ -202,7 +202,7 @@ export function LandingPageV2() {
 
   return <div className="lp-page lp-v2" id="top" ref={pageRef}>
     <a className="lp-skip-link" href="#main-content">Skip to content</a>
-    <main className="lv-content" id="main-content">
+    <main className="lv-content" id="main-content" tabIndex={-1}>
       <div className="lv-hero">
         <header className="lv-header"><nav ref={menuRef} className="lv-nav" aria-label="Primary navigation" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setMenuOpen(false) }}>
           <Brand/>

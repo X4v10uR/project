@@ -6,6 +6,7 @@ class FinanceConfig(AppConfig):
     name = 'finance'
 
     def ready(self):
+        from . import deploy_checks  # noqa: F401 (registers deployment checks)
         from django.contrib.auth.signals import user_logged_out
         from django.db.models.signals import post_save, post_delete
         from subscriptions.models import Subscription

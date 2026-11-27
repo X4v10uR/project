@@ -24,7 +24,7 @@ export function SavedRenewal({ subscriptionId }: { subscriptionId?: number }) {
   if (!subscriptionId || result?.id !== subscriptionId) return null
   const renewal = result.renewal
   return (
-    <section className={panelClass} aria-label="Saved subscription schedule">
+    <section className={`${panelClass} min-w-0 [overflow-wrap:anywhere]`} aria-label="Saved subscription schedule">
       {renewal && <>
         <h2 className="font-bold">{renewal.service_name} payment schedule</h2>
         <p className="my-2 text-sm">

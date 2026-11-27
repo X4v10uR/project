@@ -12,6 +12,7 @@ urlpatterns = [
     path('review/action/', planning.review_action),
     path('settlements/', planning.settlements),
     path('settlements/<int:pk>/repay/', planning.repay),
+    path('<int:pk>/renewal-comparison/', planning.renewal_comparison),
     path('<int:pk>/prices/', planning.price_changes),
     path('', api_views.subscriptions, name='list'),
     path('options/', api_views.subscription_options, name='options'),

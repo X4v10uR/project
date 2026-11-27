@@ -1,0 +1,46 @@
+name: Dependency audit
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/dependency-audit.yml
+      - subscription_manager_backend/requirements.txt
+      - subscription_manager_frontend/package.json
+      - subscription_manager_frontend/package-lock.json
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/dependency-audit.yml
+      - subscription_manager_backend/requirements.txt
+      - subscription_manager_frontend/package.json
+      - subscription_manager_frontend/package-lock.json
+  schedule:
+    - cron: '19 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-advisories:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install pip-audit==2.10.0
+      - run: python -m pip_audit --strict -r subscription_manager_backend/requirements.txt
+  npm-advisories:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: subscription_manager_frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm audit --package-lock-only --audit-level=high

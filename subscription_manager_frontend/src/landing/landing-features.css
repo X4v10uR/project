@@ -48,17 +48,17 @@
 .lv-example-services strong, .lv-example-services b { font-size: .9375rem; font-weight: 500; }
 .lv-example-services small { display: block; margin-top: 2px; color: #647981; font-size: .8125rem; }
 .lv-example-services .service-icon { width: 35px; height: 35px; border-radius: 10px; }
-.lv-example-caption { display: block; margin-top: 20px; color: #617680; font-size: .8125rem; line-height: 1.6; }
+.lv-example-caption { display: block; margin-top: 20px; color: #536971; font-size: .8125rem; line-height: 1.6; }
 .lv-visual-note { display: flex; align-items: center; justify-content: center; gap: 9px; margin-top: 22px; color: #436977; font-size: .875rem; }
 .lv-product-reverse .lv-product-copy { grid-column: 2; grid-row: 1; }
 .lv-product-reverse .lv-product-visual { grid-column: 1; grid-row: 1; }
 .lv-renewal-visual { padding: 30px; background: #f5f3f0; }
 .lv-renewal-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 28px; }
 .lv-renewal-header > span { display: flex; align-items: center; gap: 8px; color: #395461; font-size: .9375rem; font-weight: 500; }
-.lv-renewal-header small { color: #738086; font-size: .8125rem; }
+.lv-renewal-header small { color: #536971; font-size: .8125rem; }
 .lv-renewal-event { display: flex; align-items: start; gap: 16px; margin-top: 12px; padding: 22px 18px; border-radius: 18px; background: #fff; box-shadow: 0 3px 12px #59493505; }
 .lv-event-date { flex: 0 0 36px; width: 36px; color: #285873; font-size: 1.9rem; letter-spacing: -.06em; line-height: 1.1; text-align: center; }
-.lv-event-date small { display: block; margin-top: 6px; color: #6c7a80; font-size: .75rem; letter-spacing: .04em; }
+.lv-event-date small { display: block; margin-top: 6px; color: #536971; font-size: .75rem; letter-spacing: .04em; }
 .lv-renewal-event > div { flex: 1; }
 .lv-renewal-event > svg { flex: none; color: #87a4b0; }
 .lv-renewal-event strong { font-size: 1rem; font-weight: 500; }
@@ -73,7 +73,7 @@
 .lv-shared-section .lv-button { margin-top: 4px; }
 .lv-team-example { min-width: 0; padding: 28px; border: 1px solid #fff; border-radius: 28px; color: #183b4c; background: white; box-shadow: 0 30px 70px #00182724; }
 .lv-team-example .lv-example-heading { padding-bottom: 25px; border-bottom: 1px solid #e5edef; }
-.lv-team-example .lv-example-heading > span:last-child { color: #647b85; font-size: .8125rem; }
+.lv-team-example .lv-example-heading > span:last-child { color: #536971; font-size: .8125rem; }
 .lv-team-plan { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding-block: 25px; }
 .lv-team-plan > div { flex: 1; }
 .lv-team-plan strong { display: block; font-size: 1rem; font-weight: 500; }
@@ -85,7 +85,7 @@
 .lv-split-row:nth-of-type(5) .lv-person-avatar { color: #596583; background: #e8eaf7; }
 .lv-split-row > div { flex: 1; }
 .lv-split-row strong, .lv-split-row b { font-size: .875rem; font-weight: 500; }
-.lv-split-row small { display: block; margin-top: 3px; color: #67818b; font-size: .8125rem; }
+.lv-split-row small { display: block; margin-top: 3px; color: #536971; font-size: .8125rem; }
 .lv-settlement-total { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 13px; padding: 19px; border-radius: 15px; background: #f0f6f8; }
 .lv-settlement-total > span { font-size: .875rem; }
 .lv-settlement-total > strong { font-size: 1.8rem; letter-spacing: -.05em; font-weight: 500; }

@@ -1,12 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { api } from '../api'
+import { api, ApiError } from '../api'
 import { buttonClass, currencyAmount, displayDate, ErrorBanner, Field, inputClass, panelClass, showError } from './shared'
 
 type Change = { id: number; previous_cost: string; cost: string; effective_on: string }
-type PriceHistory = { changes: Change[]; current_regular_cost: string }
-export function PriceChanges({ id, currency, disabled, onBusyChange, onCurrentCostChange }: {
+type PriceHistory = { changes: Change[]; current_regular_cost: string; edit_revision?: string }
+export function PriceChanges({ id, currency, disabled, onBusyChange, onCurrentCostChange, editRevision, onRevisionChange, onStale }: {
   id: number; currency: string; disabled: boolean;
   onBusyChange: (busy: boolean) => void; onCurrentCostChange: (cost: string) => void;
+  editRevision?: string; onRevisionChange: (revision: string) => void; onStale: () => void;
 }) {
   const [history, setHistory] = useState<PriceHistory>(); const [error, setError] = useState(''); const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -19,6 +20,11 @@ export function PriceChanges({ id, currency, disabled, onBusyChange, onCurrentCo
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
   }, [id])
+  useEffect(() => {
+    if (window.location.hash === '#price-history') {
+      document.getElementById('price-history')?.scrollIntoView({ block: 'start' })
+    }
+  }, [id])
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (busy || loading || disabled) return
@@ -27,14 +33,19 @@ export function PriceChanges({ id, currency, disabled, onBusyChange, onCurrentCo
     try {
       const data = await api<PriceHistory>(`/api/subscriptions/${id}/prices/`, {
         method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(form))),
+        headers: editRevision ? { 'If-Match': `"${editRevision}"` } : undefined,
       })
       if (data.current_regular_cost !== history?.current_regular_cost) onCurrentCostChange(data.current_regular_cost)
+      if (data.edit_revision) onRevisionChange(data.edit_revision)
       setHistory(data)
       form.reset()
-    } catch (e) { setError(showError(e)) } finally { setBusy(false); onBusyChange(false) }
+    } catch (e) {
+      setError(showError(e))
+      if (e instanceof ApiError && e.status === 412) onStale()
+    } finally { setBusy(false); onBusyChange(false) }
   }
   return (
-    <section className={`${panelClass} mt-5`}>
+    <section id="price-history" className={`${panelClass} mt-5`}>
       <h2 className="text-lg font-bold">Price history & scheduled changes</h2>
       <p className="mt-2 text-sm text-slate-600">Set the provider’s new full price and effective date. Future renewals and forecasts use it automatically. Editing the main cost records a change effective today.</p>
       <ul className="my-4 divide-y divide-slate-100 text-sm">

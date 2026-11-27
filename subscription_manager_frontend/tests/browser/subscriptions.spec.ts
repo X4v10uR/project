@@ -206,8 +206,14 @@ test('record a payment and reimbursement, then set a currency-specific budget', 
   await page.getByRole('button', { name: 'Save', exact: true }).click()
   await expect(page.getByText('PKR 12.00', { exact: true })).toBeVisible()
   await page.getByRole('link', { name: 'Open stats' }).click()
-  await expect(page.getByLabel('Dashboard currency')).toHaveValue('PKR')
-  await page.getByLabel('Dashboard currency').selectOption('USD')
+  // Both screens have a currency picker. Wait for the destination before using it.
+  await expect(page.getByRole('heading', { name: 'Balance & Stats' })).toBeVisible()
+  await expect(page).toHaveURL(/\/dashboard\/balance-stats\/\?.*\bcurrency=PKR\b/)
+  const currencyPicker = page.getByLabel('Dashboard currency')
+  await expect(currencyPicker).toHaveValue('PKR')
+  await currencyPicker.selectOption('USD')
+  await expect(page).toHaveURL(/\/dashboard\/balance-stats\/\?.*\bcurrency=USD\b/)
+  await expect(currencyPicker).toHaveValue('USD')
   await expect(page.getByText('No scheduled USD charges in this period.')).toBeVisible()
 })
 
@@ -321,7 +327,8 @@ test('selecting an adjacent-month calendar day shows its events', async ({ page 
   const now = new Date()
   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
   const day = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}-01`
-  await page.route('**/api/subscriptions/calendar/?scope=personal', route => route.fulfill({ json: { events: [{
+  const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+  await page.route('**/api/subscriptions/calendar/?scope=personal', route => route.fulfill({ json: { start, end: day, events: [{
     id: 'adjacent-payment', subscription_id: 1, team_id: null, service: 'Adjacent renewal',
     date: day, kind: 'payment', amount: '15.00', currency: 'USD',
   }] } }))
@@ -377,4 +384,57 @@ test('saving an edit preserves a price change scheduled for today', async ({ pag
   await expect(page).toHaveURL(/\/subscriptions\/$/)
   const prices = await page.request.get(`/api/subscriptions/${id}/prices/`)
   expect((await prices.json()).changes.map((change: { cost: string }) => change.cost)).toEqual(['45.00', '50.00'])
+})
+
+test('compares renewal options without changing the current subscription', async ({ page }) => {
+  await signUp(page)
+  await page.goto('/subscriptions/quick-add/')
+  await page.getByLabel('Service', { exact: true }).fill('Comparison Test Plan')
+  await page.getByLabel('Cost (USD)').fill('30')
+  await page.getByLabel('Next payment').fill(new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10))
+  await page.getByRole('button', { name: 'Add subscription', exact: true }).click()
+  await expect(page).toHaveURL(/\/subscriptions\/(?!quick-add)/)
+  await page.goto('/planning/review/')
+  const comparison = page.getByRole('region', { name: 'Compare renewal options' })
+  await comparison.getByLabel('Subscription to compare').selectOption({ label: 'Comparison Test Plan (USD)' })
+  await comparison.getByLabel('Quoted annual price (USD)').fill('300')
+  await comparison.getByRole('button', { name: 'Compare costs' }).click()
+  await expect(comparison.getByRole('status')).toContainText(/270(?:\.00)? more/)
+  await expect(comparison.getByRole('status')).toContainText(/60(?:\.00)? less/)
+  await comparison.getByLabel('Alternative').selectOption('cancel')
+  await comparison.getByRole('button', { name: 'Compare costs' }).click()
+  await expect(comparison.getByText('Next payment: None in this preview')).toBeVisible()
+  await expect(comparison.getByRole('status')).toContainText(/360(?:\.00)? less/)
+  await page.reload()
+  await expect(comparison.getByLabel('Subscription to compare').locator('option')).toHaveText([
+    'Choose a subscription', 'Comparison Test Plan (USD)',
+  ])
+})
+
+test('a missed cancellation deadline flags the first payment as potentially due', async ({ page }) => {
+  await signUp(page)
+  await page.goto('/subscriptions/add/')
+  await page.getByLabel('Service name').fill('Deadline regression plan')
+  await page.getByLabel('Category', { exact: true }).fill('Cloud')
+  await page.getByLabel('Cost', { exact: true }).fill('30')
+  const day = (offset: number) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10)
+  await page.getByLabel('Trial ends (first paid date)').fill(day(4))
+  await page.getByLabel('Cancel by').fill(day(-1))
+  await page.getByRole('button', { name: 'Save subscription', exact: true }).first().click()
+  await expect(page).toHaveURL(/\/subscriptions\/$/)
+
+  await page.goto('/planning/review/')
+  const comparison = page.getByRole('region', { name: 'Compare renewal options' })
+  await comparison.getByLabel('Subscription to compare').selectOption({ label: 'Deadline regression plan (USD)' })
+  await comparison.getByLabel('Alternative').selectOption('cancel')
+  await comparison.getByRole('button', { name: 'Compare costs' }).click()
+  await expect(comparison.getByRole('status')).toContainText(/deadline has passed.*\$30\.00.*may still be due/i, { timeout: 5000 })
+  await expect(comparison.getByRole('status')).not.toContainText('None in this preview')
+  await expect(comparison.getByRole('status')).not.toContainText('360.00 less')
+
+  await comparison.getByLabel('Alternative').selectOption('annual')
+  await comparison.getByLabel('Quoted annual price (USD)').fill('300')
+  await comparison.getByRole('button', { name: 'Compare costs' }).click()
+  await expect(comparison.getByRole('status')).toContainText(/60(?:\.00)? less/)
+  await expect(comparison.getByText('Cancellation timing unconfirmed')).toHaveCount(0)
 })

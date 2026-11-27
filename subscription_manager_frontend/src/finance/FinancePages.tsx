@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api";
-import { PlanningLayout } from "../subscriptions/PlanningPages";
+import { PlanningLayout } from "../subscriptions/PlanningLayout";
 import {
   buttonClass,
   currencyAmount as money,

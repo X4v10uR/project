@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Exists, OuterRef, Prefetch, Q, Sum
+from django.db.models import Count, Exists, OuterRef, Prefetch, Q, Sum
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers
 from rest_framework.authentication import SessionAuthentication
@@ -9,6 +9,7 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
+from rest_framework.utils.urls import remove_query_param, replace_query_param
 
 from subscriptions.models import ChargeShare, InAppNotification, Repayment, Transaction
 from subscriptions.notifications import (
@@ -39,6 +40,64 @@ class ChargeFilters(serializers.Serializer):
         return data
 
 
+class HistoryCursor(serializers.Serializer):
+    cursor_direction = serializers.ChoiceField(choices=('older', 'newer'), required=False)
+    cursor_date = serializers.DateField(required=False)
+    cursor_id = serializers.IntegerField(min_value=1, required=False)
+
+    def validate(self, data):
+        if data and len(data) != 3:
+            raise serializers.ValidationError('Incomplete charge history cursor.')
+        return data
+
+
+def _history_before(day, pk):
+    return Q(charged_for_date__lt=day) | Q(charged_for_date=day, pk__lt=pk)
+
+
+def _history_after(day, pk):
+    return Q(charged_for_date__gt=day) | Q(charged_for_date=day, pk__gt=pk)
+
+
+def _history_page(request, charges):
+    cursor = HistoryCursor(data=request.query_params)
+    cursor.is_valid(raise_exception=True)
+    fields = cursor.validated_data
+    if not fields and 'page' in request.query_params:
+        # Bookmarked legacy page numbers remain readable. New navigation uses cursors.
+        pages = PageNumberPagination()
+        pages.page_size = 50
+        rows = pages.paginate_queryset(charges.order_by('-charged_for_date', '-pk'), request)
+        return rows, pages.get_previous_link(), pages.get_next_link()
+    ordered = charges.order_by('-charged_for_date', '-pk')
+    if fields:
+        day, pk = fields['cursor_date'], fields['cursor_id']
+        if fields['cursor_direction'] == 'older':
+            ordered = ordered.filter(_history_before(day, pk))
+        else:
+            ordered = ordered.filter(_history_after(day, pk)).reverse()
+    rows = list(ordered[:50])
+    if fields.get('cursor_direction') == 'newer':
+        rows.reverse()
+
+    def link(direction, row):
+        url = remove_query_param(request.build_absolute_uri(), 'page')
+        url = replace_query_param(url, 'cursor_direction', direction)
+        url = replace_query_param(url, 'cursor_date', row.charged_for_date.isoformat())
+        return replace_query_param(url, 'cursor_id', row.pk)
+
+    if not rows:
+        # A concurrent delete can empty a cursor page; offer a first-page recovery.
+        first = request.build_absolute_uri()
+        for name in ('page', 'cursor_direction', 'cursor_date', 'cursor_id'):
+            first = remove_query_param(first, name)
+        return rows, first if fields and charges.exists() else None, None
+    head, tail = rows[0], rows[-1]
+    previous = link('newer', head) if fields and charges.filter(_history_after(head.charged_for_date, head.pk)).exists() else None
+    next_link = link('older', tail) if charges.filter(_history_before(tail.charged_for_date, tail.pk)).exists() else None
+    return rows, previous, next_link
+
+
 @api_view(['GET'])
 def charge_history(request):
     query = ChargeFilters(data=request.query_params)
@@ -57,10 +116,8 @@ def charge_history(request):
         charges = charges.filter(charged_for_date__gte=filters['start'])
     if filters.get('end'):
         charges = charges.filter(charged_for_date__lte=filters['end'])
-    pages = PageNumberPagination()
-    pages.page_size = 50
-    rows = pages.paginate_queryset(charges.order_by('-charged_for_date', '-pk'), request)
-    response = pages.get_paginated_response([
+    rows, previous, next_link = _history_page(request, charges)
+    results = [
         {'id': row.pk, 'service': row.service_name_snapshot, 'date': row.charged_for_date,
          'amount': str(row.amount), 'currency': row.currency, 'source': row.source,
          'shares_captured': row.shares_captured, 'payment_status': row.payment_status, 'can_edit': row.team_id is None or row.team_id in owned_teams,
@@ -68,13 +125,14 @@ def charge_history(request):
                     for share in row.shares.all()],
          'team': row.team.name if row.team_id else None, 'subscription_id': row.subscription_id}
         for row in rows
-    ])
-    totals = charges.order_by().values('currency').annotate(total=Sum('amount'), paid=Sum('amount', filter=Q(payment_status='paid')))
-    response.data['totals_by_currency'] = {
-        row['currency']: format(row['total'], '.2f') for row in totals
-    }
-    response.data['paid_by_currency'] = {row['currency']: format(row['paid'], '.2f') for row in totals if row['paid'] is not None}
-    return response
+    ]
+    totals = list(charges.order_by().values('currency').annotate(
+        count=Count('pk'), total=Sum('amount'), paid=Sum('amount', filter=Q(payment_status='paid')),
+    ))
+    return Response({'results': results, 'previous': previous, 'next': next_link,
+                     'count': sum(row['count'] for row in totals),
+                     'totals_by_currency': {row['currency']: format(row['total'], '.2f') for row in totals},
+                     'paid_by_currency': {row['currency']: format(row['paid'], '.2f') for row in totals if row['paid'] is not None}})
 
 
 def editable_charges(user):
@@ -196,15 +254,18 @@ class BalanceTargetSerializer(CurrencySelection):
 def dashboard_data(request):
     selection = CurrencySelection(data=request.query_params)
     selection.is_valid(raise_exception=True)
+    preview = request.query_params.get('preview') == '1'
     data = build_dashboard_view_model(request.user, scope=request.query_params.get('scope'),
-                                      selected_currency=selection.validated_data.get('currency'))
+                                      selected_currency=selection.validated_data.get('currency'), preview=preview)
     team_names = list(request.user.team_memberships.order_by('team__name').values_list('team__name', flat=True)[:2])
     data['team_label'] = team_names[0] if len(team_names) == 1 else ('All teams' if team_names else '')
     data['show_get_started'] = (
         data['dashboard_scope'] == 'personal' and not any(data[key] for key in ('total_active', 'total_paused', 'total_cancelled'))
         and not team_names
     )
-    data['needs_attention'] = needs_attention(request.user, data['dashboard_scope'])
+    attention = needs_attention(request.user, data['dashboard_scope'])
+    data['needs_attention_count'] = len(attention)
+    data['needs_attention'] = attention[:25] if preview else attention
     data['upcoming_count'] = len(data.pop('upcoming_renewals'))
     for name in ('active_subscriptions', 'paused_subscriptions', 'cancelled_subscriptions', 'shared_subscriptions'):
         data.pop(name)

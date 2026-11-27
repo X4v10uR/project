@@ -93,7 +93,18 @@ export function StatementImport({ onImport }: { onImport: () => void }) {
   </section>
 }
 
-type Charge = { id: number; service: string; date: string; amount: string; currency: string; team: string | null }
+type Charge = {
+  id: number; service: string; date: string; currency: string; team: string | null
+  expected_provider_amount: string | null; payer_share: string | null
+}
+
+function chargeAmounts(charge: Charge) {
+  const expected = charge.expected_provider_amount == null
+    ? 'Full charge unknown'
+    : `Expected provider charge: ${currencyAmount(charge.expected_provider_amount, charge.currency)}`
+  return charge.payer_share == null ? expected
+    : `${expected} · Payer’s share: ${currencyAmount(charge.payer_share, charge.currency)}`
+}
 export function ManualMatch({ payment, onMatch, onClose }: {
   payment: { id: number; merchant: string; amount: string; currency: string; date: string }
   onMatch: () => void; onClose: () => void
@@ -126,10 +137,10 @@ export function ManualMatch({ payment, onMatch, onClose }: {
     {data && !charges.length && <p>No eligible charges in {payment.currency}.</p>}
     {charges.length > 0 && <Field label="Charge to match"><select className={inputClass} value={chosen?.id ?? ''} onChange={event => setChosen(charges.find(charge => charge.id === Number(event.target.value)))}>
       <option value="">Choose a charge</option>
-      {charges.map(charge => <option value={charge.id} key={charge.id}>{charge.service} · {charge.team ?? 'Personal'} · {displayDate(charge.date)} · {currencyAmount(charge.amount, charge.currency)}</option>)}
+      {charges.map(charge => <option value={charge.id} key={charge.id}>{charge.service} · {charge.team ?? 'Personal'} · {displayDate(charge.date)} · {chargeAmounts(charge)}</option>)}
     </select></Field>}
     {next && <button className={buttonClass} disabled={loading} onClick={loadOlder}>Load older charges</button>}
-    {chosen && <p className="text-sm">Link the {currencyAmount(payment.amount, payment.currency)} payment from {displayDate(payment.date)} and mark the {currencyAmount(chosen.amount, chosen.currency)} charge for {chosen.service} paid. History keeps the recorded charge amount and shares.</p>}
+    {chosen && <p className="text-sm">Link the {currencyAmount(payment.amount, payment.currency)} payment from {displayDate(payment.date)} and mark the charge for {chosen.service} paid. {chargeAmounts(chosen)}. History keeps the recorded charge amount and shares.</p>}
     <ErrorBanner message={error || failure} />
     <div className="flex gap-2"><button className={primaryClass} disabled={!chosen} onClick={confirm}>Confirm manual match</button><button className={buttonClass} onClick={onClose}>Close</button></div>
   </fieldset>

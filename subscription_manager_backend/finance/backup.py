@@ -33,7 +33,7 @@ SPECS = {
     'cards': (Card, ['nickname', 'last4', 'brand', 'theme', 'is_primary']),
     'subscriptions': (Subscription, SUB_FIELDS),
     'participants': (SubscriptionParticipant, ['name', 'share_amount']),
-    'renewals': (TeamRenewal, ['decision', 'decision_for', 'decided_at']),
+    'renewals': (TeamRenewal, ['decision', 'decision_for', 'decided_at', 'paid_seats', 'needed_seats', 'decision_reason']),
     'offsets': (ReminderOffset, ['days_before']),
     'prices': (PriceChange, ['previous_cost', 'cost', 'effective_on']),
     'charges': (Transaction, ['service_name_snapshot', 'amount', 'currency', 'charged_for_date', 'source', 'payment_status', 'shares_captured']),
@@ -45,7 +45,7 @@ SPECS = {
     'activity': (Activity, ['service', 'action', 'changes']),
     'notifications': (InAppNotification, ['event_type', 'title', 'body', 'is_read', 'metadata', 'last_reminded_at']),
     'connections': (Connection, ['provider', 'label', 'last_synced_at']),
-    'imports': (ImportedPayment, ['remote_id', 'merchant', 'amount', 'currency', 'paid_on', 'description', 'pending', 'removed', 'dismissed']),
+    'imports': (ImportedPayment, ['remote_id', 'merchant', 'amount', 'currency', 'paid_on', 'description', 'pending', 'removed', 'dismissed', 'acknowledged_charge_difference']),
 }
 
 
@@ -102,6 +102,7 @@ def build_archive(user):
             row['subscription_id'] = None
         if row['charge_id'] not in exported_charges:
             row['charge_id'] = None
+            row['acknowledged_charge_difference'] = None
     pref = NotificationPreference.objects.filter(user=user).first()
     data['notification_preferences'] = {f: getattr(pref, f) for f in ('email_enabled', 'push_enabled', 'digest', 'quiet_start', 'quiet_end')} if pref else None
     output = io.BytesIO()

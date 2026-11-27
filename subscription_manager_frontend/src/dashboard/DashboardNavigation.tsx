@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Ellipsis, LogOut, UserRound, Zap, type LucideIcon } from 'lucide-react'
 import { CapsuleGlass } from './CapsuleGlass'
-import { useAuth } from '../accounts'
+import { useAuth } from '../accounts/auth'
 import { Modal } from '../subscriptions/shared'
 import './dashboard-dock.css'
 
@@ -141,6 +141,19 @@ export function DashboardNavigation({ tabs, signingOut, onSignOut }: Props) {
   const { pathname } = useLocation()
   const dock = useDockMotion(pathname)
   const [moreOpen, setMoreOpen] = useState(false)
+  const moreButton = useRef<HTMLButtonElement>(null)
+  const returnFocus = useRef(false)
+  function closeMore(restoreFocus = true) {
+    returnFocus.current = restoreFocus
+    setMoreOpen(false)
+  }
+  // Wait for the native modal to unmount before focusing outside of it.
+  useLayoutEffect(() => {
+    if (!moreOpen && returnFocus.current) {
+      moreButton.current?.focus()
+      returnFocus.current = false
+    }
+  }, [moreOpen])
   const primary = primaryDestinations.flatMap(label => tabs.filter(tab => tab.label === label))
   const tools = tabs.filter(tab => !primaryDestinations.includes(tab.label))
   const accountActive = /^\/accounts\/settings\/?$/.test(pathname)
@@ -168,19 +181,19 @@ export function DashboardNavigation({ tabs, signingOut, onSignOut }: Props) {
           aria-label={signingOut ? 'Signing out…' : 'Log out'} onClick={onSignOut} disabled={signingOut}>
           <span className="dock-icon"><LogOut size={21} strokeWidth={1.8} aria-hidden /></span>
         </button>
-        <button className="dock-item dock-more" data-dock-item data-label="More" data-current={selectedTool ? true : undefined}
+        <button ref={moreButton} className="dock-item dock-more" data-dock-item data-label="More" data-current={selectedTool ? true : undefined}
           onClick={() => setMoreOpen(true)} type="button" aria-label={selectedTool ? `More, current section ${selectedTool}` : 'More'}
           aria-haspopup="dialog" aria-expanded={moreOpen}>
           <span className="dock-icon"><Ellipsis size={22} aria-hidden /></span><span className="dock-label" aria-hidden>{selectedTool}</span>
         </button>
       </nav>
     </div>
-    {moreOpen && <Modal title="Workspace tools" onClose={() => setMoreOpen(false)}>
+    {moreOpen && <Modal title="Workspace tools" onClose={() => closeMore()}>
       <nav aria-label="More destinations" className="mobile-tool-list">
         {tools.map(({ icon: Icon, ...item }) => <Link key={item.to} to={item.to} aria-current={item.active ? 'page' : undefined}
-          onClick={() => setMoreOpen(false)}><Icon size={18} aria-hidden />{item.label}</Link>)}
-        <Link to="/accounts/settings/" aria-current={accountActive ? 'page' : undefined} onClick={() => setMoreOpen(false)}>{avatar}Account settings</Link>
-        <button type="button" onClick={() => { setMoreOpen(false); onSignOut() }} disabled={signingOut}><LogOut size={18} aria-hidden />{signingOut ? 'Signing out…' : 'Log out'}</button>
+          onClick={() => closeMore(pathname === item.to)}><Icon size={18} aria-hidden />{item.label}</Link>)}
+        <Link to="/accounts/settings/" aria-current={accountActive ? 'page' : undefined} onClick={() => closeMore(accountActive)}>{avatar}Account settings</Link>
+        <button type="button" onClick={() => { closeMore(); onSignOut() }} disabled={signingOut}><LogOut size={18} aria-hidden />{signingOut ? 'Signing out…' : 'Log out'}</button>
       </nav>
     </Modal>}
   </>

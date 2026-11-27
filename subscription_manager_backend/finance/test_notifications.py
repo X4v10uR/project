@@ -31,8 +31,8 @@ class NotificationRegressionTests(TestCase):
         self.client.force_login(self.user)
 
     def notification(self, **kwargs):
-        return InAppNotification.objects.create(recipient=self.user, title='Renewal',
-                                                event_type='renewal.reminder', **kwargs)
+        return InAppNotification.objects.create(recipient=self.user, title='Alert',
+                                                event_type='test', **kwargs)
 
     def preferences(self, data):
         return self.client.put('/api/finance/notifications/preferences/', data,

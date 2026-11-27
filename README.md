@@ -79,6 +79,12 @@ For production routing and deployment, see the [frontend README](subscription_ma
 
 Use **Quick add** for a four-field setup with common service presets. The full form keeps sharing, account details, and reminder options in expandable sections. **Planning**, in the navigation dock, contains spending insights, the renewal calendar, the review inbox, and shared settlements. Dashboard shortcuts also open these tools.
 
+The Quick add and full create forms keep a save key when a response is lost, including across a refresh in the same tab. To retry, resubmit the same details. API clients can get the same protection by sending a version 4 UUID in `Idempotency-Key` on `POST /api/subscriptions/` and reusing that UUID only for retries of the same submission. A changed payload with the same key returns 409; a deleted outcome returns 410 rather than creating it again. The server keeps the account-scoped key, a keyed digest, and references to the result, not a copy of submitted form fields. An unkeyed request is treated as a separate operation.
+
+The renewal calendar and its exports keep recorded **Scheduled** charges visible even after the billing job moves to the next renewal. Paid, failed, and refunded charge records are shown in History rather than forecast again.
+
+Interactive editors compare their loaded revision when saving a subscription or scheduling a price. A stale save is rejected; reload and review the latest values before retrying. API clients can send the detail response's quoted `edit_revision` in `If-Match` to get the same protection; clients that omit the header retain the older behavior. Price amounts are never automatically converted when a currency changes: use a replacement plan if price history exists, or clear an old introductory offer first. Previously recorded charges retain their original currency.
+
 Insights separate currencies, category commitments, recorded payments, remaining scheduled charges, and the next 12 months of renewals. Month comparisons show which services changed; the previous month depends on the charge history actually recorded. Calendar export downloads an all-day `.ics` file containing payments, trial endings, cancellation deadlines, and scheduled pauses/resumptions.
 
 Subscriptions support six-month and 28-day cycles, introductory prices, and scheduled pause/resume dates. A pause skips charges while preserving the original billing cadence. Edit a subscription to record provider cancellation links, request/confirmation notes, and the last access date. Requested cancellations continue forecasting payments; confirming cancellation stops them. These tracking actions do not cancel or pause a provider account automatically.
@@ -104,6 +110,12 @@ New accounts can add a first bill, import a subscription list, or create a team 
 In **Planning → Connections**, preview a bank statement CSV, map its columns, and confirm outgoing payments. Reuse the same statement account label for duplicate detection. Use **Match manually** to link a payment to a same-currency charge, including team charges you manage as an owner or accountant. The confirmation shows both amounts and preserves the recorded charge and shares.
 
 Receipt lists support merchant and receipt-date filters. Use **Load older** in Receipts or Activity to continue through the full history.
+
+## Renewal decisions and charge differences
+
+- In **Planning → Review inbox**, compare an eligible personal monthly subscription with a quoted annual or monthly price, or preview cancelling before the next unrecorded renewal. DUES compares scheduled payments over the same 12-month window. The preview assumes no immediate charge, credit or termination fee. It does not edit the subscription or contact the provider.
+- In **Needs attention**, a confirmed same-currency statement CSV match can show the expected provider bill and the amount actually paid. Dismiss a one-off difference or open the subscription’s price history to record a recurring change yourself. The matching and original charge stay intact.
+- In **Teams**, record paid and needed seats with a keep, change or cancel decision. The estimated savings assume an even price per seat; confirm the actual quote with the provider.
 
 ## Notification delivery
 

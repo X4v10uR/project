@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from dateutil.relativedelta import relativedelta
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -17,9 +17,10 @@ from rest_framework.response import Response
 from accounts.models import TeamMembership
 from subly.renderers import CalendarRenderer
 from .api_views import _subscription_for
+from .editing import StaleSubscriptionEdit, edit_revision, require_edit_revision
 from .models import ChargeShare, PriceChange, Repayment, Subscription, Transaction
 from .money import monthly_equivalent
-from .services import renewals_between
+from .services import renewals_between, scheduled_occurrences
 from .workflows import change_subscription_status
 
 
@@ -55,14 +56,33 @@ def amount(value):
 
 def calendar_events(subscriptions, start, end):
     events = []
-    for sub in subscriptions:
-        if sub.status == 'cancelled' or sub.cancellation_state == 'confirmed':
-            continue
+    recorded = Transaction.objects.filter(
+        source=Transaction.SOURCE_RENEWAL, charged_for_date__range=(start, end),
+    ).only('subscription_id', 'team_id', 'user_id', 'charged_for_date', 'payment_status',
+           'service_name_snapshot', 'currency', 'amount').order_by()
+    subscriptions = subscriptions.exclude(status='cancelled').exclude(cancellation_state='confirmed')
+    for sub in subscriptions.prefetch_related(Prefetch('transactions', queryset=recorded, to_attr='calendar_charges')):
+        # A historical charge must belong to the current subscription workspace.
+        # If the subscription moved, its former workspace's ledger stays out.
+        recorded_days = {
+            charge.charged_for_date: charge for charge in sub.calendar_charges
+            if charge.team_id == sub.team_id and (sub.team_id or charge.user_id == sub.user_id)
+        }
+        scheduled = {
+            day: (charge.service_name_snapshot, charge.amount, charge.currency)
+            for day, charge in recorded_days.items()
+            if charge.payment_status == Transaction.PaymentStatus.SCHEDULED
+        }
+        # Recording a renewal advances the schedule cursor, but does not pay it.
+        # A historical Paid, Failed or Refunded row must not become a fresh forecast.
         for day in renewals_between(sub, start, end):
+            if day not in recorded_days:
+                scheduled[day] = (sub.service_name, sub.share_on(day), sub.currency)
+        for day, (service, value, currency) in scheduled.items():
             events.append({'id': f'{sub.pk}-payment-{day}', 'subscription_id': sub.pk,
                 'team_id': sub.team_id,
-                'service': sub.service_name, 'kind': 'payment', 'date': day.isoformat(),
-                'amount': amount(sub.share_on(day)), 'currency': sub.currency})
+                'service': service, 'kind': 'payment', 'date': day.isoformat(),
+                'amount': amount(value), 'currency': currency})
         for field, kind in [('trial_end_date', 'trial'), ('cancel_by_date', 'deadline'), ('resume_on', 'resume'), ('pause_from', 'pause')]:
             day = getattr(sub, field)
             if day and start <= day <= end:
@@ -77,7 +97,11 @@ def calendar_events(subscriptions, start, end):
 def calendar(request):
     query = selection(request)
     subs = visible_subscriptions(request.user, query['scope']).prefetch_related('price_changes', 'participants')
-    return Response({'events': calendar_events(subs, query['start'], query['end'])})
+    return Response({
+        'start': query['start'].isoformat(),
+        'end': query['end'].isoformat(),
+        'events': calendar_events(subs, query['start'], query['end']),
+    })
 
 
 def ical_text(value):
@@ -128,20 +152,19 @@ def insights(request):
     else:
         charges = Transaction.objects.filter(team__memberships__user=request.user).distinct()
     categories, totals, service_current, service_previous = defaultdict(Decimal), defaultdict(lambda: defaultdict(Decimal)), defaultdict(Decimal), defaultdict(Decimal)
+    month_charges = list(charges.filter(charged_for_date__gte=previous, charged_for_date__lt=next_month))
+    recorded = {(charge.subscription_id, charge.charged_for_date) for charge in month_charges}
     for sub in subs:
         if sub.bills_on(today):
             rate = monthly_equivalent(sub.share_on(today), sub.billing_cycle)
             categories[(sub.currency, sub.category)] += rate
             totals[sub.currency]['monthly_commitment'] += rate
-        for day in renewals_between(sub, today, year_end):
-            totals[sub.currency]['annual_projection'] += sub.share_on(day)
-        for day in renewals_between(sub, max(today, month), next_month - timedelta(days=1)):
-            # Today's charge may already be recorded; include it exactly once.
-            if not charges.filter(subscription=sub, charged_for_date=day).exists():
-                value = sub.share_on(day)
-                totals[sub.currency]['month_scheduled'] += value
-                service_current[(sub.currency, sub.service_name)] += value
-    for charge in charges.filter(charged_for_date__gte=previous, charged_for_date__lt=next_month):
+    for row in scheduled_occurrences(subs, today, year_end):
+        totals[row.currency]['annual_projection'] += row.amount
+        if row.day < next_month and (row.subscription.pk, row.day) not in recorded:
+            totals[row.currency]['month_scheduled'] += row.amount
+            service_current[(row.currency, row.service)] += row.amount
+    for charge in month_charges:
         current = charge.charged_for_date >= month
         key = 'month_scheduled' if current else 'previous_scheduled'
         if charge.payment_status != 'refunded':
@@ -199,7 +222,77 @@ def review_inbox(request):
             items.append({'id': sub.pk, 'service': sub.service_name, 'currency': sub.currency, 'reasons': reasons,
                 'monthly_saving': amount(monthly_equivalent(sub.share_on(today), sub.billing_cycle)) if sub.bills_on(today) else '0.00',
                 'can_edit': sub.team_id is None or sub.team_id in owned})
-    return Response({'items': items})
+    options = (
+        list(comparable_subscriptions(request.user).order_by('service_name', 'pk').values(
+            'id', 'service_name', 'plan_name', 'currency',
+        ))
+        if query['scope'] == 'personal' else []
+    )
+    return Response({'items': items, 'comparison_options': options})
+
+
+def comparable_subscriptions(user):
+    return visible_subscriptions(user, 'personal').filter(
+        status='active', billing_cycle='monthly', is_shared=False,
+    ).exclude(cancellation_state='confirmed')
+
+
+class RenewalComparisonInput(serializers.Serializer):
+    option = serializers.ChoiceField(choices=['annual', 'downgrade', 'cancel'])
+    quoted_price = serializers.DecimalField(
+        max_digits=10, decimal_places=2, min_value=Decimal('0'), required=False,
+    )
+
+    def validate(self, data):
+        if data['option'] != 'cancel' and 'quoted_price' not in data:
+            raise serializers.ValidationError({'quoted_price': 'Enter the quoted price.'})
+        return data
+
+
+@api_view(['POST'])
+def renewal_comparison(request, pk):
+    sub = get_object_or_404(
+        comparable_subscriptions(request.user).prefetch_related('price_changes'), pk=pk,
+    )
+    fields = RenewalComparisonInput(data=request.data)
+    fields.is_valid(raise_exception=True)
+    option = fields.validated_data['option']
+    today = timezone.localdate()
+    end = today + relativedelta(years=1)
+    recorded = set(sub.transactions.filter(
+        source=Transaction.SOURCE_RENEWAL, charged_for_date__gte=today,
+        charged_for_date__lt=end,
+    ).values_list('charged_for_date', flat=True))
+    days = [
+        day for day in renewals_between(sub, today, end - timedelta(days=1))
+        if day not in recorded
+    ]
+    if not days:
+        raise serializers.ValidationError('There is no unrecorded renewal in the next 12 months.')
+    current = [(day, sub.share_on(day)) for day in days]
+    quoted_price = fields.validated_data.get('quoted_price')
+    if option == 'cancel':
+        alternative = []
+    elif option == 'annual':
+        alternative = [(days[0], quoted_price)]
+    else:
+        alternative = [(day, quoted_price) for day in days]
+
+    def summarize(charges):
+        day, next_amount = charges[0] if charges else (None, Decimal('0'))
+        return {
+            'next_date': day, 'next_amount': amount(next_amount),
+            'total': amount(sum((value for _, value in charges), Decimal('0'))),
+        }
+
+    keep, alternative = summarize(current), summarize(alternative)
+    return Response({
+        'option': option, 'currency': sub.currency, 'from_date': today, 'until_date': end,
+        'effective_on': days[0], 'cancel_by_date': sub.cancel_by_date,
+        'keep': keep, 'alternative': alternative,
+        'total_savings': amount(Decimal(keep['total']) - Decimal(alternative['total'])),
+        'next_payment_change': amount(Decimal(alternative['next_amount']) - Decimal(keep['next_amount'])),
+    })
 
 
 class ReviewAction(serializers.Serializer):
@@ -244,6 +337,10 @@ def price_changes(request, pk):
     sub = _subscription_for(request.user, pk)
     if request.method == 'POST':
         sub = Subscription.objects.select_for_update().get(pk=sub.pk)
+        try:
+            require_edit_revision(sub, request.headers.get('If-Match', '').strip('"') if 'If-Match' in request.headers else None)
+        except StaleSubscriptionEdit as exc:
+            return Response({'detail': str(exc), 'code': 'stale_subscription'}, status=412)
         data = PriceInput(data=request.data)
         data.is_valid(raise_exception=True)
         fields = data.validated_data
@@ -261,7 +358,8 @@ def price_changes(request, pk):
         previous_cost = changes[-1]['cost'] if changes else amount(change.previous_cost)
         changes.append({'id': change.pk, 'previous_cost': previous_cost,
                         'cost': amount(change.cost), 'effective_on': change.effective_on})
-    return Response({'changes': changes, 'current_regular_cost': amount(sub.regular_price_on(timezone.localdate()))},
+    return Response({'changes': changes, 'current_regular_cost': amount(sub.regular_price_on(timezone.localdate())),
+                     'edit_revision': edit_revision(sub)},
                     status=201 if request.method == 'POST' else 200)
 
 

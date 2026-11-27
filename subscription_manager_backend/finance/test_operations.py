@@ -1,9 +1,10 @@
 import io
 import sqlite3
 from contextlib import closing
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from smtplib import SMTPException
 from unittest.mock import patch
 
 from django.core import mail
@@ -11,8 +12,10 @@ from django.core.management import call_command, CommandError
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
-from finance.models import ScheduledJobStatus
+from accounts.models import User
+from finance.models import NotificationDelivery, NotificationPreference, ScheduledJobStatus
 from finance.recovery import create_snapshot, restore_snapshot
+from subscriptions.models import InAppNotification
 
 
 @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
@@ -48,6 +51,51 @@ class JobHealthTests(TestCase):
         with self.assertRaisesMessage(CommandError, 'never reported'):
             self.check()
         self.assertEqual(len(mail.outbox), 1)
+
+    def test_email_failures_mark_job_unhealthy_but_keep_retries_and_successful_sends(self):
+        now = datetime(2026, 12, 1, 11, tzinfo=UTC)
+        previous = now - timedelta(hours=1)
+        status = ScheduledJobStatus.objects.create(job='finance_notifications', last_finished_at=previous,
+                                                   last_succeeded_at=previous, succeeded=True)
+        alert_user = User.objects.create_user('queued@example.test')
+        digest_user = User.objects.create_user('digest@example.test')
+        healthy_user = User.objects.create_user('healthy@example.test')
+        pref = NotificationPreference.objects.create(user=digest_user, digest='daily',
+                                                      last_digest_at=now - timedelta(days=1))
+        with patch('django.utils.timezone.now', return_value=now - timedelta(minutes=1)):
+            alert = InAppNotification.objects.create(recipient=alert_user, event_type='test', title='Queued alert')
+            NotificationDelivery.objects.create(notification=alert, deliver_after=now, email=True)
+            healthy = InAppNotification.objects.create(recipient=healthy_user, event_type='test', title='Successful alert')
+            NotificationDelivery.objects.create(notification=healthy, deliver_after=now, email=True)
+            InAppNotification.objects.create(recipient=digest_user, event_type='test', title='Digest alert')
+
+        def send_alert(**fields):
+            if fields['recipient_list'] == [alert_user.email]:
+                raise SMTPException('Synthetic SMTP rejection')
+            return mail.send_mail(**fields)
+
+        with patch('django.utils.timezone.now', return_value=now), patch(
+                'subscriptions.notifications.send_mail', side_effect=send_alert), patch(
+                'finance.delivery.send_mail', return_value=0):
+            with self.assertRaisesMessage(CommandError, '1 queued alert(s) and 1 digest(s)'):
+                call_command('sync_finance', '--notifications-only', stdout=io.StringIO())
+        status.refresh_from_db()
+        self.assertFalse(status.succeeded)
+        self.assertEqual(status.last_succeeded_at, previous)
+        self.assertEqual(NotificationDelivery.objects.get(notification=alert).attempts, 1)
+        self.assertFalse(NotificationDelivery.objects.filter(notification=healthy).exists())
+        pref.refresh_from_db()
+        self.assertEqual(pref.last_digest_at, now - timedelta(days=1))
+        self.assertEqual([message.to for message in mail.outbox], [[healthy_user.email]])
+
+        recovery = now + timedelta(minutes=11)
+        with patch('django.utils.timezone.now', return_value=recovery):
+            call_command('sync_finance', '--notifications-only', stdout=io.StringIO())
+        status.refresh_from_db()
+        self.assertTrue(status.succeeded)
+        self.assertEqual(status.last_succeeded_at, recovery)
+        self.assertFalse(NotificationDelivery.objects.exists())
+        self.assertCountEqual([m.to for m in mail.outbox], [[healthy_user.email], [alert_user.email], [digest_user.email]])
 
 
 class RecoveryTests(SimpleTestCase):

@@ -3,6 +3,7 @@ from io import StringIO
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models import prefetch_related_objects
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -19,7 +20,12 @@ from accounts.security import audit, require_recent
 from .api_serializers import SubscriptionInput, SubscriptionSerializer, SubscriptionStatusInput, subscription_form
 from .cards_state import build_card_options
 from .color_utils import LIGHT_SUBSCRIPTION_COLOR_PRESETS
-from .list_context import _apply_subscription_card_metadata, _build_subscription_drawer_data, build_subscription_list_context
+from .create_once import create_subscription_once
+from .editing import StaleSubscriptionEdit, edit_revision
+from .list_context import (
+    _apply_subscription_card_metadata, _build_subscription_drawer_data,
+    build_subscription_cards, build_subscription_list_context,
+)
 from .services import next_billing_date
 from .models import Subscription
 from .views import (
@@ -65,9 +71,13 @@ def _write_subscription(request, instance=None):
             actor=request.user,
             participants=data['participants'],
             reminder_offsets=data['reminder_offsets'],
+            expected_revision=request.headers.get('If-Match', '').strip('"') if 'If-Match' in request.headers else None,
         )
+    except StaleSubscriptionEdit as exc:
+        return Response({'detail': str(exc), 'code': 'stale_subscription'}, status=status.HTTP_412_PRECONDITION_FAILED)
     except ValidationError as exc:
-        raise serializers.ValidationError({'participants': exc.messages}) from exc
+        errors = exc.message_dict if hasattr(exc, 'error_dict') else {'participants': exc.messages}
+        raise serializers.ValidationError(errors) from exc
     if pending:
         return Response({'request_id': pending.pk, 'team': team.pk}, status=status.HTTP_202_ACCEPTED)
     if request.data.get('account_password'):
@@ -84,8 +94,25 @@ def _write_subscription(request, instance=None):
 @api_view(['GET', 'POST'])
 def subscriptions(request):
     if request.method == 'POST':
-        return _write_subscription(request)
-    context = build_subscription_list_context(request)
+        return create_subscription_once(request, _write_subscription, _replay_subscription_creation)
+    page_number = request.query_params.get('page')
+    if page_number is not None:
+        try:
+            page_number = max(int(page_number), 1)
+        except ValueError:
+            page_number = 1
+    context = build_subscription_list_context(request, page_number=page_number)
+    if page_number is not None:
+        page = context['page']
+        return Response({
+            'subscriptions': build_subscription_cards(context['subscriptions']),
+            'stats': context['subscriptions_stats'],
+            'burn_metrics': context['subscriptions_burn_metrics'],
+            'pagination': {
+                'page': page.number, 'pages': page.paginator.num_pages, 'count': page.paginator.count,
+                'start': page.start_index(), 'end': page.end_index(),
+            },
+        })
     prefetch_related_objects(context['subscriptions'], 'participants', 'offsets')
     return Response({
         'subscriptions': SubscriptionSerializer(context['subscriptions'], many=True).data,
@@ -95,11 +122,31 @@ def subscriptions(request):
     })
 
 
+def _replay_subscription_creation(request, receipt):
+    if receipt.response_status == status.HTTP_201_CREATED and receipt.subscription_id:
+        subscription = _subscription_for(request.user, receipt.subscription_id)
+        payload = SubscriptionSerializer(subscription).data
+    elif receipt.response_status == status.HTTP_202_ACCEPTED and receipt.team_request_id:
+        pending = receipt.team_request
+        _team_for(request.user, pending.team_id)
+        payload = {'request_id': pending.pk, 'team': pending.team_id}
+    else:
+        return Response(
+            {'code': 'idempotency_result_unavailable',
+             'detail': 'The result of this save is no longer available. Check your subscriptions before submitting again.'},
+            status=status.HTTP_410_GONE,
+        )
+    return Response(payload, status=receipt.response_status, headers={'Idempotency-Replayed': 'true'})
+
+
 @api_view(['GET', 'PUT', 'DELETE'])
 def subscription_detail(request, pk):
-    subscription = _subscription_for(request.user, pk)
     if request.method == 'PUT':
-        return _write_subscription(request, subscription)
+        with transaction.atomic():
+            subscription = _subscription_for(request.user, pk)
+            subscription = Subscription.objects.select_for_update().get(pk=subscription.pk)
+            return _write_subscription(request, subscription)
+    subscription = _subscription_for(request.user, pk)
     if request.method == 'DELETE':
         remove_subscription(subscription, actor=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -110,7 +157,7 @@ def subscription_detail(request, pk):
     details = _build_subscription_drawer_data([subscription])[str(subscription.pk)]
     from finance.delivery import local_now
     next_payment = next_billing_date(subscription, local_now(request.user).date())
-    return Response({**SubscriptionSerializer(subscription).data, 'details': details,
+    return Response({**SubscriptionSerializer(subscription).data, 'details': details, 'edit_revision': edit_revision(subscription),
                      'next_payment': {'date': next_payment, 'amount': str(subscription.price_on(next_payment))}
                      if next_payment else None})
 

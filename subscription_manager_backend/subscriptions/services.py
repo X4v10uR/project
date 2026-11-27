@@ -2,6 +2,8 @@ import logging
 from datetime import UTC, date, datetime, time, timedelta
 from collections import defaultdict
 from copy import copy
+from decimal import Decimal
+from typing import NamedTuple
 from uuid import uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -52,6 +54,36 @@ def renewals_between(subscription, first, last, *, use_cursor=True):
         if following is None or following <= day:
             break
         day = following
+
+
+class ScheduledOccurrence(NamedTuple):
+    day: date
+    subscription: Subscription
+    amount: Decimal
+    currency: str
+    service: str
+
+
+def scheduled_occurrences(subscriptions, first, last):
+    """Combine visible, outstanding recorded bills with forecast renewals."""
+    plans = {sub.pk: sub for sub in subscriptions if sub.configured_status != 'cancelled'}
+    recorded = set()
+    rows = Transaction.objects.filter(
+        subscription_id__in=plans, source=Transaction.SOURCE_RENEWAL,
+        charged_for_date__range=(first, last),
+    ).values_list('subscription_id', 'team_id', 'user_id', 'charged_for_date',
+                  'payment_status', 'amount', 'currency', 'service_name_snapshot').order_by()
+    for sub_id, team_id, user_id, day, status, amount, currency, service in rows:
+        sub = plans[sub_id]
+        if team_id != sub.team_id or (team_id is None and user_id != sub.user_id):
+            continue
+        recorded.add((sub_id, day))
+        if status == Transaction.PaymentStatus.SCHEDULED:
+            yield ScheduledOccurrence(day, sub, amount, currency, service)
+    for sub in plans.values():
+        for day in renewals_between(sub, first, last):
+            if (sub.pk, day) not in recorded:
+                yield ScheduledOccurrence(day, sub, sub.share_on(day), sub.currency, sub.service_name)
 
 
 def _record_charge(subscription, day):
@@ -129,17 +161,25 @@ class BillingService:
 
     @staticmethod
     def record_renewal_charges(target_date=None, dry_run=False):
-        through = target_date or timezone.localdate()
-        results = {'date': through, 'total': 0, 'created': 0, 'existing': 0, 'errors': 0}
-        ids = BillingService.get_due_renewals(through).values_list('pk', flat=True)
-        for subscription_id in list(ids):
+        instant = timezone.now()
+        # Any payer's local day is at most one day ahead of the UTC date.
+        # An explicit backfill deliberately uses its supplied date for all payers.
+        latest = target_date or instant.date() + timedelta(days=1)
+        results = {'date': target_date or instant.date(), 'total': 0, 'created': 0, 'existing': 0, 'errors': 0}
+        due = BillingService.get_due_renewals(latest).select_related('user').only(
+            'renewal_date', 'user__timezone',
+        )
+        for sub in list(due):
             try:
-                created, existing = catch_up_charges(subscription_id, through, dry_run=dry_run)
+                through = target_date or instant.astimezone(_user_zone(sub.user)).date()
+                if sub.renewal_date and sub.renewal_date > through:
+                    continue
+                created, existing = catch_up_charges(sub.pk, through, dry_run=dry_run)
                 results['created'] += created
                 results['existing'] += existing
                 results['total'] += created + existing
             except Exception:
-                logger.exception('Failed to record charges for subscription=%s', subscription_id)
+                logger.exception('Failed to record charges for subscription=%s', sub.pk)
                 results['errors'] += 1
         return results
 
@@ -157,6 +197,10 @@ def _user_zone(user):
         return ZoneInfo('UTC')
 
 
+def _reminder_event_instant(sub, day, zone):
+    return datetime.combine(day, sub.renewal_time or time(15), zone).astimezone(UTC)
+
+
 def _due_events(sub, user, offsets, instant, timed):
     """Recover the most recent due offset for each still-actionable event."""
     zone = _user_zone(user)
@@ -166,12 +210,11 @@ def _due_events(sub, user, offsets, instant, timed):
     if sub.cancel_by_date and today <= sub.cancel_by_date <= last:
         events.append((sub.cancel_by_date, 'cancellation_deadline'))
     for day, kind in events:
-        local_time = sub.renewal_time or time(15)
-        if datetime.combine(day, local_time, zone).astimezone(UTC) < instant:
+        if _reminder_event_instant(sub, day, zone) < instant:
             continue
         for offset in sorted(offsets):
             due_day = day - timedelta(days=offset)
-            due_at = datetime.combine(due_day, local_time, zone).astimezone(UTC)
+            due_at = _reminder_event_instant(sub, due_day, zone)
             if (timed and due_at <= instant) or (not timed and due_day <= today):
                 yield day, kind, offset
                 break
@@ -194,8 +237,11 @@ def reminder_is_current(notification):
     """Revalidate scheduled reminders after quiet hours, retries or digest delays."""
     kinds = {'renewal.reminder': 'renewal_reminder', 'cancellation.reminder': 'cancellation_deadline'}
     kind = kinds.get(notification.event_type)
-    if kind is None or notification.subscription_id is None:
+    if kind is None:
         return True
+    # Portable restores retain reminders as history, without a live subscription.
+    if notification.subscription_id is None:
+        return False
     sub = _reminder_subscriptions().filter(pk=notification.subscription_id).first()
     if sub is None or sub.team_id != notification.team_id:
         return False
@@ -211,6 +257,8 @@ def reminder_is_current(notification):
         return False
     offset = metadata.get('days_before')
     if not isinstance(offset, int):
+        return False
+    if _reminder_event_instant(sub, day, _user_zone(notification.recipient)) < timezone.now():
         return False
     offsets = set(sub.offsets.values_list('days_before', flat=True)) or {settings.NOTIFICATION_DAYS_BEFORE}
     return offset in offsets and _matches_reminder_event(sub, day, kind)

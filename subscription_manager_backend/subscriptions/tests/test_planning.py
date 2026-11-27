@@ -1,5 +1,6 @@
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.core.cache import cache
 from django.test import TestCase, override_settings
@@ -86,6 +87,18 @@ class PlanningTests(TestCase):
         self.assertTrue(all(len(line.encode('utf-8')) <= 75 for line in exported.split('\r\n')))
         self.client.force_login(self.other)
         self.assertEqual(self.client.get('/api/subscriptions/calendar/').json()['events'], [])
+
+    @patch('django.utils.timezone.now', return_value=datetime(2026, 12, 1, 0, 30, tzinfo=UTC))
+    def test_calendar_reports_the_accounts_resolved_forecast_bounds(self, _now):
+        self.user.timezone = 'America/Los_Angeles'
+        self.user.save(update_fields=['timezone'])
+        self.sub(start_date=date(2026, 11, 30), cancel_by_date=date(2026, 11, 30))
+        url = '/api/subscriptions/calendar/'
+        result = self.client.get(url).json()
+        self.assertEqual((result['start'], result['end']), ('2026-11-30', '2027-11-29'))
+        self.assertEqual(result['events'][0]['date'], '2026-11-30')
+        result = self.client.get(url, {'start': '2027-03-01', 'end': '2027-03-31'}).json()
+        self.assertEqual((result['start'], result['end']), ('2027-03-01', '2027-03-31'))
 
     def test_insights_separate_currencies_and_scheduled_from_paid(self):
         sub = self.sub(start_date=self.today + timedelta(days=1))
@@ -257,3 +270,127 @@ class PlanningTests(TestCase):
         sub.refresh_from_db()
         self.assertEqual(sub.status, 'cancelled')
         self.assertEqual(list(renewals_between(sub, self.today, self.today + timedelta(days=30))), [])
+
+    @patch('subscriptions.planning.timezone.localdate', return_value=date(2026, 11, 26))
+    def test_renewal_comparison_uses_effective_prices_and_creates_no_records(self, _today):
+        sub = self.sub(start_date=date(2026, 12, 1), introductory_cost='30',
+            introductory_until=date(2027, 1, 1), cancel_by_date=date(2026, 11, 30), currency='USD')
+        PriceChange.objects.create(subscription=sub, previous_cost='30', cost='40', effective_on=date(2027, 1, 1))
+        before = Subscription.objects.values().get(pk=sub.pk)
+        result = self.post(f'{sub.pk}/renewal-comparison/', {'option': 'annual', 'quoted_price': '300'})
+        self.assertEqual(result.status_code, 200, result.content)
+        data = result.json()
+        self.assertEqual(data['keep'], {'next_date': '2026-12-01', 'next_amount': '30.00', 'total': '470.00'})
+        self.assertEqual(data['alternative'], {'next_date': '2026-12-01', 'next_amount': '300.00', 'total': '300.00'})
+        self.assertEqual((data['total_savings'], data['next_payment_change'], data['cancel_by_date']),
+            ('170.00', '270.00', '2026-11-30'))
+        self.assertEqual(Subscription.objects.values().get(pk=sub.pk), before)
+        self.assertEqual(sub.price_changes.count(), 1)
+        self.assertFalse(sub.transactions.exists())
+
+    @patch('subscriptions.planning.timezone.localdate', return_value=date(2027, 1, 31))
+    def test_renewal_comparison_skips_recorded_renewal_and_respects_window(self, _today):
+        sub = self.sub(start_date=date(2027, 1, 31), currency='USD')
+        Transaction.objects.create(user=self.user, subscription=sub, service_name_snapshot=sub.service_name,
+            charged_for_date=date(2027, 1, 31), amount=30, currency='USD')
+        data = self.post(f'{sub.pk}/renewal-comparison/', {'option': 'downgrade', 'quoted_price': '20'}).json()
+        self.assertEqual(data['effective_on'], '2027-02-28')
+        self.assertEqual(data['until_date'], '2028-01-31')
+        self.assertEqual(data['keep']['total'], '330.00')
+        self.assertEqual(data['alternative']['total'], '220.00')
+        self.assertIsNone(data['cancel_by_date'])
+        cancel = self.post(f'{sub.pk}/renewal-comparison/', {'option': 'cancel'}).json()
+        self.assertEqual(cancel['alternative'], {'next_date': None, 'next_amount': '0.00', 'total': '0.00'})
+        self.assertEqual(sub.transactions.count(), 1)
+
+    def test_renewal_comparison_permissions_options_and_amount_validation(self):
+        personal = self.sub(service_name='Eligible')
+        shared = self.sub(service_name='Shared', is_shared=True, split_type='equal')
+        other = self.sub(service_name='Private', user=self.other)
+        team = self.sub(service_name='Team', team=create_team(name='Studio', user=self.user))
+        options = self.client.get('/api/subscriptions/review/').json()['comparison_options']
+        self.assertEqual([row['id'] for row in options], [personal.pk])
+        for sub in [shared, other, team]:
+            self.assertEqual(self.post(f'{sub.pk}/renewal-comparison/', {'option': 'cancel'}).status_code, 404)
+        for invalid in [{}, {'quoted_price': '-0.01'}, {'quoted_price': '1.001'}]:
+            self.assertEqual(self.post(f'{personal.pk}/renewal-comparison/',
+                {'option': 'annual', **invalid}).status_code, 400)
+
+    @patch('subscriptions.planning.timezone.localdate', return_value=date(2026, 11, 27))
+    def test_renewal_comparison_rejects_an_empty_projection_without_creating_charges(self, _today):
+        sub = self.sub(start_date=date(2026, 12, 1), pause_from=date(2026, 11, 27),
+                       resume_on=date(2028, 1, 1))
+        result = self.post(f'{sub.pk}/renewal-comparison/', {'option': 'cancel'})
+        self.assertEqual(result.status_code, 400, result.content)
+        self.assertIn('There is no unrecorded renewal in the next 12 months.', result.json())
+        self.assertFalse(sub.transactions.exists())
+
+    @patch('django.utils.timezone.now', return_value=datetime(2026, 11, 27, 12, tzinfo=UTC))
+    def test_calendar_keeps_the_same_event_when_a_scheduled_charge_enters_the_ledger(self, _now):
+        day = date(2026, 11, 27)
+        sub = self.sub(start_date=day, currency='USD')
+        query = {'start': day.isoformat(), 'end': day.isoformat()}
+        event_id = f'{sub.pk}-payment-{day}'
+        uid = f'UID:{self.user.pk}-{event_id}@subly'
+        feed = self.client.post('/api/finance/calendar/feeds/', {'scope': 'personal'}, content_type='application/json')
+        self.assertEqual(feed.status_code, 201, feed.content)
+        feed_url = '/api/finance/calendar/' + feed.json()['url'].rsplit('/', 1)[-1]
+
+        before = self.client.get('/api/subscriptions/calendar/', query).json()['events']
+        self.assertEqual([(event['id'], event['amount']) for event in before], [(event_id, '30.00')])
+        self.assertEqual(BillingService.record_renewal_charges(day)['created'], 1)
+        sub.refresh_from_db()
+        self.assertGreater(sub.renewal_date, day)
+        charge = sub.transactions.get()
+        self.assertEqual(charge.payment_status, Transaction.PaymentStatus.SCHEDULED)
+        after = self.client.get('/api/subscriptions/calendar/', query).json()['events']
+        self.assertEqual(after, before)
+
+        file = self.client.get('/api/subscriptions/calendar/export/', query, HTTP_ACCEPT='text/calendar')
+        self.assertEqual(file.status_code, 200, file.content)
+        self.assertEqual(file.content.decode().count(uid), 1)
+        self.client.logout()
+        live = self.client.get(feed_url, HTTP_ACCEPT='text/calendar')
+        self.assertEqual(live.status_code, 200, live.content)
+        self.assertEqual(live.content.decode().count(uid), 1)
+
+    @patch('django.utils.timezone.now', return_value=datetime(2026, 11, 27, 12, tzinfo=UTC))
+    def test_calendar_uses_ledger_snapshot_and_does_not_resurface_non_scheduled_charges(self, _now):
+        day = date(2026, 11, 27)
+        sub = self.sub(start_date=day, currency='USD')
+        # Leave the cursor on the date deliberately to cover overlapping forecast and ledger.
+        charge = Transaction.objects.create(subscription=sub, user=self.user, charged_for_date=day,
+            service_name_snapshot='Recorded Studio', amount=Decimal('25.00'), currency='USD')
+        query = {'start': day.isoformat(), 'end': day.isoformat()}
+        url = '/api/subscriptions/calendar/'
+        rows = self.client.get(url, query).json()['events']
+        self.assertEqual([(row['service'], row['amount']) for row in rows], [('Recorded Studio', '25.00')])
+        for state in (Transaction.PaymentStatus.PAID, Transaction.PaymentStatus.FAILED, Transaction.PaymentStatus.REFUNDED):
+            with self.subTest(state=state):
+                Transaction.objects.filter(pk=charge.pk).update(payment_status=state)
+                self.assertEqual(self.client.get(url, query).json()['events'], [])
+
+    @patch('django.utils.timezone.now', return_value=datetime(2026, 11, 27, 12, tzinfo=UTC))
+    def test_calendar_only_shows_scheduled_charges_in_the_requested_visible_workspace(self, _now):
+        day = date(2026, 11, 27)
+        team = create_team(name='Other team', user=self.other)
+        personal = self.sub(start_date=day, service_name='Personal')
+        teamed = self.sub(start_date=day, service_name='Team', team=team, user=self.other)
+        third = self.sub(start_date=day, service_name='Other personal', user=self.other)
+        for sub in (personal, teamed, third):
+            Transaction.objects.create(subscription=sub, team=sub.team, user=sub.user, charged_for_date=day,
+                service_name_snapshot=sub.service_name, amount=Decimal('30.00'), currency='USD')
+            Subscription.objects.filter(pk=sub.pk).update(renewal_date=date(2026, 12, 27))
+
+        url = '/api/subscriptions/calendar/'
+        query = {'start': day.isoformat(), 'end': day.isoformat()}
+        def ids(scope):
+            result = self.client.get(url, {**query, 'scope': scope})
+            self.assertEqual(result.status_code, 200, result.content)
+            return [row['subscription_id'] for row in result.json()['events']]
+        self.assertEqual(ids('personal'), [personal.pk])
+        self.assertEqual(ids('teams'), [])
+        TeamMembership.objects.create(team=team, user=self.user, role='member')
+        self.assertEqual(ids('teams'), [teamed.pk])
+        Subscription.objects.filter(pk=teamed.pk).update(status='cancelled', cancellation_state='confirmed')
+        self.assertEqual(ids('teams'), [])
