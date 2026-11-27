@@ -64,7 +64,7 @@
   vertical-align: -.08em;
   overflow: hidden;
   border-radius: .23em;
-  background: #fff;
+  background: transparent;
 }
 .lv-title-logo .service-icon {
   grid-area: 1 / 1;
