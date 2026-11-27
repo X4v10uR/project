@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../api'
 import { type AccountUser, useAuth } from './auth'
 import { AuthLayout } from './AuthLayout'
+import { PasswordStrength } from './PasswordStrength'
 import { ErrorMessage, fieldClass, formData, messageFrom, primaryClass, secondaryClass } from './Controls'
 
 function PublicAccountLayout({ children }: { children: ReactNode }) {
@@ -29,14 +30,15 @@ function PublicAccountLayout({ children }: { children: ReactNode }) {
   )
 }
 
-function PasswordInput({ id, name, autocomplete, authStyle = false, describedBy }: {
-  id: string; name: string; autocomplete: string; authStyle?: boolean; describedBy?: string;
+function PasswordInput({ id, name, autocomplete, authStyle = false, describedBy, onValueChange }: {
+  id: string; name: string; autocomplete: string; authStyle?: boolean; describedBy?: string; onValueChange?: (value: string) => void;
 }) {
   const [show, setShow] = useState(false)
   const Icon = show ? EyeOff : Eye
   return (
     <div className={authStyle ? 'auth-password-wrap' : 'relative'}>
       <input id={id} name={name} autoComplete={autocomplete} type={show ? 'text' : 'password'} required
+        onChange={event => onValueChange?.(event.currentTarget.value)}
         aria-describedby={describedBy} placeholder={authStyle ? 'Enter your password' : undefined}
         className={authStyle ? 'auth-input auth-password-input' : fieldClass + ' pr-12'} />
       <button type="button" className={authStyle ? 'auth-password-toggle' : 'absolute inset-y-0 right-0 grid w-11 place-items-center text-zinc-600'}
@@ -54,6 +56,7 @@ function AuthForm({ signup = false }: { signup?: boolean }) {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [showOtp, setShowOtp] = useState(false)
+  const [password, setPassword] = useState('')
   const rawNext = search.get('next') ?? ''
   const next = /^\/(?![\/\\])[^\\\u0000-\u001f]*$/u.test(rawNext) ? rawNext : '/dashboard/'
   const switchQuery = search.has('next') ? '?' + new URLSearchParams({ next }).toString() : ''
@@ -92,8 +95,8 @@ function AuthForm({ signup = false }: { signup?: boolean }) {
         <div className="auth-field">
           <label htmlFor="auth-password" className="auth-label">Password</label>
           <PasswordInput id="auth-password" name={signup ? 'password1' : 'password'} autocomplete={signup ? 'new-password' : 'current-password'}
-            authStyle describedBy={signup ? 'auth-password-hint' : undefined} />
-          {signup && <p className="auth-field-hint" id="auth-password-hint">Use at least 8 characters. Avoid common passwords.</p>}
+            authStyle describedBy={signup ? 'auth-password-hint' : undefined} onValueChange={signup ? setPassword : undefined} />
+          {signup && <PasswordStrength password={password} id="auth-password-hint" />}
         </div>
         {signup && <div className="auth-field">
           <label htmlFor="auth-confirm-password" className="auth-label">Confirm password</label>

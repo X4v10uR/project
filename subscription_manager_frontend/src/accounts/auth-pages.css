@@ -89,6 +89,22 @@
 }
 .auth-password-toggle:hover { background: #f9f5ff; color: var(--auth-purple-dark); }
 .auth-field-hint { margin: 0; color: #535862; font-size: 14px; line-height: 20px; }
+.auth-strength { --strength-color: #a4a7ae; display: grid; gap: 10px; margin-top: 4px; }
+.auth-strength[data-score="0"][data-entered="true"], .auth-strength[data-score="1"] { --strength-color: #d92d20; }
+.auth-strength[data-score="2"] { --strength-color: #b54708; }
+.auth-strength[data-score="3"] { --strength-color: #079455; }
+.auth-strength-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; color: #535862; font-size: 14px; line-height: 20px; }
+.auth-strength-status { color: var(--strength-color); transition: color .25s ease; }
+.auth-strength[data-entered="false"] .auth-strength-status { color: #717680; }
+.auth-strength-track { height: 6px; overflow: hidden; border-radius: 999px; background: #e9eaeb; }
+.auth-strength-fill { display: block; width: 100%; height: 100%; border-radius: inherit; background: var(--strength-color); transform-origin: left; transition: transform .48s cubic-bezier(.22, 1, .36, 1), background-color .25s ease; }
+.auth-password-checks { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 0; padding: 0; list-style: none; }
+.auth-password-checks li { display: inline-flex; align-items: center; gap: 7px; color: #535862; font-size: 14px; line-height: 20px; transition: color .2s ease; }
+.auth-password-check-icon { display: grid; width: 16px; height: 16px; flex-shrink: 0; place-items: center; border: 1px solid #d5d7da; border-radius: 50%; background: #fff; color: #fff; transition: background-color .2s ease, border-color .2s ease; }
+.auth-password-check-icon svg { opacity: 0; transform: scale(.65); transition: opacity .2s ease, transform .2s ease; }
+.auth-password-checks li[data-met="true"] { color: #067647; }
+.auth-password-checks li[data-met="true"] .auth-password-check-icon { border-color: #079455; background: #079455; }
+.auth-password-checks li[data-met="true"] .auth-password-check-icon svg { opacity: 1; transform: scale(1); }
 .auth-options { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .auth-remember { display: inline-flex; align-items: center; gap: 8px; color: #414651; font-size: 14px; font-weight: 500; line-height: 20px; cursor: pointer; }
 .auth-remember input { width: 16px; height: 16px; margin: 0; accent-color: var(--auth-purple); cursor: pointer; }
