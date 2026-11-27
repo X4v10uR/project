@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import { Eye, EyeOff, Zap } from 'lucide-react'
+import { Eye, EyeOff, ShieldCheck, Zap } from 'lucide-react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../api'
 import { type AccountUser, useAuth } from './auth'
-import { ErrorMessage, Field, fieldClass, formData, messageFrom, primaryClass, secondaryClass } from './Controls'
+import { AuthLayout } from './AuthLayout'
+import { ErrorMessage, fieldClass, formData, messageFrom, primaryClass, secondaryClass } from './Controls'
 
 function PublicAccountLayout({ children }: { children: ReactNode }) {
   return (
@@ -28,13 +29,18 @@ function PublicAccountLayout({ children }: { children: ReactNode }) {
   )
 }
 
-function PasswordInput({ id, name, autocomplete }: { id: string; name: string; autocomplete: string }) {
+function PasswordInput({ id, name, autocomplete, authStyle = false, describedBy }: {
+  id: string; name: string; autocomplete: string; authStyle?: boolean; describedBy?: string;
+}) {
   const [show, setShow] = useState(false)
   const Icon = show ? EyeOff : Eye
   return (
-    <div className="relative">
-      <input id={id} name={name} autoComplete={autocomplete} type={show ? 'text' : 'password'} required className={fieldClass + ' pr-12'} />
-      <button type="button" className="absolute inset-y-0 right-0 grid w-11 place-items-center text-zinc-600" onClick={() => setShow(!show)} aria-label={show ? 'Hide password' : 'Show password'}>
+    <div className={authStyle ? 'auth-password-wrap' : 'relative'}>
+      <input id={id} name={name} autoComplete={autocomplete} type={show ? 'text' : 'password'} required
+        aria-describedby={describedBy} placeholder={authStyle ? 'Enter your password' : undefined}
+        className={authStyle ? 'auth-input auth-password-input' : fieldClass + ' pr-12'} />
+      <button type="button" className={authStyle ? 'auth-password-toggle' : 'absolute inset-y-0 right-0 grid w-11 place-items-center text-zinc-600'}
+        onClick={() => setShow(!show)} aria-label={show ? 'Hide password' : 'Show password'} aria-pressed={show} aria-controls={id}>
         <Icon size={18} aria-hidden />
       </button>
     </div>
@@ -47,6 +53,7 @@ function AuthForm({ signup = false }: { signup?: boolean }) {
   const navigate = useNavigate()
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [showOtp, setShowOtp] = useState(false)
   const rawNext = search.get('next') ?? ''
   const next = /^\/(?![\/\\])[^\\\u0000-\u001f]*$/u.test(rawNext) ? rawNext : '/dashboard/'
   const switchQuery = search.has('next') ? '?' + new URLSearchParams({ next }).toString() : ''
@@ -55,47 +62,67 @@ function AuthForm({ signup = false }: { signup?: boolean }) {
     event.preventDefault()
     setError('')
     setSaving(true)
+    const fields = formData(event.currentTarget)
     try {
       const reply = await api<{ user: AccountUser }>(signup ? '/api/accounts/signup/' : '/api/accounts/login/', {
         method: 'POST',
-        body: JSON.stringify(formData(event.currentTarget)),
+        body: JSON.stringify(signup ? fields : { ...fields, remember: fields.remember === 'on' }),
       })
       setUser(reply.user)
       navigate(next, { replace: true })
     } catch (failure) {
       setError(messageFrom(failure))
+      if (messageFrom(failure).includes('authenticator code')) setShowOtp(true)
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <PublicAccountLayout>
-      <h1 className="mb-6 text-3xl font-bold tracking-tight">{signup ? 'Create account' : 'Sign in'}</h1>
-      <form onSubmit={submit} className="grid gap-4">
-        <ErrorMessage message={error} />
-        <Field label="Email"><input name="email" type="email" autoComplete="username" defaultValue={search.get('email') ?? ''} required className={fieldClass} /></Field>
-        <div className="grid gap-1.5 text-sm font-semibold text-zinc-800">
-          <label htmlFor="auth-password">Password</label>
-          <PasswordInput id="auth-password" name={signup ? 'password1' : 'password'} autocomplete={signup ? 'new-password' : 'current-password'} />
+    <AuthLayout>
+      <h1 className="auth-heading">{signup ? 'Create an account' : 'Welcome back'}</h1>
+      <p className="auth-description">{signup ? 'A little less admin. A lot more peace of mind.' : 'Welcome back! Please enter your details.'}</p>
+      <form onSubmit={submit} className="auth-form" aria-label={signup ? 'Create your account' : 'Sign in to DUES'} aria-busy={saving}>
+        {error && <p className="auth-error" role="alert">{error}</p>}
+        <div className="auth-field">
+          <label htmlFor="auth-email" className="auth-label">Email</label>
+          <input id="auth-email" name="email" type="email" autoComplete="username" placeholder="Enter your email"
+            autoCapitalize="none" spellCheck={false} defaultValue={search.get('email') ?? ''} required className="auth-input" />
         </div>
-        {!signup && <Field label="Authenticator or recovery code (if enabled)"><input name="otp" autoComplete="one-time-code" className={fieldClass} /></Field>}
-        {signup && (
-          <div className="grid gap-1.5 text-sm font-semibold text-zinc-800">
-            <label htmlFor="auth-confirm-password">Confirm password</label>
-            <PasswordInput id="auth-confirm-password" name="password2" autocomplete="new-password" />
-          </div>
-        )}
-        <button className={primaryClass + ' mt-2'} disabled={saving || loading}>{signup ? 'Create account' : 'Sign in'}</button>
+        <div className="auth-field">
+          <label htmlFor="auth-password" className="auth-label">Password</label>
+          <PasswordInput id="auth-password" name={signup ? 'password1' : 'password'} autocomplete={signup ? 'new-password' : 'current-password'}
+            authStyle describedBy={signup ? 'auth-password-hint' : undefined} />
+          {signup && <p className="auth-field-hint" id="auth-password-hint">Use at least 8 characters. Avoid common passwords.</p>}
+        </div>
+        {signup && <div className="auth-field">
+          <label htmlFor="auth-confirm-password" className="auth-label">Confirm password</label>
+          <PasswordInput id="auth-confirm-password" name="password2" autocomplete="new-password" authStyle />
+        </div>}
+        {!signup && showOtp && <div className="auth-field" id="auth-code-field">
+          <label htmlFor="auth-code" className="auth-label">Authenticator or recovery code</label>
+          <input id="auth-code" name="otp" autoComplete="one-time-code" placeholder="Enter your code" className="auth-input" />
+        </div>}
+        {!signup && <div className="auth-options">
+          <label className="auth-remember"><input type="checkbox" name="remember" />Remember for 30 days</label>
+          <a className="auth-text-link" href="/accounts/password-reset/">Forgot password</a>
+        </div>}
+        <div className="auth-actions">
+          <button type="submit" className="auth-submit" disabled={saving || loading}>
+            {saving ? (signup ? 'Creating account…' : 'Signing in…') : (signup ? 'Create account' : 'Sign in')}
+          </button>
+          {!signup && <button type="button" className="auth-code-toggle" aria-expanded={showOtp} aria-controls="auth-code-field" onClick={() => setShowOtp(!showOtp)}>
+            <ShieldCheck size={20} aria-hidden="true" />{showOtp ? 'Hide authenticator code' : 'Use an authenticator code'}
+          </button>}
+        </div>
       </form>
-      {!signup && <a className="mt-5 inline-block text-sm font-semibold underline" href="/accounts/password-reset/">Set or reset your password</a>}
-      <p className="mt-5 text-sm text-zinc-600">
-        {signup ? 'Already have an account?' : 'New to DUES?'}{' '}
-        <Link className="font-semibold text-zinc-950 underline underline-offset-3" to={(signup ? '/accounts/login/' : '/accounts/signup/') + switchQuery}>
-          {signup ? 'Sign in' : 'Create an account'}
+      <p className="auth-switch">
+        {signup ? 'Already have an account?' : 'Don’t have an account?'}{' '}
+        <Link className="auth-text-link" to={(signup ? '/accounts/login/' : '/accounts/signup/') + switchQuery}>
+          {signup ? 'Log in' : 'Sign up'}
         </Link>
       </p>
-    </PublicAccountLayout>
+    </AuthLayout>
   )
 }
 

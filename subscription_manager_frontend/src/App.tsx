@@ -68,10 +68,12 @@ function PageContent() {
 
 function PublicLayout() {
   const { user } = useAuth()
+  const { pathname } = useLocation()
+  const isAuthPage = /^\/accounts\/(login|signup)\/?$/.test(pathname)
   return (
     <>
       <SkipToContent />
-      <header className="border-b border-slate-200/80 bg-white/75">
+      {!isAuthPage && <header className="border-b border-slate-200/80 bg-white/75">
         <nav aria-label="Primary navigation" className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-3 px-5">
           <Brand />
           {user ? (
@@ -83,7 +85,7 @@ function PublicLayout() {
             </div>
           )}
         </nav>
-      </header>
+      </header>}
       <PageContent />
     </>
   )

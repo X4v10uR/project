@@ -94,6 +94,29 @@ class AccountAPITest(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(self.client.get(self.session_url).json()['user']['email'], signup['email'])
 
+    def test_login_remember_choice_controls_session_expiry(self):
+        password = 'R6@fH2kz6dLM'
+        user = User.objects.create_user(email='remember@example.com', password=password)
+        cases = [
+            ({'remember': True}, False, 60 * 60 * 24 * 30),
+            ({'remember': False}, True, None),
+            ({'remember': 'false'}, True, None),
+            ({}, False, None),
+        ]
+        for choice, browser_session, expiry in cases:
+            with self.subTest(choice=choice):
+                client = APIClient(enforce_csrf_checks=True)
+                client.get(self.session_url)
+                response = client.post(
+                    reverse('accounts_api:login'),
+                    {'email': user.email, 'password': password, **choice},
+                    format='json', HTTP_X_CSRFTOKEN=client.cookies['csrftoken'].value,
+                )
+                self.assertEqual(response.status_code, 200, response.content)
+                self.assertEqual(client.session.get_expire_at_browser_close(), browser_session)
+                if expiry:
+                    self.assertEqual(client.session.get_expiry_age(), expiry)
+
     def test_invite_get_is_read_only_and_post_consumes_the_token(self):
         owner = User.objects.create_user(email='owner@example.com')
         team = create_team(name='Design', user=owner)

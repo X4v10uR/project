@@ -108,6 +108,8 @@ class LoginView(PublicAccountView):
         user = form.get_user()
         verify_factor(user, data.get('otp'))
         login(request, user)
+        if 'remember' in data:
+            request.session.set_expiry(60 * 60 * 24 * 30 if data['remember'] is True else 0)
         mark_verified(request, user)
         audit(user, 'login.succeeded')
         return Response({'user': account_user(user)})
