@@ -199,3 +199,22 @@ class TeamRenewalTests(TestCase):
         self.assertEqual(next_billing_date(self.sub, self.day), self.sub.calculate_renewal_date(self.sub.resume_on))
         self.sub.cancellation_state = 'confirmed'
         self.assertIsNone(next_billing_date(self.sub, self.day))
+
+    def test_stale_combined_update_preserves_assignment_decision_and_activity(self):
+        fields = dict(assignee_id=self.assignee.pk, decision='change',
+                      renewal_date=self.day - timedelta(days=1), paid_seats=5, needed_seats=3,
+                      decision_reason='Stale proposal')
+        result = self.update(self.owner, **fields)
+        self.assertEqual(result.status_code, 400, result.content)
+        self.assertIn('The renewal date changed.', str(result.json()))
+        self.assertFalse(TeamRenewal.objects.filter(subscription=self.sub).exists())
+        events = Activity.objects.filter(action='renewal.review.updated')
+        self.assertFalse(events.exists())
+
+        owner_membership = self.team.memberships.get(user=self.owner)
+        self.assertEqual(self.update(self.owner, assignee_id=owner_membership.pk,
+                                     decision='keep', renewal_date=self.day).status_code, 200)
+        before = TeamRenewal.objects.filter(subscription=self.sub).values().get()
+        self.assertEqual(self.update(self.owner, **fields).status_code, 400)
+        self.assertEqual(TeamRenewal.objects.filter(subscription=self.sub).values().get(), before)
+        self.assertEqual(events.count(), 1)

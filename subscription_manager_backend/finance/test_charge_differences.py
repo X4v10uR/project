@@ -1,11 +1,15 @@
+import json
 from datetime import date
 from decimal import Decimal
+from io import BytesIO
+from zipfile import ZipFile
 
 from django.test import TestCase, override_settings
 
 from accounts.models import Team, TeamMembership, User
 from subscriptions.models import ChargeShare, Subscription, Transaction
 
+from .backup import build_archive, restore_archive
 from .models import Connection, ImportedPayment
 
 
@@ -21,7 +25,7 @@ class ChargeDifferenceTests(TestCase):
         self.day = date(2026, 11, 21)
 
     def subscription(self, user, team=None):
-        return Subscription.objects.create(user=user, team=team, service_name='Studio', cost='12.00',
+        return Subscription.objects.create(user=user, team=team, service_name='Studio', category='Software', cost='12.00',
                                            currency='USD', start_date=self.day, billing_cycle='monthly')
 
     def charge(self, user, sub=None, team=None, amount='12.00'):
@@ -133,3 +137,61 @@ class ChargeDifferenceTests(TestCase):
         payment = self.payment('12.00')
         self.assertEqual(self.match(payment, charge).status_code, 200)
         self.assertEqual(self.differences(), [])
+
+    def test_matched_alert_requires_the_charge_to_remain_paid(self):
+        charge = self.charge(self.user, self.subscription(self.user))
+        payment = self.payment()
+        self.assertEqual(self.match(payment, charge).status_code, 200)
+        self.assertEqual(len(self.differences()), 1)
+        for status in (Transaction.PaymentStatus.SCHEDULED, Transaction.PaymentStatus.FAILED,
+                       Transaction.PaymentStatus.REFUNDED):
+            with self.subTest(status=status):
+                result = self.client.patch(f'/api/dashboard/history/{charge.pk}/payment/',
+                                           {'payment_status': status}, content_type='application/json')
+                self.assertEqual(result.status_code, 200, result.content)
+                self.assertEqual(self.differences(), [])
+                self.assertEqual(self.dismiss(payment, '1.44').status_code, 404)
+        payment.refresh_from_db()
+        self.assertIsNone(payment.acknowledged_charge_difference)
+
+    def test_backup_preserves_dismissal_when_the_matching_charge_is_restored(self):
+        charge = self.charge(self.user, self.subscription(self.user))
+        payment = self.payment()
+        self.assertEqual(self.match(payment, charge).status_code, 200)
+        self.assertEqual(self.dismiss(payment, '1.44').status_code, 200)
+
+        with ZipFile(BytesIO(build_archive(self.user))) as archive:
+            restore_archive(self.user, archive, json.loads(archive.read('subly.json')))
+
+        restored = ImportedPayment.objects.exclude(pk=payment.pk).get()
+        self.assertIsNotNone(restored.charge_id)
+        self.assertNotEqual(restored.charge_id, charge.pk)
+        self.assertEqual(restored.acknowledged_charge_difference, Decimal('1.44'))
+        self.assertEqual(self.differences(), [])
+
+    def test_restored_payment_matched_to_a_new_charge_does_not_inherit_dismissal(self):
+        team = Team.objects.create(name='Another team', created_by=self.other)
+        TeamMembership.objects.create(user=self.user, team=team, role='accountant')
+        charge = self.charge(self.other, self.subscription(self.other, team), team)
+        payment = self.payment()
+        self.assertEqual(self.match(payment, charge).status_code, 200)
+        self.assertEqual(self.dismiss(payment, '1.44').status_code, 200)
+
+        with ZipFile(BytesIO(build_archive(self.user))) as archive:
+            data = json.loads(archive.read('subly.json'))
+            [row] = data['imports']
+            self.assertIsNone(row['charge_id'])
+            self.assertIsNone(row['acknowledged_charge_difference'])
+            # Older backups could retain a dismissal when they dropped the team charge.
+            row['acknowledged_charge_difference'] = '1.44'
+            restore_archive(self.user, archive, data)
+
+        restored = ImportedPayment.objects.exclude(pk=payment.pk).get()
+        self.assertIsNone(restored.charge_id)
+        personal_charge = self.charge(self.user, self.subscription(self.user))
+        self.assertEqual(self.match(restored, personal_charge).status_code, 200)
+        restored.refresh_from_db()
+        self.assertIsNone(restored.acknowledged_charge_difference)
+        [alert] = self.differences()
+        self.assertEqual(alert['difference']['payment_id'], restored.pk)
+        self.assertEqual(alert['difference']['delta'], '1.44')

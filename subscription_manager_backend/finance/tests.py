@@ -669,16 +669,22 @@ class FinanceTests(TestCase):
         self.assertEqual(self.client.get('/api/dashboard/notifications/').json()['notifications'], [])
 
     def test_disabled_email_and_digest_do_not_send_individual_alerts(self):
-        NotificationPreference.objects.create(user=self.user, email_enabled=False)
-        notification = InAppNotification.objects.create(recipient=self.user, title='Renewal', body='Due soon', event_type='renewal')
-        route_notification(notification, True)
-        self.assertEqual(len(mail.outbox), 0)
-        pref = NotificationPreference.objects.get(); pref.email_enabled = True; pref.digest = 'daily'; pref.save()
-        route_notification(notification, True)
-        self.assertEqual(len(mail.outbox), 0)
-        # The digest cutoff must be after the alert, including afternoon runs.
-        now = timezone.now().replace(hour=12) + timedelta(days=1)
-        with patch('finance.delivery.timezone.now', return_value=now):
+        created_at = datetime(2026, 11, 27, 10, tzinfo=dt_timezone.utc)
+        with patch('finance.delivery.timezone.now', return_value=created_at):
+            pref = NotificationPreference.objects.create(user=self.user, email_enabled=False)
+            notification = InAppNotification.objects.create(
+                recipient=self.user, title='Renewal', body='Due soon', event_type='renewal',
+            )
+            route_notification(notification, True)
+            self.assertEqual(len(mail.outbox), 0)
+            pref.email_enabled = True
+            pref.digest = 'daily'
+            pref.save(update_fields=['email_enabled', 'digest'])
+            route_notification(notification, True)
+            self.assertEqual(len(mail.outbox), 0)
+        # Next morning, while the alert is still inside the first 24-hour digest window.
+        cutoff = datetime(2026, 11, 28, 9, 30, tzinfo=dt_timezone.utc)
+        with patch('finance.delivery.timezone.now', return_value=cutoff):
             self.assertEqual(send_digests(), 1)
             self.assertEqual(send_digests(), 0)
 

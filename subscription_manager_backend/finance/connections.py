@@ -595,9 +595,11 @@ def discovery_action(request, pk):
                 raise ValidationError('The match is no longer available. Amount, currency, merchant and date must agree.')
         match.payment_status = 'paid'
         match.save(update_fields=['payment_status'])
+        # A dismissal describes the old match, not a payment's next charge.
+        row.acknowledged_charge_difference = None
         row.charge = match
         row.subscription = match.subscription
-        row.save(update_fields=['charge', 'subscription'])
+        row.save(update_fields=['charge', 'subscription', 'acknowledged_charge_difference'])
         if match.subscription:
             log_activity(request.user, match.subscription, 'payment.matched', {
                 'provider': row.connection.provider, 'charge': match.pk, 'manual': action == 'manual_match'})

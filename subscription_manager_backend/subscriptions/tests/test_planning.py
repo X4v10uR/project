@@ -303,3 +303,12 @@ class PlanningTests(TestCase):
         for invalid in [{}, {'quoted_price': '-0.01'}, {'quoted_price': '1.001'}]:
             self.assertEqual(self.post(f'{personal.pk}/renewal-comparison/',
                 {'option': 'annual', **invalid}).status_code, 400)
+
+    @patch('subscriptions.planning.timezone.localdate', return_value=date(2026, 11, 27))
+    def test_renewal_comparison_rejects_an_empty_projection_without_creating_charges(self, _today):
+        sub = self.sub(start_date=date(2026, 12, 1), pause_from=date(2026, 11, 27),
+                       resume_on=date(2028, 1, 1))
+        result = self.post(f'{sub.pk}/renewal-comparison/', {'option': 'cancel'})
+        self.assertEqual(result.status_code, 400, result.content)
+        self.assertIn('There is no unrecorded renewal in the next 12 months.', result.json())
+        self.assertFalse(sub.transactions.exists())

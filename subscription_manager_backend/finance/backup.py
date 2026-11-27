@@ -102,6 +102,7 @@ def build_archive(user):
             row['subscription_id'] = None
         if row['charge_id'] not in exported_charges:
             row['charge_id'] = None
+            row['acknowledged_charge_difference'] = None
     pref = NotificationPreference.objects.filter(user=user).first()
     data['notification_preferences'] = {f: getattr(pref, f) for f in ('email_enabled', 'push_enabled', 'digest', 'quiet_start', 'quiet_end')} if pref else None
     output = io.BytesIO()
