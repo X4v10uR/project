@@ -1,8 +1,9 @@
 import { ServiceIcon } from '../ServiceIcon'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
-import { type FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
+import { createSubscription } from './createOnce'
 import { useAuth } from '../accounts/auth'
 import { PriceChanges, UsageReview } from './PriceChanges'
 import {
@@ -45,6 +46,7 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
   const [nextParticipantId, setNextParticipantId] = useState(participants.length)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const inFlight = useRef(false)
   const [priceSaving, setPriceSaving] = useState(false)
   const teamId = subscription?.team ?? options.team?.id
   const pending = !subscription && options.team && !options.team.can_create
@@ -76,7 +78,8 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (saving || priceSaving) return
+    if (inFlight.current || priceSaving) return
+    inFlight.current = true
     setError('')
     setSaving(true)
     const fields = Object.fromEntries(new FormData(event.currentTarget))
@@ -92,14 +95,15 @@ function SubscriptionEditor({ options, subscription }: { options: Options; subsc
     }
 
     try {
-      const response = await api<Subscription | { request_id: number }>(
-        subscription ? `${subscriptionApi}${subscription.id}/` : subscriptionApi,
-        { method: subscription ? 'PUT' : 'POST', body: JSON.stringify(payload) },
-      )
+      const body = JSON.stringify(payload)
+      const response = subscription
+        ? await api<Subscription>(`${subscriptionApi}${subscription.id}/`, { method: 'PUT', body })
+        : await createSubscription<Subscription | { request_id: number }>(`full:${user?.id}:${teamId ?? 'personal'}`, body)
       navigate(backPath, { state: { savedSubscriptionId: !subscription && 'id' in response ? response.id : undefined, notice: 'request_id' in response ? 'Subscription request submitted.' : 'Subscription saved.' } })
     } catch (error) {
       setError(showError(error))
     } finally {
+      inFlight.current = false
       setSaving(false)
     }
   }

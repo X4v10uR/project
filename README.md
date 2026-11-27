@@ -79,6 +79,10 @@ For production routing and deployment, see the [frontend README](subscription_ma
 
 Use **Quick add** for a four-field setup with common service presets. The full form keeps sharing, account details, and reminder options in expandable sections. **Planning**, in the navigation dock, contains spending insights, the renewal calendar, the review inbox, and shared settlements. Dashboard shortcuts also open these tools.
 
+The Quick add and full create forms keep a save key when a response is lost, including across a refresh in the same tab. To retry, resubmit the same details. API clients can get the same protection by sending a version 4 UUID in `Idempotency-Key` on `POST /api/subscriptions/` and reusing that UUID only for retries of the same submission. A changed payload with the same key returns 409; a deleted outcome returns 410 rather than creating it again. The server keeps the account-scoped key, a keyed digest, and references to the result, not a copy of submitted form fields. An unkeyed request is treated as a separate operation.
+
+The renewal calendar and its exports keep recorded **Scheduled** charges visible even after the billing job moves to the next renewal. Paid, failed, and refunded charge records are shown in History rather than forecast again.
+
 Insights separate currencies, category commitments, recorded payments, remaining scheduled charges, and the next 12 months of renewals. Month comparisons show which services changed; the previous month depends on the charge history actually recorded. Calendar export downloads an all-day `.ics` file containing payments, trial endings, cancellation deadlines, and scheduled pauses/resumptions.
 
 Subscriptions support six-month and 28-day cycles, introductory prices, and scheduled pause/resume dates. A pause skips charges while preserving the original billing cadence. Edit a subscription to record provider cancellation links, request/confirmation notes, and the last access date. Requested cancellations continue forecasting payments; confirming cancellation stops them. These tracking actions do not cancel or pause a provider account automatically.

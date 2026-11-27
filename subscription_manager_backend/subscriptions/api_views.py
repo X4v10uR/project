@@ -19,6 +19,7 @@ from accounts.security import audit, require_recent
 from .api_serializers import SubscriptionInput, SubscriptionSerializer, SubscriptionStatusInput, subscription_form
 from .cards_state import build_card_options
 from .color_utils import LIGHT_SUBSCRIPTION_COLOR_PRESETS
+from .create_once import create_subscription_once
 from .list_context import _apply_subscription_card_metadata, _build_subscription_drawer_data, build_subscription_list_context
 from .services import next_billing_date
 from .models import Subscription
@@ -84,7 +85,7 @@ def _write_subscription(request, instance=None):
 @api_view(['GET', 'POST'])
 def subscriptions(request):
     if request.method == 'POST':
-        return _write_subscription(request)
+        return create_subscription_once(request, _write_subscription, _replay_subscription_creation)
     context = build_subscription_list_context(request)
     prefetch_related_objects(context['subscriptions'], 'participants', 'offsets')
     return Response({
@@ -93,6 +94,23 @@ def subscriptions(request):
         'burn_metrics': context['subscriptions_burn_metrics'],
         'details': context['subscription_drawer_data'],
     })
+
+
+def _replay_subscription_creation(request, receipt):
+    if receipt.response_status == status.HTTP_201_CREATED and receipt.subscription_id:
+        subscription = _subscription_for(request.user, receipt.subscription_id)
+        payload = SubscriptionSerializer(subscription).data
+    elif receipt.response_status == status.HTTP_202_ACCEPTED and receipt.team_request_id:
+        pending = receipt.team_request
+        _team_for(request.user, pending.team_id)
+        payload = {'request_id': pending.pk, 'team': pending.team_id}
+    else:
+        return Response(
+            {'code': 'idempotency_result_unavailable',
+             'detail': 'The result of this save is no longer available. Check your subscriptions before submitting again.'},
+            status=status.HTTP_410_GONE,
+        )
+    return Response(payload, status=receipt.response_status, headers={'Idempotency-Replayed': 'true'})
 
 
 @api_view(['GET', 'PUT', 'DELETE'])

@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from dateutil.relativedelta import relativedelta
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -55,14 +55,33 @@ def amount(value):
 
 def calendar_events(subscriptions, start, end):
     events = []
-    for sub in subscriptions:
-        if sub.status == 'cancelled' or sub.cancellation_state == 'confirmed':
-            continue
+    recorded = Transaction.objects.filter(
+        source=Transaction.SOURCE_RENEWAL, charged_for_date__range=(start, end),
+    ).only('subscription_id', 'team_id', 'user_id', 'charged_for_date', 'payment_status',
+           'service_name_snapshot', 'currency', 'amount').order_by()
+    subscriptions = subscriptions.exclude(status='cancelled').exclude(cancellation_state='confirmed')
+    for sub in subscriptions.prefetch_related(Prefetch('transactions', queryset=recorded, to_attr='calendar_charges')):
+        # A historical charge must belong to the current subscription workspace.
+        # If the subscription moved, its former workspace's ledger stays out.
+        recorded_days = {
+            charge.charged_for_date: charge for charge in sub.calendar_charges
+            if charge.team_id == sub.team_id and (sub.team_id or charge.user_id == sub.user_id)
+        }
+        scheduled = {
+            day: (charge.service_name_snapshot, charge.amount, charge.currency)
+            for day, charge in recorded_days.items()
+            if charge.payment_status == Transaction.PaymentStatus.SCHEDULED
+        }
+        # Recording a renewal advances the schedule cursor, but does not pay it.
+        # A historical Paid, Failed or Refunded row must not become a fresh forecast.
         for day in renewals_between(sub, start, end):
+            if day not in recorded_days:
+                scheduled[day] = (sub.service_name, sub.share_on(day), sub.currency)
+        for day, (service, value, currency) in scheduled.items():
             events.append({'id': f'{sub.pk}-payment-{day}', 'subscription_id': sub.pk,
                 'team_id': sub.team_id,
-                'service': sub.service_name, 'kind': 'payment', 'date': day.isoformat(),
-                'amount': amount(sub.share_on(day)), 'currency': sub.currency})
+                'service': service, 'kind': 'payment', 'date': day.isoformat(),
+                'amount': amount(value), 'currency': currency})
         for field, kind in [('trial_end_date', 'trial'), ('cancel_by_date', 'deadline'), ('resume_on', 'resume'), ('pause_from', 'pause')]:
             day = getattr(sub, field)
             if day and start <= day <= end:

@@ -47,13 +47,13 @@ function FilterSelect({ label, name, selection, choices }: {
 function SubscriptionCard({ subscription, details, onSelect }: { subscription: Subscription; details: SubscriptionDetails; onSelect: () => void }) {
   const foreground = details.card_text_is_light ? 'text-white' : 'text-slate-950'
   return (
-    <button type="button" onClick={onSelect} className={`flex min-h-43 w-full flex-col rounded-2xl p-5 text-left transition hover:-translate-y-0.5 hover:shadow-md ${foreground}`} style={{ backgroundColor: details.card_color }}>
+    <button type="button" onClick={onSelect} className={`flex min-h-43 w-full min-w-0 flex-col rounded-2xl p-5 text-left transition hover:-translate-y-0.5 hover:shadow-md ${foreground}`} style={{ backgroundColor: details.card_color }}>
       <span className="flex w-full items-center justify-between gap-3">
         <ServiceIcon name={subscription.service_name} />
         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusColors[subscription.current_status] ?? 'bg-white/60'}`}>{subscription.current_status}</span>
       </span>
-      <span className="mt-4 text-lg font-bold">{subscription.service_name}</span>
-      <span className="text-sm font-medium opacity-85">{subscription.plan_name || subscription.category}</span>
+      <span className="mt-4 max-w-full text-lg font-bold [overflow-wrap:anywhere]">{subscription.service_name}</span>
+      <span className="max-w-full text-sm font-medium opacity-85 [overflow-wrap:anywhere]">{subscription.plan_name || subscription.category}</span>
       <span className="mt-4 flex w-full flex-wrap items-end justify-between gap-x-4 gap-y-1">
         <span className="text-xl font-bold">{currencyAmount(subscription.current_user_cost, subscription.currency)} <span className="text-xs font-medium opacity-85">{displayCycle(subscription.billing_cycle)}</span></span>
         <span className="text-xs font-medium opacity-85">{displayDate(details.renewal_date || null)}</span>
@@ -83,7 +83,7 @@ function Detail({ subscription, details, onClose, onUpdated, initiallyDeleting }
   }
 
   return (
-    <Modal title={deleting ? `Delete ${subscription.service_name}?` : <span className="flex items-center gap-2"><ServiceIcon name={subscription.service_name} className="size-8" />{subscription.service_name}</span>} onClose={onClose}>
+    <Modal title={deleting ? `Delete ${subscription.service_name}?` : <span className="flex min-w-0 items-start gap-2"><ServiceIcon name={subscription.service_name} className="size-8 shrink-0" /><span className="min-w-0 [overflow-wrap:anywhere]">{subscription.service_name}</span></span>} onClose={onClose}>
       <div className="grid gap-4">
         <ErrorBanner message={error} />
         {deleting ? (
@@ -194,7 +194,7 @@ export function SubscriptionsPage() {
   const selected = portfolio?.subscriptions.find((subscription) => subscription.id === selectedId)
 
   return (
-    <section className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:py-8">
+    <section className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-6 sm:px-6 lg:py-8">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">Subscriptions</h1>
         <div className="flex flex-wrap gap-2">
@@ -239,7 +239,7 @@ export function SubscriptionsPage() {
       {portfolio && (
         <>
           {portfolio.subscriptions.length ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {portfolio.subscriptions.map((subscription) => (
                 <SubscriptionCard key={subscription.id} subscription={subscription} details={portfolio.details[subscription.id]} onSelect={() => openSubscription(subscription.id)} />
               ))}

@@ -431,6 +431,20 @@ class ReminderOffset(models.Model):
         return f"{self.subscription.service_name} - {self.days_before} days before"
 
 
+class SubscriptionCreationReceipt(models.Model):
+    """Remember an explicitly keyed create without retaining submitted form data."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    key = models.UUIDField()
+    request_digest = models.CharField(max_length=64, editable=False)
+    response_status = models.PositiveSmallIntegerField(null=True)
+    subscription = models.ForeignKey(Subscription, null=True, on_delete=models.SET_NULL)
+    team_request = models.ForeignKey('TeamSubscriptionRequest', null=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['user', 'key'], name='unique_subscription_create_key')]
+
+
 class TeamSubscriptionRequest(models.Model):
     STATUS_PENDING = "pending"
     STATUS_APPROVED = "approved"

@@ -312,3 +312,73 @@ class PlanningTests(TestCase):
         self.assertEqual(result.status_code, 400, result.content)
         self.assertIn('There is no unrecorded renewal in the next 12 months.', result.json())
         self.assertFalse(sub.transactions.exists())
+
+    @patch('django.utils.timezone.now', return_value=datetime(2026, 11, 27, 12, tzinfo=UTC))
+    def test_calendar_keeps_the_same_event_when_a_scheduled_charge_enters_the_ledger(self, _now):
+        day = date(2026, 11, 27)
+        sub = self.sub(start_date=day, currency='USD')
+        query = {'start': day.isoformat(), 'end': day.isoformat()}
+        event_id = f'{sub.pk}-payment-{day}'
+        uid = f'UID:{self.user.pk}-{event_id}@subly'
+        feed = self.client.post('/api/finance/calendar/feeds/', {'scope': 'personal'}, content_type='application/json')
+        self.assertEqual(feed.status_code, 201, feed.content)
+        feed_url = '/api/finance/calendar/' + feed.json()['url'].rsplit('/', 1)[-1]
+
+        before = self.client.get('/api/subscriptions/calendar/', query).json()['events']
+        self.assertEqual([(event['id'], event['amount']) for event in before], [(event_id, '30.00')])
+        self.assertEqual(BillingService.record_renewal_charges(day)['created'], 1)
+        sub.refresh_from_db()
+        self.assertGreater(sub.renewal_date, day)
+        charge = sub.transactions.get()
+        self.assertEqual(charge.payment_status, Transaction.PaymentStatus.SCHEDULED)
+        after = self.client.get('/api/subscriptions/calendar/', query).json()['events']
+        self.assertEqual(after, before)
+
+        file = self.client.get('/api/subscriptions/calendar/export/', query, HTTP_ACCEPT='text/calendar')
+        self.assertEqual(file.status_code, 200, file.content)
+        self.assertEqual(file.content.decode().count(uid), 1)
+        self.client.logout()
+        live = self.client.get(feed_url, HTTP_ACCEPT='text/calendar')
+        self.assertEqual(live.status_code, 200, live.content)
+        self.assertEqual(live.content.decode().count(uid), 1)
+
+    @patch('django.utils.timezone.now', return_value=datetime(2026, 11, 27, 12, tzinfo=UTC))
+    def test_calendar_uses_ledger_snapshot_and_does_not_resurface_non_scheduled_charges(self, _now):
+        day = date(2026, 11, 27)
+        sub = self.sub(start_date=day, currency='USD')
+        # Leave the cursor on the date deliberately to cover overlapping forecast and ledger.
+        charge = Transaction.objects.create(subscription=sub, user=self.user, charged_for_date=day,
+            service_name_snapshot='Recorded Studio', amount=Decimal('25.00'), currency='USD')
+        query = {'start': day.isoformat(), 'end': day.isoformat()}
+        url = '/api/subscriptions/calendar/'
+        rows = self.client.get(url, query).json()['events']
+        self.assertEqual([(row['service'], row['amount']) for row in rows], [('Recorded Studio', '25.00')])
+        for state in (Transaction.PaymentStatus.PAID, Transaction.PaymentStatus.FAILED, Transaction.PaymentStatus.REFUNDED):
+            with self.subTest(state=state):
+                Transaction.objects.filter(pk=charge.pk).update(payment_status=state)
+                self.assertEqual(self.client.get(url, query).json()['events'], [])
+
+    @patch('django.utils.timezone.now', return_value=datetime(2026, 11, 27, 12, tzinfo=UTC))
+    def test_calendar_only_shows_scheduled_charges_in_the_requested_visible_workspace(self, _now):
+        day = date(2026, 11, 27)
+        team = create_team(name='Other team', user=self.other)
+        personal = self.sub(start_date=day, service_name='Personal')
+        teamed = self.sub(start_date=day, service_name='Team', team=team, user=self.other)
+        third = self.sub(start_date=day, service_name='Other personal', user=self.other)
+        for sub in (personal, teamed, third):
+            Transaction.objects.create(subscription=sub, team=sub.team, user=sub.user, charged_for_date=day,
+                service_name_snapshot=sub.service_name, amount=Decimal('30.00'), currency='USD')
+            Subscription.objects.filter(pk=sub.pk).update(renewal_date=date(2026, 12, 27))
+
+        url = '/api/subscriptions/calendar/'
+        query = {'start': day.isoformat(), 'end': day.isoformat()}
+        def ids(scope):
+            result = self.client.get(url, {**query, 'scope': scope})
+            self.assertEqual(result.status_code, 200, result.content)
+            return [row['subscription_id'] for row in result.json()['events']]
+        self.assertEqual(ids('personal'), [personal.pk])
+        self.assertEqual(ids('teams'), [])
+        TeamMembership.objects.create(team=team, user=self.user, role='member')
+        self.assertEqual(ids('teams'), [teamed.pk])
+        Subscription.objects.filter(pk=teamed.pk).update(status='cancelled', cancellation_state='confirmed')
+        self.assertEqual(ids('teams'), [])
