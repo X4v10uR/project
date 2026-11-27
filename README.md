@@ -2,6 +2,29 @@
 
 DUES tracks recurring subscriptions, card spending, shared team expenses, and renewal reminders.
 
+## Table of contents
+
+- [Project structure](#project-structure)
+- [Run locally on Windows](#run-locally-on-windows)
+  - [1. Install the prerequisites](#1-install-the-prerequisites)
+  - [2. Get the project](#2-get-the-project)
+  - [3. Install the backend dependencies](#3-install-the-backend-dependencies)
+  - [4. Configure the backend environment](#4-configure-the-backend-environment)
+  - [5. Initialize the database](#5-initialize-the-database)
+  - [6. Start the backend server](#6-start-the-backend-server)
+  - [7. Set up and start the frontend](#7-set-up-and-start-the-frontend)
+  - [8. Open the app and sign in](#8-open-the-app-and-sign-in)
+  - [Setup troubleshooting](#setup-troubleshooting)
+- [Checks](#checks)
+- [Forecasts, budgets and payments](#forecasts-budgets-and-payments)
+- [Charge history and CSV import](#charge-history-and-csv-import)
+- [Planning and subscription reviews](#planning-and-subscription-reviews)
+  - [Account security](#account-security)
+- [Renewal decisions and charge differences](#renewal-decisions-and-charge-differences)
+- [Notification delivery](#notification-delivery)
+
+## Project structure
+
 | Module | Stack | Local URL |
 |---|---|---|
 | `subscription_manager_frontend/` | React, TypeScript, Tailwind CSS, Vite | http://127.0.0.1:5173 |
@@ -11,46 +34,150 @@ The frontend calls `/api/accounts/`, `/api/subscriptions/`, and `/api/dashboard/
 
 ## Run locally on Windows
 
-Use Python 3.11 and Node.js 20.19+ or 22.12+.
+These steps use Windows PowerShell. Run the backend and frontend in separate terminals, and keep both running while using the app.
 
-### Backend
+### 1. Install the prerequisites
 
-From the repository root, in PowerShell:
+Install the following tools and make sure they are available in your terminal:
+
+| Tool | Version / purpose |
+|---|---|
+| Git | To clone the repository |
+| Python | 3.11, the version used in CI |
+| Node.js and npm | Node.js 20.19+ on the 20.x line, or 22.12+; npm comes with Node.js |
+
+Check your installation:
+
+```powershell
+git --version
+python --version
+node --version
+npm --version
+```
+
+The default database is SQLite, so no separate database server is needed. Redis and external integration credentials are optional for local setup.
+
+### 2. Get the project
+
+Clone the repository and enter its root folder:
+
+```powershell
+git clone https://github.com/X4v10uR/project.git subscription_manager
+Set-Location subscription_manager
+```
+
+If you already have the project, open PowerShell in its root folder instead. This is the folder containing this README and both `subscription_manager_backend/` and `subscription_manager_frontend/`.
+
+### 3. Install the backend dependencies
+
+From the repository root:
 
 ```powershell
 Set-Location subscription_manager_backend
 python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-For a new setup, copy `.env.example` to `.env` and put the generated values into `SECRET_KEY` and `ACCOUNT_PASSWORD_ENCRYPTION_KEY`.
+The commands below use the virtual environment's Python executable directly, so you do not need to activate the environment.
+
+### 4. Configure the backend environment
+
+For a new installation, copy the example configuration and generate the two required keys. Continue in the backend folder:
 
 ```powershell
 Copy-Item .env.example .env
 .\.venv\Scripts\python.exe -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 .\.venv\Scripts\python.exe -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+notepad .env
 ```
 
-For an existing installation, keep your `.env`, `db.sqlite3`, and any `media/` uploads in the backend folder. Keep your existing keys so encrypted subscription credentials remain readable. Relative SQLite paths in `DATABASE_URL` resolve from the backend folder.
+In `.env`, set `SECRET_KEY` to the first command's generated key and `ACCOUNT_PASSWORD_ENCRYPTION_KEY` to the second command's generated key. Replace the placeholders below with those values, keep the other local defaults, and save the file:
+
+```dotenv
+DEBUG=True
+SECRET_KEY="paste-the-generated-Django-secret-key"
+ALLOWED_HOSTS=localhost,127.0.0.1
+DATABASE_URL=sqlite:///db.sqlite3
+SITE_URL=http://127.0.0.1:5173
+EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+ACCOUNT_PASSWORD_ENCRYPTION_KEY="paste-the-generated-Fernet-key"
+```
+
+Leave the optional Plaid, Gmail, browser push, and OCR settings at their example defaults unless you are setting up those integrations. See [finance setup](subscription_manager_backend/FINANCE_SETUP.md) for details.
+
+For an existing installation, keep your existing `.env` and keys instead of copying the example or generating replacements. Preserve `db.sqlite3`, `media/`, and `private_media/` in the backend folder so your data and uploads remain available. Relative SQLite paths in `DATABASE_URL` resolve from the backend folder.
+
+### 5. Initialize the database
+
+Apply the migrations and check the backend configuration:
 
 ```powershell
 .\.venv\Scripts\python.exe manage.py migrate
+.\.venv\Scripts\python.exe manage.py check
+```
+
+The migration command creates `db.sqlite3` on a fresh installation.
+
+Optionally, create an administrator account and follow the prompts:
+
+```powershell
+.\.venv\Scripts\python.exe manage.py createsuperuser
+```
+
+If you want sample subscriptions in a fresh local database, optionally run:
+
+```powershell
+.\.venv\Scripts\python.exe seed_demo.py
+```
+
+The demo email is `demo@subly.com` and the password is `demo1234`. Re-running this script resets that demo user's password, personal subscriptions, and related transactions.
+
+### 6. Start the backend server
+
+In the same backend terminal:
+
+```powershell
 .\.venv\Scripts\python.exe manage.py runserver 127.0.0.1:8000
 ```
 
-Run `.\.venv\Scripts\python.exe seed_demo.py` before starting the server if you want demo data in a fresh database. The demo email is `demo@subly.com` and the password is `demo1234`.
+Leave this terminal open. Django now listens at [http://127.0.0.1:8000](http://127.0.0.1:8000). Local emails, including password-reset messages, print in this terminal with the default email configuration.
 
-### Frontend
+### 7. Set up and start the frontend
 
-From the repository root, in another PowerShell terminal:
+Open a second PowerShell terminal in the repository root:
 
 ```powershell
 Set-Location subscription_manager_frontend
 npm ci
+Copy-Item .env.example .env
 npm run dev
 ```
 
-Open [DUES](http://127.0.0.1:5173). If Django is listening on a different address, copy the frontend's `.env.example` to `.env` and set `BACKEND_URL`.
+If the frontend already has a `.env`, keep it instead of running `Copy-Item`. The example sets `BACKEND_URL=http://127.0.0.1:8000`, matching the backend above. If Django uses a different address, update `BACKEND_URL` in the frontend `.env` before starting Vite.
+
+Leave this terminal open too. Vite serves the React app at [http://127.0.0.1:5173](http://127.0.0.1:5173) and proxies API requests to Django.
+
+### 8. Open the app and sign in
+
+1. Open [DUES](http://127.0.0.1:5173) in your browser.
+2. Choose **Sign up** to create an account, or sign in with the demo credentials if you loaded the sample data.
+3. Add a subscription to check that the frontend can save data through the backend.
+4. If you created an administrator account, sign in to [Django admin](http://127.0.0.1:8000/admin/) with that account.
+
+Use `127.0.0.1` consistently for these local URLs. Press `Ctrl+C` in each terminal to stop its server. On later launches, start Django with the command in step 6 and run `npm run dev` from the frontend folder; the environment files and database persist.
+
+### Setup troubleshooting
+
+| Problem | What to check |
+|---|---|
+| Python, Node.js, npm, or Git is not recognized | Install the missing tool, ensure it is on PATH, and open a new terminal. |
+| PowerShell says `npm.ps1` cannot be loaded | Use `npm.cmd` in place of `npm`, or run the npm commands in Command Prompt. |
+| Django reports a missing `SECRET_KEY` or an invalid encryption key | Save both generated values in `subscription_manager_backend/.env` and restart Django. |
+| Django reports missing database tables | Run the migration command in step 5 from the backend folder. |
+| Vite reports an unsupported Node.js version | Use a Node.js version listed in step 1, then run `npm ci` again. |
+| The frontend loads but sign-in or saving fails | Confirm Django is running, check the frontend's `BACKEND_URL`, and restart Vite after editing its `.env`. |
+| Port 8000 or 5173 is already in use | Stop the other process using that port, then restart the server. |
 
 ## Checks
 
